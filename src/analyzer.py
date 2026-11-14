@@ -286,8 +286,8 @@ def _legacy_audit_marker_specs(
     add("stock_name", stock_name)
     add("analysis_date", context.get("date"))
     add("market_phase", "## Market Phase Context" if report_language in ("en", "ko", "tr") else "## 市场阶段上下文")
-    add("daily_market_context", "## Daily Market Context" if report_language in ("en", "ko") else "## 大盘环境摘要")
-    add("market_structure_context", "## Market Structure Context" if report_language in ("en", "ko") else "## 市场结构上下文")
+    add("daily_market_context", "## Daily Market Context" if report_language in ("en", "ko", "tr") else "## 大盘环境摘要")
+    add("market_structure_context", "## Market Structure Context" if report_language in ("en", "ko", "tr") else "## 市场结构上下文")
     add("analysis_context_pack", analysis_context_pack_summary)
     english = report_language in ("en", "ko", "tr")
     add("quote", "## 📈 Technical Data" if english else "## 📈 技术面数据")
@@ -4392,7 +4392,7 @@ Output strictly in the following JSON format. This is a complete Decision Dashbo
         report_language = normalize_report_language(report_language)
         # Structural template language: Korean reuses the English scaffolding and only
         # the final output-language directive differs (#2352).
-        english = report_language in ("en", "ko")
+        english = report_language in ("en", "ko", "tr")
         _, _, use_legacy_default_prompt = self._get_skill_prompt_sections()
         
         # 优先使用上下文中的股票名称（从 realtime_quote 获取）
@@ -4763,7 +4763,7 @@ Output strictly in the following JSON format. This is a complete Decision Dashbo
             chip_instruction = (
                 "Do not fabricate profit ratio, average cost, or concentration. Mention chip data "
                 "unavailability only once in the report; do not repeat per-field no-data text in `chip_structure`."
-                if report_language in ("en", "ko")
+                if report_language in ("en", "ko", "tr")
                 else "请勿编造获利比例、平均成本或集中度；报告中只说明一次筹码数据不可用，不要把“数据缺失，无法判断”逐字段重复写入 `chip_structure`。"
             )
             chip_section_title = (
@@ -5277,7 +5277,7 @@ Output the complete Decision Dashboard in JSON format."""
     def _build_integrity_complement_prompt(self, missing_fields: List[str], report_language: str = "zh") -> str:
         """Build complement instruction for missing mandatory fields."""
         report_language = normalize_report_language(report_language)
-        if report_language in ("en", "ko"):
+        if report_language in ("en", "ko", "tr"):
             lines = ["### Completion requirements: fill the missing mandatory fields below and output the full JSON again:"]
             for f in missing_fields:
                 if f == "sentiment_score":
