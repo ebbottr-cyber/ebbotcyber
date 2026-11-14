@@ -61,7 +61,7 @@ const BLOCK_LABELS_BASE: Record<Exclude<ReportLanguage, 'tr'>, Record<string, st
     chip: '매물대',
   },
 };
-const BLOCK_LABELS = {
+const BLOCK_LABELS: Record<ReportLanguage, Record<string, string>> = {
   ...BLOCK_LABELS_BASE,
   tr: {
     ...BLOCK_LABELS_BASE.en,
