@@ -127,7 +127,7 @@ def _describe_llm_result_model(
 def _localized_text(language: Any, *, en: str, zh: str, ko: str) -> str:
     """Pick a deterministic fallback string for the report language (zh/en/ko)."""
     normalized = normalize_report_language(language)
-    if normalized == "en":
+    if normalized in ("en", "tr"):
         return en
     if normalized == "ko":
         return ko
@@ -206,7 +206,7 @@ _QUOTE_LABELS_EN = {
 def _phase_aware_quote_labels(context: Dict[str, Any], report_language: str = "zh") -> Tuple[str, str]:
     """Choose quote-table labels that do not conflict with phase context."""
     section_title, close_label = _phase_aware_quote_labels_zh(context)
-    if normalize_report_language(report_language) in ("en", "ko"):
+    if normalize_report_language(report_language) in ("en", "ko", "tr"):
         return _QUOTE_LABELS_EN[section_title], _QUOTE_LABELS_EN[close_label]
     return section_title, close_label
 
@@ -285,11 +285,11 @@ def _legacy_audit_marker_specs(
     add("stock_code", code)
     add("stock_name", stock_name)
     add("analysis_date", context.get("date"))
-    add("market_phase", "## Market Phase Context" if report_language in ("en", "ko") else "## 市场阶段上下文")
+    add("market_phase", "## Market Phase Context" if report_language in ("en", "ko", "tr") else "## 市场阶段上下文")
     add("daily_market_context", "## Daily Market Context" if report_language in ("en", "ko") else "## 大盘环境摘要")
     add("market_structure_context", "## Market Structure Context" if report_language in ("en", "ko") else "## 市场结构上下文")
     add("analysis_context_pack", analysis_context_pack_summary)
-    english = report_language in ("en", "ko")
+    english = report_language in ("en", "ko", "tr")
     add("quote", "## 📈 Technical Data" if english else "## 📈 技术面数据")
     news_marker = "## 📰 News Intelligence" if english else "## 📰 舆情情报"
     add("news_context", news_marker if news_context else None)
@@ -2688,7 +2688,7 @@ Output strictly in the following JSON format. This is a complete Decision Dashbo
         skill_instructions, default_skill_policy, use_legacy_default_prompt = self._get_skill_prompt_sections()
         # Korean reuses the English scaffolding (same as market review / context pack);
         # the Korean output directive is appended below.
-        use_english_template = lang in ("en", "ko")
+        use_english_template = lang in ("en", "ko", "tr")
         if use_legacy_default_prompt:
             legacy_template = (
                 self.LEGACY_DEFAULT_SYSTEM_PROMPT_EN if use_english_template else self.LEGACY_DEFAULT_SYSTEM_PROMPT
@@ -2715,6 +2715,17 @@ Output strictly in the following JSON format. This is a complete Decision Dashbo
                 .replace("{default_skill_policy_section}", default_skill_policy_section)
                 .replace("{skills_section}", skills_section)
             )
+        if lang == "tr":
+            return base_prompt + """
+
+## Output Language (highest priority)
+
+- Keep all JSON keys unchanged and preserve the required JSON structure.
+- `decision_type` must remain `buy|hold|sell`.
+- Write all human-readable JSON values, explanations, risk warnings, checklist items and analysis summaries in Turkish (Türkçe).
+- Preserve stock tickers, financial figures and official company names. Do not invent translated names.
+- Explain missing or uncertain data clearly in Turkish. Never fabricate prices, sources or financial metrics.
+"""
         if lang == "en":
             return base_prompt + """
 
@@ -4086,7 +4097,16 @@ Output strictly in the following JSON format. This is a complete Decision Dashbo
             field = str(details.get("field") or "GENERATION_BACKEND")
             requested_backend = str(details.get("requested_backend") or backend_error.backend)
             reason = str(details.get("reason") or backend_error.error_code.value)
-            if report_language == "en":
+            if report_language == "tr":
+                summary = (
+                    "Üretim altyapısı başlatılamadığı için yapay zekâ analizi kullanılamıyor: "
+                    f"{backend_error.error_code.value}."
+                )
+                risk_warning = (
+                    f"{field}={requested_backend} ({reason}) ayarını kontrol edin veya "
+                    "geçerli bir model altyapısı yapılandırın."
+                )
+            elif report_language == "en":
                 summary = (
                     "AI analysis is unavailable because the generation backend "
                     f"cannot start: {backend_error.error_code.value}."
@@ -5098,7 +5118,17 @@ Output the complete Decision Dashboard in JSON format."""
  
 请输出完整的 JSON 格式决策仪表盘。"""
 
-        if report_language == "en":
+        if report_language == "tr":
+            prompt += """
+
+### Output language requirements (highest priority)
+- Keep every JSON key exactly as defined above; do not translate keys.
+- `decision_type` must remain `buy`, `hold`, or `sell`.
+- All human-readable JSON values must be in Turkish (Türkçe), including every summary, risk warning, checklist item and nested explanation.
+- Preserve tickers, official company names and numeric values; do not invent data.
+- When data is missing, explain this clearly in Turkish.
+"""
+        elif report_language == "en":
             prompt += """
 
 ### Output language requirements (highest priority)
