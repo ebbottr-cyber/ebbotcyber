@@ -6,10 +6,11 @@ from datetime import date, datetime, time, timezone
 from types import SimpleNamespace
 from typing import Optional
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 
 from src.core import trading_calendar
 
@@ -36,6 +37,40 @@ def test_hk_sessions_keep_utc_calendar_date_labels_without_local_shift():
     assert isinstance(result, pd.DatetimeIndex)
     assert result.tz is None
     assert result.equals(pd.DatetimeIndex(["2024-01-02", "2024-01-03"]))
+
+
+@pytest.mark.parametrize(
+    ("market", "exchange"),
+    [
+        ("cn", "XSHG"),
+        ("hk", "XHKG"),
+        ("us", "XNYS"),
+        ("jp", "XTKS"),
+        ("kr", "XKRX"),
+        ("tw", "XTAI"),
+    ],
+)
+def test_six_market_utc_session_labels_remain_stable(market: str, exchange: str) -> None:
+    """Protect six-market session labels ahead of calendar dependency updates.
+
+    Session labels are dates represented at UTC midnight, not exchange-local
+    instants to convert into another timezone. Missing holidays must not
+    be invented inside the requested inclusive date range.
+    """
+    start_date = date(2024, 12, 30)
+    end_date = date(2025, 1, 3)
+    sessions = pd.DatetimeIndex(["2024-12-30", "2025-01-02"], tz="UTC")
+    calendar = SimpleNamespace(sessions_in_range=Mock(return_value=sessions))
+
+    with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
+            patch.object(trading_calendar.xcals, "get_calendar", return_value=calendar) as get_calendar:
+        result = trading_calendar.get_trading_dates(market, start_date, end_date)
+
+    get_calendar.assert_called_once_with(exchange)
+    calendar.sessions_in_range.assert_called_once_with(start_date, end_date)
+    assert isinstance(result, pd.DatetimeIndex)
+    assert result.tz is None
+    assert result.equals(pd.DatetimeIndex(["2024-12-30", "2025-01-02"]))
 
 
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
