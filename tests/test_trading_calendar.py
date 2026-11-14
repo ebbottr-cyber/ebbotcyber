@@ -73,6 +73,47 @@ def test_six_market_utc_session_labels_remain_stable(market: str, exchange: str)
     assert result.equals(pd.DatetimeIndex(["2024-12-30", "2025-01-02"]))
 
 
+@pytest.mark.parametrize(
+    ("market", "closed_day", "open_day"),
+    [
+        pytest.param("cn", date(2024, 10, 1), date(2024, 7, 4), id="cn-national-day"),
+        pytest.param("hk", date(2024, 4, 1), date(2024, 7, 4), id="hk-easter-monday"),
+        pytest.param("us", date(2024, 7, 4), date(2024, 10, 1), id="us-independence-day"),
+        pytest.param("jp", date(2024, 1, 2), date(2024, 7, 4), id="jp-new-year-break"),
+        pytest.param("kr", date(2024, 12, 25), date(2024, 7, 4), id="kr-christmas"),
+        pytest.param("tw", date(2024, 2, 28), date(2024, 7, 4), id="tw-peace-memorial"),
+    ],
+)
+def test_real_exchange_calendars_known_2024_open_and_closed_days(
+    market: str, closed_day: date, open_day: date
+) -> None:
+    """Check actual installed exchange calendars, not mocked sessions.
+
+    Fixed 2024 exchange holidays provide a compatibility baseline for a
+    future calendar upgrade. These are *stock market* session dates, not
+    local civil-business days or derivative holiday trading exceptions.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    # The fail-open is_market_open path should not misclassify known
+    # exchange holidays, and a confirmed session must remain recognized.
+    assert trading_calendar.is_market_open(market, closed_day) is False
+    assert trading_calendar.is_market_open(market, open_day) is True
+
+    closed_sessions = trading_calendar.get_trading_dates(
+        market, closed_day, closed_day
+    )
+    open_sessions = trading_calendar.get_trading_dates(
+        market, open_day, open_day
+    )
+    assert isinstance(closed_sessions, pd.DatetimeIndex)
+    assert closed_sessions.empty
+    assert isinstance(open_sessions, pd.DatetimeIndex)
+    assert open_sessions.tz is None
+    assert open_sessions.equals(pd.DatetimeIndex([pd.Timestamp(open_day)]))
+
+
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
     with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
             patch.object(trading_calendar.xcals, "get_calendar", side_effect=ValueError("out of range")):
