@@ -402,6 +402,189 @@ class TestStorage(unittest.TestCase):
             DatabaseManager.reset_instance()
             temp_dir.cleanup()
 
+    def test_already_migrated_intelligence_items_skips_unsafe_index_collisions(self) -> None:
+        """Never replace an index with a conflicting shape or owner."""
+        DatabaseManager.reset_instance()
+        Config.reset_instance()
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "index_name_conflicts.sqlite")
+        try:
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """CREATE TABLE intelligence_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER,
+                        source_name TEXT,
+                        source_type TEXT NOT NULL DEFAULT 'rss',
+                        title TEXT NOT NULL,
+                        summary TEXT,
+                        url TEXT NOT NULL,
+                        source TEXT,
+                        published_at DATETIME,
+                        fetched_at DATETIME,
+                        scope_type TEXT NOT NULL DEFAULT 'market',
+                        scope_value TEXT,
+                        market TEXT NOT NULL DEFAULT 'cn',
+                        raw_payload TEXT
+                    )"""
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX uix_intel_item_scope "
+                    "ON intelligence_items(source_id, url, scope_type, scope_value, market)"
+                )
+                # Same name as an ORM index, but incompatible columns.
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_scope_time "
+                    "ON intelligence_items(title)"
+                )
+                # SQLite index names are global; this name belongs to
+                # another table and must never be replaced.
+                conn.execute(
+                    "CREATE TABLE user_defined_index_owner "
+                    "(id INTEGER PRIMARY KEY, note TEXT)"
+                )
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_fetch_time "
+                    "ON user_defined_index_owner(note)"
+                )
+                conn.execute(
+                    "INSERT INTO intelligence_items "
+                    "(id, title, url, scope_type, scope_value, market) "
+                    "VALUES (11, 'kept row', 'https://example.org/11', "
+                    "'market', 'scope', 'cn')"
+                )
+                before_rows = conn.execute(
+                    "SELECT * FROM intelligence_items ORDER BY id"
+                ).fetchall()
+                before_schema = conn.execute(
+                    "SELECT sql FROM sqlite_master "
+                    "WHERE type='table' AND name='intelligence_items'"
+                ).fetchone()[0]
+                before_other_index = conn.execute(
+                    "SELECT tbl_name, sql FROM sqlite_master "
+                    "WHERE type='index' AND name='ix_intel_item_fetch_time'"
+                ).fetchone()
+
+            with patch.object(
+                DatabaseManager, "_rebuild_intelligence_items_table",
+                side_effect=AssertionError("index-only repair must not rebuild"),
+            ):
+                with self.assertLogs("src.storage", level="WARNING") as warnings_seen:
+                    DatabaseManager(db_url=f"sqlite:///{db_path}")
+
+            self.assertTrue(
+                any("ix_intel_item_scope_time" in message
+                    for message in warnings_seen.output)
+            )
+            self.assertTrue(
+                any("ix_intel_item_fetch_time" in message
+                    for message in warnings_seen.output)
+            )
+            indexes = self._list_sqlite_indexes(db_path, "intelligence_items")
+            self.assertEqual(indexes.get("ix_intel_item_scope_time"), ["title"])
+            self.assertNotIn("ix_intel_item_fetch_time", indexes)
+            with sqlite3.connect(db_path) as conn:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT * FROM intelligence_items ORDER BY id"
+                    ).fetchall(),
+                    before_rows,
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT sql FROM sqlite_master "
+                        "WHERE type='table' AND name='intelligence_items'"
+                    ).fetchone()[0],
+                    before_schema,
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT tbl_name, sql FROM sqlite_master "
+                        "WHERE type='index' AND name='ix_intel_item_fetch_time'"
+                    ).fetchone(),
+                    before_other_index,
+                )
+        finally:
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            temp_dir.cleanup()
+
+    def test_already_migrated_intelligence_items_skips_indexes_with_missing_columns(self) -> None:
+        """Do not create a composite index when a legacy column is absent."""
+        DatabaseManager.reset_instance()
+        Config.reset_instance()
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "older_missing_columns.sqlite")
+        try:
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """CREATE TABLE intelligence_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER,
+                        title TEXT NOT NULL,
+                        url TEXT NOT NULL,
+                        fetched_at DATETIME,
+                        scope_type TEXT NOT NULL,
+                        scope_value TEXT,
+                        market TEXT NOT NULL
+                    )"""
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX uix_intel_item_scope "
+                    "ON intelligence_items(source_id, url, scope_type, scope_value, market)"
+                )
+                conn.execute(
+                    "INSERT INTO intelligence_items "
+                    "(id, title, url, scope_type, scope_value, market) "
+                    "VALUES (21, 'old schema', 'https://example.org/21', "
+                    "'market', 'scope', 'cn')"
+                )
+                old_schema = conn.execute(
+                    "SELECT sql FROM sqlite_master "
+                    "WHERE type='table' AND name='intelligence_items'"
+                ).fetchone()[0]
+                old_rows = conn.execute(
+                    "SELECT * FROM intelligence_items ORDER BY id"
+                ).fetchall()
+
+            with patch.object(
+                DatabaseManager, "_rebuild_intelligence_items_table",
+                side_effect=AssertionError("incomplete table must not rebuild"),
+            ):
+                with self.assertLogs("src.storage", level="WARNING") as warnings_seen:
+                    DatabaseManager(db_url=f"sqlite:///{db_path}")
+
+            self.assertTrue(
+                any("ix_intel_item_scope_time" in message
+                    and "missing columns" in message
+                    for message in warnings_seen.output)
+            )
+            indexes = self._list_sqlite_indexes(db_path, "intelligence_items")
+            self.assertNotIn("ix_intel_item_scope_time", indexes)
+            self.assertEqual(indexes.get("ix_intel_item_fetch_time"), ["fetched_at"])
+            self.assertEqual(
+                indexes.get("uix_intel_item_scope"),
+                ["source_id", "url", "scope_type", "scope_value", "market"],
+            )
+            with sqlite3.connect(db_path) as conn:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT sql FROM sqlite_master "
+                        "WHERE type='table' AND name='intelligence_items'"
+                    ).fetchone()[0],
+                    old_schema,
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT * FROM intelligence_items ORDER BY id"
+                    ).fetchall(),
+                    old_rows,
+                )
+        finally:
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            temp_dir.cleanup()
+
     def test_already_migrated_intelligence_items_restores_missing_indexes_without_rebuild(self) -> None:
         """Index-only recovery must not rewrite existing rows or table DDL."""
         DatabaseManager.reset_instance()
