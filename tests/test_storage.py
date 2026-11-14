@@ -585,6 +585,123 @@ class TestStorage(unittest.TestCase):
             Config.reset_instance()
             temp_dir.cleanup()
 
+    def test_already_migrated_index_only_repair_rolls_back_all_indexes_on_failure(self) -> None:
+        """A failed late CREATE INDEX must roll back earlier CREATE INDEX DDL."""
+        DatabaseManager.reset_instance()
+        Config.reset_instance()
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "partial_index_repair_rollback.sqlite")
+        try:
+            # Already migrated by the old implementation, but without
+            # secondary query indexes. A custom index and row must survive.
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """CREATE TABLE intelligence_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER,
+                        source_name TEXT,
+                        source_type TEXT NOT NULL DEFAULT 'rss',
+                        title TEXT NOT NULL,
+                        summary TEXT,
+                        url TEXT NOT NULL,
+                        source TEXT,
+                        published_at DATETIME,
+                        fetched_at DATETIME,
+                        scope_type TEXT NOT NULL DEFAULT 'market',
+                        scope_value TEXT,
+                        market TEXT NOT NULL DEFAULT 'cn',
+                        raw_payload TEXT
+                    )"""
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX uix_intel_item_scope "
+                    "ON intelligence_items(source_id, url, scope_type, scope_value, market)"
+                )
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_custom_keep "
+                    "ON intelligence_items(title)"
+                )
+                conn.execute(
+                    "INSERT INTO intelligence_items "
+                    "(id, title, url, scope_type, scope_value, market) "
+                    "VALUES (61, 'keep after exception', 'https://example.org/61', "
+                    "'market', 'scope', 'cn')"
+                )
+                rows_before = conn.execute(
+                    "SELECT * FROM intelligence_items ORDER BY id"
+                ).fetchall()
+                schema_before = conn.execute(
+                    "SELECT sql FROM sqlite_master "
+                    "WHERE type='table' AND name='intelligence_items'"
+                ).fetchone()[0]
+            indexes_before = self._list_sqlite_indexes(db_path, "intelligence_items")
+            self.assertNotIn("ix_intel_item_fetch_time", indexes_before)
+            self.assertNotIn("ix_intel_item_scope_time", indexes_before)
+
+            created_before_failure = []
+            original_create = Index.create
+
+            def fail_on_second_index(index, bind, *args, **kwargs):
+                if index.name == "ix_intel_item_scope_time":
+                    if "ix_intel_item_fetch_time" not in created_before_failure:
+                        raise AssertionError(
+                            "test did not create the first query index before failure"
+                        )
+                    raise RuntimeError("injected secondary index repair failure")
+                result = original_create(index, bind, *args, **kwargs)
+                if index.name == "ix_intel_item_fetch_time":
+                    created_before_failure.append(index.name)
+                return result
+
+            with patch.object(
+                DatabaseManager,
+                "_rebuild_intelligence_items_table",
+                side_effect=AssertionError("index-only repair must not rebuild"),
+            ), patch.object(Index, "create", new=fail_on_second_index):
+                with self.assertRaisesRegex(
+                    RuntimeError, "injected secondary index repair failure"
+                ):
+                    DatabaseManager(db_url=f"sqlite:///{db_path}")
+
+            self.assertIn("ix_intel_item_fetch_time", created_before_failure)
+            self.assertEqual(
+                self._list_sqlite_indexes(db_path, "intelligence_items"),
+                indexes_before,
+                "a failed index-only repair must roll back the first created index",
+            )
+            with sqlite3.connect(db_path) as conn:
+                self.assertEqual(
+                    conn.execute("SELECT * FROM intelligence_items ORDER BY id").fetchall(),
+                    rows_before,
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT sql FROM sqlite_master "
+                        "WHERE type='table' AND name='intelligence_items'"
+                    ).fetchone()[0],
+                    schema_before,
+                )
+
+            # A clean retry must restore all required query indexes.
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            DatabaseManager(db_url=f"sqlite:///{db_path}")
+            after = self._list_sqlite_indexes(db_path, "intelligence_items")
+            self.assertEqual(
+                after.get("ix_intel_item_fetch_time"), ["fetched_at"]
+            )
+            self.assertEqual(
+                after.get("ix_intel_item_scope_time"),
+                ["scope_type", "scope_value", "market", "published_at"],
+            )
+            self.assertEqual(
+                after.get("ix_intel_item_custom_keep"), ["title"]
+            )
+        finally:
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            temp_dir.cleanup()
+
     def test_already_migrated_intelligence_items_restores_missing_indexes_without_rebuild(self) -> None:
         """Index-only recovery must not rewrite existing rows or table DDL."""
         DatabaseManager.reset_instance()

@@ -2179,6 +2179,11 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         if not self._is_sqlite_engine:
             return
         with self._engine.begin() as connection:
+            # pysqlite may autocommit DDL even inside engine.begin().
+            # Acquire a real SQLite transaction before the metadata read and
+            # any CREATE INDEX, so a later failure rolls back *all* indexes
+            # from this repair attempt instead of leaving a partial repair.
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
             inspector = inspect(connection)
             if not inspector.has_table(IntelligenceItem.__tablename__):
                 return
