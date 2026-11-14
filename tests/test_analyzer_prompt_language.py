@@ -191,6 +191,25 @@ class EnglishStockPromptTemplateTestCase(unittest.TestCase):
         ko_headers = re.findall(r"^#{1,4} .+$", ko_user, re.MULTILINE)
         self.assertEqual(ko_headers, en_headers)
 
+    def test_turkish_uses_english_scaffolding_with_turkish_directive(self) -> None:
+        analyzer = _make_analyzer(legacy=True)
+        fake_cfg = SimpleNamespace(news_max_age_days=3, news_strategy_profile="short")
+        with patch("src.analyzer.get_config", return_value=fake_cfg):
+            tr_user = analyzer._format_prompt(copy.deepcopy(_rich_context()), "Apple", report_language="tr")
+            en_user = analyzer._format_prompt(copy.deepcopy(_rich_context()), "Apple", report_language="en")
+        tr_system = analyzer._get_analysis_system_prompt("tr", stock_code="AAPL")
+
+        self.assertEqual(_cjk_chars(tr_user), "")
+        self.assertEqual(_cjk_chars(tr_system), "")
+        self.assertIn("# Decision Dashboard Analysis Request", tr_user)
+        self.assertIn("All human-readable JSON values must be in Turkish (Türkçe).", tr_user)
+        self.assertIn("Write all human-readable JSON values", tr_system)
+        self.assertIn("in Turkish (Türkçe).", tr_system)
+        self.assertEqual(
+            re.findall(r"^#{1,4} .+$", tr_user, re.MULTILINE),
+            re.findall(r"^#{1,4} .+$", en_user, re.MULTILINE),
+        )
+
     def test_chinese_prompt_keeps_chinese_template(self) -> None:
         analyzer = _make_analyzer(legacy=True)
         fake_cfg = SimpleNamespace(news_max_age_days=3, news_strategy_profile="short")
