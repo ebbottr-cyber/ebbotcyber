@@ -10,6 +10,7 @@ from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 from sqlalchemy import and_, create_engine as sqlalchemy_create_engine, inspect, select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import func
@@ -400,6 +401,85 @@ class TestStorage(unittest.TestCase):
             self.assertEqual(indexes.get("ix_intel_item_fetch_time"), ["fetched_at"])
         finally:
             DatabaseManager.reset_instance()
+            temp_dir.cleanup()
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=AssertionError,
+        reason="Issue #4: legacy SQLite rebuild does not recreate secondary query indexes",
+    )
+    def test_legacy_intelligence_items_rebuild_preserves_secondary_indexes(self) -> None:
+        """Expected-to-fail contract: migration must retain named query indexes.
+
+        Keep this as a strict xfail until the separate, data-safe migration
+        repair is complete. An unexpected pass intentionally fails CI so the
+        marker cannot silently outlive the fix.
+        """
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "legacy_intel_indexes.sqlite")
+        try:
+            with sqlite3.connect(db_path) as conn:
+                # Reproduce the old URL-only uniqueness schema. All ORM
+                # columns are present so the existing migration can copy rows.
+                conn.execute(
+                    """CREATE TABLE intelligence_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER,
+                        source_name TEXT,
+                        source_type TEXT NOT NULL DEFAULT 'rss',
+                        title TEXT NOT NULL,
+                        summary TEXT,
+                        url TEXT NOT NULL,
+                        source TEXT,
+                        published_at DATETIME,
+                        fetched_at DATETIME,
+                        scope_type TEXT NOT NULL DEFAULT 'market',
+                        scope_value TEXT,
+                        market TEXT NOT NULL DEFAULT 'cn',
+                        raw_payload TEXT
+                    )"""
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX uix_intelligence_item_url_legacy "
+                    "ON intelligence_items(url)"
+                )
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_scope_time "
+                    "ON intelligence_items(scope_type, scope_value, market, published_at)"
+                )
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_fetch_time "
+                    "ON intelligence_items(fetched_at)"
+                )
+
+            before = self._list_sqlite_indexes(db_path, "intelligence_items")
+            self.assertEqual(
+                before["ix_intel_item_scope_time"],
+                ["scope_type", "scope_value", "market", "published_at"],
+            )
+            self.assertEqual(before["ix_intel_item_fetch_time"], ["fetched_at"])
+
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            DatabaseManager(db_url=f"sqlite:///{db_path}")
+
+            after = self._list_sqlite_indexes(db_path, "intelligence_items")
+            # First ensure we exercised the intended URL-only legacy branch.
+            self.assertNotIn("uix_intelligence_item_url_legacy", after)
+            self.assertEqual(
+                after.get("uix_intel_item_scope"),
+                ["source_id", "url", "scope_type", "scope_value", "market"],
+            )
+
+            # This is the actual missing legacy-index preservation contract.
+            self.assertEqual(
+                after.get("ix_intel_item_scope_time"),
+                ["scope_type", "scope_value", "market", "published_at"],
+            )
+            self.assertEqual(after.get("ix_intel_item_fetch_time"), ["fetched_at"])
+        finally:
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
             temp_dir.cleanup()
 
     def test_legacy_intelligence_items_url_unique_index_rebuilds_without_collision(self) -> None:
