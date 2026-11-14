@@ -35,7 +35,7 @@ const QUALITY_STYLE = {
   poor: { variant: 'danger', tone: 'danger' },
 } as const satisfies Record<string, { variant: BadgeVariant; tone: StatusTone }>;
 
-const BLOCK_LABELS: Record<ReportLanguage, Record<string, string>> = {
+const BLOCK_LABELS_BASE: Record<Exclude<ReportLanguage, 'tr'>, Record<string, string>> = {
   zh: {
     quote: '行情',
     daily_bars: '日线',
@@ -61,8 +61,21 @@ const BLOCK_LABELS: Record<ReportLanguage, Record<string, string>> = {
     chip: '매물대',
   },
 };
+const BLOCK_LABELS: Record<ReportLanguage, Record<string, string>> = {
+  ...BLOCK_LABELS_BASE,
+  tr: {
+    ...BLOCK_LABELS_BASE.en,
+    quote: 'fiyat',
+    daily_bars: 'günlük veriler',
+    technical: 'teknik',
+    news: 'haber',
+    fundamentals: 'temel analiz',
+    chip: 'maliyet dağılımı',
+  },
+} as const;
 
-const TEXT = {
+
+const TEXT_BASE = {
   zh: {
     eyebrow: '数据上下文',
     title: '输入数据块',
@@ -160,8 +173,15 @@ const TEXT = {
     },
   },
 } as const;
+const TEXT = {
+  ...TEXT_BASE,
+  tr: {
+    ...TEXT_BASE.en,
+  },
+} as const;
 
-const MISSING_REASON_LABELS: Record<ReportLanguage, Record<string, string>> = {
+
+const MISSING_REASON_LABELS_BASE: Record<Exclude<ReportLanguage, 'tr'>, Record<string, string>> = {
   zh: {
     daily_bars_missing: '日线数据未进入本次分析，技术指标可能不完整；请检查日线数据源、网络或限流后重新分析',
     news_context_missing: '新闻未进入本次 LLM 分析，结论未使用新闻上下文；报告页相关资讯由独立接口补充，显示与否不代表已进入本次分析。请检查搜索配置、网络或限流后重新分析',
@@ -208,15 +228,27 @@ const MISSING_REASON_LABELS: Record<ReportLanguage, Record<string, string>> = {
     yesterday_missing: '전일 데이터가 포함되지 않아 일봉 비교가 불완전할 수 있습니다. 소스 갱신 후 다시 분석하세요',
   },
 };
+const MISSING_REASON_LABELS = {
+  ...MISSING_REASON_LABELS_BASE,
+  tr: {
+    ...MISSING_REASON_LABELS_BASE.en,
+  },
+} as const;
 
-const UNKNOWN_REASON_DETAILS: Record<ReportLanguage, string> = {
+
+const UNKNOWN_REASON_DETAILS_BASE: Record<Exclude<ReportLanguage, 'tr'>, string> = {
   zh: '未记录明确原因；请结合状态、来源和告警排查',
   en: 'No specific reason was recorded; review the status, source, and warnings',
   ko: '명확한 원인이 기록되지 않았습니다. 상태, 출처 및 경고를 함께 확인하세요',
 };
+const UNKNOWN_REASON_DETAILS: Record<ReportLanguage, string> = {
+  ...UNKNOWN_REASON_DETAILS_BASE,
+  tr: 'Açık bir neden kaydedilmedi; durum, veri kaynağı ve uyarıları inceleyin',
+};
 
-const STATUS_FALLBACK_GUIDANCE: Record<
-  ReportLanguage,
+
+const STATUS_FALLBACK_GUIDANCE_BASE: Record<
+  Exclude<ReportLanguage, 'tr'>,
   Partial<Record<AnalysisContextPackBlockStatus, string>>
 > = {
   zh: {
@@ -247,6 +279,13 @@ const STATUS_FALLBACK_GUIDANCE: Record<
     partial: '데이터의 일부만 포함되어 관련 결론이 불완전할 수 있습니다. 경고와 데이터 소스를 확인한 후 다시 분석하세요',
   },
 };
+const STATUS_FALLBACK_GUIDANCE = {
+  ...STATUS_FALLBACK_GUIDANCE_BASE,
+  tr: {
+    ...STATUS_FALLBACK_GUIDANCE_BASE.en,
+  },
+} as const;
+
 
 const STATUS_ORDER: AnalysisContextPackBlockStatus[] = [
   'available',

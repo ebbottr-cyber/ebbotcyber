@@ -1616,7 +1616,7 @@ class StockAnalysisPipeline:
                 initial_context["analysis_context_pack_summary"] = analysis_context_pack_summary
 
             # 运行 Agent
-            if report_language in ("en", "ko"):
+            if report_language in ("en", "ko", "tr"):
                 message = f"Analyze stock {code} ({stock_name}) and return the full decision dashboard JSON."
             else:
                 message = f"请分析股票 {code} ({stock_name})，并生成决策仪表盘报告。"
@@ -2329,6 +2329,7 @@ class StockAnalysisPipeline:
             if not result.error_message:
                 result.error_message = (
                     "Agent failed to generate a valid decision dashboard" if report_language == "en"
+                    else "Yapay zekâ geçerli bir karar raporu oluşturamadı" if report_language == "tr"
                     else "에이전트가 유효한 결정 대시보드를 생성하지 못했습니다" if report_language == "ko"
                     else "Agent 未能生成有效的决策仪表盘"
                 )
@@ -2463,7 +2464,7 @@ class StockAnalysisPipeline:
             return ""
         trend_status = getattr(trend_result, "trend_status", None)
         value = getattr(trend_status, "value", None) or str(trend_status or "").strip()
-        if report_language != "en":
+        if report_language not in ("en", "tr"):
             return value
         return localize_trend_prediction(value, report_language)
 
@@ -2553,6 +2554,8 @@ class StockAnalysisPipeline:
                 return f"Trend view: {trend}; action advice: {advice}."
             if report_language == "ko":
                 return f"추세 결론: {trend}; 대응 전략: {advice}."
+            if report_language == "tr":
+                return f"Trend değerlendirmesi: {trend}; işlem önerisi: {advice}."
             return f"趋势结论：{trend}；操作建议：{advice}。"
         return ""
 
@@ -2591,6 +2594,7 @@ class StockAnalysisPipeline:
                 report_language,
             ) or (
                 "Analysis pending" if report_language == "en"
+                else "Analiz tamamlanmayı bekliyor" if report_language == "tr"
                 else "분석 보완 예정" if report_language == "ko"
                 else "分析待补充"
             )

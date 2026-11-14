@@ -103,7 +103,12 @@ export type SentimentLabel =
   | '비관'
   | '중립'
   | '낙관'
-  | '매우 낙관';
+  | '매우 낙관'
+  | 'Çok Olumsuz'
+  | 'Olumsuz'
+  | 'Nötr'
+  | 'Olumlu'
+  | 'Çok Olumlu';
 
 export type DecisionAction = 'buy' | 'add' | 'hold' | 'reduce' | 'sell' | 'watch' | 'avoid' | 'alert';
 
@@ -635,6 +640,13 @@ export const getSentimentLabel = (score: number, language: ReportLanguage = 'zh'
     if (score <= 60) return 'Neutral';
     if (score <= 80) return 'Bullish';
     return 'Very Bullish';
+  }
+  if (language === 'tr') {
+    if (score < 20) return 'Çok Olumsuz';
+    if (score < 40) return 'Olumsuz';
+    if (score < 60) return 'Nötr';
+    if (score < 80) return 'Olumlu';
+    return 'Çok Olumlu';
   }
   if (language === 'ko') {
     if (score <= 20) return '매우 비관';

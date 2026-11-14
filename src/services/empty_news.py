@@ -42,10 +42,14 @@ _KO_ZERO_RESULTS = (
     "아래 결론에는 뉴스 근거를 반영하지 않았습니다."
 )
 
+_TR_NOT_CONFIGURED = "⚠️ Haber arama kaynağı yapılandırılmadı; bu analizde haber kaynaklı kanıt kullanılmadı."
+_TR_ZERO_RESULTS = "⚠️ Bu analiz için kullanılabilir haber verisi alınamadı; sonuçlarda haber kaynaklı kanıt kullanılmadı."
+
 _DISCLOSURES = {
     "zh": (_ZH_NOT_CONFIGURED, _ZH_ZERO_RESULTS),
     "en": (_EN_NOT_CONFIGURED, _EN_ZERO_RESULTS),
     "ko": (_KO_NOT_CONFIGURED, _KO_ZERO_RESULTS),
+    "tr": (_TR_NOT_CONFIGURED, _TR_ZERO_RESULTS),
 }
 
 if set(_DISCLOSURES) != set(SUPPORTED_REPORT_LANGUAGES):

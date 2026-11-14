@@ -32,7 +32,7 @@ const COMPONENT_ORDER = [
   'history',
 ];
 
-const TEXT = {
+const TEXT_BASE = {
   zh: {
     eyebrow: '运行诊断',
     title: '运行状态',
@@ -124,6 +124,13 @@ const TEXT = {
     },
   },
 } as const;
+const TEXT = {
+  ...TEXT_BASE,
+  tr: {
+    ...TEXT_BASE.en,
+  },
+} as const;
+
 
 const OVERALL_STATUS_STYLE: Record<RunDiagnosticStatus, { variant: BadgeVariant; tone: StatusTone }> = {
   normal: { variant: 'success', tone: 'success' },

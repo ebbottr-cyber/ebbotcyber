@@ -129,7 +129,41 @@ const TEXT = {
       unknown: '알 수 없음',
     },
   },
-} as const;
+  tr: {
+    eyebrow: 'PİYASA KONUMU',
+    title: 'Temalar ve Hissenin Konumu',
+    marketLayer: 'Piyasa Tema Görünümü',
+    stockLayer: 'Hisse Konumu',
+    activeThemes: 'Aktif Temalar',
+    leadingConcepts: 'Öne Çıkan Temalar',
+    leadingIndustries: 'Öne Çıkan Sektörler',
+    primaryTheme: 'Ana İlgili Tema',
+    themePhase: 'Tema Evresi',
+    stockRole: 'Hissenin Rolü',
+    riskTags: 'Risk Etiketleri',
+    dataQuality: 'Veri Kalitesi',
+    missingFields: 'Eksik Kanıtlar',
+    empty: 'Yok',
+    status: {
+      ok: 'Kullanılabilir',
+      partial: 'Kısmen Kullanılabilir',
+      unknown: 'Bilinmiyor',
+      not_supported: 'Desteklenmiyor',
+    },
+    phase: {
+      warming: 'Hareketleniyor',
+      accelerating: 'Hızlanıyor',
+      cooling: 'Yavaşlıyor',
+      unknown: 'Bilinmiyor',
+    },
+    role: {
+      leader: 'Öncü',
+      follower: 'Takipçi',
+      edge: 'Sınırlı İlişki',
+      unknown: 'Bilinmiyor',
+    },
+  },
+} as const satisfies Record<ReportLanguage, Record<string, string | Record<string, string>>>;
 
 const RISK_TAG_TEXT = {
   zh: {
@@ -147,7 +181,12 @@ const RISK_TAG_TEXT = {
     stock_theme_evidence_partial: '종목 보드가 테마 랭킹과 일치하지 않았습니다',
     board_membership_missing: '종목 보드 근거가 없어 테마 위치를 판단할 수 없습니다',
   },
-} as const;
+  tr: {
+    theme_data_partial: 'Piyasa tema verileri eksik',
+    stock_theme_evidence_partial: 'Hissenin sektörü tema sıralamalarıyla eşleşmedi; konumu sınırlı verilere dayanıyor',
+    board_membership_missing: 'Hissenin sektör üyeliği verisi eksik; tema konumu belirlenemiyor',
+  },
+} as const satisfies Record<ReportLanguage, Record<string, string>>;
 
 const formatItem = (item: RankedThemeItem): string => {
   if (typeof item.changePct === 'number') {

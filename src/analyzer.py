@@ -829,7 +829,7 @@ def _sanitize_trend_analysis_for_prompt(
     language: str = "zh",
 ) -> Dict[str, Any]:
     """Clean prompt-only trend hints on a derived copy without touching runtime/provider config."""
-    english = normalize_report_language(language) in ("en", "ko")
+    english = normalize_report_language(language) in ("en", "ko", "tr")
     trend_dict = dict(trend) if isinstance(trend, dict) else {}
     signal_reasons = _normalize_prompt_reason_items(trend_dict.get("signal_reasons"))
     risk_factors = _normalize_prompt_reason_items(trend_dict.get("risk_factors"))
@@ -1643,6 +1643,8 @@ def _set_structural_hold_wording(
             result.trend_prediction = "Sideways"
         elif language == "ko":
             result.trend_prediction = "횡보"
+        elif language == "tr":
+            result.trend_prediction = "Yatay"
 
     if language == "zh":
         no_position = "空仓先不追涨杀跌，等待支撑确认、放量突破或资金回流后再行动。"
@@ -5166,7 +5168,7 @@ Output the complete Decision Dashboard in JSON format."""
         """格式化成交量显示"""
         if volume is None:
             return 'N/A'
-        if normalize_report_language(report_language) in ("en", "ko"):
+        if normalize_report_language(report_language) in ("en", "ko", "tr"):
             return f"{self._format_scaled_number_en(volume)} shares"
         if volume >= 1e8:
             return f"{volume / 1e8:.2f} 亿股"
@@ -5179,7 +5181,7 @@ Output the complete Decision Dashboard in JSON format."""
         """格式化成交额显示"""
         if amount is None:
             return 'N/A'
-        if normalize_report_language(report_language) in ("en", "ko"):
+        if normalize_report_language(report_language) in ("en", "ko", "tr"):
             return self._format_scaled_number_en(amount)
         if amount >= 1e8:
             return f"{amount / 1e8:.2f} 亿元"
@@ -5348,7 +5350,7 @@ Output the complete Decision Dashboard in JSON format."""
         """Build retry prompt using the previous response as the complement baseline."""
         complement = self._build_integrity_complement_prompt(missing_fields, report_language=report_language)
         previous_output = previous_response.strip()
-        if normalize_report_language(report_language) in ("en", "ko"):
+        if normalize_report_language(report_language) in ("en", "ko", "tr"):
             prefix = "### The previous output is below. Complete the missing fields based on that output and return the full JSON again. Do not omit existing fields:"
         else:
             prefix = "### 上一次输出如下，请在该输出基础上补齐缺失字段，并重新输出完整 JSON。不要省略已有字段："

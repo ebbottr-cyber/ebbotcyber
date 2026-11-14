@@ -257,7 +257,7 @@ const formatMarketHighLow = (high: unknown, low: unknown): string => {
   return highText === '-' && lowText === '-' ? '-' : `${highText} / ${lowText}`;
 };
 
-const MARKET_REVIEW_TEXT: Record<ReportLanguage, {
+const MARKET_REVIEW_TEXT_BASE: Record<Exclude<ReportLanguage, 'tr'>, {
   reviewSummary: string;
   noReviewSummary: string;
   noSentimentScore: string;
@@ -350,6 +350,34 @@ const MARKET_REVIEW_TEXT: Record<ReportLanguage, {
     lagging: '약세',
   },
 };
+const MARKET_REVIEW_TEXT = {
+  ...MARKET_REVIEW_TEXT_BASE,
+  tr: {
+    ...MARKET_REVIEW_TEXT_BASE.en,
+    reviewSummary: 'Piyasa Özeti',
+    noReviewSummary: 'Henüz piyasa özeti yok',
+    noSentimentScore: 'Henüz puan yok',
+    rotationAndFunds: 'Sektör Rotasyonu ve Para Akışı',
+    noRotationView: 'Sektör rotasyonu değerlendirmesi yok',
+    riskAndWatch: 'Riskler ve İzlenecekler',
+    noRiskWatch: 'İzleme notu yok',
+    structuredMarketData: 'Yapılandırılmış Piyasa Verileri',
+    noBreadthData: 'Veri yok',
+    advancers: 'Yükselenler',
+    decliners: 'Düşenler',
+    limitUpDown: 'Tavan / Taban',
+    turnover: 'İşlem Tutarı',
+    index: 'Endeks',
+    last: 'Son Fiyat',
+    change: 'Değişim',
+    highLow: 'Yüksek / Düşük',
+    industryBoards: 'Sektörler',
+    conceptBoards: 'Temalar',
+    leading: 'Öne Çıkan',
+    lagging: 'Geride Kalan',
+  },
+} as const;
+
 
 const formatRankingChange = (value: unknown): string => {
   const numeric = typeof value === 'number' ? value : Number(String(value ?? '').replace(/%$/, ''));

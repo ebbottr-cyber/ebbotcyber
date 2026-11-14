@@ -24,6 +24,7 @@ from src.report_language import (
     get_bias_status_emoji,
     get_localized_stock_name,
     get_report_labels,
+    get_sentiment_label,
     get_signal_level,
     get_chip_unavailable_reason,
     is_chip_structure_unavailable,
@@ -791,7 +792,10 @@ class HistoryService:
             "action_label": action_fields["action_label"],
             "trend_prediction": record.trend_prediction,
             "sentiment_score": record.sentiment_score,
-            "sentiment_label": self._get_sentiment_label(record.sentiment_score or 50),
+            "sentiment_label": get_sentiment_label(
+                record.sentiment_score if record.sentiment_score is not None else 50,
+                normalize_report_language(raw_result.get("report_language")) if isinstance(raw_result, dict) else "zh",
+            ),
             "ideal_buy": sniper_points.get("ideal_buy"),
             "secondary_buy": sniper_points.get("secondary_buy"),
             "stop_loss": sniper_points.get("stop_loss"),
@@ -945,26 +949,9 @@ class HistoryService:
 
         return filtered[:limit]
     
-    def _get_sentiment_label(self, score: int) -> str:
-        """
-        Get sentiment label based on score.
-
-        Args:
-            score: Sentiment score (0-100)
-
-        Returns:
-            Sentiment label
-        """
-        if score >= 80:
-            return "极度乐观"
-        elif score >= 60:
-            return "乐观"
-        elif score >= 40:
-            return "中性"
-        elif score >= 20:
-            return "悲观"
-        else:
-            return "极度悲观"
+    def _get_sentiment_label(self, score: int, language: str = "zh") -> str:
+        """Return the sentiment label in the stored report language (zh by default)."""
+        return get_sentiment_label(score, normalize_report_language(language))
 
     def get_markdown_report(self, record_id: str) -> Optional[str]:
         """
@@ -1132,21 +1119,23 @@ class HistoryService:
         report_language = normalize_report_language(getattr(result, "report_language", "zh"))
         labels = get_report_labels(report_language)
 
-        def _label(en: str, zh: str, ko: str) -> str:
+        def _label(en: str, zh: str, ko: str, tr: Optional[str] = None) -> str:
+            if report_language == "tr":
+                return tr if tr is not None else en
             if report_language == "en":
                 return en
             if report_language == "ko":
                 return ko
             return zh
 
-        analysis_date_label = _label("Analysis Date", "分析日期", "분석일")
-        report_time_label = _label("Report Time", "报告生成时间", "생성 시각")
-        reason_label = _label("Rationale", "操作理由", "판단 근거")
-        risk_warning_label = _label("Risk Warning", "风险提示", "리스크 경고")
-        technical_heading = _label("Technicals", "技术面", "기술적 분석")
-        ma_label = _label("Moving Averages", "均线", "이동평균")
-        volume_analysis_label = _label("Volume", "量能", "거래량")
-        news_heading = _label("News Flow", "消息面", "뉴스 흐름")
+        analysis_date_label = _label("Analysis Date", "分析日期", "분석일", "Analiz Tarihi")
+        report_time_label = _label("Report Time", "报告生成时间", "생성 시각", "Rapor Zamanı")
+        reason_label = _label("Rationale", "操作理由", "판단 근거", "Gerekçe")
+        risk_warning_label = _label("Risk Warning", "风险提示", "리스크 경고", "Risk Uyarısı")
+        technical_heading = _label("Technicals", "技术面", "기술적 분석", "Teknik Analiz")
+        ma_label = _label("Moving Averages", "均线", "이동평균", "Hareketli Ortalamalar")
+        volume_analysis_label = _label("Volume", "量能", "거래량", "İşlem Hacmi")
+        news_heading = _label("News Flow", "消息面", "뉴스 흐름", "Haber Akışı")
 
         # Escape markdown special characters in stock name
         name_escaped = self._escape_md(

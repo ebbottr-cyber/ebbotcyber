@@ -27,7 +27,11 @@ const NEWS_SOURCE_TEXT = {
     sourceLabel: '관련 뉴스 / 후속 검색',
     sourceHint: '출처: 리포트 페이지 보충 뉴스이며, 분석 사용 여부는 입력 데이터 블록 기준입니다.',
   },
-} as const;
+  tr: {
+    sourceLabel: 'İlgili Haberler / Sonraki Aramalar',
+    sourceHint: 'Kaynak: Rapor sayfasına sonradan eklenen haberlerdir. Analize dahil edilen veriler, analiz girdi bloklarında gösterilir.',
+  },
+} as const satisfies Record<ReportLanguage, { sourceLabel: string; sourceHint: string }>;
 
 /**
  * 资讯区组件 - 终端风格

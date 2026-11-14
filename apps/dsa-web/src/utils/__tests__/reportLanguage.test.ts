@@ -30,3 +30,33 @@ describe('reportLanguage ko support', () => {
     expect(getSentimentLabel(90, 'en')).toBe('Very Bullish');
   });
 });
+
+describe('reportLanguage tr support', () => {
+  it('preserves tr rather than falling back to zh', () => {
+    expect(normalizeReportLanguage('tr')).toBe('tr');
+    expect(normalizeReportLanguage('en')).toBe('en');
+    expect(normalizeReportLanguage('ko')).toBe('ko');
+    expect(normalizeReportLanguage('unrecognized')).toBe('zh');
+  });
+
+  it('renders Turkish report headings without changing JSON keys', () => {
+    const tr = getReportText('tr');
+    expect(tr.keyInsights).toBe('Temel Bulgular');
+    expect(tr.actionAdvice).toBe('İşlem Önerisi');
+    expect(tr.stopLoss).toBe('Zarar Durdur');
+    expect(tr.fullReport).toBe('Ayrıntılı Analiz Raporu');
+  });
+
+  it('returns Turkish sentiment labels for all five bands', () => {
+    expect(getSentimentLabel(10, 'tr')).toBe('Çok Olumsuz');
+    expect(getSentimentLabel(30, 'tr')).toBe('Olumsuz');
+    expect(getSentimentLabel(50, 'tr')).toBe('Nötr');
+    expect(getSentimentLabel(70, 'tr')).toBe('Olumlu');
+    expect(getSentimentLabel(90, 'tr')).toBe('Çok Olumlu');
+    // Match backend get_sentiment_label thresholds (20/40/60/80 included in higher band).
+    expect(getSentimentLabel(20, 'tr')).toBe('Olumsuz');
+    expect(getSentimentLabel(40, 'tr')).toBe('Nötr');
+    expect(getSentimentLabel(60, 'tr')).toBe('Olumlu');
+    expect(getSentimentLabel(80, 'tr')).toBe('Çok Olumlu');
+  });
+});

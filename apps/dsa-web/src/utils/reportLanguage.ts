@@ -1,9 +1,9 @@
 import type { ReportLanguage } from '../types/analysis';
 
 export const normalizeReportLanguage = (value?: string | null): ReportLanguage =>
-  value === 'en' ? 'en' : value === 'ko' ? 'ko' : 'zh';
+  value === 'en' ? 'en' : value === 'ko' ? 'ko' : value === 'tr' ? 'tr' : 'zh';
 
-const REPORT_TEXT = {
+const REPORT_TEXT_BASE = {
   zh: {
     keyInsights: '核心洞察',
     noAnalysisSummary: '暂无分析结论',
@@ -156,6 +156,62 @@ const REPORT_TEXT = {
     laggingBoard: '약세',
     neutralBoard: '중립',
     reanalyze: '재분석',
+  },
+} as const;
+
+
+const REPORT_TEXT = {
+  ...REPORT_TEXT_BASE,
+  tr: {
+    ...REPORT_TEXT_BASE.en,
+    keyInsights: 'Temel Bulgular',
+    noAnalysisSummary: 'Analiz özeti bulunamadı',
+    actionAdvice: 'İşlem Önerisi',
+    noAdvice: 'Öneri yok',
+    trendPrediction: 'Trend Beklentisi',
+    noPrediction: 'Tahmin yok',
+    marketSentiment: 'Piyasa Duyarlılığı',
+    strategyPoints: 'Strateji Seviyeleri',
+    sniperLevels: 'İşlem Seviyeleri',
+    idealBuy: 'İdeal Alım',
+    secondaryBuy: 'Alternatif Alım',
+    stopLoss: 'Zarar Durdur',
+    takeProfit: 'Kâr Al Hedefi',
+    newsFeed: 'Haber Akışı',
+    relatedNews: 'İlgili Haberler',
+    refresh: 'Yenile',
+    retry: 'Yeniden Dene',
+    dismiss: 'Kapat',
+    details: 'Ayrıntıları Gör',
+    loadingNews: 'Haberler yükleniyor...',
+    noNews: 'İlgili haber yok',
+    noNewsDescription: 'Güncel haberler için daha sonra yenileyin.',
+    openLink: 'Aç',
+    transparency: 'Şeffaflık',
+    traceability: 'Veri İzlenebilirliği',
+    rawResult: 'Ham Analiz Sonucu',
+    analysisSnapshot: 'Analiz Kaydı',
+    copy: 'Kopyala',
+    copied: 'Kopyalandı',
+    recordId: 'Kayıt Kimliği',
+    fullReport: 'Ayrıntılı Analiz Raporu',
+    loadingReport: 'Rapor yükleniyor...',
+    loadReportFailed: 'Rapor yüklenemedi',
+    copyMarkdownSource: 'Markdown Kaynağını Kopyala',
+    copyPlainText: 'Düz Metni Kopyala',
+    generateShareImage: 'Paylaş',
+    generatingShareImage: 'Hazırlanıyor...',
+    shareImageReadyToShare: 'Şimdi Paylaş',
+    shareImageReady: 'Hazır',
+    shareImageFailed: 'Tekrar Dene',
+    analysisModel: 'Analiz Modeli',
+    fearGreedIndex: 'Korku ve Açgözlülük Endeksi',
+    boardLinkage: 'Sektör İlişkileri',
+    relatedBoards: 'İlgili Sektörler',
+    leadingBoard: 'Öne Çıkan Sektör',
+    laggingBoard: 'Geride Kalan Sektör',
+    neutralBoard: 'Nötr',
+    reanalyze: 'Yeniden Analiz Et',
   },
 } as const;
 
