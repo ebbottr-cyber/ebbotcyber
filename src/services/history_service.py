@@ -949,26 +949,9 @@ class HistoryService:
 
         return filtered[:limit]
     
-    def _get_sentiment_label(self, score: int) -> str:
-        """
-        Get sentiment label based on score.
-
-        Args:
-            score: Sentiment score (0-100)
-
-        Returns:
-            Sentiment label
-        """
-        if score >= 80:
-            return "极度乐观"
-        elif score >= 60:
-            return "乐观"
-        elif score >= 40:
-            return "中性"
-        elif score >= 20:
-            return "悲观"
-        else:
-            return "极度悲观"
+    def _get_sentiment_label(self, score: int, language: str = "zh") -> str:
+        """Return the sentiment label in the stored report language (zh by default)."""
+        return get_sentiment_label(score, normalize_report_language(language))
 
     def get_markdown_report(self, record_id: str) -> Optional[str]:
         """
