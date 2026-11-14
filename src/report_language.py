@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from src.schemas.decision_scale import signal_key_for_score
 
-SUPPORTED_REPORT_LANGUAGES = ("zh", "en", "ko")
+SUPPORTED_REPORT_LANGUAGES = ("zh", "en", "ko", "tr")
 
 _REPORT_LANGUAGE_ALIASES = {
     "zh-cn": "zh",
@@ -24,6 +24,10 @@ _REPORT_LANGUAGE_ALIASES = {
     "en_us": "en",
     "en-gb": "en",
     "en_gb": "en",
+    "turkish": "tr",
+    "tr-tr": "tr",
+    "tr_tr": "tr",
+    "türkçe": "tr",
     "korean": "ko",
     "kr": "ko",
     "ko-kr": "ko",
@@ -767,6 +771,160 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
     },
 }
 
+# Turkish report localization: retain existing English labels as a safe fallback.
+_REPORT_LABELS["tr"] = {**_REPORT_LABELS["en"], **{
+    "dashboard_title": "Karar Paneli",
+    "brief_title": "Karar Özeti",
+    "analyzed_prefix": "Analiz edilen",
+    "stock_unit": "hisse",
+    "stock_unit_compact": "adet",
+    "buy_label": "Al",
+    "watch_label": "İzle",
+    "sell_label": "Sat",
+    "summary_heading": "Analiz Sonuçları",
+    "info_heading": "Önemli Bilgiler",
+    "sentiment_summary_label": "Piyasa Duyarlılığı",
+    "earnings_outlook_label": "Bilanço Beklentisi",
+    "risk_alerts_label": "Risk Uyarıları",
+    "positive_catalysts_label": "Olumlu Gelişmeler",
+    "latest_news_label": "Son Haberler",
+    "core_conclusion_heading": "Temel Sonuç",
+    "one_sentence_label": "Tek Cümlede Karar",
+    "time_sensitivity_label": "Zaman Hassasiyeti",
+    "default_time_sensitivity": "Bu hafta",
+    "position_status_label": "Pozisyon Durumu",
+    "action_advice_label": "İşlem Önerisi",
+    "no_position_label": "Pozisyonu Olmayanlar",
+    "has_position_label": "Pozisyonu Olanlar",
+    "continue_holding": "Tutmaya Devam Et",
+    "market_snapshot_heading": "Günlük Piyasa Özeti",
+    "close_label": "Kapanış",
+    "prev_close_label": "Önceki Kapanış",
+    "open_label": "Açılış",
+    "high_label": "En Yüksek",
+    "low_label": "En Düşük",
+    "change_pct_label": "Değişim %",
+    "change_amount_label": "Fiyat Değişimi",
+    "amplitude_label": "Dalgalanma",
+    "volume_label": "Hacim",
+    "amount_label": "İşlem Tutarı",
+    "current_price_label": "Güncel Fiyat",
+    "volume_ratio_label": "Hacim Oranı",
+    "turnover_rate_label": "Devir Oranı",
+    "source_label": "Veri Kaynağı",
+    "data_sources_label": "Veri Kaynakları",
+    "data_perspective_heading": "Veri Analizi",
+    "ma_alignment_label": "Hareketli Ortalama Dizilimi",
+    "bullish_alignment_label": "Yükseliş Dizilimi",
+    "yes_label": "Evet",
+    "no_label": "Hayır",
+    "none_label": "Yok",
+    "trend_strength_label": "Trend Gücü",
+    "price_metrics_label": "Fiyat Göstergeleri",
+    "support_level_label": "Destek",
+    "resistance_level_label": "Direnç",
+    "action_window_label": "İşlem Zaman Aralığı",
+    "immediate_action_label": "Güncel İşlem",
+    "watch_conditions_label": "İzleme Koşulları",
+    "next_check_time_label": "Sonraki Kontrol",
+    "confidence_reason_label": "Güven Gerekçesi",
+    "data_limitations_label": "Veri Kısıtları",
+    "battle_plan_heading": "İşlem Planı",
+    "ideal_buy_label": "İdeal Alım",
+    "secondary_buy_label": "Alternatif Alım",
+    "stop_loss_label": "Zarar Durdur",
+    "take_profit_label": "Kâr Al",
+    "suggested_position_label": "Önerilen Pozisyon",
+    "entry_plan_label": "Giriş Planı",
+    "risk_control_label": "Risk Yönetimi",
+    "checklist_heading": "Kontrol Listesi",
+    "failed_checks_heading": "Başarısız Kontroller",
+    "history_compare_heading": "Geçmiş Sinyal Karşılaştırması",
+    "time_label": "Zaman",
+    "score_label": "Puan",
+    "advice_label": "Öneri",
+    "trend_label": "Trend",
+    "generated_at_label": "Oluşturulma Zamanı",
+    "report_time_label": "Oluşturuldu",
+    "no_results": "Analiz sonucu yok",
+    "report_title": "Hisse Analiz Raporu",
+    "avg_score_label": "Ortalama Puan",
+    "action_points_heading": "İşlem Seviyeleri",
+    "position_advice_heading": "Pozisyon Önerisi",
+    "analysis_model_label": "Model",
+    "not_investment_advice": "Yapay zekâ tarafından oluşturulmuştur; yatırım tavsiyesi değildir.",
+    "details_report_hint": "Ayrıntılı rapor:",
+    "financial_summary_heading": "Finansal Özet",
+    "report_date_label": "Rapor Tarihi",
+    "revenue_label": "Gelir",
+    "net_profit_label": "Net Kâr",
+    "operating_cash_flow_label": "Faaliyet Nakit Akışı",
+    "roe_label": "Özkaynak Kârlılığı",
+    "revenue_yoy_label": "Yıllık Gelir Değişimi",
+    "net_profit_yoy_label": "Yıllık Net Kâr Değişimi",
+    "gross_margin_label": "Brüt Kâr Marjı",
+    "shareholder_return_heading": "Hissedar Getirisi",
+    "related_boards_heading": "İlgili Sektörler",
+    "industry_boards_heading": "Sektörler",
+    "concept_boards_heading": "Temalar",
+    "board_name_label": "Sektör",
+    "board_type_label": "Tür",
+    "board_status_label": "Durum",
+    "board_change_pct_label": "Değişim %",
+    "leading_board_label": "Öne Çıkan",
+    "lagging_board_label": "Geride Kalan",
+    "signal_attribution_heading": "Sinyal Kaynakları",
+    "attribution_weights_label": "Katkı Ağırlıkları",
+    "technical_indicators_label": "Teknik Göstergeler",
+    "news_sentiment_label": "Haber Duyarlılığı",
+    "fundamentals_label": "Temel Veriler",
+    "market_conditions_label": "Piyasa Koşulları",
+    "strongest_bullish_signal_label": "En Güçlü Yükseliş Sinyali",
+    "strongest_bearish_signal_label": "En Güçlü Düşüş Sinyali",
+    "strategy_synthesis_heading": "Strateji Özeti",
+    "strategy_final_signal_label": "Nihai Sinyal",
+    "strategy_consensus_level_label": "Uzlaşma Düzeyi",
+    "strategy_conflict_label": "Çelişki",
+    "strategy_confidence_label": "Güven",
+    "strategy_summary_label": "Özet",
+    "strategy_supporting_skills_label": "Destekleyen Stratejiler",
+    "strategy_opposing_skills_label": "Karşıt Stratejiler",
+    "strategy_invalid_opinions_label": "{count} strateji geçerli sinyal üretemedi",
+}}
+
+for _key, _translations in _OPERATION_ADVICE_TRANSLATIONS.items():
+    _translations["tr"] = {"strong_buy":"Güçlü Al","buy":"Al","hold":"Tut","watch":"İzle","reduce":"Azalt","sell":"Sat","strong_sell":"Güçlü Sat"}.get(_key, _translations["en"])
+
+for _key, _translations in _TREND_PREDICTION_TRANSLATIONS.items():
+    _translations["tr"] = {"strong_bullish":"Güçlü Yükseliş","bullish":"Yükseliş","sideways":"Yatay","bearish":"Düşüş","strong_bearish":"Güçlü Düşüş"}.get(_key, _translations["en"])
+
+for _key, _translations in _CONFIDENCE_LEVEL_TRANSLATIONS.items():
+    _translations["tr"] = {"high":"Yüksek","medium":"Orta","low":"Düşük"}.get(_key, _translations["en"])
+
+for _key, _translations in _STRATEGY_SIGNAL_TRANSLATIONS.items():
+    _translations["tr"] = {"strong_buy":"Güçlü Al","buy":"Al","hold":"Tut","sell":"Sat","strong_sell":"Güçlü Sat"}.get(_key, _translations["en"])
+
+for _key, _translations in _CONSENSUS_LEVEL_TRANSLATIONS.items():
+    _translations["tr"] = {"high":"Yüksek","medium":"Orta","low":"Düşük","insufficient":"Yetersiz"}.get(_key, _translations["en"])
+
+for _key, _translations in _CONFLICT_SEVERITY_TRANSLATIONS.items():
+    _translations["tr"] = {"none":"Yok","low":"Düşük","medium":"Orta","high":"Yüksek"}.get(_key, _translations["en"])
+
+for _key, _translations in _CHIP_HEALTH_TRANSLATIONS.items():
+    _translations["tr"] = {"healthy":"Sağlıklı","average":"Orta","caution":"Dikkat"}.get(_key, _translations["en"])
+
+for _key, _translations in _BIAS_STATUS_TRANSLATIONS.items():
+    _translations["tr"] = {"safe":"Güvenli","caution":"Dikkat","danger":"Tehlikeli"}.get(_key, _translations["en"])
+
+for _translations in _STRATEGY_SKILL_TRANSLATIONS.values():
+    _translations["tr"] = _translations["en"]
+
+_PLACEHOLDER_BY_LANGUAGE["tr"] = "Belirlenecek"
+_UNKNOWN_BY_LANGUAGE["tr"] = "Bilinmiyor"
+_NO_DATA_BY_LANGUAGE["tr"] = "Veri yok"
+_CHIP_UNAVAILABLE_BY_LANGUAGE["tr"] = "Maliyet dağılımı verisi kullanılamıyor; bu gösterge analize katılmadı."
+_GENERIC_STOCK_NAME_BY_LANGUAGE["tr"] = "Adsız Hisse"
+
 _DECISION_INTENT_NEGATIONS = (
     "不",
     "并非",
@@ -1106,7 +1264,7 @@ def localize_strategy_conflict_description(conflict_type: Any, language: Optiona
         },
     }
     localized = translations.get(key, {})
-    return localized.get(lang) or localized.get("zh") or key
+    return localized.get(lang) or localized.get("en") or key
 
 
 def normalize_strategy_synthesis_payload(value: Any) -> Dict[str, Any]:
@@ -1174,6 +1332,10 @@ def localize_strategy_synthesis_summary(strategy_synthesis: Any, language: Optio
     consensus_level = localize_consensus_level(strategy_synthesis.get("consensus_level"), lang)
     conflict_severity = localize_conflict_severity(strategy_synthesis.get("conflict_severity"), lang)
     conflict_count = strategy_synthesis.get("conflict_count", 0)
+    if lang == "tr":
+        if conflict_count:
+            return f"{opinion_count} stratejinin ortak değerlendirmesi: nihai sinyal {final_signal}, uzlaşma {consensus_level}, çelişki seviyesi {conflict_severity}."
+        return f"{opinion_count} stratejinin ortak değerlendirmesi: nihai sinyal {final_signal}, uzlaşma {consensus_level}; çelişki tespit edilmedi."
     if lang == "en":
         if conflict_count:
             base = f"Strategy synthesis from {opinion_count} strategies: final signal is {final_signal}, consensus level is {consensus_level}, conflict severity is {conflict_severity}."
@@ -1308,6 +1470,16 @@ def get_localized_stock_name(value: Any, code: Any, language: Optional[str]) -> 
 def get_sentiment_label(score: int, language: Optional[str]) -> str:
     """Return localized sentiment label by score band."""
     normalized = normalize_report_language(language)
+    if normalized == "tr":
+        if score >= 80:
+            return "Çok Olumlu"
+        if score >= 60:
+            return "Olumlu"
+        if score >= 40:
+            return "Nötr"
+        if score >= 20:
+            return "Olumsuz"
+        return "Çok Olumsuz"
     if normalized == "en":
         if score >= 80:
             return "Very Bullish"
