@@ -23,6 +23,21 @@ def test_trading_dates_preserve_session_labels_with_utc_timezone():
     assert result.equals(sessions.tz_localize(None))
 
 
+def test_hk_sessions_keep_utc_calendar_date_labels_without_local_shift():
+    """HK session labels represent calendar dates, not Hong Kong wall-clock instants."""
+    sessions = pd.to_datetime(["2024-01-02", "2024-01-03"], utc=True)
+    calendar = SimpleNamespace(sessions_in_range=lambda start, end: sessions)
+
+    with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
+            patch.object(trading_calendar.xcals, "get_calendar", return_value=calendar) as get_calendar:
+        result = trading_calendar.get_trading_dates("hk", date(2024, 1, 2), date(2024, 1, 3))
+
+    get_calendar.assert_called_once_with("XHKG")
+    assert isinstance(result, pd.DatetimeIndex)
+    assert result.tz is None
+    assert result.equals(pd.DatetimeIndex(["2024-01-02", "2024-01-03"]))
+
+
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
     with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
             patch.object(trading_calendar.xcals, "get_calendar", side_effect=ValueError("out of range")):
