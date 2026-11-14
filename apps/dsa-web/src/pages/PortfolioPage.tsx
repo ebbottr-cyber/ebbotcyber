@@ -9,7 +9,7 @@ import { getParsedApiError } from '../api/error';
 import { ApiErrorAlert, Card, Badge, ConfirmDialog, EmptyState, InlineAlert, StatusDot } from '../components/common';
 import { PortfolioSignalSummary } from '../components/decision-signals/DecisionSignalDisplay';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
-import { formatUiText } from '../i18n/uiText';
+import { formatUiText, type UiLanguage } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
 import type { FxRefreshFeedback } from '../utils/portfolioFormat';
 import {
@@ -82,20 +82,23 @@ type PortfolioSignalLookupResult = {
   error: string | null;
 };
 
-type PortfolioPageLanguage = 'zh' | 'en';
+type PortfolioPageLanguage = UiLanguage;
 
 const PORTFOLIO_LIMITATION_LABELS: Record<string, Record<PortfolioPageLanguage, string>> = {
   realtime_quote_best_effort: {
     zh: '实时行情为尽力获取',
     en: 'Realtime quotes are best-effort',
+    tr: 'Anlık fiyatlar mümkün olduğu ölçüde alınır',
   },
   fx_and_cost_basis_partial: {
     zh: '汇率与成本基础为部分口径',
     en: 'FX and cost basis are partial',
+    tr: 'Döviz kuru ve maliyet verileri kısmen mevcut',
   },
   sector_and_risk_metrics_limited: {
     zh: '行业与风险指标覆盖有限',
     en: 'Sector and risk metrics are limited',
+    tr: 'Sektör ve risk göstergelerinin kapsamı sınırlı',
   },
 };
 
@@ -174,7 +177,34 @@ const PORTFOLIO_RISK_DASHBOARD_TEXT = {
     snapshotUnavailable: 'Portfolio snapshot unavailable',
     snapshotUnavailableDescription: 'Holdings and valuation are unknown. Refresh to try again.',
   },
-} as const;
+  tr: {
+    title: 'Risk ve Maruziyet Paneli',
+    riskFlags: 'Risk İşaretleri',
+    marketExposure: 'Piyasa Maruziyeti',
+    currencyExposure: 'Döviz Maruziyeti',
+    noExposure: 'Maruziyet verisi bulunamadı',
+    exposureUnavailable: 'Maruziyet verisi kullanılamıyor',
+    concentration: 'Pozisyon Yoğunlaşması',
+    sector: 'Sektör Yoğunlaşması',
+    drawdown: 'Gerileme',
+    stopLoss: 'Zarar Durdur',
+    aiSignal: 'Yapay Zekâ Sinyalleri',
+    priceQuality: 'Fiyat Verisi Kalitesi',
+    active: 'İşlem Gerekiyor',
+    stable: 'Normal',
+    unavailable: 'Kullanılamıyor',
+    maxDrawdown: 'Azami Gerileme',
+    topPosition: 'En Büyük Pozisyon',
+    topSector: 'En Büyük Sektör',
+    triggered: 'Tetiklendi',
+    near: 'Yakın',
+    missingPrice: 'Fiyat Eksik',
+    stalePrice: 'Güncel Olmayan Fiyat',
+    positions: 'Pozisyonlar',
+    snapshotUnavailable: 'Portföy Özeti Kullanılamıyor',
+    snapshotUnavailableDescription: 'Pozisyonlar ve değerleme doğrulanamıyor. Yenilemeyi deneyin.',
+  },
+} as const satisfies Record<PortfolioPageLanguage, Record<string, string>>;
 
 type RiskDashboardText = typeof PORTFOLIO_RISK_DASHBOARD_TEXT[PortfolioPageLanguage];
 type PortfolioRiskFlagTone = 'success' | 'warning' | 'danger' | 'neutral';
