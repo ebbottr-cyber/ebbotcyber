@@ -241,16 +241,14 @@ const UNKNOWN_REASON_DETAILS_BASE: Record<Exclude<ReportLanguage, 'tr'>, string>
   en: 'No specific reason was recorded; review the status, source, and warnings',
   ko: '명확한 원인이 기록되지 않았습니다. 상태, 출처 및 경고를 함께 확인하세요',
 };
-const UNKNOWN_REASON_DETAILS = {
+const UNKNOWN_REASON_DETAILS: Record<ReportLanguage, string> = {
   ...UNKNOWN_REASON_DETAILS_BASE,
-  tr: {
-    ...UNKNOWN_REASON_DETAILS_BASE.en,
-  },
-} as const;
+  tr: 'Açık bir neden kaydedilmedi; durum, veri kaynağı ve uyarıları inceleyin',
+};
 
 
 const STATUS_FALLBACK_GUIDANCE_BASE: Record<
-  ReportLanguage,
+  Exclude<ReportLanguage, 'tr'>,
   Partial<Record<AnalysisContextPackBlockStatus, string>>
 > = {
   zh: {
