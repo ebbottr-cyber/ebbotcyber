@@ -10,8 +10,7 @@ from datetime import date
 from unittest.mock import patch
 
 import pandas as pd
-import pytest
-from sqlalchemy import and_, create_engine as sqlalchemy_create_engine, inspect, select, text
+from sqlalchemy import Index, and_, create_engine as sqlalchemy_create_engine, inspect, select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import func
 
@@ -403,18 +402,8 @@ class TestStorage(unittest.TestCase):
             DatabaseManager.reset_instance()
             temp_dir.cleanup()
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=AssertionError,
-        reason="Issue #4: legacy SQLite rebuild does not recreate secondary query indexes",
-    )
     def test_legacy_intelligence_items_rebuild_preserves_secondary_indexes(self) -> None:
-        """Expected-to-fail contract: migration must retain named query indexes.
-
-        Keep this as a strict xfail until the separate, data-safe migration
-        repair is complete. An unexpected pass intentionally fails CI so the
-        marker cannot silently outlive the fix.
-        """
+        """Migration must preserve the named secondary query indexes."""
         temp_dir = tempfile.TemporaryDirectory()
         db_path = os.path.join(temp_dir.name, "legacy_intel_indexes.sqlite")
         try:
@@ -477,6 +466,106 @@ class TestStorage(unittest.TestCase):
                 ["scope_type", "scope_value", "market", "published_at"],
             )
             self.assertEqual(after.get("ix_intel_item_fetch_time"), ["fetched_at"])
+            # A second database initialization must not recreate the table
+            # or discard indexes restored by the first migration.
+            DatabaseManager.reset_instance()
+            DatabaseManager(db_url=f"sqlite:///{db_path}")
+            self.assertEqual(
+                self._list_sqlite_indexes(db_path, "intelligence_items"),
+                after,
+            )
+            with sqlite3.connect(db_path) as conn:
+                foreign_keys = conn.execute(
+                    "PRAGMA foreign_key_list(intelligence_items)"
+                ).fetchall()
+            self.assertTrue(
+                any(
+                    row[2] == "intelligence_sources"
+                    and row[3] == "source_id"
+                    and row[6].upper() == "SET NULL"
+                    for row in foreign_keys
+                )
+            )
+        finally:
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            temp_dir.cleanup()
+
+    def test_legacy_intelligence_items_rebuild_failure_rolls_back_ddl(self) -> None:
+        """An index creation failure must leave the old table intact."""
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "legacy_intel_rollback.sqlite")
+        try:
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """CREATE TABLE intelligence_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER,
+                        source_name TEXT,
+                        source_type TEXT NOT NULL DEFAULT 'rss',
+                        title TEXT NOT NULL,
+                        summary TEXT,
+                        url TEXT NOT NULL,
+                        source TEXT,
+                        published_at DATETIME,
+                        fetched_at DATETIME,
+                        scope_type TEXT NOT NULL DEFAULT 'market',
+                        scope_value TEXT,
+                        market TEXT NOT NULL DEFAULT 'cn',
+                        raw_payload TEXT
+                    )"""
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX legacy_intel_url_unique "
+                    "ON intelligence_items(url)"
+                )
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_fetch_time "
+                    "ON intelligence_items(fetched_at)"
+                )
+                conn.execute(
+                    "INSERT INTO intelligence_items "
+                    "(id, title, url, scope_type, scope_value, market) "
+                    "VALUES (1, 'before migration', 'https://example.org/1', "
+                    "'market', 'scope', 'cn')"
+                )
+
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            original_create = Index.create
+
+            def fail_after_table_rename(index, bind, *args, **kwargs):
+                if index.name == "ix_intel_item_fetch_time":
+                    raise RuntimeError("injected index recreation failure")
+                return original_create(index, bind, *args, **kwargs)
+
+            with patch.object(Index, "create", new=fail_after_table_rename):
+                with self.assertRaisesRegex(
+                    RuntimeError, "injected index recreation failure"
+                ):
+                    DatabaseManager(db_url=f"sqlite:///{db_path}")
+
+            # The forced failure happens after DROP/RENAME, so surviving
+            # original data/indexes prove SQLite DDL rollback was atomic.
+            with sqlite3.connect(db_path) as conn:
+                rows = conn.execute(
+                    "SELECT id, title, url, scope_value FROM intelligence_items"
+                ).fetchall()
+                indexes = self._list_sqlite_indexes(db_path, "intelligence_items")
+                temporary_tables = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name LIKE 'intelligence_items_recreate_tmp_%'"
+                ).fetchall()
+            self.assertEqual(
+                rows,
+                [(1, "before migration", "https://example.org/1", "scope")],
+            )
+            self.assertEqual(indexes.get("legacy_intel_url_unique"), ["url"])
+            self.assertEqual(
+                indexes.get("ix_intel_item_fetch_time"), ["fetched_at"]
+            )
+            self.assertNotIn("uix_intel_item_scope", indexes)
+            self.assertEqual(temporary_tables, [])
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()

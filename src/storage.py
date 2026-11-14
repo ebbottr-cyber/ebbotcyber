@@ -2173,22 +2173,50 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         scoped_index_columns = ", ".join(["source_id", "url", "scope_type", "scope_value", "market"])
         scoped_index_name = "uix_intel_item_scope"
 
+        # Use SQLAlchemy's public metadata copy API instead of deprecated
+        # Column.copy(). Keep the source table in this *metadata only* so
+        # the item's foreign key can be resolved on the temporary table.
         tmp_metadata = MetaData()
-        tmp_table = Table(
-            temporary_table,
-            tmp_metadata,
-            *(column.copy() for column in IntelligenceItem.__table__.columns),
+        IntelligenceSource.__table__.to_metadata(tmp_metadata)
+        tmp_table = IntelligenceItem.__table__.to_metadata(
+            tmp_metadata, name=temporary_table
         )
+        # The legacy table still owns its named indexes until it is dropped.
+        # Creating any copied index now can collide with those names. Also
+        # avoid copying the ORM's UniqueConstraint: this migration intentionally
+        # replaces legacy URL-only uniqueness with the scoped index below.
+        for index in list(tmp_table.indexes):
+            tmp_table.indexes.remove(index)
+        for constraint in list(tmp_table.constraints):
+            if isinstance(constraint, UniqueConstraint):
+                tmp_table.constraints.remove(constraint)
+
         logger.info("Rebuilding intelligence_items table to align composite uniqueness constraints.")
         with self._engine.begin() as connection:
+            # sqlite3 can autocommit DDL without an explicit BEGIN; acquire the
+            # writer lock before any CREATE/DROP/RENAME so a later failure
+            # rolls back the entire table replacement and preserves the old
+            # rows and indexes. This matches _run_write_transaction's policy.
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
             connection.execute(text(f'DROP TABLE IF EXISTS "{temporary_table}"'))
             tmp_table.create(connection)
+            source_count = connection.execute(
+                text('SELECT COUNT(*) FROM "intelligence_items"')
+            ).scalar_one()
             connection.execute(
                 text(
                     f"INSERT INTO \"{temporary_table}\" ({select_clause}) "
                     f"SELECT {select_clause} FROM intelligence_items"
                 )
             )
+            copied_count = connection.execute(
+                text(f'SELECT COUNT(*) FROM "{temporary_table}"')
+            ).scalar_one()
+            if copied_count != source_count:
+                raise RuntimeError(
+                    "intelligence_items migration row-count mismatch: "
+                    f"source={source_count} copied={copied_count}"
+                )
             connection.execute(text('DROP TABLE "intelligence_items"'))
             connection.execute(
                 text(f'ALTER TABLE "{temporary_table}" RENAME TO intelligence_items')
@@ -2199,6 +2227,14 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
                     f"intelligence_items ({scoped_index_columns})"
                 )
             )
+            # DROP TABLE removes secondary indexes, so reconstruct every
+            # current ORM-declared index against the *renamed* target table.
+            # Do not create them against the temporary table: those would
+            # inherit the temporary name or collide with existing indexes.
+            for index in sorted(
+                IntelligenceItem.__table__.indexes, key=lambda idx: idx.name
+            ):
+                index.create(connection, checkfirst=True)
 
     def _ensure_intelligence_items_scoped_unique_index_once(self) -> None:
         target_index_name = "uix_intel_item_scope"
