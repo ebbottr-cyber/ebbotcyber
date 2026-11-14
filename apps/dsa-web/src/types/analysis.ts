@@ -642,10 +642,10 @@ export const getSentimentLabel = (score: number, language: ReportLanguage = 'zh'
     return 'Very Bullish';
   }
   if (language === 'tr') {
-    if (score <= 20) return 'Çok Olumsuz';
-    if (score <= 40) return 'Olumsuz';
-    if (score <= 60) return 'Nötr';
-    if (score <= 80) return 'Olumlu';
+    if (score < 20) return 'Çok Olumsuz';
+    if (score < 40) return 'Olumsuz';
+    if (score < 60) return 'Nötr';
+    if (score < 80) return 'Olumlu';
     return 'Çok Olumlu';
   }
   if (language === 'ko') {
