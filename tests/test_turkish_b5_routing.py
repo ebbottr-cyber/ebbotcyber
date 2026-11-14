@@ -19,6 +19,8 @@ from src.share_image import (
     _POSTER_TEXT,
     _poster_html_language,
     _poster_label,
+    _is_market_review_title,
+    _market_label,
     _poster_language,
     _poster_text,
 )
@@ -88,3 +90,10 @@ def test_share_poster_preserves_english_and_korean():
     assert _poster_text("en", "brand") == "AI Stock Analysis"
     assert _poster_text("ko", "brand") == "AI 주식 분석"
     assert all(key in _POSTER_TEXT["tr"] for key in _POSTER_TEXT["en"])
+
+
+def test_share_poster_turkish_market_review_recognition():
+    assert _is_market_review_title("Piyasa Değerlendirmesi")
+    assert _is_market_review_title("ABD Hisse Piyasası Özeti")
+    assert _market_label("ABD Hisse Piyasası Özeti") == "美股"
+    assert _market_label("Çin Hisse Piyasası Özeti") == "A股"
