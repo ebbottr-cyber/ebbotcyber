@@ -79,6 +79,36 @@ class MarketReviewLocalizationTestCase(unittest.TestCase):
                     expected,
                 )
 
+    def test_turkish_us_market_review_headings(self) -> None:
+        labels = market_review_module._get_market_review_text("tr")
+        self.assertEqual(labels["root_title"], "# 🎯 Piyasa Değerlendirmesi")
+        self.assertEqual(labels["us_title"], "# ABD Hisse Piyasası Özeti")
+        self.assertEqual(
+            market_review_module._get_market_review_market_heading("tr", "us"),
+            "ABD Hisse Piyasası Özeti",
+        )
+
+    def test_turkish_sector_fallback_renders_once(self) -> None:
+        payload = {
+            "language": "tr",
+            "sectors": {
+                "top": [{"name": "Technology", "change_pct": 2.5}],
+                "bottom": [{"name": "Utilities", "change_pct": -1.2}],
+            },
+        }
+        rendered = market_review_module._render_sector_payload_markdown_block(payload)
+        self.assertIn("### Sektör Özeti", rendered)
+        self.assertIn("#### Yükselen Sektörler", rendered)
+        self.assertIn("#### Gerileyen Sektörler", rendered)
+        self.assertIn("| Sıra | Sektör | Değişim |", rendered)
+        self.assertTrue(market_review_module._markdown_has_sector_table(rendered))
+
+    def test_turkish_market_review_fallback_summary(self) -> None:
+        self.assertEqual(
+            market_review_module._summarize_market_review("", "tr"),
+            "Piyasa değerlendirme raporu oluşturuldu.",
+        )
+
     def test_run_market_review_uses_english_notification_title(self) -> None:
         notifier = self._make_notifier()
         market_analyzer = MagicMock()
