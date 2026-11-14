@@ -40,6 +40,15 @@ class DecisionAgentLanguageDirectiveTestCase(unittest.TestCase):
         prompt = self._system_prompt("ko", chat=True)
         self.assertIn("항상 한국어로 답변하세요.", prompt)
 
+    def test_turkish_dashboard_directive(self) -> None:
+        prompt = self._system_prompt("tr")
+        self.assertIn("Write all human-readable JSON values in Turkish (Türkçe).", prompt)
+        self.assertIn("Keep every JSON key unchanged.", prompt)
+
+    def test_turkish_chat_directive(self) -> None:
+        prompt = self._system_prompt("tr", chat=True)
+        self.assertIn("Her zaman Türkçe yanıt ver.", prompt)
+
     def test_english_directive_unchanged(self) -> None:
         prompt = self._system_prompt("en")
         self.assertIn("Write all human-readable JSON values in English.", prompt)
@@ -54,6 +63,14 @@ class StructuralLanguageRoutingTestCase(unittest.TestCase):
         self.assertEqual(normalize_analysis_context_pack_language("ko"), "en")
         self.assertEqual(normalize_analysis_context_pack_language("en"), "en")
         self.assertEqual(normalize_analysis_context_pack_language("zh"), "zh")
+
+    def test_turkish_context_pack_reuses_english_scaffolding(self) -> None:
+        self.assertEqual(normalize_analysis_context_pack_language("tr"), "en")
+
+    def test_turkish_market_phase_matches_english_structure(self) -> None:
+        tr_section = format_market_phase_prompt_section(_phase_ctx(), report_language="tr")
+        en_section = format_market_phase_prompt_section(_phase_ctx(), report_language="en")
+        self.assertEqual(tr_section, en_section)
 
     def test_market_phase_korean_matches_english_structure(self) -> None:
         ko_section = format_market_phase_prompt_section(_phase_ctx(), report_language="ko")
