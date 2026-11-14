@@ -402,6 +402,124 @@ class TestStorage(unittest.TestCase):
             DatabaseManager.reset_instance()
             temp_dir.cleanup()
 
+    def test_already_migrated_intelligence_items_restores_missing_indexes_without_rebuild(self) -> None:
+        """Index-only recovery must not rewrite existing rows or table DDL."""
+        DatabaseManager.reset_instance()
+        Config.reset_instance()
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "previously_migrated_intel.sqlite")
+        try:
+            # The old migration finished with the new scoped unique index,
+            # but lost both key query indexes when the source table was dropped.
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    """CREATE TABLE intelligence_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER,
+                        source_name TEXT,
+                        source_type TEXT NOT NULL DEFAULT 'rss',
+                        title TEXT NOT NULL,
+                        summary TEXT,
+                        url TEXT NOT NULL,
+                        source TEXT,
+                        published_at DATETIME,
+                        fetched_at DATETIME,
+                        scope_type TEXT NOT NULL DEFAULT 'market',
+                        scope_value TEXT,
+                        market TEXT NOT NULL DEFAULT 'cn',
+                        raw_payload TEXT
+                    )"""
+                )
+                conn.execute(
+                    "CREATE UNIQUE INDEX uix_intel_item_scope "
+                    "ON intelligence_items(source_id, url, scope_type, scope_value, market)"
+                )
+                conn.execute(
+                    "CREATE INDEX ix_intel_item_custom_keep "
+                    "ON intelligence_items(title)"
+                )
+                conn.execute(
+                    "INSERT INTO intelligence_items "
+                    "(id, title, url, source_type, scope_type, scope_value, market, raw_payload) "
+                    "VALUES (7, 'existing', 'https://example.org/item/7', "
+                    "'rss', 'market', 'scope-value', 'cn', 'original-payload')"
+                )
+                schema_before = conn.execute(
+                    "SELECT sql FROM sqlite_master "
+                    "WHERE type = 'table' AND name = 'intelligence_items'"
+                ).fetchone()[0]
+                rows_before = conn.execute(
+                    "SELECT * FROM intelligence_items ORDER BY id"
+                ).fetchall()
+            indexes_before = self._list_sqlite_indexes(
+                db_path, "intelligence_items"
+            )
+            self.assertNotIn("ix_intel_item_scope_time", indexes_before)
+            self.assertNotIn("ix_intel_item_fetch_time", indexes_before)
+
+            with patch.object(
+                DatabaseManager,
+                "_rebuild_intelligence_items_table",
+                side_effect=AssertionError("already-migrated table must not rebuild"),
+            ):
+                DatabaseManager(db_url=f"sqlite:///{db_path}")
+
+            indexes_after = self._list_sqlite_indexes(
+                db_path, "intelligence_items"
+            )
+            self.assertEqual(
+                indexes_after.get("ix_intel_item_scope_time"),
+                ["scope_type", "scope_value", "market", "published_at"],
+            )
+            self.assertEqual(
+                indexes_after.get("ix_intel_item_fetch_time"), ["fetched_at"]
+            )
+            self.assertEqual(
+                indexes_after.get("ix_intel_item_custom_keep"), ["title"]
+            )
+            self.assertEqual(
+                indexes_after.get("uix_intel_item_scope"),
+                ["source_id", "url", "scope_type", "scope_value", "market"],
+            )
+            with sqlite3.connect(db_path) as conn:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT * FROM intelligence_items ORDER BY id"
+                    ).fetchall(),
+                    rows_before,
+                )
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT sql FROM sqlite_master "
+                        "WHERE type = 'table' AND name = 'intelligence_items'"
+                    ).fetchone()[0],
+                    schema_before,
+                )
+
+            # Repeated initialization must be idempotent.
+            DatabaseManager.reset_instance()
+            with patch.object(
+                DatabaseManager,
+                "_rebuild_intelligence_items_table",
+                side_effect=AssertionError("repeat startup must not rebuild"),
+            ):
+                DatabaseManager(db_url=f"sqlite:///{db_path}")
+            self.assertEqual(
+                self._list_sqlite_indexes(db_path, "intelligence_items"),
+                indexes_after,
+            )
+            with sqlite3.connect(db_path) as conn:
+                self.assertEqual(
+                    conn.execute(
+                        "SELECT * FROM intelligence_items ORDER BY id"
+                    ).fetchall(),
+                    rows_before,
+                )
+        finally:
+            DatabaseManager.reset_instance()
+            Config.reset_instance()
+            temp_dir.cleanup()
+
     def test_legacy_intelligence_items_rebuild_preserves_secondary_indexes(self) -> None:
         """Migration must preserve the named secondary query indexes."""
         temp_dir = tempfile.TemporaryDirectory()

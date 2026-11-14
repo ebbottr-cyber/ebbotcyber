@@ -1458,6 +1458,9 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             self._ensure_intelligence_item_scope_values()
             self._ensure_schema_migration_record()
             self._ensure_intelligence_items_unique_index()
+            # Restore indexes omitted by prior legacy SQLite migrations;
+            # do not rewrite an already-migrated table or its rows.
+            self._ensure_intelligence_items_secondary_indexes()
             self._ensure_chat_session_schema()
 
             self._initialized = True
@@ -2165,6 +2168,93 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             return
 
         self._rebuild_intelligence_items_table()
+
+    def _ensure_intelligence_items_secondary_indexes(self) -> None:
+        """Restore missing ORM indexes on already-migrated SQLite tables.
+
+        An older legacy rebuild kept scoped uniqueness but dropped secondary
+        indexes. This must only CREATE missing indexes; never rebuild a table
+        or alter existing indexes and data during startup.
+        """
+        if not self._is_sqlite_engine:
+            return
+        with self._engine.begin() as connection:
+            inspector = inspect(connection)
+            if not inspector.has_table(IntelligenceItem.__tablename__):
+                return
+
+            existing_columns = {
+                column["name"]
+                for column in inspector.get_columns(IntelligenceItem.__tablename__)
+            }
+            existing_indexes = {}
+            for row in connection.exec_driver_sql(
+                'PRAGMA index_list("intelligence_items")'
+            ):
+                index_name = str(row[1])
+                escaped = index_name.replace('"', '""')
+                index_columns = tuple(
+                    info[2]
+                    for info in connection.exec_driver_sql(
+                        f'PRAGMA index_xinfo("{escaped}")'
+                    )
+                    if info[2] is not None and int(info[5]) == 1
+                )
+                existing_indexes[index_name] = (bool(row[2]), index_columns)
+
+            scoped_unique = (
+                "source_id", "url", "scope_type", "scope_value", "market"
+            )
+            if not any(
+                unique and columns == scoped_unique
+                for unique, columns in existing_indexes.values()
+            ):
+                # Incompatible or still-legacy tables need the distinct
+                # uniqueness migration, not an index-only repair.
+                return
+
+            for index in sorted(
+                IntelligenceItem.__table__.indexes, key=lambda idx: idx.name
+            ):
+                if index.unique or not index.name:
+                    continue
+                expected_columns = tuple(column.name for column in index.columns)
+                missing_columns = set(expected_columns) - existing_columns
+                if missing_columns:
+                    logger.warning(
+                        "[Intelligence items] cannot restore index %s: "
+                        "missing columns %s",
+                        index.name, sorted(missing_columns),
+                    )
+                    continue
+                if index.name in existing_indexes:
+                    unique, actual_columns = existing_indexes[index.name]
+                    if unique or actual_columns != expected_columns:
+                        logger.warning(
+                            "[Intelligence items] index %s has columns %s "
+                            "(expected %s); leaving existing index intact",
+                            index.name, actual_columns, expected_columns,
+                        )
+                    continue
+
+                # SQLite index names are unique across the database; never
+                # collide with a user-created index on another table.
+                occupied_by = connection.execute(
+                    text(
+                        "SELECT tbl_name FROM sqlite_master "
+                        "WHERE type = 'index' AND name = :index_name"
+                    ),
+                    {"index_name": index.name},
+                ).scalar_one_or_none()
+                if occupied_by is not None:
+                    logger.warning(
+                        "[Intelligence items] index name %s belongs to %s; "
+                        "skipping non-destructive repair",
+                        index.name, occupied_by,
+                    )
+                    continue
+
+                index.create(connection, checkfirst=True)
 
     def _rebuild_intelligence_items_table(self) -> None:
         temporary_table = f"intelligence_items_recreate_tmp_{int(time.time() * 1_000_000_000)}"
