@@ -39,7 +39,10 @@ def test_agent_turkish_chat_and_dashboard_prompts():
 
 def test_agent_turkish_request_field():
     agent = AgentExecutor.__new__(AgentExecutor)
-    result = agent._build_user_message("Analyze AAPL", {"stock_code": "AAPL", "report_language": "tr"})
+    result = agent._build_user_message("Analyze AAPL", {"stock_code": "AAPL", "report_type": "detailed", "report_language": "tr"})
+    assert "Hisse Kodu: AAPL" in result
+    assert "Rapor Türü: detailed" in result
+    assert "股票代码" not in result
     assert "Çıktı dili: Türkçe" in result
     assert "输出语言: 中文" not in result
 
