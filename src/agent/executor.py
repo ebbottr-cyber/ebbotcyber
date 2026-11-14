@@ -881,9 +881,11 @@ class AgentExecutor:
         if context:
             report_language = normalize_report_language(context.get("report_language", "zh"))
             if context.get("stock_code"):
-                parts.append(f"\n股票代码: {context['stock_code']}")
+                prefix = "Hisse Kodu" if report_language == "tr" else "股票代码"
+                parts.append(f"\n{prefix}: {context['stock_code']}")
             if context.get("report_type"):
-                parts.append(f"报告类型: {context['report_type']}")
+                prefix = "Rapor Türü" if report_language == "tr" else "报告类型"
+                parts.append(f"{prefix}: {context['report_type']}")
             if report_language == "en":
                 parts.append("输出语言: English（所有 JSON 键名保持不变，所有面向用户的文本值使用英文）")
             elif report_language == "ko":
