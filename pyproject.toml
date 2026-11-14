@@ -28,6 +28,8 @@ exclude_dirs = ["tests", "test_*.py"]
 skips = ["B101"]  # assert 语句在测试中是允许的
 
 [tool.pytest.ini_options]
+# Show why tests were skipped in CI without altering test selection or outcomes.
+addopts = "-rs"
 markers = [
     "benchmark: performance tests for name-to-code resolution",
     "network: integration tests requiring live external network access",
