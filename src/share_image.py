@@ -88,6 +88,48 @@ _POSTER_TEXT = {
         "disclaimer": "AI-generated for research only; not investment advice. Markets involve risk.",
         "source": "Source",
     },
+    "tr": {
+        "brand": "EBBOT-CYBER Hisse Analizi",
+        "stock_subtitle": "Hisse karar kartı · değerlendirme, seviyeler ve riskler",
+        "market_subtitle": "Endeksler, piyasa genişliği, sektörler ve risklerin kapanış özeti",
+        "multi_title": "Çoklu Piyasa Özeti",
+        "multi_subtitle": "Piyasa bazında endeksler, sektörler ve risk sınırları",
+        "dashboard_subtitle": "Çoklu Hisse Karar Özeti",
+        "score": "Puan",
+        "confidence": "Güven",
+        "trend": "Trend",
+        "core": "Temel Sonuç",
+        "snapshot": "Piyasa Görünümü",
+        "execution": "İşlem Planı",
+        "technical": "Teknik Değerlendirme",
+        "next_watch": "Sonraki Kontrol",
+        "positive_catalysts": "Olumlu Gelişmeler",
+        "risk_alerts": "Risk Uyarıları",
+        "catalysts_risks": "Gelişmeler ve Riskler",
+        "no_position": "Pozisyon Yok",
+        "holding": "Pozisyon Var",
+        "position": "Pozisyon",
+        "entry": "Giriş",
+        "risk_control": "Risk Yönetimi",
+        "position_advice": "Pozisyon Önerisi",
+        "market_signal": "Piyasa Sinyali",
+        "today_conclusion": "Güncel Sonuç",
+        "breadth": "Piyasa Genişliği",
+        "dimensions": "Sinyal Dağılımı",
+        "leaders": "Yükselen Sektörler",
+        "laggards": "Gerileyen Sektörler",
+        "focus_tag": "İzle",
+        "avoid_tag": "Uzak Dur",
+        "focus": "İzlenecekler",
+        "funds": "Para Akışı",
+        "strategy": "Sonraki Seans Planı",
+        "risks": "Risk Uyarıları",
+        "tagline": "Hisse analizlerini daha anlaşılır hâle getirin",
+        "open_source": "Açık Kaynak · GitHub",
+        "xiaohongshu": "Xiaohongshu",
+        "disclaimer": "Yapay zekâ tarafından oluşturulmuştur; yatırım tavsiyesi değildir. Piyasalarda risk vardır.",
+        "source": "Veri Kaynağı",
+    },
     "ko": {
         "brand": "AI 주식 분석", "stock_subtitle": "종목 의사결정 카드 · 결론, 가격대, 리스크",
         "market_subtitle": "지수, 시장 폭, 주도주와 리스크 마감 리뷰", "multi_title": "다중 시장 리뷰",
@@ -115,6 +157,35 @@ _POSTER_LABELS = {
         "行动窗口": "Action Window", "下次检查": "Next Check", "上涨": "Advancers", "下跌": "Decliners",
         "涨停": "Limit-up", "跌停": "Limit-down", "成交额": "Turnover", "赚钱效应": "Breadth Score",
         "指数强度": "Index Strength", "涨停结构": "Limit Structure",
+    },
+    "tr": {
+        "当前/收盘": "Güncel/Kapanış",
+        "现价": "Güncel Fiyat",
+        "涨跌幅": "Değişim %",
+        "涨跌": "Değişim",
+        "量比": "Hacim Oranı",
+        "换手率": "Devir Oranı",
+        "换手": "Devir",
+        "理想买入": "İdeal Alım",
+        "确认买入": "Onaylı Alım",
+        "止损": "Zarar Durdur",
+        "目标": "Hedef",
+        "均线": "Hareketli Ortalamalar",
+        "量能": "Hacim",
+        "趋势分": "Trend Puanı",
+        "MA5乖离": "MA5 Sapması",
+        "支撑": "Destek",
+        "压力": "Direnç",
+        "行动窗口": "İşlem Zamanı",
+        "下次检查": "Sonraki Kontrol",
+        "上涨": "Yükselenler",
+        "下跌": "Düşenler",
+        "涨停": "Tavan",
+        "跌停": "Taban",
+        "成交额": "İşlem Tutarı",
+        "赚钱效应": "Piyasa Genişliği",
+        "指数强度": "Endeks Gücü",
+        "涨停结构": "Tavan Dağılımı",
     },
     "ko": {
         "当前/收盘": "현재/종가", "现价": "현재가", "涨跌幅": "등락률", "涨跌": "등락",
@@ -348,8 +419,12 @@ def _poster_language(
             return "en"
         if normalized.startswith("ko"):
             return "ko"
+        if normalized.startswith("tr"):
+            return "tr"
         if normalized.startswith("zh"):
             return "zh"
+    if re.search(r"(?:Hisse Analiz Raporu|Piyasa Değerlendirmesi|ABD Hisse Piyasası Özeti)", markdown_text or "", re.IGNORECASE):
+        return "tr"
     if re.search(r"[\uac00-\ud7af]", markdown_text or ""):
         return "ko"
     if re.search(
@@ -362,13 +437,14 @@ def _poster_language(
 
 
 def _poster_text(language: str, key: str) -> str:
-    return _POSTER_TEXT.get(language, _POSTER_TEXT["zh"]).get(key, _POSTER_TEXT["zh"].get(key, key))
+    fallback = _POSTER_TEXT["en"] if language == "tr" else _POSTER_TEXT["zh"]
+    return _POSTER_TEXT.get(language, fallback).get(key, fallback.get(key, key))
 
 
 def _poster_html_language(language: str) -> str:
     """Map the supported report language, not the market region, to HTML lang."""
 
-    return {"zh": "zh-CN", "en": "en", "ko": "ko"}.get(language, "zh-CN")
+    return {"zh": "zh-CN", "en": "en", "ko": "ko", "tr": "tr"}.get(language, "zh-CN")
 
 
 def _poster_label(language: str, label: str) -> str:
@@ -377,6 +453,8 @@ def _poster_label(language: str, label: str) -> str:
         return translated
     if language == "en" and label.startswith("观察 "):
         return label.replace("观察 ", "Watch ", 1)
+    if language == "tr" and label.startswith("观察 "):
+        return label.replace("观察 ", "İzle ", 1)
     if language == "ko" and label.startswith("观察 "):
         return label.replace("观察 ", "관찰 ", 1)
     return label
