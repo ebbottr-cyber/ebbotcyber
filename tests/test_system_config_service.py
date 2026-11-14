@@ -2731,9 +2731,10 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(agent_arch_schema["validation"]["enum"], ["single", "multi"])
 
         report_language_schema = items["REPORT_LANGUAGE"]["schema"]
-        self.assertEqual(report_language_schema["validation"]["enum"], ["zh", "en", "ko"])
+        self.assertEqual(report_language_schema["validation"]["enum"], ["zh", "en", "ko", "tr"])
         self.assertEqual(report_language_schema["options"][1]["value"], "en")
         self.assertEqual(report_language_schema["options"][2]["value"], "ko")
+        self.assertEqual(report_language_schema["options"][3]["value"], "tr")
 
         self.assertEqual(items["AGENT_ORCHESTRATOR_TIMEOUT_S"]["schema"]["default_value"], "600")
         self.assertTrue(items["AGENT_DEEP_RESEARCH_BUDGET"]["schema"]["is_editable"])
@@ -2864,6 +2865,12 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
     def test_validate_accepts_report_language_english(self) -> None:
         validation = self.service.validate(items=[{"key": "REPORT_LANGUAGE", "value": "en"}])
+
+        self.assertTrue(validation["valid"])
+        self.assertEqual(validation["issues"], [])
+
+    def test_validate_accepts_report_language_turkish(self) -> None:
+        validation = self.service.validate(items=[{"key": "REPORT_LANGUAGE", "value": "tr"}])
 
         self.assertTrue(validation["valid"])
         self.assertEqual(validation["issues"], [])
