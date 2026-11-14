@@ -150,6 +150,41 @@ def test_hk_2023_weather_closures_match_official_exchange_shutdown(
     assert normal_session.equals(pd.DatetimeIndex(["2023-09-07"]))
 
 
+def test_kr_2026_local_election_exchange_closure() -> None:
+    """XKRX was closed on June 3, 2026 for the South Korean local election.
+
+    exchange-calendars 4.13.3 incorporated this exceptional closure in
+    the XKRX calendar (upstream PR #574). It is not a normal weekend.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    closure = date(2026, 6, 3)
+    assert trading_calendar.is_market_open("kr", closure) is False
+    sessions = trading_calendar.get_trading_dates("kr", closure, closure)
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.empty
+
+
+def test_hk_partial_weather_suspension_remains_a_trading_session() -> None:
+    """2023-10-09 reopened in the afternoon; do not mark the whole day closed.
+
+    Unlike the full-day cancellations on Sep 1 and Sep 8, this partial
+    suspension retained an XHKG trading session in the official calendar.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    resumed_session = date(2023, 10, 9)
+    assert trading_calendar.is_market_open("hk", resumed_session) is True
+    sessions = trading_calendar.get_trading_dates(
+        "hk", resumed_session, resumed_session
+    )
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.tz is None
+    assert sessions.equals(pd.DatetimeIndex(["2023-10-09"]))
+
+
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
     with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
             patch.object(trading_calendar.xcals, "get_calendar", side_effect=ValueError("out of range")):
