@@ -20,7 +20,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.config import Config
 from src.storage import (
     Base, CHAT_STATE_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION,
-    ConversationSessionState, DatabaseManager, DatabaseSchemaMigration, StockDaily,
+    INTELLIGENCE_ITEM_NULL_SCOPE_VALUE, ConversationSessionState,
+    DatabaseManager, DatabaseSchemaMigration, StockDaily,
 )
 from src.services import stock_list_parser as stock_list_parser_module
 
@@ -384,6 +385,23 @@ class TestStorage(unittest.TestCase):
             dir_a.cleanup()
             dir_b.cleanup()
 
+    def test_fresh_intelligence_items_schema_has_secondary_query_indexes(self) -> None:
+        """Fresh-schema index baseline for comparing legacy SQLite rebuilds."""
+        DatabaseManager.reset_instance()
+        temp_dir = tempfile.TemporaryDirectory()
+        db_path = os.path.join(temp_dir.name, "fresh_intel.sqlite")
+        try:
+            DatabaseManager(db_url=f"sqlite:///{db_path}")
+            indexes = self._list_sqlite_indexes(db_path, "intelligence_items")
+            self.assertEqual(
+                indexes.get("ix_intel_item_scope_time"),
+                ["scope_type", "scope_value", "market", "published_at"],
+            )
+            self.assertEqual(indexes.get("ix_intel_item_fetch_time"), ["fetched_at"])
+        finally:
+            DatabaseManager.reset_instance()
+            temp_dir.cleanup()
+
     def test_legacy_intelligence_items_url_unique_index_rebuilds_without_collision(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()
         db_path = os.path.join(temp_dir.name, "legacy_intel.sqlite")
@@ -474,9 +492,41 @@ class TestStorage(unittest.TestCase):
                 temp_tables = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'intelligence_items_recreate_tmp_%'"
                 ).fetchall()
+                # Count alone is insufficient: a rebuild must retain the
+                # original row identity and payload across the copy/rename.
+                preserved_rows = conn.execute(
+                    """SELECT id, source_id, source_name, source_type, title,
+                              summary, url, source, published_at, fetched_at,
+                              scope_type, scope_value, market, raw_payload
+                       FROM intelligence_items ORDER BY id"""
+                ).fetchall()
+                table_columns = {
+                    row[1]: row
+                    for row in conn.execute("PRAGMA table_info(intelligence_items)")
+                }
 
             self.assertEqual(table_count, 2)
             self.assertEqual(temp_tables, [])
+            self.assertEqual(
+                preserved_rows,
+                [
+                    (
+                        1, source_id, "legacy-source", "rss", "A", "legacy-a",
+                        "https://legacy.example.com/a", "legacy",
+                        "2026-01-01 00:00:00", "2026-01-01 00:00:00",
+                        "market", INTELLIGENCE_ITEM_NULL_SCOPE_VALUE, "cn", None,
+                    ),
+                    (
+                        2, source_id, "legacy-source", "rss", "B", "legacy-b",
+                        "https://legacy.example.com/b", "legacy",
+                        "2026-01-02 00:00:00", "2026-01-02 00:00:00",
+                        "market", INTELLIGENCE_ITEM_NULL_SCOPE_VALUE, "cn", None,
+                    ),
+                ],
+            )
+            self.assertEqual(table_columns["id"][5], 1)  # Primary key
+            for required in ("title", "url", "scope_value", "market", "source_type"):
+                self.assertEqual(table_columns[required][3], 1, required)
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
