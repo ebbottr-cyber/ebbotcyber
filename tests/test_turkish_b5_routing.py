@@ -15,6 +15,7 @@ ensure_litellm_stub()
 
 from src.agent.executor import AgentExecutor, _build_language_section
 from src.core.pipeline import StockAnalysisPipeline
+from src.services.history_service import HistoryService
 from src.share_image import (
     _POSTER_TEXT,
     _poster_html_language,
@@ -76,6 +77,13 @@ def test_history_turkish_report_headings():
     assert label("Risk Warning", "风险提示", "리스크 경고", "Risk Uyarısı") == "Risk Uyarısı"
     # The helper must continue to handle an omitted Turkish override safely.
     assert label("Fallback", "后备", "대체") == "Fallback"
+
+
+def test_history_turkish_sentiment_label():
+    service = HistoryService.__new__(HistoryService)
+    assert service._get_sentiment_label(90, "tr") == "Çok Olumlu"
+    assert service._get_sentiment_label(50, "tr") == "Nötr"
+    assert service._get_sentiment_label(50, "en") == "Neutral"
 
 
 def test_share_poster_turkish_language_and_labels():
