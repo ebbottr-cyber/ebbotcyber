@@ -163,7 +163,7 @@ const TEXT = {
       unknown: 'Bilinmiyor',
     },
   },
-} as const satisfies Record<ReportLanguage, typeof TEXT.en>;
+} as const satisfies Record<ReportLanguage, Record<string, string | Record<string, string>>>;
 
 const RISK_TAG_TEXT = {
   zh: {
