@@ -25,6 +25,12 @@ const REQUEST_PHASE_LABELS: Record<ReportLanguage, Record<AnalysisPhase, string>
     intraday: '장중',
     postmarket: '장 마감 후',
   },
+  tr: {
+    auto: 'Otomatik',
+    premarket: 'Piyasa Öncesi',
+    intraday: 'Seans İçi',
+    postmarket: 'Piyasa Sonrası',
+  },
 };
 
 const MARKET_PHASE_LABELS: Record<ReportLanguage, Record<MarketPhaseValue, string>> = {
@@ -55,6 +61,15 @@ const MARKET_PHASE_LABELS: Record<ReportLanguage, Record<MarketPhaseValue, strin
     non_trading: '비거래일',
     unknown: '단계 불명',
   },
+  tr: {
+    premarket: 'Piyasa Öncesi',
+    intraday: 'Seans İçi',
+    lunch_break: 'Öğle Arası',
+    closing_auction: 'Kapanış Yaklaşıyor',
+    postmarket: 'Piyasa Sonrası',
+    non_trading: 'İşlem Günü Değil',
+    unknown: 'Piyasa Evresi Bilinmiyor',
+  },
 };
 
 const TEXT = {
@@ -73,6 +88,7 @@ const TEXT = {
     finalPrefix: '시장 단계',
     partialBar: '일봉 미완성',
   },
+  tr: { requestPrefix: 'İstenen Evre', finalPrefix: 'Piyasa Evresi', partialBar: 'Günlük Veri Tamamlanmadı' },
 } as const;
 
 export const getRequestedPhaseLabel = (
