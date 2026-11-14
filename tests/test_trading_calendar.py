@@ -114,6 +114,42 @@ def test_real_exchange_calendars_known_2024_open_and_closed_days(
     assert open_sessions.equals(pd.DatetimeIndex([pd.Timestamp(open_day)]))
 
 
+@pytest.mark.parametrize(
+    "closure_date",
+    [
+        pytest.param(date(2023, 9, 1), id="typhoon-saola-signal-8"),
+        pytest.param(date(2023, 9, 8), id="black-rainstorm"),
+    ],
+)
+def test_hk_2023_weather_closures_match_official_exchange_shutdown(
+    closure_date: date,
+) -> None:
+    """HKEX cancelled every session on these exceptional 2023 weather days.
+
+    exchange-calendars 4.13.3 restored these adhoc closures. Earlier
+    supported releases incorrectly counted them as ordinary sessions.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    assert trading_calendar.is_market_open("hk", closure_date) is False
+    sessions = trading_calendar.get_trading_dates(
+        "hk", closure_date, closure_date
+    )
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.empty
+
+    # Sanity check: the calendar is available and recognizes an actual
+    # nearby Hong Kong trading session (rather than always returning closed).
+    known_open = date(2023, 9, 7)
+    assert trading_calendar.is_market_open("hk", known_open) is True
+    normal_session = trading_calendar.get_trading_dates(
+        "hk", known_open, known_open
+    )
+    assert isinstance(normal_session, pd.DatetimeIndex)
+    assert normal_session.equals(pd.DatetimeIndex(["2023-09-07"]))
+
+
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
     with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
             patch.object(trading_calendar.xcals, "get_calendar", side_effect=ValueError("out of range")):
