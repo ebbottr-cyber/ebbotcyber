@@ -185,6 +185,34 @@ def test_hk_partial_weather_suspension_remains_a_trading_session() -> None:
     assert sessions.equals(pd.DatetimeIndex(["2023-10-09"]))
 
 
+def test_kr_2022_csat_delayed_open_and_close() -> None:
+    """KRX CSAT schedule opens and closes one hour later than usual.
+
+    Test actual exchange-calendars schedule timestamps in UTC. Version
+    4.13.3 corrected the 2022 CSAT day; older 4.13.1 showed ordinary hours.
+    Upstream reference: tests/resources/xkrx.csv, 2022-11-16/17.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    calendar = trading_calendar.xcals.get_calendar("XKRX")
+    ordinary = pd.Timestamp("2022-11-16")
+    csat = pd.Timestamp("2022-11-17")
+    assert calendar.is_session(ordinary)
+    assert calendar.is_session(csat)
+
+    assert calendar.session_open(ordinary) == pd.Timestamp("2022-11-16T00:00:00Z")
+    assert calendar.session_close(ordinary) == pd.Timestamp("2022-11-16T06:30:00Z")
+    assert calendar.session_open(csat) == pd.Timestamp("2022-11-17T01:00:00Z")
+    assert calendar.session_close(csat) == pd.Timestamp("2022-11-17T07:30:00Z")
+
+    sessions = trading_calendar.get_trading_dates(
+        "kr", date(2022, 11, 16), date(2022, 11, 17)
+    )
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.equals(pd.DatetimeIndex(["2022-11-16", "2022-11-17"]))
+
+
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
     with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
             patch.object(trading_calendar.xcals, "get_calendar", side_effect=ValueError("out of range")):
