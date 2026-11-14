@@ -44,7 +44,7 @@ export interface MarketReviewAccepted {
 
 // ============ Report Types ============
 
-export type ReportLanguage = 'zh' | 'en' | 'ko';
+export type ReportLanguage = 'zh' | 'en' | 'ko' | 'tr';
 
 export type MarketPhaseValue =
   | 'premarket'
