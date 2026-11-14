@@ -29,10 +29,10 @@ PROJECT_DISPLAY_NAME = "股票智能分析系统"
 DEFAULT_XIAOHONGSHU_QR_PATH = "src/assets/share_image/xiaohongshu_qr.jpg"
 DEFAULT_XIAOHONGSHU_HANDLE = "@霸天土小豆"
 _MARKET_RE = re.compile(
-    r"(?:大盘复盘|市场复盘|market\s+(?:review|recap)|시황\s*리뷰)", re.IGNORECASE
+    r"(?:大盘复盘|市场复盘|market\s+(?:review|recap)|시황\s*리뷰|piyasa\s+değerlendirmesi|hisse\s+piyasası\s+özeti)", re.IGNORECASE
 )
 _MARKET_SCOPE_RE = re.compile(
-    r"(?:A股|港股|美股|日股|韩股|中国\s*A주|미국|홍콩|일본|한국|\b(?:cn|hk|us|jp|kr)\b|a[-\s]?share|hong\s+kong|japan|korea|u\.?s\.?)",
+    r"(?:A股|港股|美股|日股|韩股|中国\s*A주|미국|홍콩|일본|한국|\b(?:cn|hk|us|jp|kr)\b|a[-\s]?share|hong\s+kong|japan|korea|u\.?s\.?|Çin|ABD|Japonya|Güney\s+Kore|Hong\s+Kong)",
     re.IGNORECASE,
 )
 _DASHBOARD_RE = re.compile(r"(?:决策仪表盘|decision\s+dashboard)", re.IGNORECASE)
@@ -201,7 +201,7 @@ _MARKET_LABEL_PATTERNS = (
     (
         "A股",
         re.compile(
-            r"(?:A\s*股|a[-\s]?share|\bcn\s+market\s+(?:review|recap)\b|\bchina\b|중국\s*A주)",
+            r"(?:A\s*股|a[-\s]?share|\bcn\s+market\s+(?:review|recap)\b|\bchina\b|중국\s*A주|Çin\s+Hisse\s+Piyasası)",
             re.IGNORECASE,
         ),
     ),
@@ -215,12 +215,12 @@ _MARKET_LABEL_PATTERNS = (
     (
         "美股",
         re.compile(
-            r"(?:美\s*股|\b(?:u\.?s\.?|us)\s+market\s+(?:review|recap)\b|united\s+states|미국)",
+            r"(?:美\s*股|\b(?:u\.?s\.?|us)\s+market\s+(?:review|recap)\b|united\s+states|미국|ABD\s+Hisse\s+Piyasası)",
             re.IGNORECASE,
         ),
     ),
-    ("日股", re.compile(r"(?:日\s*股|japan|일본)", re.IGNORECASE)),
-    ("韩股", re.compile(r"(?:韩\s*股|korea|한국)", re.IGNORECASE)),
+    ("日股", re.compile(r"(?:日\s*股|japan|일본|Japonya\s+Piyasa)", re.IGNORECASE)),
+    ("韩股", re.compile(r"(?:韩\s*股|korea|한국|Güney\s+Kore\s+Piyasa)", re.IGNORECASE)),
 )
 
 
