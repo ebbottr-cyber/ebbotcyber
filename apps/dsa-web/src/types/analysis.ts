@@ -103,7 +103,12 @@ export type SentimentLabel =
   | '비관'
   | '중립'
   | '낙관'
-  | '매우 낙관';
+  | '매우 낙관'
+  | 'Çok Olumsuz'
+  | 'Olumsuz'
+  | 'Nötr'
+  | 'Olumlu'
+  | 'Çok Olumlu';
 
 export type DecisionAction = 'buy' | 'add' | 'hold' | 'reduce' | 'sell' | 'watch' | 'avoid' | 'alert';
 
