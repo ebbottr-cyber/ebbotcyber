@@ -53,5 +53,10 @@ describe('reportLanguage tr support', () => {
     expect(getSentimentLabel(50, 'tr')).toBe('Nötr');
     expect(getSentimentLabel(70, 'tr')).toBe('Olumlu');
     expect(getSentimentLabel(90, 'tr')).toBe('Çok Olumlu');
+    // Match backend get_sentiment_label thresholds (20/40/60/80 included in higher band).
+    expect(getSentimentLabel(20, 'tr')).toBe('Olumsuz');
+    expect(getSentimentLabel(40, 'tr')).toBe('Nötr');
+    expect(getSentimentLabel(60, 'tr')).toBe('Olumlu');
+    expect(getSentimentLabel(80, 'tr')).toBe('Çok Olumlu');
   });
 });
