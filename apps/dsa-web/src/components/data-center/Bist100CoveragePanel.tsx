@@ -135,9 +135,22 @@ export const Bist100CoveragePanel: React.FC = () => {
         {report ? (
           <>
             <div className="text-xs text-muted-text">
-              {filename} · Rapor tarihi: {report.as_of} · Kaynak: {report.source} · TRY · XIST
+              {filename} · Tarihsel rapor: {report.as_of} · Son tamamlanan seans: {report.expected_last_completed_session ?? 'doğrulanamadı'}
+              {' · '}Kaynak: {report.source} · TRY · XIST
               {report.complete ? ' · 100 hisse kontrol edildi' : ' · Kısmi tarama'}
             </div>
+            {manuallySelected.current ? (
+              <p className="text-xs text-warning">
+                Yerel JSON dosyası: tarayıcı yalnızca alanları ve tarih tutarlılığını kontrol eder.
+                Borsa seansının doğruluğunu veya dosyanın kaynağını bağımsız doğrulayamaz.
+                Veri hazır etiketi bir yatırım önerisi veya canlı fiyat garantisi değildir.
+              </p>
+            ) : null}
+            {report.expected_last_completed_session === null ? (
+              <p role="status" className="text-sm text-warning">
+                Borsa takvimi doğrulanamadı; hiçbir hisse tamamlanan seans açısından doğrulanmış sayılmaz.
+              </p>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {summaryValue('Kontrol edilen', report.checked, 'Toplam 100 hisse')}
               {summaryValue('Veri hazır', report.ready, 'Tamamlanan seans ve TRY doğrulandı')}
