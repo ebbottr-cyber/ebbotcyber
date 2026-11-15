@@ -195,7 +195,7 @@ def test_macos_unsigned_packaging_contract_is_explicit() -> None:
     )
     backend_script = _read_text(REPO_ROOT / "scripts" / "build-backend-macos.sh")
     desktop_script = _read_text(REPO_ROOT / "scripts" / "build-desktop-macos.sh")
-    workflow = _read_text(REPO_ROOT / ".github" / "workflows" / "ci.yml")
+    workflow = _read_text(REPO_ROOT / "workflows_disabled" / "ci.yml.disabled")
 
     assert package["build"]["mac"]["identity"] is None
     assert package["build"]["mac"]["hardenedRuntime"] is False

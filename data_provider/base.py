@@ -27,6 +27,7 @@ import numpy as np
 from src.data.stock_index_loader import get_index_stock_name
 from src.data.stock_mapping import STOCK_NAME_MAP, is_meaningful_stock_name
 from src.services.market_symbol_utils import is_suffix_market_symbol
+from src.services.bist_symbols import normalize_bist_equity_symbol
 from src.services.run_diagnostics import record_provider_run, record_provider_run_started
 from src.services.stock_list_parser import AnalysisTarget, ParseStatus, parse_analysis_target
 from .fundamental_adapter import AkshareFundamentalAdapter
@@ -101,6 +102,9 @@ def normalize_stock_code(stock_code: str) -> str:
     """
     code = stock_code.strip()
     upper = code.upper()
+    bist = normalize_bist_equity_symbol(upper)
+    if bist is not None:
+        return bist
 
     # Normalize HK prefix to a canonical 5-digit form (e.g. hk1810 -> HK01810)
     if upper.startswith('HK') and not upper.startswith('HK.'):
@@ -204,6 +208,11 @@ def _is_tw_market(code: str) -> bool:
     return is_suffix_market_symbol(code, "tw")
 
 
+def _is_tr_market(code: str) -> bool:
+    """Türkiye equities require a verified explicit .IS Yahoo suffix."""
+    return is_suffix_market_symbol(code, "tr")
+
+
 def _is_etf_code(code: str) -> bool:
     """判定 A 股 ETF 基金代码（保守规则）。"""
     normalized = normalize_stock_code(code)
@@ -255,6 +264,8 @@ def _market_tag(code: str) -> str:
         return "kr"
     if _is_tw_market(code):
         return "tw"
+    if _is_tr_market(code):
+        return "tr"
     return "cn"
 
 
@@ -646,7 +657,7 @@ class DataFetcherManager:
         "MiaoxiangFetcher": set(),
         "PytdxFetcher": {"cn"},
         "BaostockFetcher": {"cn"},
-        "YfinanceFetcher": {"cn", "hk", "us", "jp", "kr", "tw"},
+        "YfinanceFetcher": {"cn", "hk", "us", "jp", "kr", "tw", "tr"},
         "LongbridgeFetcher": {"hk", "us"},
         "FutuFetcher": {"hk"},
         "FinnhubFetcher": {"us"},
@@ -802,6 +813,11 @@ class DataFetcherManager:
         market: str,
     ) -> List[BaseFetcher]:
         """Skip built-in daily fetchers that are known not to support a market."""
+
+        # Never route a Turkish .IS request through a CN/unknown fetcher.
+        # A second TR provider requires a separate reviewed contract.
+        if market == "tr":
+            return [f for f in fetchers if f.name == "YfinanceFetcher"]
 
         kept: List[BaseFetcher] = []
         skipped: List[str] = []
@@ -1987,19 +2003,20 @@ class DataFetcherManager:
         #   - 未配置长桥:     YFinance 为首选（美股）, 通用 fetcher 循环（港股）
         #   - 美股指数:       始终 YFinance 为首选（Longbridge 不提供指数K线）
         is_us_index = is_us_index_code(stock_code)
-        is_us = is_us_index or is_us_stock_code(stock_code)
-        is_hk = (not is_us) and _is_hk_market(stock_code)
+        is_tr = _is_tr_market(stock_code)
+        is_us = (not is_tr) and (is_us_index or is_us_stock_code(stock_code))
+        is_hk = (not is_us) and (not is_tr) and _is_hk_market(stock_code)
         is_jp = (not is_us) and (not is_hk) and _is_jp_market(stock_code)
         is_kr = (not is_us) and (not is_hk) and _is_kr_market(stock_code)
         is_tw = (not is_us) and (not is_hk) and _is_tw_market(stock_code)
-        market = "us" if is_us else "hk" if is_hk else "jp" if is_jp else "kr" if is_kr else "tw" if is_tw else "cn"
+        market = "tr" if is_tr else "us" if is_us else "hk" if is_hk else "jp" if is_jp else "kr" if is_kr else "tw" if is_tw else "cn"
         if market != "cn":
             fetchers = self._filter_daily_fetchers_for_market(fetchers, market)
         fetchers = self._filter_fetchers_by_capability(fetchers, capability="daily_data")
         total_fetchers = len(fetchers)
 
         if total_fetchers == 0:
-            market_label = "美股指数" if is_us_index else "美股" if is_us else "港股" if is_hk else "台股" if is_tw else "A股"
+            market_label = "BIST hissesi" if is_tr else "美股指数" if is_us_index else "美股" if is_us else "港股" if is_hk else "台股" if is_tw else "A股"
             error_summary = f"{market_label} {stock_code} 获取失败:\n暂无可用数据源"
             logger.error(f"[数据源终止] {stock_code} 获取失败: {error_summary}")
             raise DataFetchError(error_summary)
@@ -2480,6 +2497,17 @@ class DataFetcherManager:
         #   股票 000016 后误取同名股票行情。
         # ----------------------------------------------------------
         index_target = analysis_target if analysis_target is not None else parse_analysis_target(raw_stock_code)
+        # An invalid Turkish .IS token or the XU100.IS benchmark must never
+        # fall through to the default Chinese realtime providers. Reject
+        # inconsistent caller-supplied targets before any index/equity route.
+        if raw_stock_code.upper().endswith(".IS") and (
+            normalize_bist_equity_symbol(raw_stock_code) is None
+            or index_target.asset_type != ParseStatus.STOCK
+            or index_target.exchange != "TR"
+            or index_target.canonical_id != stock_code
+        ):
+            logger.info("[realtime] Unsupported BIST .IS quote target: %s", raw_stock_code)
+            return None
         target_kwargs = {"analysis_target": analysis_target} if analysis_target is not None else {}
         if index_target.asset_type == ParseStatus.INDEX:
             return self._get_cn_index_realtime_quote(
@@ -2493,14 +2521,15 @@ class DataFetcherManager:
         #   美股指数:   始终 YFinance 首选（Longbridge 不提供指数行情）
         # ----------------------------------------------------------
         is_us_index = is_us_index_code(stock_code)
-        is_us = is_us_index or _is_us_code(stock_code)
-        is_hk = (not is_us) and _is_hk_market(stock_code)
+        is_tr = _is_tr_market(stock_code)
+        is_us = (not is_tr) and (is_us_index or _is_us_code(stock_code))
+        is_hk = (not is_us) and (not is_tr) and _is_hk_market(stock_code)
         is_jp = (not is_us) and (not is_hk) and _is_jp_market(stock_code)
         is_kr = (not is_us) and (not is_hk) and _is_kr_market(stock_code)
         is_tw = (not is_us) and (not is_hk) and _is_tw_market(stock_code)
 
-        if is_jp or is_kr or is_tw:
-            market_label = "日股" if is_jp else "韩股" if is_kr else "台股"
+        if is_jp or is_kr or is_tw or is_tr:
+            market_label = "BIST hissesi" if is_tr else "日股" if is_jp else "韩股" if is_kr else "台股"
             quote = self._try_fetcher_quote(stock_code, "YfinanceFetcher", **target_kwargs)
             if quote is not None:
                 logger.info(f"[实时行情] {market_label} {stock_code} 成功获取 (来源: YfinanceFetcher)")
