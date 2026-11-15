@@ -24,6 +24,7 @@ export type Bist100CoverageRow = {
 export type Bist100CoverageReport = {
   index: 'BIST100';
   as_of: string;
+  expected_last_completed_session: string | null;
   source: 'Yahoo Finance';
   checked: number;
   remaining: number;
@@ -75,6 +76,10 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
   // narrowing across nested callback scopes.
   const asOf = top.as_of;
   if (!isDate(asOf)) throw new Error('Rapor tarihi geçersiz.');
+  const expectedLast = top.expected_last_completed_session;
+  if (!isOptionalDate(expectedLast) || (expectedLast !== null && expectedLast >= asOf)) {
+    throw new Error('Son tamamlanan borsa seansı geçersiz.');
+  }
   const unique = new Set<string>();
   const rows: Bist100CoverageRow[] = top.results.map((item: unknown) => {
     if (!isRecord(item) || typeof item.symbol !== 'string' ||
@@ -84,6 +89,7 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
         !isOptionalDate(item.last_bar_date) ||
         !optionalString(item.observed_currency) ||
         !isOptionalDate(item.expected_last_session) ||
+        item.expected_last_session !== expectedLast ||
         !optionalString(item.error_type) || !Array.isArray(item.issues) ||
         !item.issues.every((issue: unknown) => typeof issue === 'string')) {
       throw new Error('Hisse sonucu bozuk, geçersiz veya tekrarlı.');
@@ -101,7 +107,7 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
         throw new Error('Fiyat verisi tarihleri tutarsız.');
       }
     }
-    if (item.status === 'ready' && (item.rows === 0 ||
+    if (item.status === 'ready' && (expectedLast === null || item.rows === 0 ||
         item.observed_currency !== 'TRY' || item.expected_last_session !== item.last_bar_date ||
         item.issues.length !== 0)) {
       throw new Error('Veri kalitesi doğrulanmadan hazır sonucu verilemez.');
@@ -125,7 +131,8 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
     throw new Error('Rapordaki özet sayıları hisse sonuçlarıyla uyuşmuyor.');
   }
   return {
-    index: 'BIST100', as_of: top.as_of, source: 'Yahoo Finance',
+    index: 'BIST100', as_of: top.as_of,
+    expected_last_completed_session: expectedLast, source: 'Yahoo Finance',
     checked: top.checked, remaining: top.remaining, complete: top.complete,
     ready: top.ready, with_valid_price_bars: top.with_valid_price_bars,
     universe_total: 100, currency_expected: 'TRY',
