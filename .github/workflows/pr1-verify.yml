@@ -256,3 +256,78 @@ jobs:
             ${{ runner.temp }}/six-market-yahoo*.log
           if-no-files-found: warn
           retention-days: 7
+
+# One-time historical E2E verification. Pulls the real Yahoo-generated
+  # 100-stock report from earlier green PR #8 run, not synthesized candles.
+  # Guarded to this integration branch: original artifact has 7-day retention.
+  bist100-real-report-panel-e2e:
+    if: >-
+      github.head_ref == 'integration/bist100-panel-real-report' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+      - name: Download actual BIST100 100-stock GitHub artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bist100-real-yahoo-100-43723300907
+          run-id: 43723300907
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/bist100-real-report-proof
+      - name: Verify artifact identity and expose unique real report path
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find "$RUNNER_TEMP/bist100-real-report-proof" -type f -name 'technical-100.json' | sort)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "Expected exactly one real technical-100.json in prior GitHub artifact" >&2
+            exit 1
+          fi
+          report="${files[0]}"
+          expected="42a0834b5633b9667979966acc847fde6f431fb8f57ced16c432161fb287b06a"
+          echo "$expected  $report" | sha256sum --check --status
+          echo "BIST100_REAL_REPORT_PATH=$report" >> "$GITHUB_ENV"
+          echo "Verified archived 100-stock technical report SHA-256: $expected"
+      - name: Set up Python for backend saved-report validator
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Check real report via existing server-side XIST calendar validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from src.services.bist100_technical_report_reader import validate_technical_report
+          source = Path(os.environ["BIST100_REAL_REPORT_PATH"])
+          report = validate_technical_report(json.loads(source.read_text(encoding="utf-8")))
+          print("Real 2026-11-15 BIST report:", "checked", report["checked"],
+                "analyzed", report["analyzed"], "MA5-clear", report["watchlist_eligible"],
+                "last completed XIST session", report["last_completed_session"])
+          assert report["checked"] == report["analyzed"] == 100
+          assert report["remaining"] == 0
+          assert report["watchlist_eligible"] == 97
+          assert report["last_completed_session"] == "2026-11-13"
+          PY
+      - name: Set up Node.js for real-panel integration
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend dependencies
+        working-directory: apps/dsa-web
+        run: npm ci
+      - name: Verify full real JSON with original TS parser and React DOM filters
+        working-directory: apps/dsa-web
+        run: >-
+          npx vitest run
+          src/utils/bist100RealReport.e2e.test.ts
+          src/components/data-center/Bist100RealPanel.e2e.test.tsx
