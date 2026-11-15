@@ -116,8 +116,20 @@ def prepare_saved_report(
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        # Temp file is on the same filesystem, guaranteeing atomic rename.
-        os.replace(staged, target)
+        # Do not use os.replace for first publication: that would overwrite a
+        # report created between the earlier existence check and this step.
+        # An exclusive hard link to a fully synced same-directory temp file is
+        # atomic and fails if ANY destination entry appeared in the meantime.
+        if replace_existing:
+            os.replace(staged, target)
+        else:
+            try:
+                os.link(staged, target)
+            except FileExistsError as exc:
+                raise ReportPublicationError(
+                    "Destination appeared during publication: refusing to overwrite"
+                ) from exc
+            staged.unlink()
         staged = None
     except OSError as exc:
         raise ReportPublicationError("Failed to atomically publish approved BIST100 report") from exc
