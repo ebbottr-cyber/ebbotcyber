@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
 """Live-network drift tests for TwInstitutionalFetcher, gated by @pytest.mark.network.
 
-These hit the REAL TWSE T86 + TPEx OpenAPI endpoints, so they run ONLY in the
-non-blocking "Network Smoke" cron (`pytest -m network`). The blocking backend gate
-runs `pytest -m "not network"` (scripts/ci_gate.sh), so these never gate a PR.
+These hit the REAL TWSE T86 + TPEx OpenAPI endpoints, and must be
+run explicitly with `pytest -m network`. The PR backend gate is offline
+(`pytest -m "not network"`), matching scripts/ci_gate.sh, and must not
+block code changes on upstream rate limits or firewall challenges.
 
 The offline suite (tests/test_tw_institutional_fetcher.py) pins the parser to frozen
 fixtures and therefore cannot detect upstream feed drift; this file is that detector.
 Each test is self-contained (one raw fetch + the fetcher, in the same test) so a column
 rename is caught LOUD and a narrow connectivity window cannot split-skip two corroborating
-tests. Drift fails LOUD; a transport error, non-trading day, or transient blip skips QUIET
-so the cron is not noisy. A 200 that is NOT JSON (maintenance page / URL migration) is
-DRIFT, not a blip, so it fails — never skipped. Both feeds are public 政府開放資料, no creds.
+tests. Feed drift fails LOUD; a transport error, access denial (401/403), rate limit
+(429), server outage (5xx), non-trading day, or transient blip is explicitly
+SKIPPED (never passed). A 200 that is NOT JSON is DRIFT, not a blip, so it
+FAILS. Both feeds are public 政府開放資料, no credentials.
 
 For the richer human-readable cross-check, see tests/tw_institutional_live_smoke.py.
 """
@@ -60,18 +62,28 @@ def _fetch_with_retry(fetcher, code, tries=3):
 
 @pytest.mark.network
 class TestTwInstitutionalLiveNetwork(unittest.TestCase):
-    """Cron-only smoke: assert the live feeds still match the fetcher's contract."""
+    """Opt-in network smoke: verify upstream feeds against the fetcher contract."""
 
     def _get_feed_or_skip(self, url, params=None):
-        """Transport error -> skip (can't judge drift from an unreachable feed); a 200
-        that is not valid JSON (HTML maintenance page / URL migration) -> fail LOUD."""
+        """Transport/access errors -> skip (schema unverified); a 200 non-JSON
+        or a 404/410 missing URL -> fail LOUD as feed/endpoint drift."""
         try:
             resp = requests.get(url, params=params, headers=_HEADERS, timeout=20)
         except requests.exceptions.RequestException as exc:
             self.skipTest(f"endpoint unreachable: {exc}")
+        # An HTTP access denial has no authenticated feed payload to inspect.
+        # Skipping it in opt-in network smoke does NOT report provider success:
+        # pytest -rs exposes the exact code and endpoint. In particular,
+        # GitHub-hosted runners can receive a TPEx Cloudflare 403 challenge.
+        # A 200 response with malformed/HTML body still FAILS loudly as drift.
+        status = resp.status_code
+        if status in (401, 403, 408, 429) or 500 <= status <= 599:
+            self.skipTest(f"{url} access unavailable: HTTP {status}; feed schema unverified")
+        if status != 200:
+            self.fail(f"{url} returned unexpected HTTP {status} (endpoint URL/status drift)")
         try:
             return resp.json()
-        except ValueError as exc:  # non-JSON body is feed drift, not a transient blip
+        except ValueError as exc:  # HTTP 200 non-JSON is feed drift, not an access denial
             self.fail(f"{url} returned non-JSON (maintenance page / URL migration?): {exc}")
 
     def _assert_record_shape(self, rec, market_label):
