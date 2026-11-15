@@ -207,3 +207,56 @@ def test_calendar_exception_fails_closed_instead_of_aborting_all_stocks(monkeypa
     )
     assert report["results"][0]["status"] == "calendar_unavailable"
     assert report["ready"] == 0
+
+
+def test_cli_explicit_five_stocks_and_atomic_report(monkeypatch, tmp_path, capsys):
+    import json
+    import sys
+
+    wanted = ("THYAO.IS", "ASELS.IS", "AKBNK.IS", "TUPRS.IS", "AKFYE.IS")
+    captured = []
+
+    def fake_scan(**kwargs):
+        captured.append(kwargs["symbols"])
+        return {"index": "BIST100", "checked": len(kwargs["symbols"]), "note": "offline test"}
+
+    target = tmp_path / "saved-coverage.json"
+    target.write_text("old report", encoding="utf-8")
+    monkeypatch.setattr(coverage, "scan_bist100_history", fake_scan)
+    monkeypatch.setattr(sys, "argv", [
+        "bist100_coverage", "--as-of", "2026-11-15",
+        "--symbols", ",".join(wanted), "--delay-seconds", "0",
+        "--output", str(target),
+    ])
+    coverage.main()
+    parsed = json.loads(target.read_text(encoding="utf-8"))
+    assert captured == [wanted]
+    assert parsed["checked"] == 5
+    assert json.loads(capsys.readouterr().out) == parsed
+    assert list(tmp_path.iterdir()) == [target]
+
+
+@pytest.mark.parametrize("selection", [
+    "THYAO.IS,THYAO.IS", "XU100.IS", "AAPL", "THYAO", "THYAO.IS,",
+])
+def test_cli_rejects_invalid_five_stock_selection_before_yahoo(monkeypatch, selection):
+    import sys
+
+    monkeypatch.setattr(sys, "argv", [
+        "bist100_coverage", "--as-of", "2026-11-15", "--symbols", selection,
+    ])
+    with pytest.raises(SystemExit) as exc:
+        coverage.main()
+    assert exc.value.code == 2
+
+
+def test_cli_rejects_combining_limit_and_symbols(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "argv", [
+        "bist100_coverage", "--as-of", "2026-11-15",
+        "--limit", "5", "--symbols", "THYAO.IS,ASELS.IS",
+    ])
+    with pytest.raises(SystemExit) as exc:
+        coverage.main()
+    assert exc.value.code == 2
