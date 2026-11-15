@@ -66,3 +66,17 @@ Track integration in the BIST100 MVP GitHub issue.
   Configure `BIST100_COVERAGE_REPORT_PATH=/absolute/path/bist100-coverage.json` in the server runtime environment and `ADMIN_AUTH_ENABLED=true` in the application's existing admin-auth configuration. Restart the backend if needed. Open Data Center with an authenticated session to review **5 checked / 95 unchecked**, not a falsely complete 100-stock scan.
 - Run the full audit only after the five-stock smoke succeeds, using `--limit 100` and appropriate provider limits; replace the same configured report file with the genuine output so the view refreshes. The report is a **historical snapshot as of its recorded date**; it is not live streaming or an AI completed-analysis counter. Avoid committing actual market data or server credentials.
 - New offline tests in `tests/test_bist100_report_reader.py` verify file gating, authorized access, accurate partial counts and rejection of forged summaries. Integration requires a completed CI check; no 5/100-stock live Yahoo scan has been run from this GitHub-only environment.
+
+## Phase 7 — Deterministic five-ticker Yahoo smoke and safe replacement
+
+- The audit CLI now supports an **explicit active-member subset** to make the smoke result repeatable and deliberately exercise a mixture of liquid and newly admitted BIST100 symbols.
+- First live trial on a machine/server with Yahoo access:
+
+  ```bash
+  python -m src.services.bist100_coverage --as-of 2026-11-15 --symbols THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS --delay-seconds 2 --output /absolute/path/bist100-coverage.json
+  ```
+
+  This must report **5 checked / 95 remaining**, with truthful ready/missing/stale/error counters; do not confuse *checked* with *ready* or *AI analyzed*. If rate-limited or offline, keep the failed statuses.
+- After observing 5-symbol provider results and confirming acceptable data usage/rate limits, run `--limit 100` (without `--symbols`) against the same saved output path.
+- `_write_json_atomically` writes to a same-directory temporary file and replaces the destination only when the complete JSON is written; the authenticated read-only API therefore does not see a partly written audit during replacement. The older file remains intact on write failures.
+- `tests/test_bist100_coverage.py` now includes offline checks for the exact 5-symbol CLI selection, invalid/duplicate symbols, mutually exclusive CLI filters and report replacement. **No actual live Yahoo smoke has been performed from this session**, because the environment cannot resolve Yahoo chart endpoint DNS. All tests still require CI verification.
