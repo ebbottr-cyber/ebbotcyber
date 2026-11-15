@@ -341,7 +341,8 @@ jobs:
 # Release candidate verification: deterministic, zero-provider calls, no DB deployment.
   release-premerge-critical-offline:
     if: >-
-      github.head_ref == 'release/seven-market-premerge-safety' &&
+      (github.head_ref == 'release/seven-market-premerge-safety' ||
+       github.head_ref == 'fix/bist100-coverage-xist-session') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
