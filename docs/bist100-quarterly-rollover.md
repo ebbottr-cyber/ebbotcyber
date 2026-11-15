@@ -45,9 +45,12 @@ because they already resolve members via `load_bist100_universe(as_of)`.
 4. Populate `official_additions`, `official_exclusions`,
    `official_substitutes` from **that quarter's** official change notice.
    The code confirms actual membership delta versus the preceding checked-in
-   2026-Q4 list matches additions/exclusions exactly. It rejects a copied old
-   100-member roster, an altered count, a prior-period official URL, duplicate
-   symbols, a missing predecessor, invalid dates, and symlinked snapshot files.
+   2026-Q4 list matches additions/exclusions exactly. It rejects inconsistent
+   claimed changes, invalid counts, a reused previous official announcement,
+   duplicate symbols, missing predecessors, invalid dates and symlinked files.
+   **A genuine zero-change quarter can legitimately retain all old members.**
+   Software cannot independently authenticate linked sources; a human must
+   review the official announcement and both complete roster listings.
    **Do not copy the old Q4-specific 27/27/3 change counts into 2027-Q1**;
    the actual counts may differ.
 5. Run `python -m src.services.bist100_universe --for-date 2027-01-04`.
