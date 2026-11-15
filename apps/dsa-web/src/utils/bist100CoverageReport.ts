@@ -112,9 +112,10 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
   });
   const tally: Record<string, number> = {};
   for (const item of rows) tally[item.status] = (tally[item.status] ?? 0) + 1;
-  if (!isRecord(top.status_counts) ||
-      Object.keys(top.status_counts).length !== Object.keys(tally).length ||
-      Object.keys(tally).some(key => top.status_counts[key] !== tally[key]) ||
+  const reportedCounts = top.status_counts;
+  if (!isRecord(reportedCounts) ||
+      Object.keys(reportedCounts).length !== Object.keys(tally).length ||
+      Object.keys(tally).some(key => reportedCounts[key] !== tally[key]) ||
       top.ready !== (tally.ready ?? 0) ||
       top.with_valid_price_bars !== rows.filter(row => row.rows > 0).length) {
     throw new Error('Rapordaki özet sayıları hisse sonuçlarıyla uyuşmuyor.');
