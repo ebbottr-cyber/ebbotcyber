@@ -88,6 +88,52 @@ def test_inconsistent_or_forged_report_rejected(mutate):
         validate_technical_report(report)
 
 
+def test_rejects_spoofed_stale_session_even_when_rows_agree():
+    """An internally consistent but outdated report must not pass as current."""
+    report = deepcopy(_report())
+    report["last_completed_session"] = "2026-11-12"
+    report["results"][0]["last_bar_date"] = "2026-11-12"
+    report["ranking"][0]["last_bar_date"] = "2026-11-12"
+    # Before the calendar gate all report fields were self-consistent.
+    with pytest.raises(TechnicalReportInvalid, match="XIST"):
+        validate_technical_report(report)
+
+
+def test_missing_exchange_calendar_never_claims_report_freshness(monkeypatch):
+    from src.services import bist100_technical_report_reader as reader
+
+    monkeypatch.setattr(reader, "_last_completed_session", lambda _as_of: None)
+    with pytest.raises(TechnicalReportInvalid, match="XIST"):
+        validate_technical_report(_report())
+
+
+def test_verified_last_session_is_stable_across_weekend():
+    report = deepcopy(_report())
+    report["as_of"] = "2026-11-16"
+    assert validate_technical_report(report)["last_completed_session"] == "2026-11-13"
+
+
+def test_calendar_mismatch_returns_422_not_success(monkeypatch, tmp_path):
+    report = deepcopy(_report())
+    report["last_completed_session"] = "2026-11-12"
+    report["results"][0]["last_bar_date"] = "2026-11-12"
+    report["ranking"][0]["last_bar_date"] = "2026-11-12"
+    path = tmp_path / "outdated-but-self-consistent.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    monkeypatch.setenv("BIST100_TECHNICAL_REPORT_PATH", str(path))
+    monkeypatch.setattr(data_endpoint, "is_auth_enabled", lambda: True)
+    monkeypatch.setattr(data_endpoint, "verify_session", lambda _session: True)
+    app = FastAPI()
+    app.include_router(data_endpoint.router, prefix="/api/v1/data")
+    with TestClient(app) as client:
+        result = client.get(
+            "/api/v1/data/bist100/technical-ranking",
+            cookies={data_endpoint.COOKIE_NAME: "valid"},
+        )
+    assert result.status_code == 422
+    assert "XIST" not in result.text
+
+
 def test_endpoint_requires_admin_auth_and_cannot_choose_local_path(monkeypatch, tmp_path):
     location = tmp_path / "technical.json"
     location.write_text(json.dumps(_report()), encoding="utf-8")
