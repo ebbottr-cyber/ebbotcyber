@@ -2497,6 +2497,17 @@ class DataFetcherManager:
         #   股票 000016 后误取同名股票行情。
         # ----------------------------------------------------------
         index_target = analysis_target if analysis_target is not None else parse_analysis_target(raw_stock_code)
+        # An invalid Turkish .IS token or the XU100.IS benchmark must never
+        # fall through to the default Chinese realtime providers. Reject
+        # inconsistent caller-supplied targets before any index/equity route.
+        if raw_stock_code.upper().endswith(".IS") and (
+            normalize_bist_equity_symbol(raw_stock_code) is None
+            or index_target.asset_type != ParseStatus.STOCK
+            or index_target.exchange != "TR"
+            or index_target.canonical_id != stock_code
+        ):
+            logger.info("[realtime] Unsupported BIST .IS quote target: %s", raw_stock_code)
+            return None
         target_kwargs = {"analysis_target": analysis_target} if analysis_target is not None else {}
         if index_target.asset_type == ParseStatus.INDEX:
             return self._get_cn_index_realtime_quote(
