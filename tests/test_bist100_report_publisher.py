@@ -76,6 +76,27 @@ def test_publish_will_not_overwrite_without_explicit_replace(monkeypatch, tmp_pa
     assert target.read_bytes() == source.read_bytes()
 
 
+
+def test_concurrent_first_publisher_cannot_overwrite_a_new_destination(monkeypatch, tmp_path):
+    """An unrelated process can create the final path after preflight checks."""
+    source, digest = _source(tmp_path)
+    target = tmp_path / "approved.json"
+    monkeypatch.setenv("BIST100_TECHNICAL_REPORT_PATH", str(target))
+    original_link = os.link
+
+    def simulate_racing_publisher(src, dst):
+        assert Path(dst) == target
+        # Simulate another writer winning the race before our atomic link.
+        target.write_text("approved by another writer", encoding="utf-8")
+        return original_link(src, dst)
+
+    monkeypatch.setattr(os, "link", simulate_racing_publisher)
+    with pytest.raises(ReportPublicationError, match="refusing to overwrite"):
+        prepare_saved_report(source, expected_sha256=digest, publish=True)
+    assert target.read_text(encoding="utf-8") == "approved by another writer"
+    assert not any(tmp_path.glob(".approved.json.*.tmp"))
+
+
 def test_wrong_digest_and_unverified_report_cannot_publish(monkeypatch, tmp_path):
     source, digest = _source(tmp_path)
     target = tmp_path / "approved.json"
