@@ -6,10 +6,11 @@ from datetime import date, datetime, time, timezone
 from types import SimpleNamespace
 from typing import Optional
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import pytest
 
 from src.core import trading_calendar
 
@@ -21,6 +22,195 @@ def test_trading_dates_preserve_session_labels_with_utc_timezone():
             patch.object(trading_calendar.xcals, "get_calendar", return_value=calendar):
         result = trading_calendar.get_trading_dates("cn", date(2024, 2, 8), date(2024, 2, 19))
     assert result.equals(sessions.tz_localize(None))
+
+
+def test_hk_sessions_keep_utc_calendar_date_labels_without_local_shift():
+    """HK session labels represent calendar dates, not Hong Kong wall-clock instants."""
+    sessions = pd.to_datetime(["2024-01-02", "2024-01-03"], utc=True)
+    calendar = SimpleNamespace(sessions_in_range=lambda start, end: sessions)
+
+    with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
+            patch.object(trading_calendar.xcals, "get_calendar", return_value=calendar) as get_calendar:
+        result = trading_calendar.get_trading_dates("hk", date(2024, 1, 2), date(2024, 1, 3))
+
+    get_calendar.assert_called_once_with("XHKG")
+    assert isinstance(result, pd.DatetimeIndex)
+    assert result.tz is None
+    assert result.equals(pd.DatetimeIndex(["2024-01-02", "2024-01-03"]))
+
+
+@pytest.mark.parametrize(
+    ("market", "exchange"),
+    [
+        ("cn", "XSHG"),
+        ("hk", "XHKG"),
+        ("us", "XNYS"),
+        ("jp", "XTKS"),
+        ("kr", "XKRX"),
+        ("tw", "XTAI"),
+    ],
+)
+def test_six_market_utc_session_labels_remain_stable(market: str, exchange: str) -> None:
+    """Protect six-market session labels ahead of calendar dependency updates.
+
+    Session labels are dates represented at UTC midnight, not exchange-local
+    instants to convert into another timezone. Missing holidays must not
+    be invented inside the requested inclusive date range.
+    """
+    start_date = date(2024, 12, 30)
+    end_date = date(2025, 1, 3)
+    sessions = pd.DatetimeIndex(["2024-12-30", "2025-01-02"], tz="UTC")
+    calendar = SimpleNamespace(sessions_in_range=Mock(return_value=sessions))
+
+    with patch.object(trading_calendar, "_XCALS_AVAILABLE", True), \
+            patch.object(trading_calendar.xcals, "get_calendar", return_value=calendar) as get_calendar:
+        result = trading_calendar.get_trading_dates(market, start_date, end_date)
+
+    get_calendar.assert_called_once_with(exchange)
+    calendar.sessions_in_range.assert_called_once_with(start_date, end_date)
+    assert isinstance(result, pd.DatetimeIndex)
+    assert result.tz is None
+    assert result.equals(pd.DatetimeIndex(["2024-12-30", "2025-01-02"]))
+
+
+@pytest.mark.parametrize(
+    ("market", "closed_day", "open_day"),
+    [
+        pytest.param("cn", date(2024, 10, 1), date(2024, 7, 4), id="cn-national-day"),
+        pytest.param("hk", date(2024, 4, 1), date(2024, 7, 4), id="hk-easter-monday"),
+        pytest.param("us", date(2024, 7, 4), date(2024, 10, 1), id="us-independence-day"),
+        pytest.param("jp", date(2024, 1, 2), date(2024, 7, 4), id="jp-new-year-break"),
+        pytest.param("kr", date(2024, 12, 25), date(2024, 7, 4), id="kr-christmas"),
+        pytest.param("tw", date(2024, 2, 28), date(2024, 7, 4), id="tw-peace-memorial"),
+    ],
+)
+def test_real_exchange_calendars_known_2024_open_and_closed_days(
+    market: str, closed_day: date, open_day: date
+) -> None:
+    """Check actual installed exchange calendars, not mocked sessions.
+
+    Fixed 2024 exchange holidays provide a compatibility baseline for a
+    future calendar upgrade. These are *stock market* session dates, not
+    local civil-business days or derivative holiday trading exceptions.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    # The fail-open is_market_open path should not misclassify known
+    # exchange holidays, and a confirmed session must remain recognized.
+    assert trading_calendar.is_market_open(market, closed_day) is False
+    assert trading_calendar.is_market_open(market, open_day) is True
+
+    closed_sessions = trading_calendar.get_trading_dates(
+        market, closed_day, closed_day
+    )
+    open_sessions = trading_calendar.get_trading_dates(
+        market, open_day, open_day
+    )
+    assert isinstance(closed_sessions, pd.DatetimeIndex)
+    assert closed_sessions.empty
+    assert isinstance(open_sessions, pd.DatetimeIndex)
+    assert open_sessions.tz is None
+    assert open_sessions.equals(pd.DatetimeIndex([pd.Timestamp(open_day)]))
+
+
+@pytest.mark.parametrize(
+    "closure_date",
+    [
+        pytest.param(date(2023, 9, 1), id="typhoon-saola-signal-8"),
+        pytest.param(date(2023, 9, 8), id="black-rainstorm"),
+    ],
+)
+def test_hk_2023_weather_closures_match_official_exchange_shutdown(
+    closure_date: date,
+) -> None:
+    """HKEX cancelled every session on these exceptional 2023 weather days.
+
+    exchange-calendars 4.13.3 restored these adhoc closures. Earlier
+    supported releases incorrectly counted them as ordinary sessions.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    assert trading_calendar.is_market_open("hk", closure_date) is False
+    sessions = trading_calendar.get_trading_dates(
+        "hk", closure_date, closure_date
+    )
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.empty
+
+    # Sanity check: the calendar is available and recognizes an actual
+    # nearby Hong Kong trading session (rather than always returning closed).
+    known_open = date(2023, 9, 7)
+    assert trading_calendar.is_market_open("hk", known_open) is True
+    normal_session = trading_calendar.get_trading_dates(
+        "hk", known_open, known_open
+    )
+    assert isinstance(normal_session, pd.DatetimeIndex)
+    assert normal_session.equals(pd.DatetimeIndex(["2023-09-07"]))
+
+
+def test_kr_2026_local_election_exchange_closure() -> None:
+    """XKRX was closed on June 3, 2026 for the South Korean local election.
+
+    exchange-calendars 4.13.3 incorporated this exceptional closure in
+    the XKRX calendar (upstream PR #574). It is not a normal weekend.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    closure = date(2026, 6, 3)
+    assert trading_calendar.is_market_open("kr", closure) is False
+    sessions = trading_calendar.get_trading_dates("kr", closure, closure)
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.empty
+
+
+def test_hk_partial_weather_suspension_remains_a_trading_session() -> None:
+    """2023-10-09 reopened in the afternoon; do not mark the whole day closed.
+
+    Unlike the full-day cancellations on Sep 1 and Sep 8, this partial
+    suspension retained an XHKG trading session in the official calendar.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    resumed_session = date(2023, 10, 9)
+    assert trading_calendar.is_market_open("hk", resumed_session) is True
+    sessions = trading_calendar.get_trading_dates(
+        "hk", resumed_session, resumed_session
+    )
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.tz is None
+    assert sessions.equals(pd.DatetimeIndex(["2023-10-09"]))
+
+
+def test_kr_2022_csat_delayed_open_and_close() -> None:
+    """KRX CSAT schedule opens and closes one hour later than usual.
+
+    Test actual exchange-calendars schedule timestamps in UTC. Version
+    4.13.3 corrected the 2022 CSAT day; older 4.13.1 showed ordinary hours.
+    Upstream reference: tests/resources/xkrx.csv, 2022-11-16/17.
+    """
+    if not trading_calendar._XCALS_AVAILABLE:
+        pytest.skip("exchange-calendars is an optional runtime dependency")
+
+    calendar = trading_calendar.xcals.get_calendar("XKRX")
+    ordinary = pd.Timestamp("2022-11-16")
+    csat = pd.Timestamp("2022-11-17")
+    assert calendar.is_session(ordinary)
+    assert calendar.is_session(csat)
+
+    assert calendar.session_open(ordinary) == pd.Timestamp("2022-11-16T00:00:00Z")
+    assert calendar.session_close(ordinary) == pd.Timestamp("2022-11-16T06:30:00Z")
+    assert calendar.session_open(csat) == pd.Timestamp("2022-11-17T01:00:00Z")
+    assert calendar.session_close(csat) == pd.Timestamp("2022-11-17T07:30:00Z")
+
+    sessions = trading_calendar.get_trading_dates(
+        "kr", date(2022, 11, 16), date(2022, 11, 17)
+    )
+    assert isinstance(sessions, pd.DatetimeIndex)
+    assert sessions.equals(pd.DatetimeIndex(["2022-11-16", "2022-11-17"]))
 
 
 def test_trading_dates_do_not_fail_open_outside_calendar_range():
