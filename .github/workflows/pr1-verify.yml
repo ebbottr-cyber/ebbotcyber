@@ -348,7 +348,8 @@ jobs:
        github.head_ref == 'feat/bist100-quarterly-roster-rollover' ||
        github.head_ref == 'feat/seven-market-evidence-panel' ||
        github.head_ref == 'feat/six-market-saved-smoke-api' ||
-       github.head_ref == 'release/seven-market-readonly-acceptance') &&
+       github.head_ref == 'release/seven-market-readonly-acceptance' ||
+       github.head_ref == 'release/seven-market-final-consolidation') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -377,4 +378,5 @@ jobs:
             tests/test_bist100_quarterly_rollover.py \
             tests/test_six_market_smoke_report_reader.py \
             tests/test_seven_market_readonly_acceptance.py \
+            tests/test_seven_market_release_contract.py \
             tests/test_trading_calendar.py
