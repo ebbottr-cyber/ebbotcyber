@@ -154,6 +154,34 @@ def test_reject_symlink_destination_and_symlink_source(monkeypatch, tmp_path):
         prepare_saved_report(alias)
 
 
+def test_configured_destination_cannot_be_overridden_by_python_caller(monkeypatch, tmp_path):
+    """The publisher cannot be redirected outside the server's configured path."""
+    source, digest = _source(tmp_path)
+    approved = tmp_path / "configured.json"
+    unrelated = tmp_path / "unrelated.json"
+    monkeypatch.setenv("BIST100_TECHNICAL_REPORT_PATH", str(approved))
+    with pytest.raises(TypeError, match="target_path"):
+        prepare_saved_report(
+            source, expected_sha256=digest, publish=True, target_path=unrelated,
+        )
+    assert not approved.exists()
+    assert not unrelated.exists()
+
+
+def test_rejects_symlink_in_any_parent_directory(monkeypatch, tmp_path):
+    """A hidden symlink above the final folder must not redirect publication."""
+    source, digest = _source(tmp_path)
+    protected = tmp_path / "protected"
+    (protected / "report-subdir").mkdir(parents=True)
+    alias = tmp_path / "external-report-root"
+    alias.symlink_to(protected, target_is_directory=True)
+    target = alias / "report-subdir" / "approved.json"
+    monkeypatch.setenv("BIST100_TECHNICAL_REPORT_PATH", str(target))
+    with pytest.raises(ReportPublicationError, match="ancestors"):
+        prepare_saved_report(source, publish=True, expected_sha256=digest)
+    assert not (protected / "report-subdir" / "approved.json").exists()
+
+
 def test_source_cannot_be_republished_to_itself(monkeypatch, tmp_path):
     source, digest = _source(tmp_path)
     monkeypatch.setenv("BIST100_TECHNICAL_REPORT_PATH", str(source))
