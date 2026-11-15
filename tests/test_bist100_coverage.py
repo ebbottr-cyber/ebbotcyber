@@ -170,3 +170,40 @@ def test_full_100_member_audit_can_record_all_no_data_without_fabrication(monkey
     assert report["ready"] == 0
     assert report["status_counts"] == {"no_data": 100}
     assert len(report["results"]) == 100
+
+
+def test_existing_yahoo_fetcher_empty_result_is_reported_as_no_data(monkeypatch):
+    from data_provider.base import DataFetchError
+    from data_provider.yfinance_fetcher import YfinanceFetcher
+
+    def missing(*args, **kwargs):
+        raise DataFetchError("Yahoo Finance 未查询到 THYAO.IS 的数据")
+
+    monkeypatch.setattr(YfinanceFetcher, "get_daily_data", missing)
+    history = coverage._yahoo_daily_history("THYAO.IS", AS_OF, AS_OF)
+    assert history.empty
+
+
+def test_other_yahoo_provider_failures_are_not_mislabeled_missing(monkeypatch):
+    from data_provider.base import DataFetchError
+    from data_provider.yfinance_fetcher import YfinanceFetcher
+
+    def throttled(*args, **kwargs):
+        raise DataFetchError("Yahoo Finance 429 rate limited")
+
+    monkeypatch.setattr(YfinanceFetcher, "get_daily_data", throttled)
+    with pytest.raises(DataFetchError, match="429"):
+        coverage._yahoo_daily_history("THYAO.IS", AS_OF, AS_OF)
+
+
+def test_calendar_exception_fails_closed_instead_of_aborting_all_stocks(monkeypatch):
+    def calendar_error(*args):
+        raise RuntimeError("XIST calendar unavailable")
+    monkeypatch.setattr(coverage, "get_trading_dates", calendar_error)
+    report = coverage.scan_bist100_history(
+        as_of=AS_OF, symbols=("THYAO.IS",),
+        fetch_history=lambda *args: _history(),
+        fetch_currency=lambda *args: "TRY", delay_seconds=0,
+    )
+    assert report["results"][0]["status"] == "calendar_unavailable"
+    assert report["ready"] == 0
