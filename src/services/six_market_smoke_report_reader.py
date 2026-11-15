@@ -6,7 +6,8 @@ report writer or trade. An operator must pin both path and SHA-256 at runtime.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 import hashlib
 import hmac
 import json
@@ -82,6 +83,10 @@ def validate_six_market_smoke_report(payload: Any) -> dict:
 
     as_of = _date(payload.get("as_of"))
     assert isinstance(as_of, date)
+    # The source producer itself defaults to Istanbul time. A report dated
+    # beyond the operator's current date cannot be a completed historical run.
+    if as_of > datetime.now(ZoneInfo("Europe/Istanbul")).date():
+        raise SixMarketSmokeInvalid("Future as-of date cannot be a historical market report")
     counts = 0
     seen: set[str] = set()
     for item in payload["results"]:
@@ -112,6 +117,8 @@ def validate_six_market_smoke_report(payload: Any) -> dict:
             raise SixMarketSmokeInvalid("Invalid sample technical score")
         if (observed is not None and not isinstance(observed, str)):
             raise SixMarketSmokeInvalid("Invalid observed currency")
+        if last_bar is not None and last_bar >= as_of:
+            raise SixMarketSmokeInvalid("Future or same-day sample bar cannot be a completed session")
         if claimed_session is not None:
             if claimed_session >= as_of or (last_bar is not None and last_bar > claimed_session):
                 raise SixMarketSmokeInvalid("Contradictory sample dates")
