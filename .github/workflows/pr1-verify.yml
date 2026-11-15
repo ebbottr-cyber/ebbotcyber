@@ -28,6 +28,8 @@ jobs:
         run: npm ci
       - name: Typecheck frontend
         run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Test BIST100 ranking report parsing and presentation filters
+        run: npx vitest run src/utils/bist100TechnicalReport.test.ts src/utils/bist100RankingView.test.ts
       - name: Lint frontend
         run: npm run lint
       - name: Build frontend
