@@ -820,6 +820,132 @@ class TestStorage(unittest.TestCase):
             Config.reset_instance()
             temp_dir.cleanup()
 
+    def test_legacy_rebuild_rejects_unmodelled_schema_without_mutation(self) -> None:
+        """Legacy migrations must fail before DDL if schema objects would be lost."""
+        for variant in (
+            "custom_index", "custom_trigger", "custom_unique",
+            "extra_column", "check_constraint", "incoming_fk",
+        ):
+            with self.subTest(variant=variant):
+                DatabaseManager.reset_instance()
+                Config.reset_instance()
+                temp_dir = tempfile.TemporaryDirectory()
+                db_path = os.path.join(temp_dir.name, "unsafe_legacy.sqlite")
+                try:
+                    extra = (
+                        ", private_note TEXT" if variant == "extra_column"
+                        else ", CHECK(length(title) > 0)"
+                        if variant == "check_constraint" else ""
+                    )
+                    with sqlite3.connect(db_path) as conn:
+                        conn.execute(
+                            """CREATE TABLE intelligence_items (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                source_id INTEGER,
+                                source_name TEXT,
+                                source_type TEXT NOT NULL DEFAULT 'rss',
+                                title TEXT NOT NULL,
+                                summary TEXT,
+                                url TEXT NOT NULL,
+                                source TEXT,
+                                published_at DATETIME,
+                                fetched_at DATETIME,
+                                scope_type TEXT NOT NULL DEFAULT 'market',
+                                scope_value TEXT,
+                                market TEXT NOT NULL DEFAULT 'cn',
+                                raw_payload TEXT""" + extra + ")"
+                        )
+                        conn.execute(
+                            "CREATE UNIQUE INDEX legacy_url_unique "
+                            "ON intelligence_items(url)"
+                        )
+                        if variant == "custom_index":
+                            conn.execute(
+                                "CREATE INDEX custom_search_idx "
+                                "ON intelligence_items(title, market)"
+                            )
+                        elif variant == "custom_trigger":
+                            conn.execute(
+                                "CREATE TRIGGER custom_update_guard "
+                                "AFTER UPDATE ON intelligence_items "
+                                "BEGIN SELECT 1; END"
+                            )
+                        elif variant == "custom_unique":
+                            conn.execute(
+                                "CREATE UNIQUE INDEX custom_title_unique "
+                                "ON intelligence_items(title)"
+                            )
+                        elif variant == "incoming_fk":
+                            conn.execute(
+                                "CREATE TABLE intel_child ("
+                                "id INTEGER PRIMARY KEY, item_id INTEGER "
+                                "REFERENCES intelligence_items(id) ON DELETE CASCADE)"
+                            )
+                            conn.execute(
+                                "INSERT INTO intel_child (id, item_id) VALUES (2, 41)"
+                            )
+                        conn.execute(
+                            "INSERT INTO intelligence_items "
+                            "(id, title, url, scope_type, scope_value, market) "
+                            "VALUES (41, 'unchanged row', 'https://example.org/41', "
+                            "'market', 'scope', 'cn')"
+                        )
+                        rows_before = conn.execute(
+                            "SELECT * FROM intelligence_items ORDER BY id"
+                        ).fetchall()
+                        schema_before = conn.execute(
+                            "SELECT type, name, sql FROM sqlite_master "
+                            "WHERE (type = 'table' AND name = 'intelligence_items') "
+                            "OR (type IN ('index', 'trigger') "
+                            "AND tbl_name = 'intelligence_items') "
+                            "ORDER BY type, name"
+                        ).fetchall()
+                    with self.assertRaisesRegex(
+                        RuntimeError, "Unsafe intelligence_items migration"
+                    ):
+                        DatabaseManager(db_url=f"sqlite:///{db_path}")
+                    with sqlite3.connect(db_path) as conn:
+                        self.assertEqual(
+                            conn.execute(
+                                "SELECT * FROM intelligence_items ORDER BY id"
+                            ).fetchall(),
+                            rows_before,
+                        )
+                        self.assertEqual(
+                            conn.execute(
+                                "SELECT type, name, sql FROM sqlite_master "
+                                "WHERE (type = 'table' AND name = 'intelligence_items') "
+                                "OR (type IN ('index', 'trigger') "
+                                "AND tbl_name = 'intelligence_items') "
+                                "ORDER BY type, name"
+                            ).fetchall(),
+                            schema_before,
+                        )
+                        self.assertEqual(
+                            conn.execute(
+                                "SELECT name FROM sqlite_master "
+                                "WHERE type = 'table' "
+                                "AND name LIKE 'intelligence_items_recreate_tmp_%'"
+                            ).fetchall(),
+                            [],
+                        )
+                        if variant == "incoming_fk":
+                            self.assertEqual(
+                                conn.execute(
+                                    "SELECT id, item_id FROM intel_child"
+                                ).fetchall(),
+                                [(2, 41)],
+                            )
+                    self.assertEqual(
+                        self._list_sqlite_indexes(db_path, "intelligence_items")
+                        .get("legacy_url_unique"),
+                        ["url"],
+                    )
+                finally:
+                    DatabaseManager.reset_instance()
+                    Config.reset_instance()
+                    temp_dir.cleanup()
+
     def test_legacy_intelligence_items_rebuild_preserves_secondary_indexes(self) -> None:
         """Migration must preserve the named secondary query indexes."""
         temp_dir = tempfile.TemporaryDirectory()
