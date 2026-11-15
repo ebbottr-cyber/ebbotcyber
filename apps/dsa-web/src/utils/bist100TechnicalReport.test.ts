@@ -10,7 +10,7 @@ const analyzed = {
   chase_risk: false, eligible_for_watchlist: true,
 };
 
-function fixture(): Record<string, unknown> {
+function fixture() {
   return {
     index: 'BIST100', mode: 'read_only_local_sqlite', as_of: '2026-11-15',
     last_completed_session: '2026-11-13', universe_total: 100,
@@ -21,8 +21,10 @@ function fixture(): Record<string, unknown> {
   };
 }
 
-function mutate(fn: (report: Record<string, any>) => void): Record<string, any> {
-  const report = fixture() as Record<string, any>;
+type ReportFixture = ReturnType<typeof fixture>;
+
+function mutate(fn: (report: ReportFixture) => void): ReportFixture {
+  const report = fixture();
   fn(report);
   return report;
 }
@@ -38,22 +40,22 @@ describe('BIST100 technical ranking JSON parser', () => {
   });
 
   it.each([
-    ['inflated counters', (r: Record<string, any>) => { r.checked = 100; r.remaining = 0; }],
-    ['future session', (r: Record<string, any>) => { r.last_completed_session = '2026-11-16'; }],
-    ['expired membership', (r: Record<string, any>) => { r.as_of = '2027-01-01'; }],
-    ['fabricated ranking', (r: Record<string, any>) => { r.ranking[0].score = 100; }],
-    ['invalid score', (r: Record<string, any>) => { r.ranking[0].score = 101; r.results[0].score = 101; }],
-    ['false watchlist risk', (r: Record<string, any>) => {
+    ['inflated counters', (r: ReportFixture) => { r.checked = 100; r.remaining = 0; }],
+    ['future session', (r: ReportFixture) => { r.last_completed_session = '2026-11-16'; }],
+    ['expired membership', (r: ReportFixture) => { r.as_of = '2027-01-01'; }],
+    ['fabricated ranking', (r: ReportFixture) => { r.ranking[0].score = 100; }],
+    ['invalid score', (r: ReportFixture) => { r.ranking[0].score = 101; r.results[0].score = 101; }],
+    ['false watchlist risk', (r: ReportFixture) => {
       r.ranking[0].chase_risk = true; r.results[0].chase_risk = true;
     }],
-    ['duplicate symbols', (r: Record<string, any>) => { r.results[1].symbol = 'THYAO.IS'; }],
-    ['unsupported benchmark', (r: Record<string, any>) => { r.results[1].symbol = 'XU100.IS'; }],
-    ['status totals mismatch', (r: Record<string, any>) => { r.status_counts.analyzed = 2; }],
-    ['wrong last bar', (r: Record<string, any>) => {
+    ['duplicate symbols', (r: ReportFixture) => { r.results[1].symbol = 'THYAO.IS'; }],
+    ['unsupported benchmark', (r: ReportFixture) => { r.results[1].symbol = 'XU100.IS'; }],
+    ['status totals mismatch', (r: ReportFixture) => { r.status_counts.analyzed = 2; }],
+    ['wrong last bar', (r: ReportFixture) => {
       r.ranking[0].last_bar_date = '2026-11-12';
       r.results[0].last_bar_date = '2026-11-12';
     }],
-  ])('rejects %s', (_label, change) => {
+  ] as const)('rejects %s', (_label, change) => {
     expect(() => parseBist100TechnicalReport(mutate(change))).toThrow();
   });
 
