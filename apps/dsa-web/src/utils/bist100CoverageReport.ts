@@ -88,9 +88,12 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
     if ((item.rows > 0) !== (item.first_bar_date !== null && item.last_bar_date !== null)) {
       throw new Error('Fiyat verisi sayısı ve tarihleri tutarsız.');
     }
-    if (item.rows > 0 && (item.first_bar_date > item.last_bar_date ||
-        item.last_bar_date > top.as_of)) {
-      throw new Error('Fiyat verisi tarihleri tutarsız.');
+    if (item.rows > 0) {
+      const first = item.first_bar_date;
+      const last = item.last_bar_date;
+      if (!first || !last || first > last || last > top.as_of) {
+        throw new Error('Fiyat verisi tarihleri tutarsız.');
+      }
     }
     if (item.status === 'ready' && (item.rows === 0 ||
         item.observed_currency !== 'TRY' || item.expected_last_session !== item.last_bar_date ||
