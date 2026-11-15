@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Offline tests: saved six-market smoke needs admin, fingerprint and true sessions."""
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 import hashlib
 import json
 
@@ -93,6 +94,47 @@ def test_forged_success_or_wrong_one_sample_scope_rejected(mutator):
     value = deepcopy(_example())
     mutator(value)
     with pytest.raises(reader.SixMarketSmokeInvalid):
+        reader.validate_six_market_smoke_report(value)
+
+
+def test_future_dated_report_is_rejected_before_calendar_lookup(monkeypatch):
+    future = datetime.now(ZoneInfo("Europe/Istanbul")).date() + timedelta(days=1)
+    value = _example()
+    value["as_of"] = future.isoformat()
+    calls = []
+
+    def should_not_probe(_market, _as_of):
+        calls.append((_market, _as_of))
+        return date(2026, 11, 13)
+
+    monkeypatch.setattr(reader, "_last_completed", should_not_probe)
+    with pytest.raises(reader.SixMarketSmokeInvalid, match="Future as-of"):
+        reader.validate_six_market_smoke_report(value)
+    assert calls == []
+
+
+def test_failed_example_with_future_last_bar_cannot_be_presented_as_historical():
+    value = _example()
+    item = value["results"][0]
+    item["status"] = "stale_price"
+    item["technical_score"] = None
+    item["expected_last_session"] = None
+    item["last_bar_date"] = "2026-11-16"
+    value["analyzed_markets"] = 5
+    with pytest.raises(reader.SixMarketSmokeInvalid, match="Future or same-day"):
+        reader.validate_six_market_smoke_report(value)
+
+
+def test_failed_example_with_same_day_bar_is_not_previous_completed_session():
+    value = _example()
+    value["results"][2].update(
+        status="fetch_error",
+        expected_last_session=None,
+        last_bar_date="2026-11-15",
+        technical_score=None,
+    )
+    value["analyzed_markets"] = 5
+    with pytest.raises(reader.SixMarketSmokeInvalid, match="Future or same-day"):
         reader.validate_six_market_smoke_report(value)
 
 
