@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from contextlib import closing
 import sqlite3
 import sys
 import tempfile
@@ -34,7 +35,7 @@ def _quote_identifier(identifier: str) -> str:
 
 def _read_baseline(path: Path) -> dict[str, object]:
     """Count existing user tables and fingerprint immutable trading history."""
-    with _open_readonly(path) as db:
+    with closing(_open_readonly(path)) as db:
         names = [
             name for (name,) in db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
