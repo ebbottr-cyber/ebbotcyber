@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { bist100TechnicalApi } from '../../api/bist100Technical';
+import { sixMarketSmokeApi } from '../../api/sixMarketSmoke';
 import type { Bist100TechnicalReport } from '../../utils/bist100TechnicalReport';
 import {
   parseSixMarketEvidence, selectSevenMarketEvidence,
@@ -18,11 +19,16 @@ const STATUS: Record<EvidenceState, string> = {
 export const SevenMarketEvidencePanel: React.FC = () => {
   const [bist, setBist] = useState<Bist100TechnicalReport | null>(null);
   const [six, setSix] = useState<SixMarketEvidence | null>(null);
+  const [sixSource, setSixSource] = useState<'none' | 'server' | 'local'>('none');
+  const [sixWarning, setSixWarning] = useState('');
+  const [sixLoading, setSixLoading] = useState(false);
   const [filename, setFilename] = useState('');
   const [error, setError] = useState('');
   const [serverWarning, setServerWarning] = useState('');
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
+  const sixGeneration = useRef(0);
+  const manuallySelectedSix = useRef(false);
 
   const loadBist = useCallback(async () => {
     const request = ++generation.current;
@@ -46,22 +52,66 @@ export const SevenMarketEvidencePanel: React.FC = () => {
     return () => { generation.current += 1; };
   }, [loadBist]);
 
+  const loadSavedSix = useCallback(async () => {
+    const request = ++sixGeneration.current;
+    setSixLoading(true);
+    setSixWarning('');
+    try {
+      const saved = await sixMarketSmokeApi.getSavedReport();
+      if (request !== sixGeneration.current || manuallySelectedSix.current) return;
+      setSix(saved);
+      setSixSource('server');
+      setFilename('Yönetici tarafından onaylanmış sunucu raporu');
+      setError('');
+    } catch {
+      if (request !== sixGeneration.current || manuallySelectedSix.current) return;
+      setSix(null);
+      setSixSource('none');
+      setFilename('');
+      setSixWarning('Sunucuda onaylanmış altı piyasa örnek raporu yok veya yönetici erişimi kapalı.');
+    } finally {
+      if (request === sixGeneration.current) setSixLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSavedSix();
+    return () => { sixGeneration.current += 1; };
+  }, [loadSavedSix]);
+
+  const reloadSavedSix = () => {
+    manuallySelectedSix.current = false;
+    setSix(null);
+    setSixSource('none');
+    setFilename('');
+    setError('');
+    void loadSavedSix();
+  };
+
   const onSixFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
+    manuallySelectedSix.current = true;
+    const request = ++sixGeneration.current;
+    setSixLoading(false);
+    setSixWarning('');
     setError('');
     setFilename('');
     setSix(null);
+    setSixSource('none');
     if (file.size > 2_000_000) {
       setError('Örnek piyasa JSON dosyası en fazla 2 MB olabilir.');
       return;
     }
     try {
       const next = parseSixMarketEvidence(JSON.parse(await file.text()) as unknown);
+      if (request !== sixGeneration.current) return;
       setSix(next);
+      setSixSource('local');
       setFilename(file.name);
     } catch (cause) {
+      if (request !== sixGeneration.current) return;
       setError(cause instanceof Error ? cause.message : 'Örnek piyasa raporu okunamadı.');
     }
   };
@@ -75,8 +125,9 @@ export const SevenMarketEvidencePanel: React.FC = () => {
       <div className="space-y-4">
         <p className="text-sm text-secondary-text">
           Buradaki bilgiler canlı borsa bağlantısı, bütün hisselerin analizi veya yatırım önerisi değildir.
-          BIST100 için sunucuda kayıtlı teknik rapor okunur; diğer altı piyasa için yalnızca
-          seçtiğiniz tarihsel Yahoo örnek-test JSON dosyası tarayıcıda incelenir.
+          BIST100 için sunucuda kayıtlı teknik rapor okunur; diğer altı piyasa için
+          yönetici tarafından önceden kaydedilmiş ve doğrulanmış örnek rapor sunucudan okunabilir.
+          Alternatif olarak tarihsel Yahoo örnek-test JSON dosyasını tarayıcıda seçebilirsiniz.
           Bir örnek sembolün analiz edilmiş olması tüm piyasanın tarandığı anlamına gelmez.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -84,14 +135,18 @@ export const SevenMarketEvidencePanel: React.FC = () => {
             className="rounded-lg border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50">
             {loading ? 'BIST100 raporu okunuyor…' : 'BIST100 kaydedilmiş raporu yenile'}
           </button>
+          <button type="button" onClick={reloadSavedSix} disabled={sixLoading}
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50">
+            {sixLoading ? 'Altı piyasa raporu okunuyor…' : 'Altı piyasa sunucu raporunu yenile'}
+          </button>
           <label className="inline-flex cursor-pointer items-center rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
             Altı piyasa örnek JSON'u seç
             <input type="file" accept=".json,application/json"
               className="sr-only" aria-label="Altı piyasa örnek raporu seç"
               onChange={event => { void onSixFile(event); }}/>
           </label>
-          {six ? (
-            <button type="button" onClick={() => { setSix(null); setFilename(''); setError(''); }}
+          {sixSource === 'local' ? (
+            <button type="button" onClick={reloadSavedSix}
               className="rounded-lg border border-border px-3 py-2 text-sm text-secondary-text">
               Yerel örnek raporu temizle
             </button>
@@ -102,17 +157,23 @@ export const SevenMarketEvidencePanel: React.FC = () => {
           {' '}BIST100: en fazla 100 hisse; diğer piyasalar: her biri yalnızca 1 örnek.
         </p>
         {serverWarning ? <p className="text-xs text-warning">{serverWarning}</p> : null}
+        {sixWarning ? <p className="text-xs text-warning">{sixWarning}</p> : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         {six ? (
           <p className="text-xs text-warning">
             {filename} · Rapor tarihi: {six.asOf} · Kaydedilmiş örnek analiz: {six.analyzedMarkets}/6.
-            {' '}Seçilen JSON dosyası yüklenmez; kaynağı ve borsa takvimini tarayıcı bağımsız
-            doğrulayamaz. Bu yalnızca dosyanın iç tutarlılık kontrolüdür.
+            {sixSource === 'local' ? (
+              <> {' '}Yerel JSON dosyası sunucuya yüklenmez; kaynağı ve borsa takvimini
+              tarayıcı bağımsız doğrulayamaz. Yalnızca dosyanın iç tutarlılığı kontrol edilir.</>
+            ) : (
+              <> {' '}Kaydedilmiş sunucu raporu dosya SHA-256 değeri, örnek kimliği ve
+              piyasa takvimi açısından doğrulandı. Tarihsel testtir, canlı fiyat değildir.</>
+            )}
           </p>
         ) : (
           <p className="text-xs text-muted-text">
-            Diğer altı piyasa için örnek test dosyası seçilmedi; bu piyasalarda güncel
-            başarı veya doğrulanmış fiyat verisi varsayılmıyor.
+            Diğer altı piyasa için onaylı sunucu raporu veya yerel test dosyası bulunamadı;
+            güncel başarı veya doğrulanmış fiyat verisi varsayılmıyor.
           </p>
         )}
         <div className="overflow-x-auto">
