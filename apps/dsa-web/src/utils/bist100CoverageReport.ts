@@ -85,7 +85,9 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
       throw new Error('Hisse sonucu bozuk, geçersiz veya tekrarlı.');
     }
     unique.add(item.symbol);
-    if ((item.rows > 0) !== (item.first_bar_date !== null && item.last_bar_date !== null)) {
+    const bothDates = item.first_bar_date !== null && item.last_bar_date !== null;
+    const neitherDate = item.first_bar_date === null && item.last_bar_date === null;
+    if (item.rows > 0 ? !bothDates : !neitherDate) {
       throw new Error('Fiyat verisi sayısı ve tarihleri tutarsız.');
     }
     if (item.rows > 0) {
