@@ -85,7 +85,11 @@ def validate_bist100_snapshot(payload: Mapping[str, Any]) -> Bist100Universe:
     # rosters: every approved file covers exactly its named calendar quarter.
     if start != _quarter_start(start):
         raise ValueError("BIST100 snapshot dates must begin on a quarter boundary")
-    next_start = date(start.year + (start.month == 10), (start.month % 12) + 3 if start.month != 10 else 1, 1)
+    next_month = start.month + 3
+    next_start = (
+        date(start.year + 1, 1, 1)
+        if next_month > 12 else date(start.year, next_month, 1)
+    )
     if end != next_start - timedelta(days=1):
         raise ValueError("BIST100 snapshot dates must cover exactly one quarter")
 
@@ -173,6 +177,8 @@ def load_bist100_universe(for_date: date | None = None) -> Bist100Universe:
         raise ValueError(
             "BIST100 quarter additions/exclusions do not match actual prior roster changes"
         )
+    if universe.verified_on <= previous.verified_on:
+        raise ValueError("BIST100 new quarter review must be newer than previous roster")
     if universe.source_urls[0] == previous.source_urls[0]:
         raise ValueError("BIST100 new quarter reuses previous official announcement")
     return universe
