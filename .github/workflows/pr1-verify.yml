@@ -217,3 +217,40 @@ jobs:
             ${{ runner.temp }}/bist100-live-100-*/*.log
           if-no-files-found: warn
           retention-days: 7
+
+  # Read-only sample diagnostics for six international markets.
+  six-market-live-yahoo:
+    if: >-
+      github.head_ref == 'integration/bist100-six-markets' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify actual Yahoo market history, currency and technical score
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.six_market_live_smoke \
+            --as-of 2026-11-15 \
+            --output "$RUNNER_TEMP/six-market-yahoo-2026-11-15.json" \
+            2> "$RUNNER_TEMP/six-market-yahoo.stderr.log"
+      - name: Upload read-only six-market probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: six-market-yahoo-smoke-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/six-market-yahoo-*.json
+            ${{ runner.temp }}/six-market-yahoo*.log
+          if-no-files-found: warn
+          retention-days: 7
