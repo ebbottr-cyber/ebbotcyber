@@ -1458,6 +1458,9 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             self._ensure_intelligence_item_scope_values()
             self._ensure_schema_migration_record()
             self._ensure_intelligence_items_unique_index()
+            # Restore indexes omitted by prior legacy SQLite migrations;
+            # do not rewrite an already-migrated table or its rows.
+            self._ensure_intelligence_items_secondary_indexes()
             self._ensure_chat_session_schema()
 
             self._initialized = True
@@ -2166,6 +2169,219 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
 
         self._rebuild_intelligence_items_table()
 
+    def _ensure_intelligence_items_secondary_indexes(self) -> None:
+        """Restore missing ORM indexes on already-migrated SQLite tables.
+
+        An older legacy rebuild kept scoped uniqueness but dropped secondary
+        indexes. This must only CREATE missing indexes; never rebuild a table
+        or alter existing indexes and data during startup.
+        """
+        if not self._is_sqlite_engine:
+            return
+        with self._engine.begin() as connection:
+            # pysqlite may autocommit DDL even inside engine.begin().
+            # Acquire a real SQLite transaction before the metadata read and
+            # any CREATE INDEX, so a later failure rolls back *all* indexes
+            # from this repair attempt instead of leaving a partial repair.
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+            inspector = inspect(connection)
+            if not inspector.has_table(IntelligenceItem.__tablename__):
+                return
+
+            existing_columns = {
+                column["name"]
+                for column in inspector.get_columns(IntelligenceItem.__tablename__)
+            }
+            existing_indexes = {}
+            for row in connection.exec_driver_sql(
+                'PRAGMA index_list("intelligence_items")'
+            ):
+                index_name = str(row[1])
+                escaped = index_name.replace('"', '""')
+                index_columns = tuple(
+                    info[2]
+                    for info in connection.exec_driver_sql(
+                        f'PRAGMA index_xinfo("{escaped}")'
+                    )
+                    if info[2] is not None and int(info[5]) == 1
+                )
+                existing_indexes[index_name] = (bool(row[2]), index_columns)
+
+            scoped_unique = (
+                "source_id", "url", "scope_type", "scope_value", "market"
+            )
+            if not any(
+                unique and columns == scoped_unique
+                for unique, columns in existing_indexes.values()
+            ):
+                # Incompatible or still-legacy tables need the distinct
+                # uniqueness migration, not an index-only repair.
+                return
+
+            for index in sorted(
+                IntelligenceItem.__table__.indexes, key=lambda idx: idx.name
+            ):
+                if index.unique or not index.name:
+                    continue
+                expected_columns = tuple(column.name for column in index.columns)
+                missing_columns = set(expected_columns) - existing_columns
+                if missing_columns:
+                    logger.warning(
+                        "[Intelligence items] cannot restore index %s: "
+                        "missing columns %s",
+                        index.name, sorted(missing_columns),
+                    )
+                    continue
+                if index.name in existing_indexes:
+                    unique, actual_columns = existing_indexes[index.name]
+                    if unique or actual_columns != expected_columns:
+                        logger.warning(
+                            "[Intelligence items] index %s has columns %s "
+                            "(expected %s); leaving existing index intact",
+                            index.name, actual_columns, expected_columns,
+                        )
+                    continue
+
+                # SQLite index names are unique across the database; never
+                # collide with a user-created index on another table.
+                occupied_by = connection.execute(
+                    text(
+                        "SELECT tbl_name FROM sqlite_master "
+                        "WHERE type = 'index' AND name = :index_name"
+                    ),
+                    {"index_name": index.name},
+                ).scalar_one_or_none()
+                if occupied_by is not None:
+                    logger.warning(
+                        "[Intelligence items] index name %s belongs to %s; "
+                        "skipping non-destructive repair",
+                        index.name, occupied_by,
+                    )
+                    continue
+
+                index.create(connection, checkfirst=True)
+
+    def _assert_legacy_intelligence_rebuild_safe(
+        self, connection, expected_columns: list[str]
+    ) -> None:
+        """Fail closed before DROP TABLE if the legacy schema is not model-safe.
+
+        A SQLite rebuild removes custom indexes/triggers/constraints and can
+        cascade to child tables. Preserve the old schema untouched instead
+        of silently discarding unmodelled database objects.
+        """
+        table = "intelligence_items"
+        actual_columns = {
+            row[1]
+            for row in connection.exec_driver_sql(
+                'PRAGMA table_xinfo("intelligence_items")'
+            )
+        }
+        missing = set(expected_columns) - actual_columns
+        extra = actual_columns - set(expected_columns)
+        if missing or extra:
+            raise RuntimeError(
+                "Unsafe intelligence_items migration: incompatible columns "
+                f"(missing={sorted(missing)}, extra={sorted(extra)})"
+            )
+
+        trigger_names = connection.execute(
+            text(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'trigger' AND tbl_name = :table_name"
+            ),
+            {"table_name": table},
+        ).scalars().all()
+        if trigger_names:
+            raise RuntimeError(
+                "Unsafe intelligence_items migration: custom triggers require "
+                f"manual schema review: {sorted(trigger_names)}"
+            )
+
+        checks = inspect(connection).get_check_constraints(table)
+        if checks:
+            raise RuntimeError(
+                "Unsafe intelligence_items migration: CHECK constraints "
+                "require manual schema review"
+            )
+
+        # Do not replace a known-name index with a different custom shape,
+        # collation, ordering, partial filter, or expression. URL-only
+        # uniqueness is the single deliberate legacy constraint we replace.
+        modeled_indexes = {
+            index.name: tuple(column.name for column in index.columns)
+            for index in IntelligenceItem.__table__.indexes
+        }
+        for entry in connection.exec_driver_sql(
+            'PRAGMA index_list("intelligence_items")'
+        ):
+            name = str(entry[1])
+            unique = bool(entry[2])
+            partial = bool(entry[4])
+            escaped = name.replace('"', '""')
+            index_keys = [
+                row
+                for row in connection.exec_driver_sql(
+                    f'PRAGMA index_xinfo("{escaped}")'
+                )
+                if int(row[5]) == 1
+            ]
+            columns = tuple(row[2] for row in index_keys)
+            plain = all(
+                row[2] is not None
+                and int(row[3]) == 0
+                and str(row[4]).upper() == "BINARY"
+                for row in index_keys
+            )
+            if not partial and plain and unique and columns == ("url",):
+                continue
+            if (
+                not partial
+                and plain
+                and not unique
+                and modeled_indexes.get(name) == columns
+            ):
+                continue
+            raise RuntimeError(
+                "Unsafe intelligence_items migration: unmodelled index "
+                f"{name!r} on {columns}; manual schema review required"
+            )
+
+        # The copied ORM table has only the source_id -> sources.id FK.
+        # Reject other outbound FKs, and all inbound FKs: SQLite DROP TABLE
+        # can invoke ON DELETE actions on referencing child tables.
+        for fk in connection.exec_driver_sql(
+            'PRAGMA foreign_key_list("intelligence_items")'
+        ):
+            is_known_source_fk = (
+                fk[2] == "intelligence_sources"
+                and fk[3] == "source_id"
+                and fk[4] == "id"
+                and str(fk[6]).upper() == "SET NULL"
+                and str(fk[5]).upper() == "NO ACTION"
+            )
+            if not is_known_source_fk:
+                raise RuntimeError(
+                    "Unsafe intelligence_items migration: unmodelled "
+                    f"foreign key {fk[3]!r} -> {fk[2]!r}"
+                )
+        for (other_table,) in connection.execute(
+            text(
+                "SELECT name FROM sqlite_master WHERE type = 'table' "
+                "AND name != :table_name AND name NOT LIKE 'sqlite_%'"
+            ),
+            {"table_name": table},
+        ):
+            quoted_table = str(other_table).replace('"', '""')
+            child_fks = connection.exec_driver_sql(
+                f'PRAGMA foreign_key_list("{quoted_table}")'
+            )
+            if any(str(fk[2]).lower() == table for fk in child_fks):
+                raise RuntimeError(
+                    "Unsafe intelligence_items migration: referenced by "
+                    f"foreign key from table {other_table!r}"
+                )
+
     def _rebuild_intelligence_items_table(self) -> None:
         temporary_table = f"intelligence_items_recreate_tmp_{int(time.time() * 1_000_000_000)}"
         columns = [column.name for column in IntelligenceItem.__table__.columns]
@@ -2173,22 +2389,52 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         scoped_index_columns = ", ".join(["source_id", "url", "scope_type", "scope_value", "market"])
         scoped_index_name = "uix_intel_item_scope"
 
+        # Use SQLAlchemy's public metadata copy API instead of deprecated
+        # Column.copy(). Keep the source table in this *metadata only* so
+        # the item's foreign key can be resolved on the temporary table.
         tmp_metadata = MetaData()
-        tmp_table = Table(
-            temporary_table,
-            tmp_metadata,
-            *(column.copy() for column in IntelligenceItem.__table__.columns),
+        IntelligenceSource.__table__.to_metadata(tmp_metadata)
+        tmp_table = IntelligenceItem.__table__.to_metadata(
+            tmp_metadata, name=temporary_table
         )
+        # The legacy table still owns its named indexes until it is dropped.
+        # Creating any copied index now can collide with those names. Also
+        # avoid copying the ORM's UniqueConstraint: this migration intentionally
+        # replaces legacy URL-only uniqueness with the scoped index below.
+        for index in list(tmp_table.indexes):
+            tmp_table.indexes.remove(index)
+        for constraint in list(tmp_table.constraints):
+            if isinstance(constraint, UniqueConstraint):
+                tmp_table.constraints.remove(constraint)
+
         logger.info("Rebuilding intelligence_items table to align composite uniqueness constraints.")
         with self._engine.begin() as connection:
+            # sqlite3 can autocommit DDL without an explicit BEGIN; acquire the
+            # writer lock before any CREATE/DROP/RENAME so a later failure
+            # rolls back the entire table replacement and preserves the old
+            # rows and indexes. This matches _run_write_transaction's policy.
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+            # Reject unmodelled objects before touching the original table.
+            self._assert_legacy_intelligence_rebuild_safe(connection, columns)
             connection.execute(text(f'DROP TABLE IF EXISTS "{temporary_table}"'))
             tmp_table.create(connection)
+            source_count = connection.execute(
+                text('SELECT COUNT(*) FROM "intelligence_items"')
+            ).scalar_one()
             connection.execute(
                 text(
                     f"INSERT INTO \"{temporary_table}\" ({select_clause}) "
                     f"SELECT {select_clause} FROM intelligence_items"
                 )
             )
+            copied_count = connection.execute(
+                text(f'SELECT COUNT(*) FROM "{temporary_table}"')
+            ).scalar_one()
+            if copied_count != source_count:
+                raise RuntimeError(
+                    "intelligence_items migration row-count mismatch: "
+                    f"source={source_count} copied={copied_count}"
+                )
             connection.execute(text('DROP TABLE "intelligence_items"'))
             connection.execute(
                 text(f'ALTER TABLE "{temporary_table}" RENAME TO intelligence_items')
@@ -2199,6 +2445,14 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
                     f"intelligence_items ({scoped_index_columns})"
                 )
             )
+            # DROP TABLE removes secondary indexes, so reconstruct every
+            # current ORM-declared index against the *renamed* target table.
+            # Do not create them against the temporary table: those would
+            # inherit the temporary name or collide with existing indexes.
+            for index in sorted(
+                IntelligenceItem.__table__.indexes, key=lambda idx: idx.name
+            ):
+                index.create(connection, checkfirst=True)
 
     def _ensure_intelligence_items_scoped_unique_index_once(self) -> None:
         target_index_name = "uix_intel_item_scope"
