@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Live-network drift tests for TwInstitutionalFetcher, gated by @pytest.mark.network.
 
-These hit the REAL TWSE T86 + TPEx OpenAPI endpoints, so they run ONLY in the
-non-blocking "Network Smoke" cron (`pytest -m network`). The blocking backend gate
-runs `pytest -m "not network"` (scripts/ci_gate.sh), so these never gate a PR.
+These hit the REAL TWSE T86 + TPEx OpenAPI endpoints, and must be
+run explicitly with `pytest -m network`. The PR backend gate is offline
+(`pytest -m "not network"`), matching scripts/ci_gate.sh, and must not
+block code changes on upstream rate limits or firewall challenges.
 
 The offline suite (tests/test_tw_institutional_fetcher.py) pins the parser to frozen
 fixtures and therefore cannot detect upstream feed drift; this file is that detector.
@@ -69,9 +70,19 @@ class TestTwInstitutionalLiveNetwork(unittest.TestCase):
             resp = requests.get(url, params=params, headers=_HEADERS, timeout=20)
         except requests.exceptions.RequestException as exc:
             self.skipTest(f"endpoint unreachable: {exc}")
+        # An HTTP access denial has no authenticated feed payload to inspect.
+        # Skipping it in opt-in network smoke does NOT report provider success:
+        # pytest -rs exposes the exact code and endpoint. In particular,
+        # GitHub-hosted runners can receive a TPEx Cloudflare 403 challenge.
+        # A 200 response with malformed/HTML body still FAILS loudly as drift.
+        status = resp.status_code
+        if status in (401, 403, 408, 429) or 500 <= status <= 599:
+            self.skipTest(f"{url} access unavailable: HTTP {status}; feed schema unverified")
+        if status != 200:
+            self.fail(f"{url} returned unexpected HTTP {status} (endpoint URL/status drift)")
         try:
             return resp.json()
-        except ValueError as exc:  # non-JSON body is feed drift, not a transient blip
+        except ValueError as exc:  # HTTP 200 non-JSON is feed drift, not an access denial
             self.fail(f"{url} returned non-JSON (maintenance page / URL migration?): {exc}")
 
     def _assert_record_shape(self, rec, market_label):
