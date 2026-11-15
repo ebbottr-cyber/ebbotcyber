@@ -32,24 +32,35 @@ _REQUIRED_OHLCV = ("date", "open", "high", "low", "close", "volume")
 
 
 def _yahoo_daily_history(symbol: str, start: date, end: date) -> pd.DataFrame:
-    """Use the existing Yahoo-only provider, not the multi-source manager."""
-    from data_provider.yfinance_fetcher import YfinanceFetcher
+    """Fetch BIST history from the bot's existing yfinance dependency.
 
-    from data_provider.base import DataFetchError
+    Do not import data_provider here: its eager package initialization pulls
+    unrelated mainland-market providers (fake_useragent, efinance, etc.) into
+    a BIST-only audit. Yahoo failures still propagate to per-stock fetch_error.
+    """
+    import yfinance as yf
 
-    try:
-        return YfinanceFetcher().get_daily_data(
-            symbol, start_date=start.isoformat(),
-            # Yahoo's end boundary is exclusive, so include the requested day.
-            end_date=(end + timedelta(days=1)).isoformat(),
-        )
-    except DataFetchError as exc:
-        # Existing YfinanceFetcher raises on an empty Yahoo result instead of
-        # returning an empty DataFrame. Preserve a distinct no_data status.
-        # All other provider failures (429, timeout, bad payload) remain errors.
-        if "未查询到" in str(exc) or "未获取到" in str(exc):
-            return pd.DataFrame()
-        raise
+    # history(..., raise_errors=True) preserves connection / HTTP 429 failures
+    # instead of silently returning an empty DataFrame and claiming no_data.
+    # The end boundary is exclusive at Yahoo.
+    raw = yf.Ticker(symbol).history(
+        start=start.isoformat(),
+        end=(end + timedelta(days=1)).isoformat(),
+        interval="1d",
+        auto_adjust=True,
+        actions=False,
+        raise_errors=True,
+    )
+    if raw is None or (isinstance(raw, pd.DataFrame) and raw.empty):
+        return pd.DataFrame()
+    if not isinstance(raw, pd.DataFrame):
+        raise TypeError("Yahoo OHLCV response is not a DataFrame")
+    frame = raw.copy()
+    if isinstance(frame.columns, pd.MultiIndex):
+        frame.columns = frame.columns.get_level_values(0)
+    frame = frame.reset_index()
+    frame.columns = [str(column).strip().lower() for column in frame.columns]
+    return frame
 
 
 def _yahoo_currency(symbol: str) -> str | None:
