@@ -12,6 +12,11 @@ from src.services.bist100_report_reader import (
     CoverageReportUnavailable,
     load_configured_coverage_report,
 )
+from src.services.bist100_technical_report_reader import (
+    TechnicalReportInvalid,
+    TechnicalReportUnavailable,
+    load_configured_technical_report,
+)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -102,6 +107,35 @@ def get_bist100_coverage(request: Request):
     except CoverageReportInvalid as exc:
         logger.warning("Configured BIST100 report failed validation")
         raise HTTPException(status_code=422, detail="BIST100 report failed validation") from exc
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get(
+    "/bist100/technical-ranking",
+    summary="Read saved BIST100 technical ranking",
+    description=(
+        "Serve only a pre-generated, operator-configured technical report. "
+        "Requires admin authentication. Never queries SQLite, performs analyses, "
+        "retrieves prices, or places orders."
+    ),
+)
+def get_bist100_technical_ranking(request: Request):
+    """Do not allow API callers to select local file paths or launch a scan."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="BIST100 technical report is unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        data = load_configured_technical_report()
+    except TechnicalReportUnavailable as exc:
+        raise HTTPException(status_code=404, detail="BIST100 technical report not configured") from exc
+    except TechnicalReportInvalid as exc:
+        logger.warning("Configured BIST100 technical report failed validation")
+        raise HTTPException(status_code=422, detail="BIST100 technical report failed validation") from exc
     return JSONResponse(
         content=data,
         headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
