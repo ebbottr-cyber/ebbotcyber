@@ -36,7 +36,6 @@ def prepare_saved_report(
     publish: bool = False,
     expected_sha256: str | None = None,
     replace_existing: bool = False,
-    target_path: str | Path | None = None,
 ) -> dict:
     """Validate a dated report and optionally atomically publish to approved path.
 
@@ -87,15 +86,19 @@ def prepare_saved_report(
 
     if expected_sha256 is None:
         raise ReportPublicationError("Publishing requires an explicit expected SHA-256 fingerprint")
-    configured = target_path if target_path is not None else os.getenv("BIST100_TECHNICAL_REPORT_PATH", "").strip()
+    # Only the backend operator's configured report path may be published.
+    # A Python caller cannot override this with another target file.
+    configured = os.getenv("BIST100_TECHNICAL_REPORT_PATH", "").strip()
     if not configured:
         raise ReportPublicationError("BIST100_TECHNICAL_REPORT_PATH is not configured")
     target = Path(configured)
     if not target.is_absolute() or not target.name.endswith(".json"):
         raise ReportPublicationError("Approved destination must be an absolute .json path")
     parent = target.parent
-    if parent.is_symlink() or not parent.is_dir():
-        raise ReportPublicationError("Destination parent must exist and not be a symlink")
+    if any(part.is_symlink() for part in (parent, *parent.parents)) or not parent.is_dir():
+        raise ReportPublicationError(
+            "Destination parent and its ancestors must exist without symlinks"
+        )
     if target.is_symlink():
         raise ReportPublicationError("Refusing to replace a symlink destination")
     if target.exists():
