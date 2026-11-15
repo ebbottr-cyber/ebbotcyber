@@ -99,6 +99,7 @@ export function parseBist100TechnicalReport(value: unknown): Bist100TechnicalRep
   if (!record(value) || value.index !== 'BIST100' ||
       value.mode !== 'read_only_local_sqlite' || value.universe_total !== 100 ||
       !validDate(value.as_of) || !validDate(value.last_completed_session) ||
+      value.as_of < '2026-10-01' || value.as_of > '2026-12-31' ||
       value.last_completed_session >= value.as_of) {
     throw new Error('BIST100 teknik rapor kimliği veya tarihi geçersiz.');
   }
