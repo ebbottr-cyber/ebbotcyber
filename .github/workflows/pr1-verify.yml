@@ -221,7 +221,7 @@ jobs:
   # Read-only sample diagnostics for six international markets.
   six-market-live-yahoo:
     if: >-
-      github.head_ref == 'integration/bist100-six-markets' &&
+      (github.head_ref == 'integration/bist100-six-markets' || github.head_ref == 'integration/market-sqlite-safety') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
