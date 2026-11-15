@@ -256,3 +256,81 @@ jobs:
             ${{ runner.temp }}/six-market-yahoo*.log
           if-no-files-found: warn
           retention-days: 7
+
+# One-time isolated proof on this draft PR only. Never use a production report path.
+  bist100-verified-publication-sandbox:
+    if: >-
+      github.event.pull_request.number == 16 &&
+      github.head_ref == 'feat/bist100-report-safe-publisher' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Fetch previously verified 100-stock Yahoo historical report
+        uses: actions/download-artifact@v4
+        with:
+          name: bist100-real-yahoo-100-43723300907
+          repository: ${{ github.repository }}
+          run-id: 43723300907
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/bist100-original
+      - name: Verify input identity and isolated destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t reports < <(find "$RUNNER_TEMP/bist100-original" -name technical-100.json -type f)
+          test "${#reports[@]}" -eq 1
+          report="${reports[0]}"
+          echo "42a0834b5633b9667979966acc847fde6f431fb8f57ced16c432161fb287b06a  $report" | sha256sum -c
+          test ! -e "$RUNNER_TEMP/bist100-approved.json"
+          echo "BIST100_REPORT_INPUT=$report" >> "$GITHUB_ENV"
+          echo "BIST100_TECHNICAL_REPORT_PATH=$RUNNER_TEMP/bist100-approved.json" >> "$GITHUB_ENV"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Preview, explicitly publish and read saved real 100-stock report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.bist100_report_publisher \
+            --source "$BIST100_REPORT_INPUT" > "$RUNNER_TEMP/bist100-preview.json"
+          test ! -e "$BIST100_TECHNICAL_REPORT_PATH"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          preview = json.loads(Path(os.environ["RUNNER_TEMP"], "bist100-preview.json").read_text())
+          assert preview["mode"] == "validated_preview"
+          assert preview["checked"] == preview["analyzed"] == 100
+          assert preview["watchlist_eligible"] == 97
+          assert preview["sha256"] == "42a0834b5633b9667979966acc847fde6f431fb8f57ced16c432161fb287b06a"
+          PY
+          python -m src.services.bist100_report_publisher \
+            --source "$BIST100_REPORT_INPUT" \
+            --expected-sha256 42a0834b5633b9667979966acc847fde6f431fb8f57ced16c432161fb287b06a \
+            --publish > "$RUNNER_TEMP/bist100-published.json"
+          python - <<'PY'
+          import hashlib, json, os, stat
+          from pathlib import Path
+          from src.services.bist100_technical_report_reader import load_configured_technical_report
+          output = Path(os.environ["BIST100_TECHNICAL_REPORT_PATH"])
+          source = Path(os.environ["BIST100_REPORT_INPUT"])
+          assert output.is_file() and output.read_bytes() == source.read_bytes()
+          assert stat.S_IMODE(output.stat().st_mode) == 0o600
+          published = json.loads(Path(os.environ["RUNNER_TEMP"], "bist100-published.json").read_text())
+          assert published["mode"] == "published"
+          assert published["sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+          report = load_configured_technical_report()
+          assert report["checked"] == report["analyzed"] == 100
+          assert report["watchlist_eligible"] == 97
+          assert report["last_completed_session"] == "2026-11-13"
+          print("Isolated report publish/read proof: 100/100, XIST 2026-11-13, MA5-clear 97")
+          PY
+
