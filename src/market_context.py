@@ -78,9 +78,24 @@ _MARKET_ROLES = {
         "zh": "台股",
         "en": "Taiwan stock",
     },
+    "tr": {
+        "zh": "土耳其 BIST 股票",
+        "en": "Türkiye BIST-listed equity",
+    },
 }
 
 _MARKET_GUIDELINES = {
+    "tr": {
+        "zh": (
+            "- 本次分析对象为土耳其 Borsa İstanbul (BIST) 上市股票，报价货币为 TRY（土耳其里拉）。\n"
+            "- 请以土耳其市场和当地公司披露为准；若数据缺失应明确标记，不得套用中国 A 股专属资金流、龙虎榜或涨跌停假设。"
+        ),
+        "en": (
+            "- Analyze a Türkiye Borsa İstanbul (BIST) equity quoted in TRY (Turkish lira).\n"
+            "- Use Turkish-market context and local disclosures; mark missing data as unavailable. "
+            "Do not apply China A-share rules, Northbound flows or Dragon Tiger List concepts."
+        ),
+    },
     "cn": {
         "zh": (
             "- 本次分析对象为 **A 股**（中国沪深交易所上市股票）。\n"
@@ -160,7 +175,7 @@ def get_market_role(stock_code: Optional[str], lang: str = "zh") -> str:
         Role string like 'A 股投资分析' or 'US stock investment analysis'.
     """
     market = detect_market(stock_code)
-    lang_key = "en" if lang in ("en", "ko") else "zh"
+    lang_key = "en" if lang in ("en", "ko", "tr") else "zh"
     return _MARKET_ROLES.get(market, _MARKET_ROLES["cn"])[lang_key]
 
 
@@ -175,5 +190,5 @@ def get_market_guidelines(stock_code: Optional[str], lang: str = "zh") -> str:
         Multi-line string with market-specific guidelines.
     """
     market = detect_market(stock_code)
-    lang_key = "en" if lang in ("en", "ko") else "zh"
+    lang_key = "en" if lang in ("en", "ko", "tr") else "zh"
     return _MARKET_GUIDELINES.get(market, _MARKET_GUIDELINES["cn"])[lang_key]

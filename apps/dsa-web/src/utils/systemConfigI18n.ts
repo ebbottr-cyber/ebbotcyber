@@ -22,6 +22,16 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
     backtest: 'Backtest',
     uncategorized: 'Other',
   },
+  tr: {
+    base: 'Temel Ayarlar',
+    data_source: 'Veri Kaynakları',
+    ai_model: 'Yapay Zekâ Modelleri',
+    notification: 'Bildirimler',
+    system: 'Sistem',
+    agent: 'Yapay Zekâ Asistanı',
+    backtest: 'Geri Test',
+    uncategorized: 'Diğer',
+  },
 };
 
 const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCategory, string>>> = {
@@ -44,6 +54,16 @@ const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCate
     agent: 'Manage Agent mode, strategies, and multi-agent orchestration.',
     backtest: 'Manage backtest switches, evaluation windows, and engine parameters.',
     uncategorized: 'Other uncategorized settings.',
+  },
+  tr: {
+    base: 'İzleme listesini ve temel çalışma parametrelerini yönetin.',
+    data_source: 'Piyasa veri kaynaklarını ve öncelik sırasını yönetin.',
+    ai_model: 'Model sağlayıcılarını, model adlarını ve çıkarım ayarlarını yönetin.',
+    notification: 'Bot, webhook ve bildirim gönderim ayarlarını yönetin.',
+    system: 'Zamanlama, günlük kayıtları, bağlantı noktaları ve sistem ayarlarını yönetin.',
+    agent: 'Yapay zekâ asistanını, stratejileri ve çoklu asistan ayarlarını yönetin.',
+    backtest: 'Geri test seçeneklerini, değerlendirme aralığını ve motor ayarlarını yönetin.',
+    uncategorized: 'Diğer kategorilere girmeyen ayarlar.',
   },
 };
 
