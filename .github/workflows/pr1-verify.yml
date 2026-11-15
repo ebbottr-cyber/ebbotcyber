@@ -329,5 +329,5 @@ jobs:
         working-directory: apps/dsa-web
         run: >-
           npx vitest run
-          src/utils/bist100RealReport.e2e.test.ts
-          src/components/data-center/Bist100RealPanel.e2e.test.tsx
+          integration-tests/bist100RealReport.e2e.test.ts
+          integration-tests/Bist100RealPanel.e2e.test.tsx
