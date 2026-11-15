@@ -58,7 +58,7 @@ def _filter_output(changed_paths: list[str], rules: list[str]) -> bool:
 
 
 def test_heavy_ci_jobs_are_path_filtered_and_backend_tests_are_sharded() -> None:
-    ci = _workflow(".github/workflows/ci.yml")
+    ci = _workflow("workflows_disabled/ci.yml.disabled")
     changes_job, filter_step, backend_filter_step = _change_filters(ci)
     filters = str(filter_step["with"]["filters"])
     parsed_filters = yaml.load(filters, Loader=yaml.BaseLoader)
@@ -163,7 +163,7 @@ def test_heavy_ci_jobs_are_path_filtered_and_backend_tests_are_sharded() -> None
 
 def test_backend_filter_covers_mixed_changes_and_shared_web_assets() -> None:
     """Model heavy-job outputs for docs-only, code, and mixed changes."""
-    ci = _workflow(".github/workflows/ci.yml")
+    ci = _workflow("workflows_disabled/ci.yml.disabled")
     changes_job, filter_step, backend_filter_step = _change_filters(ci)
     filters = yaml.load(
         str(filter_step["with"]["filters"]),
@@ -230,7 +230,7 @@ def test_browser_fixture_and_default_smoke_entrypoints_stay_separate() -> None:
     assert "testIgnore: '**/fixtures/**'" in smoke
     assert "testDir: './e2e/fixtures'" in fixture
     assert "webServer:" in fixture
-    steps = _workflow(".github/workflows/ci.yml")["jobs"]["web-gate"]["steps"]
+    steps = _workflow("workflows_disabled/ci.yml.disabled")["jobs"]["web-gate"]["steps"]
     default = next(step for step in steps if step.get("run") == "npm run test:smoke")
     assert default["env"]["DSA_WEB_SMOKE_PASSWORD"] == ""
     assert any(step.get("run") == "npx playwright test --config playwright.fixture.config.ts" for step in steps)

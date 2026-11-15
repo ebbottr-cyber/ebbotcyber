@@ -2,6 +2,7 @@
 """Static checks for notification env mappings in 00-daily-analysis.yml."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -19,7 +20,7 @@ from src.services.notification_diagnostics import (
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-WORKFLOW_PATH = ROOT_DIR / ".github/workflows/00-daily-analysis.yml"
+WORKFLOW_PATH = ROOT_DIR / "workflows_disabled/00-daily-analysis.yml.disabled"
 NOTIFICATIONS_DOC_PATH = ROOT_DIR / "docs/notifications.md"
 
 P0_EXCLUDED_BEHAVIOR_SWITCHES = {
@@ -88,6 +89,12 @@ def test_daily_analysis_keeps_deferred_behavior_switches_unmapped() -> None:
 
 def test_notification_actions_env_table_matches_generated_output() -> None:
     current = extract_managed_block(NOTIFICATIONS_DOC_PATH.read_text(encoding="utf-8"))
-    expected = generate_table()
+    # The imported repository keeps this workflow archived rather than active.
+    # Preserve the generator's table contract while loading that archived source.
+    with patch(
+        "scripts.generate_notification_actions_env_table.load_daily_analysis_env",
+        return_value=_load_daily_analysis_env(),
+    ):
+        expected = generate_table()
 
     assert normalize_markdown_block(current) == normalize_markdown_block(expected)
