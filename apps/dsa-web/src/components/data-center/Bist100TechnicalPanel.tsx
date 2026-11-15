@@ -1,11 +1,16 @@
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { bist100TechnicalApi } from '../../api/bist100Technical';
 import { Badge, Card } from '../common';
 import {
   parseBist100TechnicalReport,
   type Bist100TechnicalReport,
 } from '../../utils/bist100TechnicalReport';
+import {
+  selectBist100Ranking,
+  type Bist100RiskView,
+  type Bist100SortView,
+} from '../../utils/bist100RankingView';
 
 const PAGE_SIZE = 20;
 const STATUSES: Record<string, string> = {
@@ -34,6 +39,10 @@ export const Bist100TechnicalPanel: React.FC = () => {
   const [report, setReport] = useState<Bist100TechnicalReport | null>(null);
   const [selectedFile, setSelectedFile] = useState('');
   const [page, setPage] = useState(0);
+  const [symbolQuery, setSymbolQuery] = useState('');
+  const [riskView, setRiskView] = useState<Bist100RiskView>('all');
+  const [minScore, setMinScore] = useState(0);
+  const [sortView, setSortView] = useState<Bist100SortView>('rank');
   const [error, setError] = useState('');
   const [serverMessage, setServerMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -104,7 +113,12 @@ export const Bist100TechnicalPanel: React.FC = () => {
     }
   };
 
-  const ranking = report?.ranking ?? [];
+  const ranking = useMemo(
+    () => selectBist100Ranking(report?.ranking ?? [], {
+      symbolQuery, risk: riskView, minScore, sort: sortView,
+    }),
+    [report?.ranking, symbolQuery, riskView, minScore, sortView],
+  );
   const maxPage = Math.max(0, Math.ceil(ranking.length / PAGE_SIZE) - 1);
   const visible = ranking.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const format = (value: number, digits = 2) =>
@@ -180,8 +194,62 @@ export const Bist100TechnicalPanel: React.FC = () => {
               </p>
             ) : (
               <>
+                <div className="grid grid-cols-1 gap-3 rounded-xl border border-border/70 bg-surface/40 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <label className="flex flex-col gap-1 text-xs text-secondary-text">
+                    Hisse ara
+                    <input type="search" value={symbolQuery} maxLength={16}
+                      onChange={event => { setSymbolQuery(event.target.value); setPage(0); }}
+                      placeholder="Örn: THYAO" aria-label="BIST100 hisse kodu ara"
+                      className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-secondary-text">
+                    MA5 mesafe uyarısı
+                    <select value={riskView}
+                      onChange={event => { setRiskView(event.target.value as Bist100RiskView); setPage(0); }}
+                      aria-label="MA5 mesafe riskini filtrele"
+                      className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
+                      <option value="all">Tüm analizler</option>
+                      <option value="ma5-clear">Yüksek MA5 mesafesi olmayan</option>
+                      <option value="chase-risk">Yüksek MA5 mesafesi olan</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-secondary-text">
+                    En düşük teknik puan
+                    <select value={minScore}
+                      onChange={event => { setMinScore(Number(event.target.value)); setPage(0); }}
+                      aria-label="En düşük teknik puanı seç"
+                      className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
+                      <option value={0}>Hepsi (0+)</option>
+                      <option value={60}>60+</option>
+                      <option value={70}>70+</option>
+                      <option value={80}>80+</option>
+                      <option value={90}>90+</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-secondary-text">
+                    Görünüm sırası
+                    <select value={sortView}
+                      onChange={event => { setSortView(event.target.value as Bist100SortView); setPage(0); }}
+                      aria-label="Görünüm sırasını seç"
+                      className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
+                      <option value="rank">Orijinal teknik sıralama</option>
+                      <option value="symbol">Hisse koduna göre</option>
+                      <option value="rsi">RSI (yüksekten düşüğe)</option>
+                    </select>
+                  </label>
+                </div>
+                <p role="status" className="text-xs text-muted-text">
+                  Analiz edilen: {report.analyzed} · Bu görünümde: {ranking.length}.
+                  {' '}Sıra numaraları orijinal rapordan korunur; filtreleme yeni analiz veya alım sinyali üretmez.
+                </p>
+                {ranking.length === 0 ? (
+                  <p className="text-sm text-muted-text">
+                    Bu filtrelerle eşleşen hisse yok. Filtreleri değiştirerek tüm analizleri görebilirsiniz.
+                  </p>
+                ) : null}
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[800px] text-left text-sm">
+                  <table className="w-full min-w-[900px] text-left text-sm">
                     <thead className="border-b border-border/60 text-xs uppercase text-muted-text">
                       <tr>
                         <th className="px-3 py-2 font-medium">Sıra</th>
@@ -190,6 +258,7 @@ export const Bist100TechnicalPanel: React.FC = () => {
                         <th className="px-3 py-2 font-medium">Kapanış (₺)</th>
                         <th className="px-3 py-2 font-medium">MA5 (₺)</th>
                         <th className="px-3 py-2 font-medium">RSI(12)</th>
+                        <th className="px-3 py-2 font-medium">MACD hist.</th>
                         <th className="px-3 py-2 font-medium">MA5 farkı</th>
                         <th className="px-3 py-2 font-medium">Teknik yorum</th>
                       </tr>
@@ -203,6 +272,7 @@ export const Bist100TechnicalPanel: React.FC = () => {
                           <td className="px-3 py-3 text-secondary-text">{format(item.close_try, 4)}</td>
                           <td className="px-3 py-3 text-secondary-text">{format(item.ma5_try, 4)}</td>
                           <td className="px-3 py-3 text-secondary-text">{format(item.rsi12)}</td>
+                          <td className="px-3 py-3 text-secondary-text">{format(item.macd_histogram, 4)}</td>
                           <td className="px-3 py-3 text-secondary-text">{format(item.bias_ma5_pct)}%</td>
                           <td className="px-3 py-3">
                             <div className="text-foreground">{item.trend}</div>
