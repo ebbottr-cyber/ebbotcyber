@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseBist100TechnicalReport } from '../../utils/bist100TechnicalReport';
 import { Bist100TechnicalPanel } from './Bist100TechnicalPanel';
@@ -27,8 +27,7 @@ vi.mock('../../api/bist100Technical', () => ({
 }));
 
 afterEach(() => {
-  // Testing Library/Vitest may not use the global afterEach auto cleanup.
-  document.body.innerHTML = '';
+  cleanup();
 });
 
 describe('actual 100-stock Yahoo report shown by BIST100 React panel', () => {
