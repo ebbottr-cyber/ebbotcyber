@@ -667,6 +667,33 @@ def parse_analysis_target(
             unsupported_reason="empty input",
         )
 
+    # Explicit Türkiye .IS equity symbols must never become US or CN stocks.
+    # The XU100.IS benchmark belongs to a separate index path, not the
+    # constituent stock analyser.
+    from src.services.bist_symbols import normalize_bist_equity_symbol
+    bist_stock = normalize_bist_equity_symbol(raw)
+    if bist_stock is not None:
+        return AnalysisTarget(
+            raw_input=raw_input,
+            asset_type=ParseStatus.STOCK,
+            canonical_id=bist_stock,
+            display_code=bist_stock,
+            exchange="TR",
+            normalized_prefix=None,
+            normalized_code=bist_stock,
+        )
+    if raw.upper().endswith(".IS"):
+        return AnalysisTarget(
+            raw_input=raw_input,
+            asset_type=ParseStatus.UNSUPPORTED,
+            canonical_id=raw.upper(),
+            display_code=raw.upper(),
+            exchange="TR",
+            unsupported_reason="invalid BIST .IS equity or unsupported index symbol",
+            normalized_prefix=None,
+            normalized_code=raw.upper(),
+        )
+
     # Note: we deliberately use ``is None`` rather than ``or`` so that an
     # explicitly-injected empty :class:`IndexRegistry` (``IndexRegistry([])``)
     # is honoured as a legitimate "no indices whitelisted" configuration.
