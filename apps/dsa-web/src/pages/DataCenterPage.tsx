@@ -4,6 +4,7 @@ import { Database, RefreshCw, Settings2, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dataCapabilityApi } from '../api/dataCapability';
 import { Bist100CoveragePanel } from '../components/data-center/Bist100CoveragePanel';
+import { Bist100TechnicalPanel } from '../components/data-center/Bist100TechnicalPanel';
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
@@ -127,6 +128,7 @@ const DataCenterPage: React.FC = () => {
       ) : null}
 
       <Bist100CoveragePanel />
+      <Bist100TechnicalPanel />
 
       {overview ? (
         <>
