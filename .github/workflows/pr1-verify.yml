@@ -28,6 +28,8 @@ jobs:
         run: npm ci
       - name: Typecheck frontend
         run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Test BIST100 ranking report parsing and presentation filters
+        run: npx vitest run src/utils/bist100TechnicalReport.test.ts src/utils/bist100RankingView.test.ts
       - name: Lint frontend
         run: npm run lint
       - name: Build frontend
@@ -44,5 +46,288 @@ jobs:
           python-version: '3.11'
       - name: Install backend CI dependencies
         run: python -m pip install -r .github/requirements-ci.txt
-      - name: Run Python tests
-        run: pytest -q
+      - name: Run deterministic Python tests (no live provider calls)
+        run: pytest -q -m "not network"
+
+# Project-scoped live validation on this draft PR only; no production DB.
+  bist100-live-5-cloud:
+    if: >-
+      github.event.pull_request.number == 8 &&
+      github.head_ref == 'feat/bist100-mvp' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Create isolated temporary SQLite path
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/bist100-live-5-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$stage"
+          test ! -e "$stage/isolated.sqlite"
+          echo "BIST100_SMOKE_STAGE=$stage" >> "$GITHUB_ENV"
+          echo "DATABASE_PATH=$stage/isolated.sqlite" >> "$GITHUB_ENV"
+          echo "Staged data is local to this disposable Actions runner."
+      - name: Fetch real Yahoo daily bars and import only 5 BIST100 symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.bist100_import \
+            --as-of 2026-11-15 \
+            --symbols THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS \
+            --lookback-days 365 --min-bars 60 --delay-seconds 1.5 \
+            --write-db > "$BIST100_SMOKE_STAGE/import-5.json" \
+            2> "$BIST100_SMOKE_STAGE/import-5.stderr.log"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["BIST100_SMOKE_STAGE"]) / "import-5.json").read_text(encoding="utf-8"))
+          items = report.get("results", [])
+          statuses = [(row.get("symbol"), row.get("coverage_status"), row.get("storage_status")) for row in items]
+          print("Yahoo import 5-stock statuses:", statuses)
+          print("ready_for_import:", report.get("ready_for_import"), "imported:", report.get("imported"))
+          if (report.get("mode") != "write_db" or report.get("checked") != 5
+              or report.get("ready_for_import") != 5 or report.get("imported") != 5
+              or any(row.get("storage_status") != "imported" for row in items)):
+              raise SystemExit("Real-data import gate did not pass 5/5; report retained as artifact")
+          PY
+      - name: Rank 5 imported symbols via existing technical engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.bist100_screener \
+            --as-of 2026-11-15 \
+            --symbols THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS \
+            --lookback-days 365 --min-bars 60 \
+            --db-path "$DATABASE_PATH" \
+            --output "$BIST100_SMOKE_STAGE/technical-5.json" \
+            > "$BIST100_SMOKE_STAGE/technical-5.stdout.json" \
+            2> "$BIST100_SMOKE_STAGE/technical-5.stderr.log"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads((Path(os.environ["BIST100_SMOKE_STAGE"]) / "technical-5.json").read_text(encoding="utf-8"))
+          print("BIST100 5-stock technical ranking:", [(x["symbol"], x["score"]) for x in r.get("ranking", [])])
+          print("Status counts:", r.get("status_counts"), "analyzed:", r.get("analyzed"))
+          if (r.get("checked") != 5 or r.get("analyzed") != 5
+              or len(r.get("ranking", [])) != 5
+              or any(x.get("status") != "analyzed" for x in r.get("results", []))):
+              raise SystemExit("Real-data ranking gate did not pass 5/5; report retained as artifact")
+          PY
+      - name: Upload non-secret real-data validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bist100-real-yahoo-5-${{ github.run_id }}
+          path: ${{ runner.temp }}/bist100-live-5-*/*
+          if-no-files-found: warn
+          retention-days: 7
+
+# Run the full set only after this PR's five-symbol cloud gate succeeds.
+  # Isolated runner DB, public historical Yahoo prices, no model keys/orders.
+  bist100-live-100-cloud:
+    needs: bist100-live-5-cloud
+    if: >-
+      github.event.pull_request.number == 8 &&
+      github.head_ref == 'feat/bist100-mvp' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Create isolated temporary BIST100 SQLite path
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/bist100-live-100-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$stage"
+          test ! -e "$stage/isolated.sqlite"
+          echo "BIST100_SMOKE_STAGE=$stage" >> "$GITHUB_ENV"
+          echo "DATABASE_PATH=$stage/isolated.sqlite" >> "$GITHUB_ENV"
+      - name: Fetch real Yahoo history for all 100 BIST100 members
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.bist100_import \
+            --as-of 2026-11-15 --lookback-days 365 \
+            --min-bars 60 --delay-seconds 1.5 --write-db \
+            > "$BIST100_SMOKE_STAGE/import-100.json" \
+            2> "$BIST100_SMOKE_STAGE/import-100.stderr.log"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["BIST100_SMOKE_STAGE"]) / "import-100.json").read_text(encoding="utf-8"))
+          failed = [(x.get("symbol"), x.get("coverage_status"), x.get("storage_status"), x.get("error_type")) for x in report.get("results", []) if x.get("storage_status") != "imported"]
+          print("Yahoo 100 import:", "checked", report.get("checked"), "ready", report.get("ready_for_import"), "imported", report.get("imported"), "new_rows", report.get("new_rows"))
+          print("Status counts:", report.get("storage_status_counts"))
+          print("Unimported tickers:", failed[:100])
+          if (report.get("mode") != "write_db" or report.get("checked") != 100
+              or report.get("ready_for_import") != 100 or report.get("imported") != 100
+              or failed):
+              raise SystemExit("Yahoo/SQLite 100-stock import did not pass 100/100; inspect artifact")
+          PY
+      - name: Rank imported 100 via the existing technical analyzer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.bist100_screener \
+            --as-of 2026-11-15 --lookback-days 365 --min-bars 60 \
+            --db-path "$DATABASE_PATH" \
+            --output "$BIST100_SMOKE_STAGE/technical-100.json" \
+            > "$BIST100_SMOKE_STAGE/technical-100.stdout.json" \
+            2> "$BIST100_SMOKE_STAGE/technical-100.stderr.log"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads((Path(os.environ["BIST100_SMOKE_STAGE"]) / "technical-100.json").read_text(encoding="utf-8"))
+          ranking = report.get("ranking", [])
+          failed = [(x.get("symbol"), x.get("status"), x.get("error_type")) for x in report.get("results", []) if x.get("status") != "analyzed"]
+          print("BIST100 analyzed:", report.get("analyzed"), "checked:", report.get("checked"), "eligible:", report.get("watchlist_eligible"))
+          print("Status counts:", report.get("status_counts"))
+          print("Top 10 technical ranking:", [(x["symbol"], x["score"]) for x in ranking[:10]])
+          print("Unanalyzed tickers:", failed)
+          if (report.get("checked") != 100 or report.get("analyzed") != 100
+              or len(ranking) != 100 or failed):
+              raise SystemExit("BIST100 technical ranking did not pass 100/100; inspect artifact")
+          PY
+      - name: Upload 100-stock public data test summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bist100-real-yahoo-100-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/bist100-live-100-*/*.json
+            ${{ runner.temp }}/bist100-live-100-*/*.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  # Read-only sample diagnostics for six international markets.
+  six-market-live-yahoo:
+    if: >-
+      (github.head_ref == 'integration/bist100-six-markets' || github.head_ref == 'integration/market-sqlite-safety') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify actual Yahoo market history, currency and technical score
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.six_market_live_smoke \
+            --as-of 2026-11-15 \
+            --output "$RUNNER_TEMP/six-market-yahoo-2026-11-15.json" \
+            2> "$RUNNER_TEMP/six-market-yahoo.stderr.log"
+      - name: Upload read-only six-market probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: six-market-yahoo-smoke-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/six-market-yahoo-*.json
+            ${{ runner.temp }}/six-market-yahoo*.log
+          if-no-files-found: warn
+          retention-days: 7
+
+# One-time historical E2E verification. Pulls the real Yahoo-generated
+  # 100-stock report from earlier green PR #8 run, not synthesized candles.
+  # Guarded to this integration branch: original artifact has 7-day retention.
+  bist100-real-report-panel-e2e:
+    if: >-
+      github.head_ref == 'integration/bist100-panel-real-report' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+      - name: Download actual BIST100 100-stock GitHub artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bist100-real-yahoo-100-43723300907
+          run-id: 43723300907
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/bist100-real-report-proof
+      - name: Verify artifact identity and expose unique real report path
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find "$RUNNER_TEMP/bist100-real-report-proof" -type f -name 'technical-100.json' | sort)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "Expected exactly one real technical-100.json in prior GitHub artifact" >&2
+            exit 1
+          fi
+          report="${files[0]}"
+          expected="42a0834b5633b9667979966acc847fde6f431fb8f57ced16c432161fb287b06a"
+          echo "$expected  $report" | sha256sum --check --status
+          echo "BIST100_REAL_REPORT_PATH=$report" >> "$GITHUB_ENV"
+          echo "Verified archived 100-stock technical report SHA-256: $expected"
+      - name: Set up Python for backend saved-report validator
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Check real report via existing server-side XIST calendar validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from src.services.bist100_technical_report_reader import validate_technical_report
+          source = Path(os.environ["BIST100_REAL_REPORT_PATH"])
+          report = validate_technical_report(json.loads(source.read_text(encoding="utf-8")))
+          print("Real 2026-11-15 BIST report:", "checked", report["checked"],
+                "analyzed", report["analyzed"], "MA5-clear", report["watchlist_eligible"],
+                "last completed XIST session", report["last_completed_session"])
+          assert report["checked"] == report["analyzed"] == 100
+          assert report["remaining"] == 0
+          assert report["watchlist_eligible"] == 97
+          assert report["last_completed_session"] == "2026-11-13"
+          PY
+      - name: Set up Node.js for real-panel integration
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend dependencies
+        working-directory: apps/dsa-web
+        run: npm ci
+      - name: Verify full real JSON with original TS parser and React DOM filters
+        working-directory: apps/dsa-web
+        run: >-
+          npx vitest run
+          integration-tests/bist100RealReport.e2e.test.ts
+          integration-tests/Bist100RealPanel.e2e.test.tsx
