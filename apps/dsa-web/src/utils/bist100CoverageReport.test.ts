@@ -70,7 +70,9 @@ describe('BIST100 coverage JSON import validation', () => {
     unknownSource.source = 'Unverified';
     expect(() => parseBist100CoverageReport(unknownSource)).toThrow();
     const noBarDates = report();
-    noBarDates.results[0] = { ...missingRow, symbol: 'THYAO.IS', first_bar_date: '2026-11-01' };
-    expect(() => parseBist100CoverageReport(noBarDates)).toThrow();
+    const malformed = { ...goodRow, last_bar_date: null };
+    expect(() => parseBist100CoverageReport({
+      ...noBarDates, results: [malformed, ...noBarDates.results.slice(1)],
+    })).toThrow();
   });
 });
