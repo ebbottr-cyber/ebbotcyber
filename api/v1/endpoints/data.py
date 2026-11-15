@@ -5,6 +5,14 @@ from __future__ import annotations
 
 import logging
 
+from fastapi.responses import JSONResponse
+from src.auth import COOKIE_NAME, is_auth_enabled, verify_session
+from src.services.bist100_report_reader import (
+    CoverageReportInvalid,
+    CoverageReportUnavailable,
+    load_configured_coverage_report,
+)
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.deps import get_config_dep
@@ -69,4 +77,32 @@ def get_data_capabilities(
     return _overview_response(
         config,
         runtime_scheduler=getattr(request.app.state, "runtime_scheduler_service", None),
+    )
+
+
+@router.get(
+    "/bist100/coverage",
+    summary="Read saved BIST100 Yahoo history coverage",
+    description=(
+        "Read-only access to an operator-configured historical report. "
+        "Requires an authenticated admin session. Does not fetch prices or analyze stocks."
+    ),
+)
+def get_bist100_coverage(request: Request):
+    """Fail closed when admin auth is disabled; never expose server file paths."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="BIST100 report is unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        data = load_configured_coverage_report()
+    except CoverageReportUnavailable as exc:
+        raise HTTPException(status_code=404, detail="BIST100 report not configured") from exc
+    except CoverageReportInvalid as exc:
+        logger.warning("Configured BIST100 report failed validation")
+        raise HTTPException(status_code=422, detail="BIST100 report failed validation") from exc
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
     )
