@@ -11,13 +11,18 @@ const analyzed = {
 };
 
 function fixture() {
+  const ranking: Record<string, unknown>[] = [{ ...analyzed, rank: 1 }];
+  const results: Record<string, unknown>[] = [
+    { ...analyzed },
+    { symbol: 'AKFYE.IS', status: 'not_imported' },
+  ];
   return {
     index: 'BIST100', mode: 'read_only_local_sqlite', as_of: '2026-11-15',
     last_completed_session: '2026-11-13', universe_total: 100,
     checked: 2, remaining: 98, analyzed: 1, watchlist_eligible: 1,
     status_counts: { analyzed: 1, not_imported: 1 },
-    ranking: [{ ...analyzed, rank: 1 }],
-    results: [{ ...analyzed }, { symbol: 'AKFYE.IS', status: 'not_imported' }],
+    ranking,
+    results,
   };
 }
 
