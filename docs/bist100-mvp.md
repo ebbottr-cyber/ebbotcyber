@@ -131,3 +131,25 @@ Track integration in the BIST100 MVP GitHub issue.
   ```
   The generated JSON can be selected directly in the Data Center browser, even when the admin endpoint is not configured. To use server viewing, set `BIST100_TECHNICAL_REPORT_PATH` on the **backend host** to the absolute saved JSON path and use a valid administrator login; do not enable unauthenticated access.
 - Both report-producing and viewer steps remain **manual and opt-in**. No current report is auto-created from the earlier 100/100 coverage audit. CI tests verify only mock/fixture cases until real five-stock SQLite reading and 100-stock execution are completed. Keep Draft PR #8 unmerged pending review.
+
+## Phase 12 — Real Yahoo → isolated SQLite → technical ranking (operator run)
+
+The repo now includes `scripts/bist100-live-validation.ps1`, an opt-in Windows PowerShell validation runner.
+
+**Safety and truth boundaries:** The runner requires the checked-out `feat/bist100-mvp` branch and an installed `.venv\Scripts\python.exe`. It uses `src.services.bist100_import --write-db` **only after assigning a newly created isolated SQLite file to the process-local `DATABASE_PATH`**. The original `DATABASE_PATH` is restored afterward; no app/production database is opened, deleted or overwritten. The run folder is unique under `%LOCALAPPDATA%\EBBOTCYBER\BIST100-Validation`. Reports, stderr diagnostics and the isolated database remain there. No order placement, LLM calls or push to a remote server.
+
+The script checks the selected 2026-Q4 membership and strictly requires fresh, TRY-denominated Yahoo rows for every selected symbol. It runs a five-stock `THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS` import and the **existing** technical analyzer, stops on any unavailable/import-error/unanalyzed stock, and saves `import-5.json` and `technical-5.json`. Run after checking out the PR #8 working tree and installing Python dependencies:
+
+```powershell
+.\scripts\bist100-live-validation.ps1 -AsOf 2026-11-15
+```
+
+Only after the five-stock gate passes should the operator explicitly request the complete index. The same staging DB is reused inside that one run, and both 100-stock import and ranking **must** pass 100/100 or the runner errors with paths to inspect:
+
+```powershell
+.\scripts\bist100-live-validation.ps1 -AsOf 2026-11-15 -Full100
+```
+
+The `-AsOf` date is required and must lie within the verified 2026-Q4 constituent snapshot. Tests in `tests/test_bist100_live_validation_script.py` are static/offline safeguards; they do **not** imply real Yahoo requests completed. The script itself needs to be run on an operator-controlled Windows machine with external data-provider access. When the run passes, open the generated `technical-5.json` or `technical-100.json` locally in the Data Center technical-ranking panel, or configure the backend's `BIST100_TECHNICAL_REPORT_PATH` to the absolute file path for administrator-only viewing. Rerun with a new date/snapshot for later periods.
+
+CI passing **is not** proof of real historical provider availability, complete index analysis, or model profitability; keep every report's sample size and as-of date visible. This script does not modify the main app database, and results from the isolated database should not be treated as a production migration verification.
