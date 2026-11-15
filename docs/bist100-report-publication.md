@@ -56,8 +56,11 @@ runtime configuration and explicitly publishes a validated JSON.
   a valid dated BIST100 technical report, the exact verified previous XIST
   session, active membership, valid indicators and accurate result counts.
 - Writes one temporary file in the already-existing target directory, flushes
-  and `fsync`s it, assigns 0600 permissions and atomically replaces the target.
-  The old file is unchanged on validation, checksum, or other pre-write failures.
+  and `fsync`s it, and assigns 0600 permissions. New publications use an
+  **atomic exclusive hard link**, so a report created concurrently can never
+  be silently overwritten. An explicit `--replace-existing` uses atomic
+  replacement. The old file is unchanged on validation, checksum, or other
+  pre-write failures.
 - Does not fetch Yahoo data, execute trades, call language models, read
   production SQLite or modify the GitHub default branch.
 - This tool is intentionally operator-only, **not a web upload endpoint**;
