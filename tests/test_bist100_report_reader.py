@@ -83,6 +83,76 @@ def test_forged_or_mismatched_reports_rejected(monkeypatch, mutate):
         validate_coverage_report(report)
 
 
+
+def test_rejects_self_consistent_but_stale_coverage_as_ready(monkeypatch):
+    """Previously an internally matching fake old session passed 'ready'."""
+    report = deepcopy(_report(monkeypatch))
+    report["expected_last_completed_session"] = "2026-11-12"
+    for item in report["results"]:
+        item["expected_last_session"] = "2026-11-12"
+        item["last_bar_date"] = "2026-11-12"
+    with pytest.raises(CoverageReportInvalid, match="XIST"):
+        validate_coverage_report(report)
+
+
+def test_rejects_unverifiable_exchange_calendar_for_claimed_ready(monkeypatch):
+    from src.services import bist100_report_reader as reader
+    report = _report(monkeypatch)
+    monkeypatch.setattr(reader, "_last_completed_session", lambda _as_of: None)
+    with pytest.raises(CoverageReportInvalid, match="XIST"):
+        validate_coverage_report(report)
+
+
+def test_unverified_calendar_diagnostics_can_display_without_ready_claim(monkeypatch):
+    """A failed scan can still be disclosed, never counted as verified coverage."""
+    report = _report(monkeypatch)
+    report["expected_last_completed_session"] = None
+    for item in report["results"]:
+        item["expected_last_session"] = None
+        item["status"] = "calendar_unavailable"
+        item["issues"] = ["calendar_unavailable"]
+    report["status_counts"] = {"calendar_unavailable": 2}
+    report["ready"] = 0
+    from src.services import bist100_report_reader as reader
+    monkeypatch.setattr(reader, "_last_completed_session", lambda _as_of: None)
+    validated = validate_coverage_report(report)
+    assert validated["ready"] == 0
+    assert validated["status_counts"] == {"calendar_unavailable": 2}
+
+
+@pytest.mark.parametrize("key,value", [
+    ("constituent_snapshot_as_of", "2026-10-02"),
+    ("constituent_snapshot_effective_to", "2027-01-01"),
+])
+def test_rejects_spoofed_membership_metadata(monkeypatch, key, value):
+    report = _report(monkeypatch)
+    report[key] = value
+    with pytest.raises(CoverageReportInvalid, match="provenance"):
+        validate_coverage_report(report)
+
+
+def test_stale_coverage_report_endpoint_returns_422_not_ready(monkeypatch, tmp_path):
+    report = _report(monkeypatch)
+    report["expected_last_completed_session"] = "2026-11-12"
+    for item in report["results"]:
+        item["expected_last_session"] = "2026-11-12"
+        item["last_bar_date"] = "2026-11-12"
+    file = tmp_path / "stale-coverage.json"
+    file.write_text(json.dumps(report), encoding="utf-8")
+    monkeypatch.setenv("BIST100_COVERAGE_REPORT_PATH", str(file))
+    monkeypatch.setattr(data_endpoint, "is_auth_enabled", lambda: True)
+    monkeypatch.setattr(data_endpoint, "verify_session", lambda _v: True)
+    app = FastAPI()
+    app.include_router(data_endpoint.router, prefix="/api/v1/data")
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/data/bist100/coverage",
+            cookies={data_endpoint.COOKIE_NAME: "valid"},
+        )
+    assert response.status_code == 422
+    assert "XIST" not in response.text
+
+
 def test_endpoint_is_disabled_without_auth_and_never_accepts_path_query(monkeypatch, tmp_path):
     report = _report(monkeypatch)
     file = tmp_path / "report.json"
