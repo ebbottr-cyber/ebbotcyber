@@ -10,3 +10,10 @@ This is the isolated starting point for Turkish BIST100 support.
 - The first commit contains only stand-alone symbol validation, offline tests, and this scope note. It does **not** connect the existing screens, provider, market context or production execution.
 
 Track integration in the BIST100 MVP GitHub issue.
+
+## Phase 2 — explicit routing contracts (candidate, not deployed)
+
+- The `tr` market label is emitted only for valid, explicitly suffixed `.IS` equities; `XU100.IS` is not a constituent.
+- BIST equity daily history is **Yahoo Finance only**. If Yahoo is missing or unavailable, report no data. Never fall back to AkShare, Efinance, mainland A-share or an unknown custom fetcher.
+- The `XIST` exchange calendar in `exchange-calendars 4.13.3` uses `Europe/Istanbul`. Special trading half-days still require additional production validation.
+- Not yet complete: full official dated 100-member roster, web input, integrated 100-stock screener, TRY data-source metadata validation and quote staleness/coverage reporting.

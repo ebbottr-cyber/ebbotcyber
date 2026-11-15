@@ -3,6 +3,7 @@
 
 import pytest
 
+from src.services.market_symbol_utils import get_suffix_market, market_suffixes, normalize_suffix_market_symbol
 from src.services.bist_symbols import (
     BIST100_INDEX_SYMBOL,
     is_bist_equity_symbol,
@@ -47,3 +48,13 @@ def test_bist100_benchmark_is_not_the_101st_stock():
     assert normalize_bist100_index_symbol("THYAO.IS") is None
     assert normalize_bist100_index_symbol("XU030.IS") is None
     assert normalize_bist_equity_symbol(BIST100_INDEX_SYMBOL) is None
+
+
+def test_bist_equity_is_explicit_turkiye_market_suffix():
+    assert get_suffix_market(" THYAO.is ") == "tr"
+    assert get_suffix_market("AKFYE.IS") == "tr"
+    assert get_suffix_market("XU100.IS") is None
+    assert market_suffixes("tr") == ("IS",)
+    assert normalize_suffix_market_symbol("thyao.is") == "THYAO.IS"
+    assert get_suffix_market("AAPL") is None
+    assert get_suffix_market("2330.TW") == "tw"
