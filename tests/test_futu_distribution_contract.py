@@ -31,10 +31,10 @@ def _job_run_text(job: dict) -> str:
 def test_futu_sdk_is_pinned_and_verified_across_linux_distributions() -> None:
     requirements = _read("requirements.txt")
     dockerfile = _read("docker/Dockerfile")
-    ci = _workflow(".github/workflows/ci.yml")
-    daily = _workflow(".github/workflows/00-daily-analysis.yml")
-    docker_publish = _workflow(".github/workflows/docker-publish.yml")
-    manual_publish = _workflow(".github/workflows/ghcr-dockerhub.yml")
+    ci = _workflow("workflows_disabled/ci.yml.disabled")
+    daily = _workflow("workflows_disabled/00-daily-analysis.yml.disabled")
+    docker_publish = _workflow("workflows_disabled/docker-publish.yml.disabled")
+    manual_publish = _workflow("workflows_disabled/ghcr-dockerhub.yml.disabled")
 
     assert requirements.count("futu-api==10.8.6808") == 1
     assert (
@@ -49,7 +49,7 @@ def test_futu_sdk_is_pinned_and_verified_across_linux_distributions() -> None:
 
 
 def test_futu_sdk_is_collected_and_probed_in_desktop_backends() -> None:
-    ci = _workflow(".github/workflows/ci.yml")
+    ci = _workflow("workflows_disabled/ci.yml.disabled")
     changes_job = ci["jobs"]["changes"]
     filter_step = next(
         step for step in changes_job["steps"] if step.get("id") == "filter"
