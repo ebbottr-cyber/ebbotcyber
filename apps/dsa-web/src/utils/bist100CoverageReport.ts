@@ -71,6 +71,10 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
       !int(top.ready) || !int(top.with_valid_price_bars)) {
     throw new Error('Kontrol edilen hisse sayısı veya tamamlanma bilgisi geçersiz.');
   }
+  // Capture validated values in local constants so TypeScript preserves
+  // narrowing across nested callback scopes.
+  const asOf = top.as_of;
+  if (!isDate(asOf)) throw new Error('Rapor tarihi geçersiz.');
   const unique = new Set<string>();
   const rows: Bist100CoverageRow[] = top.results.map((item: unknown) => {
     if (!isRecord(item) || typeof item.symbol !== 'string' ||
@@ -93,7 +97,7 @@ export function parseBist100CoverageReport(value: unknown): Bist100CoverageRepor
     if (item.rows > 0) {
       const first = item.first_bar_date;
       const last = item.last_bar_date;
-      if (!first || !last || first > last || last > top.as_of) {
+      if (!first || !last || first > last || last > asOf) {
         throw new Error('Fiyat verisi tarihleri tutarsız.');
       }
     }
