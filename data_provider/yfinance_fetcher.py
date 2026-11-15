@@ -132,6 +132,8 @@ class YfinanceFetcher(BaseFetcher):
             return code
 
         # 日股/韩股/台股 MVP：显式 Yahoo Finance suffix-only 代码，原样传给 Yahoo。
+        if is_suffix_market_symbol(code, "tr"):
+            return code
         if self._is_jp_kr_suffix_stock(code) or self._is_tw_suffix_stock(code):
             logger.debug(f"识别为日韩台 Yahoo suffix 代码: {code}")
             return code
@@ -821,6 +823,7 @@ class YfinanceFetcher(BaseFetcher):
             or _is_hk_market(stock_code)
             or self._is_jp_kr_suffix_stock(stock_code)
             or self._is_tw_suffix_stock(stock_code)
+            or is_suffix_market_symbol(stock_code, "tr")
         ):
             logger.debug(f"[Yfinance] {stock_code} 不是支持的美股、港股或日韩台代码，跳过")
             return None

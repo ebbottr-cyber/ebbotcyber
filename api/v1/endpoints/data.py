@@ -5,6 +5,24 @@ from __future__ import annotations
 
 import logging
 
+from fastapi.responses import JSONResponse
+from src.auth import COOKIE_NAME, is_auth_enabled, verify_session
+from src.services.bist100_report_reader import (
+    CoverageReportInvalid,
+    CoverageReportUnavailable,
+    load_configured_coverage_report,
+)
+from src.services.bist100_technical_report_reader import (
+    TechnicalReportInvalid,
+    TechnicalReportUnavailable,
+    load_configured_technical_report,
+)
+from src.services.six_market_smoke_report_reader import (
+    SixMarketSmokeInvalid,
+    SixMarketSmokeUnavailable,
+    load_configured_six_market_smoke_report,
+)
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.deps import get_config_dep
@@ -69,4 +87,89 @@ def get_data_capabilities(
     return _overview_response(
         config,
         runtime_scheduler=getattr(request.app.state, "runtime_scheduler_service", None),
+    )
+
+
+@router.get(
+    "/bist100/coverage",
+    summary="Read saved BIST100 Yahoo history coverage",
+    description=(
+        "Read-only access to an operator-configured historical report. "
+        "Requires an authenticated admin session. Does not fetch prices or analyze stocks."
+    ),
+)
+def get_bist100_coverage(request: Request):
+    """Fail closed when admin auth is disabled; never expose server file paths."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="BIST100 report is unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        data = load_configured_coverage_report()
+    except CoverageReportUnavailable as exc:
+        raise HTTPException(status_code=404, detail="BIST100 report not configured") from exc
+    except CoverageReportInvalid as exc:
+        logger.warning("Configured BIST100 report failed validation")
+        raise HTTPException(status_code=422, detail="BIST100 report failed validation") from exc
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get(
+    "/bist100/technical-ranking",
+    summary="Read saved BIST100 technical ranking",
+    description=(
+        "Serve only a pre-generated, operator-configured technical report. "
+        "Requires admin authentication. Never queries SQLite, performs analyses, "
+        "retrieves prices, or places orders."
+    ),
+)
+def get_bist100_technical_ranking(request: Request):
+    """Do not allow API callers to select local file paths or launch a scan."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="BIST100 technical report is unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        data = load_configured_technical_report()
+    except TechnicalReportUnavailable as exc:
+        raise HTTPException(status_code=404, detail="BIST100 technical report not configured") from exc
+    except TechnicalReportInvalid as exc:
+        logger.warning("Configured BIST100 technical report failed validation")
+        raise HTTPException(status_code=422, detail="BIST100 technical report failed validation") from exc
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get(
+    "/six-market/smoke-report",
+    summary="Read approved six-market Yahoo fallback historical smoke report",
+    description=(
+        "Admin-only read of one operator-pinned historical sample per CN/HK/US/JP/KR/TW "
+        "market. No real-time quotes, full exchange scans, database writes, or orders."
+    ),
+)
+def get_six_market_smoke_report(request: Request):
+    """Do not permit choosing a server file or invoking a probe via HTTP."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="Six-market report unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        data = load_configured_six_market_smoke_report()
+    except SixMarketSmokeUnavailable as exc:
+        raise HTTPException(status_code=404, detail="Approved six-market report not configured") from exc
+    except SixMarketSmokeInvalid as exc:
+        logger.warning("Saved six-market example report failed validation")
+        raise HTTPException(status_code=422, detail="Saved six-market example report failed validation") from exc
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
     )
