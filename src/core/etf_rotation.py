@@ -103,7 +103,7 @@ def rebalance_dates(index: pd.DatetimeIndex, rebalance: str) -> pd.DatetimeIndex
     if len(index) == 0:
         return index
     keys = index.to_period(period)
-    is_last = keys != keys.to_series().shift(-1).values
+    is_last = keys != keys.to_series().shift(-1).to_numpy()
     return index[is_last]
 
 
