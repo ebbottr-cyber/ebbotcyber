@@ -105,7 +105,9 @@ def test_calendar_unavailable_never_claims_fresh(monkeypatch):
 
 
 def test_todays_partial_bar_does_not_make_older_quote_fresh(monkeypatch):
-    partial = pd.concat([_history(last="2026-11-12"), _history(last="2026-11-15", count=1)])
+    partial_bar = _history(count=1).copy()
+    partial_bar["date"] = pd.to_datetime(["2026-11-15"])
+    partial = pd.concat([_history(last="2026-11-12"), partial_bar], ignore_index=True)
     report = _audit(monkeypatch, history=partial)
     assert report["ready"] == 0
     assert report["results"][0]["status"] == "stale_price"
