@@ -147,13 +147,19 @@ export const Bist100TechnicalPanel: React.FC = () => {
         {report ? (
           <>
             <div className="text-xs text-muted-text">
-              {selectedFile} · Rapor tarihi: {report.as_of} · Son tamamlanan seans: {report.last_completed_session}
+              {selectedFile} · Tarihsel rapor: {report.as_of} · Son tamamlanan seans: {report.last_completed_session}
               {' · '}100 BIST hissesinden {report.checked} tanesi kontrol edildi
             </div>
+            {manuallySelected.current ? (
+              <p className="text-xs text-warning">
+                Yerel JSON dosyası: tarayıcı biçim ve sayaçları denetler, ancak kaynak özgünlüğünü
+                veya son işlem seansını borsadan bağımsız doğrulayamaz. Canlı fiyat değildir.
+              </p>
+            ) : null}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {tile('Kontrol edilen', report.checked, 'Toplam 100 hisseden')}
               {tile('Teknik analiz', report.analyzed, 'Gerçek fiyat geçmişiyle')}
-              {tile('İzlemeye uygun', report.watchlist_eligible, 'MA5 aşırı uzak değil')}
+              {tile('MA5 mesafe filtresi', report.watchlist_eligible, 'Yalnızca >%5 uzaklık riski yok')}
               {tile('Henüz kontrol edilmedi', report.remaining, 'Analiz edilmiş sayılmaz')}
             </div>
             {report.remaining > 0 ? (
