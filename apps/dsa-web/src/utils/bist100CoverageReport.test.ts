@@ -81,16 +81,17 @@ describe('BIST100 coverage JSON import validation', () => {
   });
 
   it('allows unverified diagnostic coverage but never calls it ready', () => {
-    const unavailable = report();
-    unavailable.expected_last_completed_session = null as unknown as string;
-    unavailable.results = unavailable.results.map(row => ({
-      ...row, status: 'calendar_unavailable', expected_last_session: null,
-      issues: ['calendar_unavailable'],
-    })) as typeof unavailable.results;
-    unavailable.ready = 0;
-    unavailable.status_counts = { ready: 0, no_data: 0, calendar_unavailable: 2 };
-    delete (unavailable.status_counts as Record<string, number>).ready;
-    delete (unavailable.status_counts as Record<string, number>).no_data;
+    const original = report();
+    const unavailable = {
+      ...original,
+      expected_last_completed_session: null,
+      results: original.results.map(row => ({
+        ...row, status: 'calendar_unavailable', expected_last_session: null,
+        issues: ['calendar_unavailable'],
+      })),
+      ready: 0,
+      status_counts: { calendar_unavailable: 2 },
+    };
     const parsed = parseBist100CoverageReport(unavailable);
     expect(parsed.ready).toBe(0);
     expect(parsed.expected_last_completed_session).toBeNull();
