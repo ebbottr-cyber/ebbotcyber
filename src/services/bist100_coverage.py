@@ -33,11 +33,21 @@ def _yahoo_daily_history(symbol: str, start: date, end: date) -> pd.DataFrame:
     """Use the existing Yahoo-only provider, not the multi-source manager."""
     from data_provider.yfinance_fetcher import YfinanceFetcher
 
-    return YfinanceFetcher().get_daily_data(
-        symbol, start_date=start.isoformat(),
-        # Yahoo's end boundary is exclusive, so include the requested day.
-        end_date=(end + timedelta(days=1)).isoformat(),
-    )
+    from data_provider.base import DataFetchError
+
+    try:
+        return YfinanceFetcher().get_daily_data(
+            symbol, start_date=start.isoformat(),
+            # Yahoo's end boundary is exclusive, so include the requested day.
+            end_date=(end + timedelta(days=1)).isoformat(),
+        )
+    except DataFetchError as exc:
+        # Existing YfinanceFetcher raises on an empty Yahoo result instead of
+        # returning an empty DataFrame. Preserve a distinct no_data status.
+        # All other provider failures (429, timeout, bad payload) remain errors.
+        if "未查询到" in str(exc) or "未获取到" in str(exc):
+            return pd.DataFrame()
+        raise
 
 
 def _yahoo_currency(symbol: str) -> str | None:
@@ -103,10 +113,13 @@ def _validate_history(frame: pd.DataFrame, start: date, as_of: date) -> tuple[pd
 
 def _last_completed_session(as_of: date) -> date | None:
     """Conservatively exclude today's potentially unfinished bar, even after close."""
-    sessions = get_trading_dates("tr", as_of - timedelta(days=45), as_of - timedelta(days=1))
-    if sessions is None or len(sessions) == 0:
+    try:
+        sessions = get_trading_dates("tr", as_of - timedelta(days=45), as_of - timedelta(days=1))
+        if sessions is None or len(sessions) == 0:
+            return None
+        return sessions[-1].date()
+    except Exception:  # noqa: BLE001 - unavailable calendar is not a proven session
         return None
-    return sessions[-1].date()
 
 
 def _check_one(
