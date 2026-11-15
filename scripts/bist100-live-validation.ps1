@@ -43,7 +43,14 @@ function Invoke-PythonToFile {
 
 function Read-StrictJson {
   param([Parameter(Mandatory = $true)][string]$Path)
-  $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+  $bytes = [IO.File]::ReadAllBytes($Path)
+  if ($bytes.Length -ge 2 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254) {
+    # Windows PowerShell 5.1 native-command redirects can write UTF-16LE.
+    $raw = Get-Content -LiteralPath $Path -Raw -Encoding Unicode
+  } else {
+    # The screener's --output JSON is UTF-8; PowerShell 7 redirects too.
+    $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+  }
   if (-not $raw.Trim()) { throw "Empty JSON output: $Path" }
   return ConvertFrom-Json -InputObject $raw
 }
