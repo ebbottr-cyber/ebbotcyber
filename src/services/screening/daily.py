@@ -156,7 +156,8 @@ def enrich_daily_features(
             if isinstance(source_health, dict):
                 daily_source_health.update(source_health)
         for key, value in features.items():
-            result.at[idx, key] = value
+            # .loc can add absent feature columns; pandas 4 will forbid .at enlargement.
+            result.loc[idx, key] = value
 
     result.attrs["daily_errors"] = daily_errors
     result.attrs["daily_success_count"] = success_count
