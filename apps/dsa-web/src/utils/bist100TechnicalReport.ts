@@ -126,9 +126,10 @@ export function parseBist100TechnicalReport(value: unknown): Bist100TechnicalRep
     counts[row.status] = (counts[row.status] ?? 0) + 1;
     if (row.status === 'analyzed') analyzed.set(row.symbol, row);
   }
-  if (!record(value.status_counts) ||
-      Object.keys(value.status_counts).length !== Object.keys(counts).length ||
-      Object.keys(counts).some(k => value.status_counts?.[k] !== counts[k]) ||
+  const reportedCounts = value.status_counts;
+  if (!record(reportedCounts) ||
+      Object.keys(reportedCounts).length !== Object.keys(counts).length ||
+      Object.keys(counts).some(k => reportedCounts[k] !== counts[k]) ||
       analyzed.size !== value.analyzed) {
     throw new Error('Teknik rapor özet sayıları uyuşmuyor.');
   }
