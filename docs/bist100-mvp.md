@@ -89,3 +89,20 @@ Track integration in the BIST100 MVP GitHub issue.
 - **Scope boundary:** The audited JSON stores validation statuses and metadata, **not** the 100 full OHLCV history tables and **not** AI analysis outcomes. Do not imply the 100 price histories were imported into application storage or all stocks were screened/analyzed. Market data availability and index membership should be rechecked for later dates.
 - **Next phase:** Bridge verified `.IS` histories to the existing application data-persistence and analysis pipeline; run offline integration regression tests and a bounded 5-symbol dry run before full analysis. Avoid uncontrolled cross-market provider fallback and unnecessary model or order execution.
 - Product scope updated at the user's direction: BIST100 and equities stay in this repo; external office integration is not a development target; cryptocurrency work will be handled separately. Removing legacy crypto wiring requires its own reviewed changes, not an implicit mass deletion during the market-data feature.
+
+## Phase 9 — Opt-in import into the existing analysis database (candidate)
+
+- `src/services/bist100_import.py` reuses the validated BIST100 Yahoo fetcher and calendar/currency/ohlcv checks. **Unlike** the coverage JSON, it retains actual historical bars and can upsert them through the existing `src.storage.get_db().save_daily_data()` / `StockDaily` data model. `canonical_id` is the original .IS ticker, never a bare US or mainland code.
+- The **default is dry run**: no storage module is imported or opened, and no database is changed. Run the same deterministic five-ticker smoke before any write:
+  ```powershell
+  .\.venv\Scripts\python.exe -m src.services.bist100_import --as-of 2026-11-15 --symbols THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS --delay-seconds 2
+  ```
+- When the bot's normal Python application dependencies, especially SQLAlchemy, are installed and the intended `DATABASE_PATH` has been checked, the **operator may explicitly opt in** to a five-ticker DB write:
+  ```powershell
+  .\.venv\Scripts\python.exe -m src.services.bist100_import --as-of 2026-11-15 --symbols THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS --delay-seconds 2 --write-db
+  ```
+  The default config's `DATABASE_PATH` is `./data/stock_analysis.db` relative to the repo root. An operator-provided `DATABASE_PATH` may point to a separate test database. Never put production DB files, credentials, or downloaded bars in Git.
+- Only rows on or before the last conservatively completed XIST session can be stored. Every ticker requires valid numeric OHLCV, enough bars, current session and verified TRY metadata. The importer computes MA5/10/20 and percent-change from actual price history; other unavailable statistics stay NULL rather than fabricated. Read-back verifies expected dates after an UPSERT, including idempotent reruns.
+- A successful import writes *historical prices*; it does not assert an AI analysis succeeded. `imported`, `ready_for_import` and `new_rows` are distinct counters. Individual storage failures are shown as `db_error`, never silently marked successful.
+- Main analysis-pipeline compatibility, real DB smoke, AI report language and full-batch execution still require separate checks. Non-BIST provider imports are skipped when `get_market_for_stock()` is asked to identify a Turkish .IS symbol.
+- Tests in `tests/test_bist100_import.py` run offline with an injected DB and cover dry run, fresh writes, idempotence, partial bars, stale/mismatched currency, per-stock DB errors and invalid symbols.
