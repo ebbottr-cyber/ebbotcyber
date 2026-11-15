@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from src.services.bist100_coverage import _last_completed_session
 from src.services.bist100_universe import load_bist100_universe
 
 _MAX_BYTES = 2_000_000
@@ -100,6 +101,12 @@ def validate_technical_report(payload: Any) -> dict:
     session = _date(payload.get("last_completed_session"))
     if session >= as_of:
         raise TechnicalReportInvalid("Expected a previous completed session")
+    # Fail closed if the XIST exchange calendar is unavailable. The client may
+    # claim a "last completed session" which is older than the true session;
+    # without this check an old report could be shown as current for its as-of.
+    verified_session = _last_completed_session(as_of)
+    if verified_session is None or session != verified_session:
+        raise TechnicalReportInvalid("Report session does not match verified XIST calendar")
     try:
         members = set(load_bist100_universe(as_of).symbols)
     except (ValueError, OSError, KeyError) as exc:
