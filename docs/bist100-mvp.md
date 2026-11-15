@@ -42,3 +42,12 @@ Track integration in the BIST100 MVP GitHub issue.
   python -m src.services.bist100_coverage --as-of 2026-11-15 --limit 100 --delay-seconds 2 --output bist100-coverage.json
   ```
 - Review provider terms/usage and retry/429 policies before scheduled or commercial operation; Yahoo may have delayed/limited data. Never store or commit falsely complete outputs or claim `100/100` analyzed. The output JSON is local, not an ETRE/web interface; integration with the office is a separate pending step.
+
+## Phase 5 — Web office read-only coverage JSON viewer (candidate, not deployed)
+
+- `apps/dsa-web/src/pages/DataCenterPage.tsx` now mounts `Bist100CoveragePanel` regardless of whether the existing data-capability API succeeds. It never triggers a Yahoo request or analysis.
+- The user can pick the `--output bist100-coverage.json` artifact in their browser. It is parsed **locally only** (not uploaded), limited to 2 MB, and displays 100 total, checked, ready, unverified/problematic, unchecked, status breakdown and a paginated per-symbol table.
+- `apps/dsa-web/src/utils/bist100CoverageReport.ts` rejects false 100/100 summaries, duplicate/malformed `.IS` tickers, `XU100.IS` index entries, missing TRY/calendar/source metadata, invalid date/bar fields and inconsistent totals. `apps/dsa-web/src/utils/bist100CoverageReport.test.ts` contains offline defensive cases.
+- This viewer is an **imported historical snapshot**, not a live data API or the actual AI-analysis completion counter. Local JSON may come from a trusted CLI run; authenticity and current index membership beyond format cannot be independently verified by a browser-only import. Report readiness must not be confused with successful trading analysis.
+- To see results: execute the 5-symbol or 100-symbol audit in a network-capable environment, then open web office **Data Center** and choose the resulting JSON. No real Yahoo run was executed in this GitHub-only development session.
+- Next integration gate: review CI and run the external Yahoo smoke test, then expose backend-produced validated reports over an authenticated, read-only API if appropriate. Keep production orders and ETRE/crypto/Hype unchanged.
