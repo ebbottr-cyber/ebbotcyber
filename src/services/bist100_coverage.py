@@ -14,7 +14,9 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 import json
 import math
+import os
 from pathlib import Path
+import tempfile
 import time
 from typing import Callable, Iterable
 from zoneinfo import ZoneInfo
@@ -247,6 +249,28 @@ def scan_bist100_history(
     }
 
 
+def _write_json_atomically(path: Path, content: str) -> None:
+    """Replace the served report only after the full JSON has been written.
+
+    Keep the old valid report readable if serialization or a disk write fails.
+    The temporary file is created alongside the target for atomic replacement.
+    """
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit BIST100 Yahoo Finance OHLCV coverage")
     parser.add_argument("--as-of", type=date.fromisoformat,
@@ -254,23 +278,35 @@ def main() -> None:
     parser.add_argument("--lookback-days", type=int, default=365)
     parser.add_argument("--min-bars", type=int, default=60)
     parser.add_argument("--delay-seconds", type=float, default=1.5)
-    parser.add_argument("--limit", type=int, default=100,
-                        help="First N stocks for smoke tests; report marks subsets incomplete")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="First N stocks for smoke tests; the default is all 100")
+    parser.add_argument("--symbols", type=str, default=None,
+                        help="Comma-separated active BIST100 Yahoo tickers, e.g. THYAO.IS,ASELS.IS,AKFYE.IS")
     parser.add_argument("--output", type=Path, help="Optional local JSON report file")
     args = parser.parse_args()
-    if not 1 <= args.limit <= 100:
+    if args.limit is not None and not 1 <= args.limit <= 100:
         parser.error("--limit must be between 1 and 100")
+    if args.symbols is not None and args.limit is not None:
+        parser.error("--symbols and --limit cannot be combined")
     universe = load_bist100_universe(args.as_of)
+    if args.symbols is not None:
+        selection = tuple(symbol.strip() for symbol in args.symbols.split(","))
+        if not selection or any(symbol not in universe.symbols for symbol in selection):
+            parser.error("--symbols must contain canonical active BIST100 .IS tickers")
+        if len(selection) != len(set(selection)):
+            parser.error("--symbols cannot contain duplicates")
+    else:
+        selection = universe.symbols[:args.limit] if args.limit is not None else universe.symbols
     report = scan_bist100_history(
         as_of=args.as_of,
         lookback_days=args.lookback_days,
         min_bars=args.min_bars,
-        symbols=universe.symbols[:args.limit],
+        symbols=selection,
         delay_seconds=args.delay_seconds,
     )
     rendered = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
     if args.output is not None:
-        args.output.write_text(rendered, encoding="utf-8")
+        _write_json_atomically(args.output, rendered)
     print(rendered, end="")
 
 
