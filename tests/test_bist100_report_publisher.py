@@ -17,8 +17,10 @@ from src.services.bist100_technical_report_reader import load_configured_technic
 from tests.test_bist100_technical_report_reader import _report
 
 
-def _source(tmp_path: Path, report=None) -> tuple[Path, str]:
-    path = tmp_path / "incoming-real-shaped-report.json"
+def _source(
+    tmp_path: Path, report=None, *, name: str = "incoming-real-shaped-report.json"
+) -> tuple[Path, str]:
+    path = tmp_path / name
     payload = _report() if report is None else report
     data = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
     path.write_bytes(data)
@@ -167,7 +169,7 @@ def test_failed_validation_leaves_approved_existing_report_unchanged(monkeypatch
     monkeypatch.setenv("BIST100_TECHNICAL_REPORT_PATH", str(approved))
     wrong = deepcopy(_report())
     wrong["analyzed"] = 99
-    bad, bad_digest = _source(tmp_path, wrong)
+    bad, bad_digest = _source(tmp_path, wrong, name="invalid-candidate.json")
     with pytest.raises(ReportPublicationError, match="validation"):
         prepare_saved_report(bad, publish=True, expected_sha256=bad_digest,
                              replace_existing=True)
