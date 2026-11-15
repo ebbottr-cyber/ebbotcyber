@@ -172,28 +172,49 @@ def test_full_100_member_audit_can_record_all_no_data_without_fabrication(monkey
     assert len(report["results"]) == 100
 
 
-def test_existing_yahoo_fetcher_empty_result_is_reported_as_no_data(monkeypatch):
-    from data_provider.base import DataFetchError
-    from data_provider.yfinance_fetcher import YfinanceFetcher
+def test_empty_yahoo_history_is_reported_as_no_data(monkeypatch):
+    import yfinance as yf
 
-    def missing(*args, **kwargs):
-        raise DataFetchError("Yahoo Finance 未查询到 THYAO.IS 的数据")
+    class FakeTicker:
+        def history(self, **kwargs):
+            return pd.DataFrame()
 
-    monkeypatch.setattr(YfinanceFetcher, "get_daily_data", missing)
+    monkeypatch.setattr(yf, "Ticker", lambda symbol: FakeTicker())
     history = coverage._yahoo_daily_history("THYAO.IS", AS_OF, AS_OF)
     assert history.empty
 
 
-def test_other_yahoo_provider_failures_are_not_mislabeled_missing(monkeypatch):
-    from data_provider.base import DataFetchError
-    from data_provider.yfinance_fetcher import YfinanceFetcher
+def test_yahoo_rate_limits_are_not_mislabeled_as_missing(monkeypatch):
+    import yfinance as yf
 
-    def throttled(*args, **kwargs):
-        raise DataFetchError("Yahoo Finance 429 rate limited")
+    class FakeTicker:
+        def history(self, **kwargs):
+            raise RuntimeError("Yahoo Finance HTTP 429 rate limited")
 
-    monkeypatch.setattr(YfinanceFetcher, "get_daily_data", throttled)
-    with pytest.raises(DataFetchError, match="429"):
+    monkeypatch.setattr(yf, "Ticker", lambda symbol: FakeTicker())
+    with pytest.raises(RuntimeError, match="429"):
         coverage._yahoo_daily_history("THYAO.IS", AS_OF, AS_OF)
+
+
+def test_yahoo_daily_frame_normalizes_ticker_history_without_other_providers(monkeypatch):
+    import yfinance as yf
+
+    called = []
+
+    class FakeTicker:
+        def history(self, **kwargs):
+            called.append(kwargs)
+            return pd.DataFrame({
+                "Open": [100.0], "High": [101.0], "Low": [99.0],
+                "Close": [100.5], "Volume": [1000],
+            }, index=pd.DatetimeIndex(["2026-11-13"], name="Date"))
+
+    monkeypatch.setattr(yf, "Ticker", lambda symbol: FakeTicker())
+    frame = coverage._yahoo_daily_history("THYAO.IS", date(2025, 11, 15), AS_OF)
+    assert {"date", "open", "high", "low", "close", "volume"}.issubset(frame.columns)
+    assert len(frame) == 1
+    assert called[0]["raise_errors"] is True
+    assert called[0]["end"] == "2026-11-16"
 
 
 def test_calendar_exception_fails_closed_instead_of_aborting_all_stocks(monkeypatch):
