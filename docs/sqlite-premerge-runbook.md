@@ -22,7 +22,8 @@ online backup API, or make a backup after all writers have stopped.
 1. Record exact candidate commit SHA and verify current frontend/backend CI,
    including `tests/test_storage.py`,
    `tests/test_market_sqlite_pr2_integration.py` and
-   `tests/test_sqlite_snapshot.py`; check all skips and warnings.
+   `tests/test_sqlite_snapshot.py` and
+   `tests/test_sqlite_migration_rehearsal.py`; check all skips and warnings.
 2. Review PR #2, #8, #9, #10 and #11 content reconciliation. Keep one approved
    integration PR; do not blindly merge multiple overlapping draft PRs.
 3. Identify the actual resolved `DATABASE_PATH` on the target machine and
@@ -89,6 +90,33 @@ After creating a verified backup:
 4. Stop the rehearsal and retain logs. **Any failure or unexpected difference
    blocks production promotion.** Do not manually delete custom indexes or
    bypass fail-closed checks to make a migration pass.
+
+### Automated disposable migration rehearsal (PowerShell)
+
+From the repository root, after the snapshot above passes verification, run
+the following **in a restricted non-production Python environment** with
+execution gateways, schedulers, credentials and notifications disabled:
+
+```powershell
+python -m scripts.sqlite_migration_rehearsal --backup "$backup"
+if ($LASTEXITCODE -ne 0) { throw "Isolated SQLite migration rehearsal FAILED. STOP." }
+```
+
+The rehearsal script creates its **own temporary SQLite clone** using the
+read-only-source online backup API and passes only that temporary path to
+`DatabaseManager`. It checks preexisting table counts, hashes the stable
+historical OHLCV columns in `stock_daily` and preserved source/title/URL
+columns of `intelligence_items`, and verifies post-migration integrity.
+It deletes the staged copy at exit. It **never** opens the input backup
+with a write connection. New migration metadata rows may be expected.
+
+**A passing automated rehearsal is only one gate.** The operator must still
+examine old/new schema and custom indexes/constraints, record an isolated
+read-only BIST ranking, verify a separately restorable backup and obtain
+explicit review. In particular the script does not compare every cell of
+every table, check third-party provider availability, or certify production
+rollout. A failed or refused migration never authorizes bypassing SQLite
+safety checks.
 
 ## Manual rollback — only during an approved outage
 
