@@ -10,9 +10,10 @@ The offline suite (tests/test_tw_institutional_fetcher.py) pins the parser to fr
 fixtures and therefore cannot detect upstream feed drift; this file is that detector.
 Each test is self-contained (one raw fetch + the fetcher, in the same test) so a column
 rename is caught LOUD and a narrow connectivity window cannot split-skip two corroborating
-tests. Drift fails LOUD; a transport error, non-trading day, or transient blip skips QUIET
-so the cron is not noisy. A 200 that is NOT JSON (maintenance page / URL migration) is
-DRIFT, not a blip, so it fails — never skipped. Both feeds are public 政府開放資料, no creds.
+tests. Feed drift fails LOUD; a transport error, access denial (401/403), rate limit
+(429), server outage (5xx), non-trading day, or transient blip is explicitly
+SKIPPED (never passed). A 200 that is NOT JSON is DRIFT, not a blip, so it
+FAILS. Both feeds are public 政府開放資料, no credentials.
 
 For the richer human-readable cross-check, see tests/tw_institutional_live_smoke.py.
 """
@@ -61,11 +62,11 @@ def _fetch_with_retry(fetcher, code, tries=3):
 
 @pytest.mark.network
 class TestTwInstitutionalLiveNetwork(unittest.TestCase):
-    """Cron-only smoke: assert the live feeds still match the fetcher's contract."""
+    """Opt-in network smoke: verify upstream feeds against the fetcher contract."""
 
     def _get_feed_or_skip(self, url, params=None):
-        """Transport error -> skip (can't judge drift from an unreachable feed); a 200
-        that is not valid JSON (HTML maintenance page / URL migration) -> fail LOUD."""
+        """Transport/access errors -> skip (schema unverified); a 200 non-JSON
+        or a 404/410 missing URL -> fail LOUD as feed/endpoint drift."""
         try:
             resp = requests.get(url, params=params, headers=_HEADERS, timeout=20)
         except requests.exceptions.RequestException as exc:
