@@ -24,9 +24,9 @@ from api.v1.schemas.system_config import (
     DiscoverLLMChannelModelsRequest,
     GenerationBackendStatusPreviewRequest,
     ImportSystemConfigRequest,
-    TestGenerationBackendRequest,
-    TestLLMChannelRequest,
-    TestNotificationChannelRequest,
+    TestGenerationBackendRequest as GenerationBackendSmokeRequest,
+    TestLLMChannelRequest as LLMChannelSmokeRequest,
+    TestNotificationChannelRequest as NotificationChannelSmokeRequest,
     UpdateSystemConfigRequest,
 )
 import src.auth as auth
@@ -260,7 +260,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
 
         with patch("src.llm.local_cli_backend.shutil.which", return_value=None):
             payload = system_config.test_generation_backend(
-                request=TestGenerationBackendRequest(backend_id="codex_cli"),
+                request=GenerationBackendSmokeRequest(backend_id="codex_cli"),
                 service=self.service,
             ).model_dump()
 
@@ -811,7 +811,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
             },
         ) as mock_test:
             payload = system_config.test_llm_channel(
-                request=TestLLMChannelRequest(
+                request=LLMChannelSmokeRequest(
                     name="primary",
                     protocol="openai",
                     api_surface="responses",
@@ -859,7 +859,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
             },
         ) as mock_test:
             payload = system_config.test_notification_channel(
-                request=TestNotificationChannelRequest(
+                request=NotificationChannelSmokeRequest(
                     channel="wechat",
                     items=[{"key": "WECHAT_WEBHOOK_URL", "value": "https://example.com/hook"}],
                     title="DSA 通知测试",
@@ -877,7 +877,7 @@ class SystemConfigApiTestCase(unittest.TestCase):
         self.assertEqual(mock_test.call_args.kwargs["timeout_seconds"], 5)
 
     def test_test_notification_channel_schema_accepts_registered_channels(self) -> None:
-        dingtalk_request = TestNotificationChannelRequest(
+        dingtalk_request = NotificationChannelSmokeRequest(
             channel="dingtalk",
             items=[
                 {
@@ -889,14 +889,14 @@ class SystemConfigApiTestCase(unittest.TestCase):
             content="hello",
             timeout_seconds=5,
         )
-        ntfy_request = TestNotificationChannelRequest(
+        ntfy_request = NotificationChannelSmokeRequest(
             channel="ntfy",
             items=[{"key": "NTFY_URL", "value": "https://ntfy.sh/dsa-topic"}],
             title="DSA 通知测试",
             content="hello",
             timeout_seconds=5,
         )
-        gotify_request = TestNotificationChannelRequest(
+        gotify_request = NotificationChannelSmokeRequest(
             channel="gotify",
             items=[
                 {"key": "GOTIFY_URL", "value": "https://gotify.example"},
