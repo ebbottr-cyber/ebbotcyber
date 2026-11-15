@@ -47,7 +47,7 @@ describe('BIST100 technical ranking JSON parser', () => {
   it.each([
     ['inflated counters', (r: ReportFixture) => { r.checked = 100; r.remaining = 0; }],
     ['future session', (r: ReportFixture) => { r.last_completed_session = '2026-11-16'; }],
-    ['expired membership', (r: ReportFixture) => { r.as_of = '2027-01-01'; }],
+    ['contradictory session date', (r: ReportFixture) => { r.as_of = '2026-11-12'; }],
     ['fabricated ranking', (r: ReportFixture) => { r.ranking[0].score = 100; }],
     ['invalid score', (r: ReportFixture) => { r.ranking[0].score = 101; r.results[0].score = 101; }],
     ['false watchlist risk', (r: ReportFixture) => {
@@ -62,6 +62,20 @@ describe('BIST100 technical ranking JSON parser', () => {
     }],
   ] as const)('rejects %s', (_label, change) => {
     expect(() => parseBist100TechnicalReport(mutate(change))).toThrow();
+  });
+
+  it('can structurally parse a future reviewed quarter without pretending to authenticate its roster', () => {
+    const candidate = mutate(r => {
+      r.as_of = '2027-01-04';
+      r.last_completed_session = '2026-12-31';
+      r.ranking[0].last_bar_date = '2026-12-31';
+      r.results[0].last_bar_date = '2026-12-31';
+    });
+    const parsed = parseBist100TechnicalReport(candidate);
+    expect(parsed.as_of).toBe('2027-01-04');
+    expect(parsed.last_completed_session).toBe('2026-12-31');
+    // The backend validates the actual source-reviewed quarterly membership,
+    // not this browser-only syntactic parser.
   });
 
   it('does not accept fake AI or live trading modes', () => {
