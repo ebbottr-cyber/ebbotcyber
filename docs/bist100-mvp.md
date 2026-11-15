@@ -170,3 +170,30 @@ The existing historical technical report viewer now offers four **client-side, p
 - **Historical provenance**: Existing source/session warnings and the server's XIST calendar validation remain intact. Local JSON is parsed in the browser, but its original author and official completed session cannot be independently verified there.
 
 `apps/dsa-web/src/utils/bist100RankingView.test.ts` exercises filtering, sorting, equal-score source ranks, immutability, no-match handling and invalid thresholds. The PR frontend CI runs these tests and the existing report-parser tests before lint/build. The 100/100 Yahoo Finance historical backfill proof from PR #8 does **not** mean this new UI has been deployed or connected to a persistent production database.
+
+## Saved OHLCV coverage XIST session hardening (draft PR #18)
+
+The server-side **saved price-coverage** reader now follows the same independent
+exchange-calendar verification as the previously hardened technical ranking:
+
+- The report's claimed `expected_last_completed_session` must match the
+  independently computed previous completed **XIST** session for the report
+  `as_of` date. Internally matching but stale `ready` rows are rejected with
+  HTTP 422 rather than shown as current.
+- Snapshot identity is checked against the 2026-Q4 dated 100-stock roster:
+  the `constituent_snapshot_as_of` and
+  `constituent_snapshot_effective_to` fields must match the loaded universe.
+- A report which genuinely cannot verify its exchange calendar can still show
+  diagnostic `calendar_unavailable` results with **zero** `ready` symbols;
+  it is not silently upgraded to verified price coverage.
+- The local-browser JSON viewer verifies **internal** session/row consistency
+  and prominently warns that it cannot independently attest the calendar or
+  origin of user-selected files. The backend verifies XIST for saved reports.
+- Independent offline regression tests cover fabricated previous sessions,
+  unavailable server calendar, false roster metadata, a 422 authenticated
+  response, and preserved unverified-only diagnostic reports. CI now runs the
+  coverage parser's Vitest suite and backend coverage reader test in the
+  dedicated pre-merge gate.
+
+All data remains historical. This change performs no Yahoo queries, stock
+analysis, orders, SQLite writes, API uploads or production publication.
