@@ -342,7 +342,8 @@ jobs:
   release-premerge-critical-offline:
     if: >-
       (github.head_ref == 'release/seven-market-premerge-safety' ||
-       github.head_ref == 'fix/bist100-coverage-xist-session') &&
+       github.head_ref == 'fix/bist100-coverage-xist-session' ||
+       github.head_ref == 'feat/bist100-quarterly-roster-rollover') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -367,4 +368,6 @@ jobs:
             tests/test_bist100_technical_report_reader.py \
             tests/test_bist100_report_reader.py \
             tests/test_bist100_report_publisher.py \
+            tests/test_bist100_universe.py \
+            tests/test_bist100_quarterly_rollover.py \
             tests/test_trading_calendar.py
