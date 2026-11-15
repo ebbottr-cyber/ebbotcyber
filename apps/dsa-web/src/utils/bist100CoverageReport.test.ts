@@ -18,6 +18,7 @@ const missingRow = {
 function report() {
   return {
     index: 'BIST100', as_of: '2026-11-15',
+    expected_last_completed_session: '2026-11-13',
     source: 'Yahoo Finance', currency_expected: 'TRY',
     calendar: 'XIST', timezone: 'Europe/Istanbul',
     universe_total: 100, checked: 2, remaining: 98, complete: false,
@@ -63,6 +64,36 @@ describe('BIST100 coverage JSON import validation', () => {
     const foreign = report();
     foreign.results[0] = { ...goodRow, symbol: 'AAPL' };
     expect(() => parseBist100CoverageReport(foreign)).toThrow();
+  });
+
+  it('rejects contradictory top-level and row session metadata', () => {
+    const mismatch = report();
+    mismatch.expected_last_completed_session = '2026-11-12';
+    expect(() => parseBist100CoverageReport(mismatch)).toThrow();
+  });
+
+  it('rejects an impossible future completed session', () => {
+    const future = report();
+    future.expected_last_completed_session = '2026-11-16';
+    future.results[0].expected_last_session = '2026-11-16';
+    future.results[1].expected_last_session = '2026-11-16';
+    expect(() => parseBist100CoverageReport(future)).toThrow();
+  });
+
+  it('allows unverified diagnostic coverage but never calls it ready', () => {
+    const unavailable = report();
+    unavailable.expected_last_completed_session = null as unknown as string;
+    unavailable.results = unavailable.results.map(row => ({
+      ...row, status: 'calendar_unavailable', expected_last_session: null,
+      issues: ['calendar_unavailable'],
+    })) as typeof unavailable.results;
+    unavailable.ready = 0;
+    unavailable.status_counts = { ready: 0, no_data: 0, calendar_unavailable: 2 };
+    delete (unavailable.status_counts as Record<string, number>).ready;
+    delete (unavailable.status_counts as Record<string, number>).no_data;
+    const parsed = parseBist100CoverageReport(unavailable);
+    expect(parsed.ready).toBe(0);
+    expect(parsed.expected_last_completed_session).toBeNull();
   });
 
   it('rejects missing source or inconsistent candle counts', () => {
