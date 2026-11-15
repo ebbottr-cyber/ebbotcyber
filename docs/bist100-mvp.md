@@ -27,3 +27,18 @@ Track integration in the BIST100 MVP GitHub issue.
 - **Important release boundary:** This is a dated, source-cross-checked **candidate** roster, not a claim of independently fetched official full 100-member CSV, a live quote-coverage result, or permission to distribute exchange market data. Do not deploy or claim 100/100 analyzed until provider checks and a working screener/report exist.
 - Separate CI baseline issues (`.github/workflows/*`, `.env.example`, Turkish notification text) remain outside this feature. Changes must stay on Draft PR #8, separate from Draft security PR #2 and unchanged `main`.
 
+## Phase 4 — Historical Yahoo price coverage (offline-tested candidate)
+
+- `src/services/bist100_coverage.py` audits the dated **100**-stock snapshot through the existing `YfinanceFetcher` daily-data path **only**, without `DataFetcherManager` provider fallbacks. It does **not** invoke trade execution or the AI analysis pipeline. This is data-readiness instrumentation, not a 100-stock scanner UI.
+- Per symbol, the JSON report records normalized, numeric, nonduplicated OHLCV row counts; first/last **completed** bar; latest expected `XIST` session; TRY provider currency metadata; and statuses such as `ready`, `fetch_error`, `no_data`, `invalid_data`, `stale_price`, `insufficient_history`, `calendar_unavailable` and `currency_unverified/mismatch`.
+- No fabricated data: an unverified currency or missing calendar never counts as `ready`; exceptions are isolated by ticker. Historical bars for the still-open current day never count as complete, and the audit deliberately uses the preceding session as a conservative freshness bound. `with_valid_price_bars` is **not** the same as `ready` and neither means analyzed.
+- Offline `tests/test_bist100_coverage.py` injects history and metadata (no network calls) for valid, stale, missing, invalid, delayed, unavailable and incomplete scans.
+- **Manual smoke check** on a machine with Yahoo access, from repository root, starting with five tickers:
+  ```bash
+  python -m src.services.bist100_coverage --as-of 2026-11-15 --limit 5 --delay-seconds 2 --output bist100-coverage-smoke.json
+  ```
+- **Full 100-symbol audit** only after the smoke check, preserving rate-limit protection:
+  ```bash
+  python -m src.services.bist100_coverage --as-of 2026-11-15 --limit 100 --delay-seconds 2 --output bist100-coverage.json
+  ```
+- Review provider terms/usage and retry/429 policies before scheduled or commercial operation; Yahoo may have delayed/limited data. Never store or commit falsely complete outputs or claim `100/100` analyzed. The output JSON is local, not an ETRE/web interface; integration with the office is a separate pending step.
