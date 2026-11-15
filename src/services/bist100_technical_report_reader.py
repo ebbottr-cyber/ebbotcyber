@@ -72,7 +72,9 @@ def _validate_analyzed(row: dict, last_session: date) -> None:
     if (min(row["close_try"], row["ma5_try"], row["ma20_try"]) <= 0
             or not 0 <= row["rsi12"] <= 100):
         raise TechnicalReportInvalid("Out-of-range technical indicators")
-    if (not isinstance(row.get("trend"), str) or row["trend"] not in _TRENDS\n            or not isinstance(row.get("technical_signal"), str)\n            or row["technical_signal"] not in _SIGNALS):
+    if (not isinstance(row.get("trend"), str) or row["trend"] not in _TRENDS
+            or not isinstance(row.get("technical_signal"), str)
+            or row["technical_signal"] not in _SIGNALS):
         raise TechnicalReportInvalid("Unrecognized technical labels")
     if type(row.get("chase_risk")) is not bool or type(row.get("eligible_for_watchlist")) is not bool:
         raise TechnicalReportInvalid("Invalid watchlist eligibility flags")
