@@ -182,3 +182,46 @@ def is_bist100_member(value: str | None, for_date: date | None = None) -> bool:
     """Check dated index membership (unlike generic .IS symbol validity)."""
     canonical = normalize_bist_equity_symbol(value)
     return canonical in load_bist100_universe(for_date).symbols if canonical else False
+
+
+
+def main() -> None:
+    """Offline quarter readiness check; never fetch or synthesize constituents."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Check whether a source-reviewed quarterly BIST100 roster is present (offline)"
+    )
+    parser.add_argument("--for-date", required=True, type=date.fromisoformat)
+    args = parser.parse_args()
+    target = args.for_date
+    expected = _snapshot_filename(target)
+    try:
+        roster = load_bist100_universe(target)
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
+        print(json.dumps({
+            "status": "blocked_missing_or_invalid_roster",
+            "for_date": target.isoformat(),
+            "required_snapshot": expected,
+            "reason": str(exc),
+            "disclaimer": "Do not reuse old constituents or claim real-market readiness.",
+        }, ensure_ascii=False, indent=2))
+        raise SystemExit(2) from None
+    print(json.dumps({
+        "status": "structurally_valid_not_live_verified",
+        "for_date": target.isoformat(),
+        "snapshot_file": expected,
+        "effective_from": roster.effective_from.isoformat(),
+        "effective_to": roster.effective_to.isoformat(),
+        "roster_as_of": roster.as_of.isoformat(),
+        "verified_on": roster.verified_on.isoformat(),
+        "constituents": len(roster.symbols),
+        "changes_in": len(roster.additions),
+        "changes_out": len(roster.exclusions),
+        "source_urls": len(roster.source_urls),
+        "disclaimer": "The checked-in candidate and source links require operator review; no live quote or trading verification.",
+    }, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()
