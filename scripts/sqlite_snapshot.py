@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from contextlib import closing
 import sqlite3
 import sys
 import tempfile
@@ -25,7 +26,7 @@ def _open_readonly(path: Path) -> sqlite3.Connection:
 def verify_snapshot(path: Path) -> dict[str, object]:
     """Read-only integrity verification; never repairs or migrates a file."""
     path = Path(path)
-    with _open_readonly(path) as db:
+    with closing(_open_readonly(path)) as db:
         quick = [str(row[0]) for row in db.execute("PRAGMA quick_check")]
         if quick != ["ok"]:
             raise RuntimeError(f"SQLite quick_check failed: {quick[:3]}")
