@@ -72,7 +72,7 @@ def _validate_analyzed(row: dict, last_session: date) -> None:
     if (min(row["close_try"], row["ma5_try"], row["ma20_try"]) <= 0
             or not 0 <= row["rsi12"] <= 100):
         raise TechnicalReportInvalid("Out-of-range technical indicators")
-    if row.get("trend") not in _TRENDS or row.get("technical_signal") not in _SIGNALS:
+    if (not isinstance(row.get("trend"), str) or row["trend"] not in _TRENDS\n            or not isinstance(row.get("technical_signal"), str)\n            or row["technical_signal"] not in _SIGNALS):
         raise TechnicalReportInvalid("Unrecognized technical labels")
     if type(row.get("chase_risk")) is not bool or type(row.get("eligible_for_watchlist")) is not bool:
         raise TechnicalReportInvalid("Invalid watchlist eligibility flags")
@@ -124,7 +124,7 @@ def validate_technical_report(payload: Any) -> dict:
             raise TechnicalReportInvalid("Invalid stock row")
         code, status = row.get("symbol"), row.get("status")
         if (not isinstance(code, str) or code not in members or code in seen
-                or status not in _STATUSES):
+                or not isinstance(status, str) or status not in _STATUSES):
             raise TechnicalReportInvalid("Unknown, duplicate or unsupported stock/status")
         seen.add(code)
         counts[status] += 1
@@ -142,7 +142,7 @@ def validate_technical_report(payload: Any) -> dict:
 
     ordered = sorted(analyzed_by_symbol.values(), key=lambda r: (-r["score"], r["symbol"]))
     for position, item in enumerate(ranking, start=1):
-        if not isinstance(item, dict) or item.get("rank") != position:
+        if not isinstance(item, dict) or not _count(item.get("rank")) or item["rank"] != position:
             raise TechnicalReportInvalid("Wrong technical rank")
         if {k: v for k, v in item.items() if k != "rank"} != ordered[position - 1]:
             raise TechnicalReportInvalid("Ranking differs from analyzed records")
