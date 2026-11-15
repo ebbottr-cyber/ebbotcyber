@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from src.services.bist100_coverage import _last_completed_session
 from src.services.bist100_universe import load_bist100_universe
 
 _MAX_BYTES = 2_000_000
@@ -65,6 +66,9 @@ def validate_coverage_report(payload: Any) -> dict:
         universe = load_bist100_universe(as_of)
     except (ValueError, OSError, KeyError) as exc:
         raise CoverageReportInvalid("Snapshot does not cover report date") from exc
+    if (payload.get("constituent_snapshot_as_of") != universe.as_of.isoformat()
+            or payload.get("constituent_snapshot_effective_to") != universe.effective_to.isoformat()):
+        raise CoverageReportInvalid("Report constituent snapshot provenance disagrees with dated universe")
     rows = payload.get("results")
     if not isinstance(rows, list) or len(rows) > 100:
         raise CoverageReportInvalid("Invalid BIST100 result rows")
@@ -81,8 +85,16 @@ def validate_coverage_report(payload: Any) -> dict:
     if not _count(min_bars) or min_bars < 1:
         raise CoverageReportInvalid("Invalid minimum bar count")
     expected_last = _date(payload.get("expected_last_completed_session"), optional=True)
-    if expected_last is not None and expected_last > as_of:
-        raise CoverageReportInvalid("Future expected session")
+    if expected_last is not None:
+        if expected_last >= as_of:
+            raise CoverageReportInvalid("Expected last session must be before as-of date")
+        # Reject a self-consistent but stale/fabricated last-session label.
+        # The exchange calendar is independent of the supplied coverage JSON.
+        verified = _last_completed_session(as_of)
+        if verified is None or expected_last != verified:
+            raise CoverageReportInvalid("Expected session does not match verified XIST calendar")
+    # Missing calendar data is allowed only as an *unverified diagnostic*;
+    # no stock in such a report can legitimately have status "ready".
     seen: set[str] = set()
     counts: Counter[str] = Counter()
     for item in rows:
@@ -116,7 +128,7 @@ def validate_coverage_report(payload: Any) -> dict:
         if not isinstance(issues, list) or any(not isinstance(v, str) for v in issues):
             raise CoverageReportInvalid("Invalid data-quality issues")
         if status == "ready" and (
-            bar_count < min_bars or currency != "TRY"
+            expected_last is None or bar_count < min_bars or currency != "TRY"
             or last is None or last != expected_last or issues
         ):
             raise CoverageReportInvalid("Unsupported ready status")
