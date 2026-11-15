@@ -106,3 +106,16 @@ Track integration in the BIST100 MVP GitHub issue.
 - A successful import writes *historical prices*; it does not assert an AI analysis succeeded. `imported`, `ready_for_import` and `new_rows` are distinct counters. Individual storage failures are shown as `db_error`, never silently marked successful.
 - Main analysis-pipeline compatibility, real DB smoke, AI report language and full-batch execution still require separate checks. Non-BIST provider imports are skipped when `get_market_for_stock()` is asked to identify a Turkish .IS symbol.
 - Tests in `tests/test_bist100_import.py` run offline with an injected DB and cover dry run, fresh writes, idempotence, partial bars, stale/mismatched currency, per-stock DB errors and invalid symbols.
+
+## Phase 10 — Read-only BIST100 technical screener (draft)
+
+- `src/services/bist100_screener.py` reads the existing `stock_daily` SQLite table via `file:...?mode=ro` plus `PRAGMA query_only=ON`; it does **not** import or initialize the bot's database manager, run migrations, download prices, call LLMs, send notifications, or trade.
+- For each 2026-Q4 member, it requires a validated past XIST last completed session, at least 60 actual daily bars, correct `Yahoo Finance` source and canonical `.IS` identity, and valid OHLCV. Missing rows, stale prices, unknown origin and invalid data are excluded from ranking with explicit statuses. SQLite has **no per-bar currency column**: source provenance is not independent proof of TRY, so the opt-in importer should be used to verify and populate the rows.
+- It invokes the application's existing `StockTrendAnalyzer.analyze` to compute MA, MACD, RSI, trend and the existing 0–100 signal score. Non-finite/out-of-range indicators fail closed. Results are ordered by `score` descending with ticker as the stable tie-breaker. A score is a **technical ranking**, not an AI report or investment recommendation. MA5 bias above +5% sets `chase_risk=true` and `eligible_for_watchlist=false` even if the base analyzer emits a buy signal.
+- Run *after* the separate five-symbol `bist100_import --write-db` smoke (and after installing the bot's full Python dependencies for StockTrendAnalyzer):
+  ```powershell
+  .\.venv\Scripts\python.exe -m src.services.bist100_screener --as-of 2026-11-15 --symbols THYAO.IS,ASELS.IS,AKBNK.IS,TUPRS.IS,AKFYE.IS --db-path ".\data\stock_analysis.db" --output ".\bist100-technical-5.json"
+  ```
+  If the existing database uses a different path, use the same configured `DATABASE_PATH` as the importer. **The 100/100 coverage JSON is not a database and cannot be screened**. A stock with no imported rows returns `not_imported`, not an invented score.
+- After a successful full, explicit 100-member history import, omit `--symbols` for 100-member read-only screening. This is *not* a deployment-ready consumer report UI or end-to-end AI analysis.
+- `tests/test_bist100_screener.py`: offline coverage for ranking, stable ties, completed-session checks, missing/stale or non-Yahoo data, chase-risk exclusion, invalid rows, analyzer failures, existing analyzer smoke, and SQLite read-only enforcement. Pending CI until run reports its result.
