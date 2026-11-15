@@ -26,3 +26,5 @@ This is a **historical admin-panel contract and DOM test**, not a live deployed 
 The original GitHub artifact had a **7-day retention**. This time-boxed CI proof is designed for a single draft integration run while that artifact exists. Future reruns **must fail** when the artifact is missing, rather than quietly assert synthetic 100/100 success. A long-lived test should separately record a provenance-verified snapshot (with source licensing reviewed) or explicitly regenerate and revalidate a new as-of historical report. **Do not run this artifact-dependent E2E job as a permanent default PR gate.**
 
 Earlier PR #14 already passed its standard TypeScript, Vitest, ESLint, build and Python backend checks; this new job is an *additional* proof that connects them to the real historical report.
+
+The two artifact-reading tests reside under `apps/dsa-web/integration-tests/`, **not** the browser-only `src/` tree. They require Node.js filesystem/crypto and run with Vitest in the dedicated E2E job; the normal frontend TypeScript build remains browser-only.
