@@ -35,6 +35,26 @@ def test_unsupported_bist_suffix_never_routes_to_chinese_equities(raw):
     assert parsed.exchange == "TR"
 
 
+@pytest.mark.parametrize("raw", ["XU100.IS", "TH.IS", "12345.IS", "INVALIDTOOLONG.IS"])
+def test_realtime_quote_rejects_invalid_bist_and_index_without_cn_fallback(raw):
+    manager = DataFetcherManager(fetchers=[])
+    with patch("src.config.get_config", return_value=SimpleNamespace(enable_realtime_quote=True)), (
+        patch.object(manager, "_try_fetcher_quote") as fetch_quote
+    ), patch.object(manager, "_get_cn_index_realtime_quote") as cn_index:
+        assert manager.get_realtime_quote(raw) is None
+    fetch_quote.assert_not_called()
+    cn_index.assert_not_called()
+
+
+def test_realtime_quote_tries_only_yahoo_for_valid_bist():
+    manager = DataFetcherManager(fetchers=[])
+    with patch("src.config.get_config", return_value=SimpleNamespace(enable_realtime_quote=True)), (
+        patch.object(manager, "_try_fetcher_quote", return_value=None) as fetch_quote
+    ):
+        assert manager.get_realtime_quote("  thyao.is  ") is None
+    fetch_quote.assert_called_once_with("THYAO.IS", "YfinanceFetcher")
+
+
 def test_bist_quotes_must_use_yahoo_only_even_with_unknown_custom_fetchers():
     fetchers = [
         SimpleNamespace(name="AkshareFetcher"),
