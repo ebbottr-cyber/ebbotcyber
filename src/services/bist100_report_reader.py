@@ -91,7 +91,8 @@ def validate_coverage_report(payload: Any) -> dict:
         symbol = item.get("symbol")
         status = item.get("status")
         if (not isinstance(symbol, str) or symbol not in universe.symbols
-                or symbol in seen or status not in _ALLOWED_STATUSES):
+                or symbol in seen or not isinstance(status, str)
+                or status not in _ALLOWED_STATUSES):
             raise CoverageReportInvalid("Duplicate or unsupported BIST100 stock/status")
         seen.add(symbol)
         counts[status] += 1
