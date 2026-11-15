@@ -109,11 +109,11 @@ def test_simulated_2027_q1_preflight_is_structural_only(monkeypatch, tmp_path, c
     assert output["changes_in"] == output["changes_out"] == 1
 
 
-def test_copied_old_roster_cannot_pass_as_new_membership(monkeypatch, tmp_path):
+def test_old_roster_cannot_pass_with_falsely_claimed_new_additions(monkeypatch, tmp_path):
     _, target, payload = _synthetic_reviewed_q1(monkeypatch, tmp_path)
     payload["constituents"] = _old_candidate()["constituents"]
     target.write_text(json.dumps(payload), encoding="utf-8")
-    with pytest.raises(ValueError, match="actual prior roster changes"):
+    with pytest.raises(ValueError, match="official additions are missing"):
         universe.load_bist100_universe(DAY)
 
 
