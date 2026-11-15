@@ -51,3 +51,18 @@ Track integration in the BIST100 MVP GitHub issue.
 - This viewer is an **imported historical snapshot**, not a live data API or the actual AI-analysis completion counter. Local JSON may come from a trusted CLI run; authenticity and current index membership beyond format cannot be independently verified by a browser-only import. Report readiness must not be confused with successful trading analysis.
 - To see results: execute the 5-symbol or 100-symbol audit in a network-capable environment, then open web office **Data Center** and choose the resulting JSON. No real Yahoo run was executed in this GitHub-only development session.
 - Next integration gate: review CI and run the external Yahoo smoke test, then expose backend-produced validated reports over an authenticated, read-only API if appropriate. Keep production orders and ETRE/crypto/Hype unchanged.
+
+## Phase 6 — Authenticated saved-report endpoint and auto-preview (candidate)
+
+- `GET /api/v1/data/bist100/coverage` is **read-only** and never calls Yahoo or the AI-analysis pipeline. It uses the existing `/api/v1/data` route and requires **ADMIN_AUTH_ENABLED=true** plus a valid admin session cookie. If admin authentication is off, the endpoint is deliberately unavailable (404).
+- The backend reads **only** the operator-configured absolute file path in `BIST100_COVERAGE_REPORT_PATH` (up to 2 MB), not a browser-supplied filename. Missing files return 404; invalid JSON or contradictory rows, counted symbols or metadata return 422. The validator checks each symbol against the source-dated BIST100 100-member snapshot. No stored file paths, credentials, or stock values are fabricated.
+- In **Data Center**, the BIST100 coverage panel now tries this authenticated saved report once on page load. Users may click *Sunucu raporunu yenile* to read a newer server-side report, or select a local JSON file manually without upload. The page does not schedule scans or place orders. No data remains explicitly unavailable.
+- Example operator setup (after creating a local writable directory with appropriate permissions):
+
+  ```bash
+  python -m src.services.bist100_coverage --as-of 2026-11-15 --limit 5 --delay-seconds 2 --output /absolute/path/bist100-coverage.json
+  ```
+
+  Configure `BIST100_COVERAGE_REPORT_PATH=/absolute/path/bist100-coverage.json` in the server runtime environment and `ADMIN_AUTH_ENABLED=true` in the application's existing admin-auth configuration. Restart the backend if needed. Open Data Center with an authenticated session to review **5 checked / 95 unchecked**, not a falsely complete 100-stock scan.
+- Run the full audit only after the five-stock smoke succeeds, using `--limit 100` and appropriate provider limits; replace the same configured report file with the genuine output so the view refreshes. The report is a **historical snapshot as of its recorded date**; it is not live streaming or an AI completed-analysis counter. Avoid committing actual market data or server credentials.
+- New offline tests in `tests/test_bist100_report_reader.py` verify file gating, authorized access, accurate partial counts and rejection of forged summaries. Integration requires a completed CI check; no 5/100-stock live Yahoo scan has been run from this GitHub-only environment.
