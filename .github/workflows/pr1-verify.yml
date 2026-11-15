@@ -347,7 +347,8 @@ jobs:
        github.head_ref == 'fix/bist100-coverage-xist-session' ||
        github.head_ref == 'feat/bist100-quarterly-roster-rollover' ||
        github.head_ref == 'feat/seven-market-evidence-panel' ||
-       github.head_ref == 'feat/six-market-saved-smoke-api') &&
+       github.head_ref == 'feat/six-market-saved-smoke-api' ||
+       github.head_ref == 'integration/six-market-real-report-readback') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -376,3 +377,61 @@ jobs:
             tests/test_bist100_quarterly_rollover.py \
             tests/test_six_market_smoke_report_reader.py \
             tests/test_trading_calendar.py
+
+# One-time historical real-data proof, isolated from default CI because the
+  # original GitHub artifact has finite retention. Never a merge/default gate.
+  six-market-real-saved-report-e2e:
+    if: >-
+      github.head_ref == 'integration/six-market-real-report-readback' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout exact candidate branch
+        uses: actions/checkout@v4
+      - name: Download original six-market Yahoo source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: six-market-yahoo-smoke-43725877201
+          repository: ${{ github.repository }}
+          run-id: 43725877201
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/six-market-original
+      - name: Verify immutable historical report identity and pin runtime read path
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t reports < <(find "$RUNNER_TEMP/six-market-original" -type f -name 'six-market-yahoo-2026-11-15.json')
+          if [ "${#reports[@]}" -ne 1 ]; then
+            echo "Original six-market historical report missing or duplicated" >&2
+            exit 1
+          fi
+          report="${reports[0]}"
+          digest=e2a4f357add80d7dc11ec305aab7a2fa0707f583763db36258c89cddd84d6bd2
+          echo "$digest  $report" | sha256sum -c
+          echo "SIX_MARKET_REAL_SOURCE=$report" >> "$GITHUB_ENV"
+          echo "SIX_MARKET_SMOKE_REPORT_PATH=$report" >> "$GITHUB_ENV"
+          echo "SIX_MARKET_SMOKE_REPORT_SHA256=$digest" >> "$GITHUB_ENV"
+          echo "Original real 6-symbol Yahoo report SHA-256 verified: $digest"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend test requirements
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify real 6/6 archived samples through independent calendars and admin API
+        run: python -m pytest -q integration-tests/six_market_real_artifact_e2e.py
+      - name: Set up Node for real React DOM verification
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install frontend test dependencies
+        working-directory: apps/dsa-web
+        run: npm ci
+      - name: Verify real 6/6 archived samples in the actual Data Center React view
+        working-directory: apps/dsa-web
+        run: npx vitest run integration-tests/sixMarketRealSmoke.e2e.test.tsx
+
