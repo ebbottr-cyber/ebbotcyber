@@ -34,6 +34,7 @@ jobs:
           src/utils/bist100CoverageReport.test.ts
           src/utils/bist100TechnicalReport.test.ts
           src/utils/bist100RankingView.test.ts
+          src/utils/sevenMarketEvidence.test.ts
       - name: Lint frontend
         run: npm run lint
       - name: Build frontend
@@ -343,7 +344,8 @@ jobs:
     if: >-
       (github.head_ref == 'release/seven-market-premerge-safety' ||
        github.head_ref == 'fix/bist100-coverage-xist-session' ||
-       github.head_ref == 'feat/bist100-quarterly-roster-rollover') &&
+       github.head_ref == 'feat/bist100-quarterly-roster-rollover' ||
+       github.head_ref == 'feat/seven-market-evidence-panel') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
