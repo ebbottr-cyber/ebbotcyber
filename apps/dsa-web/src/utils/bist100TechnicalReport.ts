@@ -66,6 +66,7 @@ const finite = (v: unknown): v is number =>
 function analyzedRow(value: unknown, session: string, expectedRank: number): TechnicalRankedRow {
   if (!record(value) || value.rank !== expectedRank || value.status !== 'analyzed' ||
       typeof value.symbol !== 'string' || !TICKER.test(value.symbol) ||
+      value.symbol === 'XU100.IS' ||
       !count(value.bars) || value.bars < 60 ||
       !validDate(value.last_bar_date) || value.last_bar_date !== session ||
       !count(value.score) || value.score > 100 ||
@@ -116,7 +117,7 @@ export function parseBist100TechnicalReport(value: unknown): Bist100TechnicalRep
   const analyzed = new Map<string, Record<string, unknown>>();
   for (const row of value.results as unknown[]) {
     if (!record(row) || typeof row.symbol !== 'string' ||
-        !TICKER.test(row.symbol) || seen.has(row.symbol) ||
+        !TICKER.test(row.symbol) || row.symbol === 'XU100.IS' || seen.has(row.symbol) ||
         typeof row.status !== 'string' || !STATUS.has(row.status)) {
       throw new Error('Sonuçlarda geçersiz veya tekrar eden hisse var.');
     }
