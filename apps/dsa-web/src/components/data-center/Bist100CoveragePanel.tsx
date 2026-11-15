@@ -1,5 +1,6 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { bist100CoverageApi } from '../../api/bist100Coverage';
 import { Badge, Card } from '../common';
 import { parseBist100CoverageReport, type Bist100CoverageReport } from '../../utils/bist100CoverageReport';
 
@@ -33,12 +34,56 @@ export const Bist100CoveragePanel: React.FC = () => {
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [filename, setFilename] = useState('');
+  const [serverMessage, setServerMessage] = useState('');
+  const [serverLoading, setServerLoading] = useState(false);
+  const requestGeneration = useRef(0);
+  const manuallySelected = useRef(false);
+
+  const loadSavedReport = useCallback(async () => {
+    const generation = ++requestGeneration.current;
+    setServerLoading(true);
+    setServerMessage('');
+    try {
+      const saved = await bist100CoverageApi.getSavedReport();
+      if (generation !== requestGeneration.current || manuallySelected.current) return;
+      setReport(saved);
+      setPage(0);
+      setFilename('Sunucu raporu (salt okunur)');
+      setError('');
+    } catch {
+      if (generation !== requestGeneration.current || manuallySelected.current) return;
+      setServerMessage(
+        'Sunucuda doğrulanmış BIST100 raporu bulunamadı veya yönetici erişimi kapalı. ' +
+        'İsterseniz yerel JSON raporu seçebilirsiniz.'
+      );
+    } finally {
+      if (generation === requestGeneration.current) setServerLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSavedReport();
+    return () => { requestGeneration.current += 1; };
+  }, [loadSavedReport]);
+
+  const reloadSavedReport = () => {
+    manuallySelected.current = false;
+    setReport(null);
+    setFilename('');
+    setError('');
+    setPage(0);
+    void loadSavedReport();
+  };
 
   const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     // Re-importing the same filename must trigger a new change event.
     event.currentTarget.value = '';
     if (!file) return;
+    manuallySelected.current = true;
+    const generation = ++requestGeneration.current;
+    setServerLoading(false);
+    setServerMessage('');
     setError('');
     setReport(null);
     setFilename('');
@@ -50,9 +95,11 @@ export const Bist100CoveragePanel: React.FC = () => {
     try {
       const parsed: unknown = JSON.parse(await file.text());
       const next = parseBist100CoverageReport(parsed);
+      if (generation !== requestGeneration.current) return;
       setReport(next);
       setFilename(file.name);
     } catch (cause) {
+      if (generation !== requestGeneration.current) return;
       setError(cause instanceof Error ? cause.message : 'Rapor okunamadı.');
     }
   };
@@ -62,21 +109,27 @@ export const Bist100CoveragePanel: React.FC = () => {
   const problemCount = report ? report.checked - report.ready : 0;
 
   return (
-    <Card title="BIST100 · Yahoo veri kapsaması" subtitle="Yerel JSON raporu · salt okunur · yatırım analizi değildir" variant="bordered" padding="md">
+    <Card title="BIST100 · Yahoo veri kapsaması" subtitle="Kaydedilmiş sunucu raporu veya yerel JSON · salt okunur" variant="bordered" padding="md">
       <div className="space-y-4">
         <p className="text-sm text-secondary-text">
-          BIST100 tarama raporunu seçin. Rapor yalnızca bu sayfada açılır; dosya sunucuya gönderilmez.
-          Fiyat verisi hazır olması, hissenin AI tarafından analiz edildiği anlamına gelmez.
+          Sunucuda doğrulanmış bir rapor varsa otomatik gösterilir; ayrıca yerel JSON raporu da seçebilirsiniz.
+          Yerel dosya sunucuya gönderilmez. Veri hazır olması, AI analizinin tamamlandığı anlamına gelmez.
         </p>
+        <button type="button"
+          className="inline-flex items-center rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50"
+          disabled={serverLoading} onClick={reloadSavedReport}>
+          {serverLoading ? 'Sunucu raporu kontrol ediliyor…' : 'Sunucu raporunu yenile'}
+        </button>
         <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground">
           JSON raporu seç
           <input type="file" accept=".json,application/json" onChange={(event) => { void onFileChange(event); }}
             className="sr-only" aria-label="BIST100 JSON raporu seç" />
         </label>
+        {serverMessage ? <p role="status" className="text-sm text-muted-text">{serverMessage}</p> : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-        {!report && !error ? (
+        {!report && !error && !serverLoading ? (
           <p className="text-sm text-muted-text">
-            Henüz rapor seçilmedi. Canlı veri taraması yapılmış veya 100 hissenin analiz edilmiş olduğu varsayılmıyor.
+            Doğrulanmış rapor yok. Canlı veri taraması yapılmış veya 100 hissenin analiz edilmiş olduğu varsayılmıyor.
           </p>
         ) : null}
         {report ? (
