@@ -17,6 +17,11 @@ from src.services.bist100_technical_report_reader import (
     TechnicalReportUnavailable,
     load_configured_technical_report,
 )
+from src.services.six_market_smoke_report_reader import (
+    SixMarketSmokeInvalid,
+    SixMarketSmokeUnavailable,
+    load_configured_six_market_smoke_report,
+)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -136,6 +141,34 @@ def get_bist100_technical_ranking(request: Request):
     except TechnicalReportInvalid as exc:
         logger.warning("Configured BIST100 technical report failed validation")
         raise HTTPException(status_code=422, detail="BIST100 technical report failed validation") from exc
+    return JSONResponse(
+        content=data,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get(
+    "/six-market/smoke-report",
+    summary="Read approved six-market Yahoo fallback historical smoke report",
+    description=(
+        "Admin-only read of one operator-pinned historical sample per CN/HK/US/JP/KR/TW "
+        "market. No real-time quotes, full exchange scans, database writes, or orders."
+    ),
+)
+def get_six_market_smoke_report(request: Request):
+    """Do not permit choosing a server file or invoking a probe via HTTP."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="Six-market report unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        data = load_configured_six_market_smoke_report()
+    except SixMarketSmokeUnavailable as exc:
+        raise HTTPException(status_code=404, detail="Approved six-market report not configured") from exc
+    except SixMarketSmokeInvalid as exc:
+        logger.warning("Saved six-market example report failed validation")
+        raise HTTPException(status_code=422, detail="Saved six-market example report failed validation") from exc
     return JSONResponse(
         content=data,
         headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
