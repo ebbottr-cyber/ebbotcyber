@@ -10,14 +10,12 @@ const SAMPLES = [
   ['us', 'AAPL', 'AAPL'],
   ['de', 'SAP.DE', 'SAP.DE'],
   ['hk', 'HK00700', '0700.HK'],
-  ['jp', '7203.T', '7203.T'],
 ] as const;
 const EXTRA = [
   ['tr', 'ASELS.IS', 'ASELS.IS'],
   ['us', 'MSFT', 'MSFT'],
   ['de', 'SIE.DE', 'SIE.DE'],
   ['hk', 'HK01810', '1810.HK'],
-  ['jp', '6758.T', '6758.T'],
 ] as const;
 
 function makeRow(market: FocusMarket, code: string, yahoo: string): SampleResult {
@@ -40,9 +38,9 @@ function report(kind: 'core' | 'expanded' | 'custom' = 'core') {
 
 function fromRows(results: SampleResult[], kind: 'core' | 'expanded' | 'custom' = 'custom') {
   const names = {
-    core: 'etre_five_market_core_historical_samples',
-    expanded: 'etre_five_market_expanded_historical_samples',
-    custom: 'etre_five_market_custom_historical_symbols',
+    core: 'etre_four_market_core_historical_samples',
+    expanded: 'etre_four_market_expanded_historical_samples',
+    custom: 'etre_four_market_custom_historical_symbols',
   };
   const by_market = Object.fromEntries(FOCUS_MARKETS.map(market => {
     const subset = results.filter(r => r.market === market);
@@ -57,6 +55,8 @@ function fromRows(results: SampleResult[], kind: 'core' | 'expanded' | 'custom' 
     return [market, {
       checked_symbols: subset.length,
       analyzed_symbols: passed,
+      target_symbols: 100,
+      remaining_to_target: 100 - subset.length,
       sample_status,
       failure_status_counts: failureCounts,
     }];
@@ -68,26 +68,66 @@ function fromRows(results: SampleResult[], kind: 'core' | 'expanded' | 'custom' 
     analyzed_symbols: results.filter(r => r.status === 'analyzed').length,
     markets_checked: new Set(results.map(r => r.market)).size,
     market_scope: [...FOCUS_MARKETS],
+    target_symbols_per_market: 100,
+    target_symbols_total: 400,
+    remaining_to_target: 400 - results.length,
     results,
     by_market,
   };
 }
 
-describe('ETRE five-market local JSON validation', () => {
-  it('accepts each of the five selected markets without implying exchange coverage', () => {
+describe('ETRE four-market local JSON validation', () => {
+  it('accepts each of the four selected markets without implying exchange coverage', () => {
     const parsed = parseFiveMarketSampleReport(report());
-    expect(parsed.checked_symbols).toBe(5);
-    expect(parsed.analyzed_symbols).toBe(5);
-    expect(parsed.markets_checked).toBe(5);
+    expect(parsed.checked_symbols).toBe(4);
+    expect(parsed.analyzed_symbols).toBe(4);
+    expect(parsed.markets_checked).toBe(4);
     expect(parsed.results.map(x => x.code)).toEqual(SAMPLES.map(x => x[1]));
     expect(parsed.by_market.de.sample_status).toBe('samples_passed');
   });
 
-  it('accepts ten samples, still representing only five markets', () => {
+  it('accepts eight samples, still representing only four markets', () => {
     const parsed = parseFiveMarketSampleReport(report('expanded'));
-    expect(parsed.checked_symbols).toBe(10);
-    expect(parsed.markets_checked).toBe(5);
+    expect(parsed.checked_symbols).toBe(8);
+    expect(parsed.markets_checked).toBe(4);
     expect(parsed.by_market.tr.checked_symbols).toBe(2);
+  });
+
+
+  it('rejects Japan as a removed investment market', () => {
+    const bad = report();
+    bad.results[0] = {
+      ...bad.results[0], market: 'jp' as FocusMarket, code: '7203.T', yahoo_symbol: '7203.T',
+    };
+    expect(() => parseFiveMarketSampleReport(bad)).toThrow();
+  });
+
+  it('accepts 400 structurally valid samples with 100 per market, not 401', () => {
+    const codes: Record<FocusMarket, string[]> = {
+      tr: Array.from({ length: 100 }, (_, i) => `T${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + i % 26)}A.IS`),
+      us: Array.from({ length: 100 }, (_, i) => `U${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + i % 26)}`),
+      de: Array.from({ length: 100 }, (_, i) => `D${String(i).padStart(4, '0')}.DE`),
+      hk: Array.from({ length: 100 }, (_, i) => `HK${String(i + 1).padStart(5, '0')}`),
+    };
+    const rows = FOCUS_MARKETS.flatMap(market => codes[market].map(code => {
+      const yahoo = market === 'hk' ? `${String(Number(code.slice(2))).padStart(4, '0')}.HK` : code;
+      return makeRow(market, code, yahoo);
+    }));
+    const valid = fromRows(rows);
+    const parsed = parseFiveMarketSampleReport(valid);
+    expect(parsed.checked_symbols).toBe(400);
+    expect(parsed.remaining_to_target).toBe(0);
+    expect(parsed.by_market.de.checked_symbols).toBe(100);
+
+    valid.results.push({ ...rows[0] });
+    valid.checked_symbols += 1;
+    expect(() => parseFiveMarketSampleReport(valid)).toThrow();
+  });
+
+  it('rejects a false completed target', () => {
+    const bad = report();
+    bad.remaining_to_target = 0;
+    expect(() => parseFiveMarketSampleReport(bad)).toThrow();
   });
 
   it('accepts partial custom scope but labels untouched markets not requested', () => {
@@ -110,7 +150,7 @@ describe('ETRE five-market local JSON validation', () => {
     expect(() => parseFiveMarketSampleReport(removed)).toThrow();
   });
 
-  it('rejects a fixed five-market report with substituted symbols or duplicates', () => {
+  it('rejects a fixed four-market report with substituted symbols or duplicates', () => {
     const substituted = report();
     substituted.results[0] = makeRow('tr', 'ASELS.IS', 'ASELS.IS');
     expect(() => parseFiveMarketSampleReport(substituted)).toThrow();
