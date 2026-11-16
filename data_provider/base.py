@@ -105,6 +105,8 @@ def normalize_stock_code(stock_code: str) -> str:
     bist = normalize_bist_equity_symbol(upper)
     if bist is not None:
         return bist
+    if is_suffix_market_symbol(upper, "de"):
+        return upper
 
     # Normalize HK prefix to a canonical 5-digit form (e.g. hk1810 -> HK01810)
     if upper.startswith('HK') and not upper.startswith('HK.'):
