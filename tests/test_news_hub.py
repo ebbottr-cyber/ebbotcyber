@@ -1,6 +1,7 @@
 """Offline tests for news ingestion, dedup, read-all and notification preferences."""
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
@@ -61,7 +62,7 @@ class NewsHubTests(unittest.TestCase):
         self.assertEqual(news.mark_one_read(fresh["id"])["unread_count"], 0)
 
     def test_mark_all_and_persistent_mute(self):
-        with news._connect() as db:
+        with closing(news._connect()) as db:
             for i in range(3):
                 db.execute("""INSERT INTO news_articles(
                     id,market,title_original,source,url,published_at,inserted_at
