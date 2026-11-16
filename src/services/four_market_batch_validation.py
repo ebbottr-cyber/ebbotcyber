@@ -394,6 +394,8 @@ def main() -> None:
                       help="0-based batch number; one invocation checks at most 25 equities")
     mode.add_argument("--combine", action="store_true",
                       help="Combine previously completed batches, without contacting Yahoo")
+    mode.add_argument("--status", action="store_true",
+                      help="Inspect valid, missing, failed and corrupt batches without Yahoo requests")
     recovery = parser.add_mutually_exclusive_group()
     recovery.add_argument("--resume", action="store_true",
                           help="Skip any existing validated batch unchanged")
@@ -401,13 +403,21 @@ def main() -> None:
                           help="Recheck only failed stocks in an existing batch, with audit backup")
     parser.add_argument("--delay-seconds", type=float, default=2.0)
     parser.add_argument("--report", type=Path,
-                        help="Output merged report JSON (with --combine)")
+                        help="Output merged report (--combine) or progress (--status) JSON")
     args = parser.parse_args()
-    if args.combine and (args.resume or args.retry_failed):
-        parser.error("--combine cannot be used with --resume or --retry-failed")
+    if (args.combine or args.status) and (args.resume or args.retry_failed):
+        parser.error("--combine/--status cannot use --resume or --retry-failed")
     try:
         manifest = load_source_dated_manifest(args.manifest, as_of=args.as_of)
-        if args.combine:
+        if args.status:
+            from src.services.four_market_batch_progress import inspect_batch_progress
+            result = inspect_batch_progress(
+                manifest, as_of=args.as_of, output_dir=args.output_dir,
+                batch_size=args.batch_size,
+            )
+            if args.report:
+                _atomic_json(args.report, result)
+        elif args.combine:
             result = combine_batches(
                 manifest, as_of=args.as_of, output_dir=args.output_dir,
                 batch_size=args.batch_size,
