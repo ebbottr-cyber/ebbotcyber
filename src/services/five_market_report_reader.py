@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Read only an operator-configured ETRE five-market Yahoo sample JSON report.
+"""Read only an operator-configured ETRE four-market Yahoo sample JSON report.
 
 Never runs a scan, fetches quotes, opens SQLite or accepts an HTTP-provided
 filename. A report is historical *sample* evidence, never a trading signal.
@@ -16,21 +16,22 @@ from typing import Any
 
 
 _MAX_BYTES = 2_000_000
-_MARKETS = ("tr", "us", "de", "hk", "jp")
-_CURRENCIES = {"tr": "TRY", "us": "USD", "de": "EUR", "hk": "HKD", "jp": "JPY"}
+_MARKETS = ("tr", "us", "de", "hk")
+_PER_MARKET_LIMIT = 100
+_TOTAL_LIMIT = len(_MARKETS) * _PER_MARKET_LIMIT
+_CURRENCIES = {"tr": "TRY", "us": "USD", "de": "EUR", "hk": "HKD"}
 _PATTERNS = {
     "tr": re.compile(r"[A-Z]{4,5}\.IS\Z"),
     "us": re.compile(r"[A-Z]{1,5}(?:\.[A-Z])?\Z"),
     "de": re.compile(r"[A-Z][A-Z0-9]{0,7}\.DE\Z"),
     "hk": re.compile(r"HK[0-9]{5}\Z"),
-    "jp": re.compile(r"[0-9]{4,5}\.T\Z"),
 }
-_CORE = ("THYAO.IS", "AAPL", "SAP.DE", "HK00700", "7203.T")
-_EXTRA = ("ASELS.IS", "MSFT", "SIE.DE", "HK01810", "6758.T")
+_CORE = ("THYAO.IS", "AAPL", "SAP.DE", "HK00700")
+_EXTRA = ("ASELS.IS", "MSFT", "SIE.DE", "HK01810")
 _SCOPES = {
     "etre_five_market_core_historical_samples": _CORE,
-    "etre_five_market_expanded_historical_samples": _CORE + _EXTRA,
-    "etre_five_market_custom_historical_symbols": None,
+    "etre_four_market_expanded_historical_samples": _CORE + _EXTRA,
+    "etre_four_market_custom_historical_symbols": None,
 }
 _STATUSES = frozenset({
     "analyzed", "unavailable", "routing_mismatch", "routing_error",
@@ -78,7 +79,7 @@ def validate_five_market_sample_report(payload: Any) -> dict:
         raise FiveMarketReportInvalid("Unsupported five-market report identity")
     as_of = _iso_date(payload.get("as_of"))
     rows = payload.get("results")
-    if not isinstance(rows, list) or not 1 <= len(rows) <= 50:
+    if not isinstance(rows, list) or not 1 <= len(rows) <= _TOTAL_LIMIT:
         raise FiveMarketReportInvalid("Invalid number of report rows")
     if (not _nonnegative(payload.get("checked_symbols"))
             or payload["checked_symbols"] != len(rows)
@@ -138,6 +139,12 @@ def validate_five_market_sample_report(payload: Any) -> dict:
         raise FiveMarketReportInvalid("Fixed sample set membership mismatch")
     checked_markets = sum(bool(totals[market]) for market in _MARKETS)
     analyzed = sum(counter.get("analyzed", 0) for counter in totals.values())
+    if any(sum(counter.values()) > _PER_MARKET_LIMIT for counter in totals.values()):
+        raise FiveMarketReportInvalid("More than 100 checked symbols in a single market")
+    if (payload.get("target_symbols_per_market") != _PER_MARKET_LIMIT
+            or payload.get("target_symbols_total") != _TOTAL_LIMIT
+            or payload.get("remaining_to_target") != _TOTAL_LIMIT - len(rows)):
+        raise FiveMarketReportInvalid("Four-market 400-symbol target mismatch")
     if (payload["markets_checked"] != checked_markets
             or payload["analyzed_symbols"] != analyzed):
         raise FiveMarketReportInvalid("Summary counts do not match stock rows")
@@ -159,6 +166,8 @@ def validate_five_market_sample_report(payload: Any) -> dict:
         if (not isinstance(raw, dict)
                 or raw.get("checked_symbols") != checked
                 or raw.get("analyzed_symbols") != passed
+                or raw.get("target_symbols") != _PER_MARKET_LIMIT
+                or raw.get("remaining_to_target") != _PER_MARKET_LIMIT - checked
                 or raw.get("sample_status") != status
                 or raw.get("failure_status_counts") != failures):
             raise FiveMarketReportInvalid("Market summary contradicts stock results")
@@ -179,10 +188,15 @@ def validate_five_market_sample_report(payload: Any) -> dict:
         "analyzed_symbols": analyzed,
         "markets_checked": checked_markets,
         "market_scope": list(_MARKETS),
+        "target_symbols_per_market": _PER_MARKET_LIMIT,
+        "target_symbols_total": _TOTAL_LIMIT,
+        "remaining_to_target": _TOTAL_LIMIT - len(rows),
         "results": safe_rows,
         "by_market": {market: {
             "checked_symbols": sum(totals[market].values()),
             "analyzed_symbols": totals[market].get("analyzed", 0),
+            "target_symbols": _PER_MARKET_LIMIT,
+            "remaining_to_target": _PER_MARKET_LIMIT - sum(totals[market].values()),
             "sample_status": summaries[market]["sample_status"],
             "failure_status_counts": summaries[market]["failure_status_counts"],
         } for market in _MARKETS},
@@ -191,7 +205,7 @@ def validate_five_market_sample_report(payload: Any) -> dict:
 
 def load_configured_five_market_sample_report() -> dict:
     """Fail closed unless an admin has configured an absolute report filepath."""
-    configured = os.getenv("ETRE_FIVE_MARKET_REPORT_PATH", "").strip()
+    configured = os.getenv("ETRE_FOUR_MARKET_REPORT_PATH", "").strip()
     if not configured:
         raise FiveMarketReportUnavailable("No sample report configured")
     path = Path(configured)
