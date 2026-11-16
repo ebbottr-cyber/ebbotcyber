@@ -1010,6 +1010,10 @@ const zh = {
   'dataCenter.diagnostic.runtime_probe_not_performed': '尚未执行实时提供方探测',
   'dataCenter.diagnostic.provider_not_initialized': '数据提供方尚未初始化',
   'dataCenter.diagnostic.provider_marked_unavailable': '数据提供方已标记为不可用',
+  'dataCenter.marketDailyTitle': '七个市场 · 日线数据源状态',
+  'dataCenter.marketDailyDescription': '展示历史日线数据源的状态，并非实时价格校验或完整股票覆盖证明。',
+  'dataCenter.marketNotReported': '未包含在报告中',
+  'dataCenter.marketSource': '数据源：{source}',
 } as const;
 
 export type UiTextKey = keyof typeof zh;
@@ -2024,6 +2028,10 @@ const en: Record<UiTextKey, string> = {
   'dataCenter.diagnostic.runtime_probe_not_performed': 'Live provider probe not performed',
   'dataCenter.diagnostic.provider_not_initialized': 'Data provider not initialized',
   'dataCenter.diagnostic.provider_marked_unavailable': 'Provider marked unavailable',
+  'dataCenter.marketDailyTitle': 'Seven markets · Daily data sources',
+  'dataCenter.marketDailyDescription': 'Historical daily-source capability, not proof of live price validation or full stock coverage.',
+  'dataCenter.marketNotReported': 'Not included in report',
+  'dataCenter.marketSource': 'Source: {source}',
 };
 
 const tr: Record<UiTextKey, string> = {
@@ -2358,6 +2366,10 @@ const tr: Record<UiTextKey, string> = {
   'dataCenter.diagnostic.runtime_probe_not_performed': 'Canlı veri kaynağı testi henüz yapılmadı',
   'dataCenter.diagnostic.provider_not_initialized': 'Veri sağlayıcısı başlatılmadı',
   'dataCenter.diagnostic.provider_marked_unavailable': 'Sağlayıcı kullanılamıyor olarak işaretlendi',
+  'dataCenter.marketDailyTitle': 'Yedi piyasa · Günlük veri kaynakları',
+  'dataCenter.marketDailyDescription': 'Günlük geçmiş veri kaynaklarının durumudur. Canlı fiyatların doğrulandığı veya bütün hisselerin kapsandığı anlamına gelmez.',
+  'dataCenter.marketNotReported': 'Rapor kapsamına alınmamış',
+  'dataCenter.marketSource': 'Kaynak: {source}',
   'usage.breakdown': 'Dağılım',
   'usage.callType.agent': 'Hisse asistanı',
   'usage.callType.analysis': 'Hisse analizi',
