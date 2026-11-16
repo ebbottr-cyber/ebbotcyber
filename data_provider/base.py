@@ -258,7 +258,9 @@ def _is_meaningful_chip_distribution(chip: Any) -> bool:
 
 
 def _market_tag(code: str) -> str:
-    """返回市场标签: cn/us/hk/jp/kr/tw."""
+    """Identify the exchange without treating Xetra .DE as a US share class."""
+    if _is_de_market(code):
+        return "de"
     if _is_us_market(code):
         return "us"
     if _is_hk_market(code):
@@ -271,8 +273,6 @@ def _market_tag(code: str) -> str:
         return "tw"
     if _is_tr_market(code):
         return "tr"
-    if _is_de_market(code):
-        return "de"
     return "cn"
 
 
