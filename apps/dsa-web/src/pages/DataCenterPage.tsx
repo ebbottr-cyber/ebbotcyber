@@ -33,7 +33,6 @@ const DAILY_MARKET_LABELS: Record<DailyMarketCode, Record<UiLanguage, string>> =
   de: { tr: 'Almanya', en: 'Germany', zh: '德国' },
   us: { tr: 'ABD', en: 'United States', zh: '美国' },
   hk: { tr: 'Hong Kong', en: 'Hong Kong', zh: '香港' },
-  jp: { tr: 'Japonya', en: 'Japan', zh: '日本' },
 };
 
 type DailyMarketCapability = {
