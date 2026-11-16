@@ -37,7 +37,7 @@ _MNEMONIC = re.compile(r"[A-Z][A-Z0-9]{0,7}\Z")
 
 def _metadata_date(line: str) -> date:
     match = re.fullmatch(
-        r"Date Last Update\s*:\s*(\d{2})\.(\d{2})\.(\d{4})",
+        r"Date Last Update\s*:\s*;?\s*(\d{2})\.(\d{2})\.(\d{4})",
         line.strip(),
         flags=re.IGNORECASE,
     )
@@ -57,7 +57,7 @@ def convert_xetra_t7_csv(path: Path, *, as_of: date) -> dict:
         with path.open("r", encoding="utf-8-sig", newline="") as stream:
             market_line = stream.readline().strip()
             date_line = stream.readline().strip()
-            if market_line.upper().replace(" ", "") != "MARKET:XETR":
+            if not re.fullmatch(r"Market\s*:\s*;?\s*XETR", market_line, flags=re.IGNORECASE):
                 raise ValueError("Not a production XETR market reference file")
             source_date = _metadata_date(date_line)
             if source_date > as_of or as_of - source_date > timedelta(days=MAX_SOURCE_AGE_DAYS):
