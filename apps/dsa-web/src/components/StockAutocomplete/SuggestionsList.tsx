@@ -7,6 +7,7 @@ import type { StockSuggestion } from '../../types/stockIndex';
 import { Badge } from '../common';
 import { cn } from '../../utils/cn';
 import { getStockDisplayName } from '../../utils/stockDisplayName';
+import { useUiLanguage } from '../../contexts/UiLanguageContext';
 
 export interface SuggestionsListProps {
   /** Suggestion list */
@@ -81,6 +82,24 @@ export function SuggestionsList({
   );
 }
 
+const MARKET_LABELS = {
+  CN: { zh: 'A股', en: 'A-shares', tr: 'Çin' },
+  HK: { zh: '港股', en: 'Hong Kong', tr: 'Hong Kong' },
+  US: { zh: '美股', en: 'US', tr: 'ABD' },
+  JP: { zh: '日股', en: 'Japan', tr: 'Japonya' },
+  KR: { zh: '韩股', en: 'Korea', tr: 'G. Kore' },
+  INDEX: { zh: '指数', en: 'Index', tr: 'Endeks' },
+  ETF: { zh: 'ETF', en: 'ETF', tr: 'ETF' },
+  BSE: { zh: '北交所', en: 'Beijing', tr: 'Pekin' },
+} as const;
+
+const MATCH_LABELS = {
+  exact: { zh: '精确', en: 'Exact', tr: 'Tam' },
+  prefix: { zh: '前缀', en: 'Prefix', tr: 'Önek' },
+  contains: { zh: '包含', en: 'Contains', tr: 'İçerir' },
+  fuzzy: { zh: '模糊', en: 'Fuzzy', tr: 'Yakın' },
+} as const;
+
 const MARKET_BADGE_CONFIG = {
   CN: { label: 'Çin', className: 'border-danger/25 bg-danger/10 text-danger' },
   HK: { label: 'Hong Kong', className: 'border-success/25 bg-success/10 text-success' },
@@ -93,6 +112,7 @@ const MARKET_BADGE_CONFIG = {
 } as const;
 
 function MarketBadge({ market }: { market: string }) {
+  const { language } = useUiLanguage();
   const config = MARKET_BADGE_CONFIG[market as keyof typeof MARKET_BADGE_CONFIG];
 
   if (!config) {
@@ -101,12 +121,13 @@ function MarketBadge({ market }: { market: string }) {
 
   return (
     <Badge variant="default" size="sm" className={cn('min-w-[3rem] justify-center shadow-none', config.className)}>
-      {config.label}
+      {MARKET_LABELS[market as keyof typeof MARKET_LABELS]?.[language] ?? config.label}
     </Badge>
   );
 }
 
 function MatchTypeBadge({ matchType }: { matchType: string }) {
+  const { language } = useUiLanguage();
   const configMap = {
     exact: { label: 'Tam', className: 'border-cyan/25 bg-cyan/10 text-cyan' },
     prefix: { label: 'Önek', className: 'border-purple/25 bg-purple/10 text-purple' },
@@ -118,7 +139,7 @@ function MatchTypeBadge({ matchType }: { matchType: string }) {
 
   return (
     <Badge variant="default" size="sm" className={cn('shrink-0 shadow-none', config.className)}>
-      {config.label}
+      {MATCH_LABELS[matchType as keyof typeof MATCH_LABELS]?.[language] ?? config.label}
     </Badge>
   );
 }
