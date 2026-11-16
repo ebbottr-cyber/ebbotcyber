@@ -5,7 +5,7 @@ import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import { cn } from '../../utils/cn';
 import type { MarketReviewRegion } from '../../utils/marketReviewRegion';
 
-const VISIBLE_MARKET_REVIEW_REGIONS: readonly MarketReviewRegion[] = ['hk', 'us', 'jp'];
+const VISIBLE_MARKET_REVIEW_REGIONS: readonly MarketReviewRegion[] = ['hk', 'us'];
 
 type MarketReviewRegionSelectorProps = {
   value?: readonly MarketReviewRegion[];
