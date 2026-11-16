@@ -13,13 +13,14 @@ const instrument = (code: string, market: StockIndexItem['market']): StockIndexI
 
 describe('Turkish domestic-broker focus', () => {
   it('keeps the five selected markets in the investment UI', () => {
-    expect(TURKISH_BROKER_MARKETS).toEqual(['tr', 'us', 'de', 'hk', 'jp']);
+    expect(TURKISH_BROKER_MARKETS).toEqual(['tr', 'us', 'de', 'hk']);
     expect(isTurkishBrokerMarket('TR')).toBe(true);
     expect(isTurkishBrokerMarket(' US ')).toBe(true);
     expect(isTurkishBrokerMarket('DE')).toBe(true);
     expect(isTurkishBrokerMarket('CN')).toBe(false);
     expect(isTurkishBrokerMarket('KR')).toBe(false);
     expect(isTurkishBrokerMarket('TW')).toBe(false);
+    expect(isTurkishBrokerMarket('JP')).toBe(false);
   });
 
   it('filters both object and decompressed stock index rows without changing symbols', () => {
@@ -35,7 +36,7 @@ describe('Turkish domestic-broker focus', () => {
       instrument('399001.SZ', 'INDEX'),
     ];
     expect(filterTurkishBrokerStockIndex(stocks).map((row) => row.canonicalCode))
-      .toEqual(['THYAO.IS', 'AAPL', 'SAP.DE', 'HK00700', '7203.T']);
+      .toEqual(['THYAO.IS', 'AAPL', 'SAP.DE', 'HK00700']);
     expect(stocks).toHaveLength(9);
   });
 });
