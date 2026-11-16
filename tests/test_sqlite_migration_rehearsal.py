@@ -98,3 +98,51 @@ def test_corrupt_input_blocks_without_starting_migration(tmp_path, monkeypatch):
 
     monkeypatch.setattr(rehearsal, "_migrate_isolated", never_run)
     assert rehearsal.main(["--backup", str(source)]) == 2
+
+
+def test_rehearsal_preserves_operator_index_and_trigger(tmp_path):
+    source = tmp_path / "custom_objects.sqlite"
+    _seed_marker(source)
+    with sqlite3.connect(source) as db:
+        db.execute("CREATE INDEX operator_payload_idx ON operator_marker(payload)")
+        db.execute(
+            "CREATE TRIGGER operator_marker_guard AFTER UPDATE ON operator_marker "
+            "BEGIN SELECT 1; END"
+        )
+    result = rehearsal.rehearse(source)
+    assert result["preexisting_indexes_and_triggers_preserved"] == 2
+    with sqlite3.connect(source) as db:
+        assert db.execute("SELECT * FROM operator_marker").fetchall() == [(1, "keep-me")]
+
+
+@pytest.mark.parametrize(
+    ("object_sql", "drop_sql", "name"),
+    [
+        ("CREATE INDEX operator_payload_idx ON operator_marker(payload)",
+         "DROP INDEX operator_payload_idx", "operator_payload_idx"),
+        ("CREATE TRIGGER operator_marker_guard AFTER UPDATE ON operator_marker "
+         "BEGIN SELECT 1; END",
+         "DROP TRIGGER operator_marker_guard", "operator_marker_guard"),
+    ],
+)
+def test_rehearsal_blocks_dropped_schema_objects_even_if_rows_preserved(
+    tmp_path, monkeypatch, object_sql, drop_sql, name
+):
+    source = tmp_path / "custom.sqlite"
+    _seed_marker(source)
+    with sqlite3.connect(source) as db:
+        db.execute(object_sql)
+
+    def tamper_with_staged_schema(staged):
+        assert staged.resolve() != source.resolve()
+        with sqlite3.connect(staged) as db:
+            db.execute(drop_sql)
+
+    monkeypatch.setattr(rehearsal, "_migrate_isolated", tamper_with_staged_schema)
+    with pytest.raises(RuntimeError, match="schema object"):
+        rehearsal.rehearse(source)
+    with sqlite3.connect(source) as db:
+        assert db.execute("SELECT * FROM operator_marker").fetchall() == [(1, "keep-me")]
+        assert db.execute(
+            "SELECT name FROM sqlite_master WHERE name=?", (name,)
+        ).fetchone() == (name,)
