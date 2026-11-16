@@ -2526,11 +2526,14 @@ const settingsHelpEnUS: SettingsHelpMap = {
   },
 };
 
+// Only explicit Chinese locale should show Chinese help text.
+// Until each Turkish help entry has its own translation, English is safer
+// than silently falling back to Chinese in the Turkish workspace.
 function getPreferredHelpMap(locale?: string | null): SettingsHelpMap {
-  if (locale?.toLowerCase().startsWith('en')) {
-    return settingsHelpEnUS;
+  if (locale?.toLowerCase().startsWith('zh')) {
+    return settingsHelpZhCN;
   }
-  return settingsHelpZhCN;
+  return settingsHelpEnUS;
 }
 
 export function getSettingsHelpContent(
@@ -2542,14 +2545,18 @@ export function getSettingsHelpContent(
     return null;
   }
 
-  const localized = getPreferredHelpMap(locale)[helpKey] ?? settingsHelpZhCN[helpKey];
+  const localized = getPreferredHelpMap(locale)[helpKey];
   if (localized) {
     return localized;
   }
 
   if (fallbackDescription) {
     return {
-      title: locale?.toLowerCase().startsWith('en') ? 'Configuration help' : '配置说明',
+      title: locale?.toLowerCase().startsWith('zh')
+        ? '配置说明'
+        : locale?.toLowerCase().startsWith('tr')
+          ? 'Yapılandırma yardımı'
+          : 'Configuration help',
       summary: fallbackDescription,
     };
   }
