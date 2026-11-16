@@ -42,3 +42,16 @@ Yalnızca BIST100 mevcutken rapor 100/400 üyelik listesi hazır, 300 eksik şek
 ETRE Veri Merkezi → Dört piyasa · 400 hisse listesi hazırla → Kaynaklı BIST100 listesini ekle düğmesi mevcut dönem tarihli TR100 listesini API'den getirir; ABD/DE/HK girdilerini değiştirmez. Dönem bitince eski Türkiye listesini başarı gibi sunmaz.
 
 Bu özellik SQLite'a yazmaz, yeni canlı veri çekmez, gerçek emir göndermez. 400 hisse için gerçek günlük fiyat ve teknik analiz başarısı henüz gösterilmemiştir.
+
+
+## ABD: resmî iShares OEF CSV dosyasından 100 gerçek hisse adayı
+
+iShares'ın [resmî S&P 100 ETF (OEF) günlük pozisyon CSV bağlantısı](https://www.ishares.com/us/products/239723/x/latest-holdings.csv), 13 Kasım 2026 tarihli sürümde 100'ün üzerinde ABD hisse pozisyonu ve ayrıca nakit/türev satırları gösteriyor. Bu, S&P100 endeksindeki 100 şirketin birebir listesi değil, bir ETF'nin hisse pozisyonlarıdır. En yüksek piyasa değerine sahip 100 farklı NYSE/Nasdaq Equity pozisyonundan 100 hisselik aday izleme listesi hazırlanır. Resmî CSV'deki yeniden dağıtım şartları nedeniyle CSV veya türetilen hisse listesini GitHub'a kopyalamayın.
+
+Araç: src/services/ishares_oef_us100_import.py. İnternetten veri indirmez; kullanıcı CSV dosyasını resmî siteden bilgisayarına indirir. Dosya kimliği, 45 günlük tazelik, 100 farklı NYSE/NASDAQ Equity kodu, USD ve ABD lokasyonu, pozitif piyasa değeri kontrol edilir. Nakit, vadeli işlemler ve para piyasası fonları ayıklanır. Kaynağın BRK B kodu NYSE gösterimi BRK.B olarak tutulur; Yahoo sorgusunda BRK-B olarak eşlenir. Aday hisse listesi gerçek Yahoo veri doğrulaması veya aracı kurum işlem izni değildir.
+
+Yerel PowerShell, resmî siteden indirilmiş CSV ile:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.ishares_oef_us100_import --input "$env:USERPROFILE\Downloads\latest-holdings.csv" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\us.json"
+
+Sonra 400-hisselik hazırlayıcının --us-roster seçeneğiyle Documents\us.json dosyasını kullanın. DE/HK için 100'er kaynaklı liste hâlâ gereklidir. Bu adımlar gerçek emir göndermez, portföye erişmez, SQLite'a yazmaz ve lisanslı listeyi GitHub'a yüklemez.
