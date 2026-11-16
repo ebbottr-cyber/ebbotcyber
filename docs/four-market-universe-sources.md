@@ -79,3 +79,13 @@ PowerShell:
     & ".\.venv\Scripts\python.exe" -m src.services.hkex_hk100_import --input "$env:USERPROFILE\Downloads\ListOfSecurities.xlsx" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\hk.json"
 
 Sonra us.json (resmî OEF dosyasından), de.json, hk.json ve mevcut TR100 ile 400 kodlu plan hazırlanabilir. Bu dört tarihli listenin varlığı, Yahoo fiyatların ve teknik analizlerin 400/400 başarılı olduğunu göstermez. Sembol-hisse kotasyonu, Yahoo eşleşmesi ve aracı kurum işlem izni ayrıca doğrulanmalıdır. Resmî ham dosyalar veya yeniden dağıtımı sınırlanan lisanslı veriler GitHub'a kopyalanmaz.
+
+
+## Gerçek resmî kaynak dosyası uyumluluk kontrolü (sadece özet)
+
+`python -m src.services.four_market_source_readiness --output "$env:TEMP\etre-foreign-source-readiness.json"` komutu **açıkça çalıştırıldığında**, yalnızca sabitlenmiş resmî ABD iShares OEF, Alman Deutsche Börse XETR ve Hong Kong HKEX indirme adreslerini ziyaret eder; kaynağı geçici dosyada mevcut içe aktarıcıdan geçirir, sonra dosyayı siler. Başarılı kaynak için yalnızca **100 aday seçildi** ve **kaynakta kaç uygun hisse vardı** bilgilerini, dosyanın SHA-256 özetini ve kaynak tarihini kaydeder. İndirilen CSV/XLSX ham verisi veya 100 hisse kodunun tamamı çıktı JSON'una/GitHub'a yazılmaz.
+
+GitHub PR #11'de `four-market-official-source-smoke` adlı **harici erişim nedeniyle zorunlu olmayan** test işi, aynı işlemi silinebilen CI çalıştırıcısında yapar; yalnızca küçük özet JSON artefaktını saklar. Kaynak sitesi erişimi reddeder, dosya yerleşimi değişir veya 100 geçerli hisse seçilemezse o piyasa `unavailable_or_invalid` olur; **başarı sayılmaz**. CI işinin zorunlu olmaması, kaynak doğrulamasını geçmiş saymak anlamına gelmez. Ham dosyaların indirilmesi kullanım/lisans koşullarına bağlıdır; rapor veri yeniden dağıtımı veya yatırım tavsiyesi değildir.
+
+Bu araç **400 hisse listesi oluşturmaz**, Yahoo OHLCV incelemesi veya aracı kurum işlem izni kontrolü **yapmaz**. Sonraki adım, operatörün kaynakları inceleyip yerelde `us.json`, `de.json`, `hk.json` üretmesi ve kaynaklı 400 kodlu planı oluşturarak parça parça fiyat/teknik analiz kontrolünü başlatmasıdır.
+
