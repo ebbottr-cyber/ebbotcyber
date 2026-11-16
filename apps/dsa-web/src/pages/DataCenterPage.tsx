@@ -29,6 +29,7 @@ type DailyMarketCode = (typeof DAILY_MARKET_ORDER)[number];
 
 const DAILY_MARKET_LABELS: Record<DailyMarketCode, Record<UiLanguage, string>> = {
   tr: { tr: 'Türkiye', en: 'Türkiye', zh: '土耳其' },
+  de: { tr: 'Almanya', en: 'Germany', zh: '德国' },
   us: { tr: 'ABD', en: 'United States', zh: '美国' },
   hk: { tr: 'Hong Kong', en: 'Hong Kong', zh: '香港' },
   jp: { tr: 'Japonya', en: 'Japan', zh: '日本' },
