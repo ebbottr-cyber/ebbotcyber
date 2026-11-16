@@ -34,7 +34,7 @@ const LABELS: Record<UiLanguage, {
   tr: {
     title: '400 hisse · Tarama ilerlemesi',
     subtitle: 'Önceden oluşturulmuş JSON · Salt okunur',
-    intro: 'Yerel --status raporunu seçerek dört piyasadaki gerçek tarama kayıtlarını görüntüleyin. Dosya bilgisayarınızdan dışarı gönderilmez; tarama veya emir başlatılmaz.',
+    intro: 'Yönetici erişimi açıksa sunucuda kayıtlı --status raporu otomatik gösterilir. İsterseniz yerel JSON da seçebilirsiniz; yerel dosya yüklenmez, tarama veya emir başlatılmaz.',
     select: 'İlerleme JSON dosyasını seç',
     empty: 'Henüz ilerleme raporu seçilmedi. Kontrol edilmemiş hisseleri başarılı saymıyoruz.',
     malformed: 'Raporun biçimi, sayaçları veya parti dağılımı geçersiz. Başarı bilgisi gösterilmedi.',
@@ -70,7 +70,7 @@ const LABELS: Record<UiLanguage, {
   en: {
     title: '400-stock · Batch progress',
     subtitle: 'Existing JSON report · Read-only',
-    intro: 'Select a local --status JSON report to inspect completed, failed, invalid and pending batches. The file is not uploaded; no market scan or trades are started.',
+    intro: 'An operator-approved saved --status report loads automatically with admin access. Local JSON remains an option; no file upload, scan or order placement.',
     select: 'Choose progress JSON',
     empty: 'No progress report selected. No unperformed scan is marked successful.',
     malformed: 'Report structure, totals or batch partition is inconsistent. No success was recorded.',
@@ -106,7 +106,7 @@ const LABELS: Record<UiLanguage, {
   zh: {
     title: '400只股票 · 批次进度',
     subtitle: '已生成JSON报告 · 只读',
-    intro: '选择本地--status JSON查看已检查、失败、损坏及待处理批次。文件不上传，不运行扫描或下单。',
+    intro: '管理员访问开启时会自动读取服务器保存的--status报告；也可选择本地JSON。文件不会上传，不会扫描或下单。',
     select: '选择进度JSON',
     empty: '尚未选择报告。未执行的检查不会标记为成功。',
     malformed: '报告格式、计数或批次分配不一致。未显示成功结果。',
