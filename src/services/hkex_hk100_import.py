@@ -27,6 +27,7 @@ from src.services.five_market_sample_validation import build_custom_probes
 SOURCE_URL = "https://www.hkex.com.hk/eng/services/trading/securities/securitieslists/ListOfSecurities.xlsx"
 _MAX_FILE_BYTES = 8_000_000
 _MAX_EXPANDED_BYTES = 35_000_000
+_MAX_WORKBOOK_ROWS = 50_000  # HKEX official full list contains non-equities too
 _CELL_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _CANDIDATE_HEADERS = ("Stock Code", "Category")
 
@@ -87,7 +88,7 @@ def _read_xlsx(path: Path) -> list[list[str]]:
                         cells[column] = value.text or ""
                 if cells:
                     rows.append([cells.get(i, "") for i in range(max(cells) + 1)])
-                if len(rows) > 15000:
+                if len(rows) > _MAX_WORKBOOK_ROWS:
                     raise ValueError("Excessive HKEX workbook rows")
             return rows
     except (OSError, BadZipFile, ET.ParseError, IndexError, KeyError) as exc:
