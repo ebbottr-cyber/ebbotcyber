@@ -19,6 +19,7 @@ from api.v1.endpoints import (
     auth,
     backtest,
     data,
+    crypto,
     decision_signals,
     health,
     history,
@@ -109,6 +110,12 @@ router.include_router(
     data.router,
     prefix="/data",
     tags=["Data"]
+)
+
+router.include_router(
+    crypto.router,
+    prefix="/crypto",
+    tags=["Crypto"],
 )
 
 router.include_router(
