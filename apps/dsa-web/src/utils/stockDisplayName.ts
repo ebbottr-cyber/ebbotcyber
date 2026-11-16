@@ -75,12 +75,13 @@ export function getStockDisplayName(
 ): string {
   const ticker = code.trim();
   const raw = (rawName ?? '').trim();
-  // Use a source-provided Latin company name first; do not translate it.
-  if (latinCompanyName(raw)) return raw;
-  if (latinCompanyName(options.nameEn)) return options.nameEn!.trim();
-
+  // Prefer a stable, ticker-bound brand identity over a translated
+  // display string (for example AAPL must never become Turkish "Elma").
   const known = FOREIGN_COMPANY_NAMES[foreignTickerKey(ticker)];
   if (known) return known;
+  // Keep source-provided Latin names intact for every other instrument.
+  if (latinCompanyName(raw)) return raw;
+  if (latinCompanyName(options.nameEn)) return options.nameEn!.trim();
 
   const latinAlias = options.aliases?.map(latinCompanyName).find(Boolean);
   if (latinAlias) return latinAlias;
