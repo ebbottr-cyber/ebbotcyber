@@ -172,7 +172,7 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
       !nonnegativeInt(input.analyzed_symbols) || !nonnegativeInt(input.markets_checked) ||
       !Array.isArray(input.market_scope) ||
       input.market_scope.length !== FOCUS_MARKETS.length ||
-      !FOCUS_MARKETS.every((m, i) => input.market_scope[i] === m) ||
+      !FOCUS_MARKETS.every((m, i) => (input.market_scope as unknown[])[i] === m) ||
       !isRecord(input.by_market)) {
     throw new Error('Beş piyasa raporunun kimliği veya biçimi geçersiz.');
   }
@@ -215,7 +215,7 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
         raw.analyzed_symbols !== passed || raw.sample_status !== expectedStatus ||
         !isRecord(raw.failure_status_counts) ||
         !exactKeys(raw.failure_status_counts, Object.keys(failures)) ||
-        Object.keys(failures).some(key => raw.failure_status_counts[key] !== failures[key])) {
+        Object.keys(failures).some(key => (raw.failure_status_counts as Record<string, unknown>)[key] !== failures[key])) {
       throw new Error('Piyasa bazında eksik veya çelişkili veri kalitesi sonucu.');
     }
     byMarket[market] = {
