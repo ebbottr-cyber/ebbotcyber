@@ -15,6 +15,7 @@ import re
 import sqlite3
 import threading
 from datetime import datetime, timezone, timedelta
+from contextlib import closing
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
@@ -126,38 +127,37 @@ def _fetch_market(market: str) -> list[dict]:
 
 
 def refresh_news() -> dict:
-    """Background refresh or explicit admin request; per-market failures stay isolated."""
-    with _LOCK:
-        with _connect() as db:
-            initial = db.execute("SELECT COUNT(*) FROM news_articles").fetchone()[0] == 0
-            added, failures = 0, []
-            now = datetime.now(timezone.utc).isoformat()
-            for market in _CATEGORIES:
-                try:
-                    articles = _fetch_market(market)
-                except (requests.RequestException, ValueError, ET.ParseError) as exc:
-                    failures.append(market)
-                    logger.warning("News RSS failed for %s (%s)", market, type(exc).__name__)
-                    continue
-                for article in articles:
-                    cur = db.execute(
-                        """INSERT OR IGNORE INTO news_articles(
-                            id,market,title_original,title_tr,source,url,published_at,
-                            inserted_at,severity,is_read,ai_status
-                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                        (
-                            article["id"], market, article["title_original"], article["title_tr"],
-                            article["source"], article["url"], article["published_at"],
-                            now, article["severity"], int(initial), "pending",
-                        ),
-                    )
-                    added += cur.rowcount
-                db.commit()
-            # Prune only old read entries, not current notifications or AI work.
-            db.execute("""DELETE FROM news_articles WHERE is_read=1
-                AND inserted_at < ?""", ((datetime.now(timezone.utc) - timedelta(days=21)).isoformat(),))
-            db.commit()
-            return {"inserted": added, "failed_markets": failures, "bootstrapped": initial}
+    """Fetch each RSS feed without holding the SQLite inbox lock."""
+    updates: dict[str, list[dict]] = {}
+    failures = []
+    for market in _CATEGORIES:
+        try:
+            updates[market] = _fetch_market(market)
+        except (requests.RequestException, ValueError, ET.ParseError) as exc:
+            failures.append(market)
+            logger.warning("News RSS failed for %s (%s)", market, type(exc).__name__)
+    with _LOCK, closing(_connect()) as db:
+        initial = db.execute("SELECT COUNT(*) FROM news_articles").fetchone()[0] == 0
+        added = 0
+        now = datetime.now(timezone.utc).isoformat()
+        for market, articles in updates.items():
+            for article in articles:
+                cur = db.execute(
+                    """INSERT OR IGNORE INTO news_articles(
+                        id,market,title_original,title_tr,source,url,published_at,
+                        inserted_at,severity,is_read,ai_status
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        article["id"], market, article["title_original"], article["title_tr"],
+                        article["source"], article["url"], article["published_at"],
+                        now, article["severity"], int(initial), "pending",
+                    ),
+                )
+                added += cur.rowcount
+        db.execute("""DELETE FROM news_articles WHERE is_read=1
+            AND inserted_at < ?""", ((datetime.now(timezone.utc) - timedelta(days=21)).isoformat(),))
+        db.commit()
+        return {"inserted": added, "failed_markets": failures, "bootstrapped": initial}
 
 
 def _serialize(row: sqlite3.Row) -> dict:
@@ -170,7 +170,7 @@ def _serialize(row: sqlite3.Row) -> dict:
 def list_news(market: str | None = None, unread_only: bool = False, limit: int = 100) -> dict:
     if market is not None and market not in _CATEGORY_SET:
         raise ValueError("invalid_market")
-    with _LOCK, _connect() as db:
+    with _LOCK, closing(_connect()) as db:
         filters, params = [], []
         if market:
             filters.append("market=?")
@@ -186,7 +186,7 @@ def list_news(market: str | None = None, unread_only: bool = False, limit: int =
 
 
 def news_status() -> dict:
-    with _LOCK, _connect() as db:
+    with _LOCK, closing(_connect()) as db:
         unread = db.execute("SELECT COUNT(*) FROM news_articles WHERE is_read=0").fetchone()[0]
         latest = db.execute(
             "SELECT id,market,title_original,title_tr,published_at,severity,ai_status,inserted_at "
@@ -204,7 +204,7 @@ def news_status() -> dict:
 def mark_one_read(article_id: str) -> dict:
     if not re.fullmatch(r"[0-9a-f]{64}", article_id):
         raise ValueError("invalid_id")
-    with _LOCK, _connect() as db:
+    with _LOCK, closing(_connect()) as db:
         updated = db.execute("UPDATE news_articles SET is_read=1 WHERE id=?", (article_id,))
         db.commit()
         return {"updated": updated.rowcount, "unread_count":
@@ -212,14 +212,14 @@ def mark_one_read(article_id: str) -> dict:
 
 
 def mark_all_read() -> dict:
-    with _LOCK, _connect() as db:
+    with _LOCK, closing(_connect()) as db:
         updated = db.execute("UPDATE news_articles SET is_read=1 WHERE is_read=0")
         db.commit()
         return {"updated": updated.rowcount, "unread_count": 0}
 
 
 def set_notifications(enabled: bool) -> dict:
-    with _LOCK, _connect() as db:
+    with _LOCK, closing(_connect()) as db:
         db.execute(
             "UPDATE news_preferences SET value=? WHERE key='notifications_enabled'",
             ("1" if enabled else "0",),
@@ -256,10 +256,10 @@ def enrich_pending(max_items: int = 5) -> dict:
     if not analyzer.is_available():
         return {"processed": 0, "status": "ai_not_configured"}
     done = 0
-    with _LOCK, _connect() as db:
+    with _LOCK, closing(_connect()) as db:
         pending = db.execute(
             "SELECT id, market, title_original, source FROM news_articles WHERE ai_status='pending' "
-            "ORDER BY inserted_at DESC LIMIT ?", (max(1, min(max_items, 10)),)
+            "ORDER BY inserted_at ASC LIMIT ?", (max(1, min(max_items, 10)),)
         ).fetchall()
         for item in pending:
             # Only source metadata is passed. Never treat a feed title as instructions.
