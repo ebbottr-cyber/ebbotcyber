@@ -11,7 +11,7 @@ import { PortfolioSignalSummary } from '../components/decision-signals/DecisionS
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import { formatUiText, type UiLanguage } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
-import { portfolioCopy } from '../locales/portfolioExtraText';
+import { portfolioCopy, PORTFOLIO_DYNAMIC_TEXT } from '../locales/portfolioExtraText';
 import type { FxRefreshFeedback } from '../utils/portfolioFormat';
 import {
   buildFxRefreshFeedback,
@@ -654,7 +654,8 @@ async function loadPortfolioSignalLookup(lookup: PortfolioSignalLookup): Promise
 
 const PortfolioPage: React.FC = () => {
   const { language, t } = useUiLanguage();
-  const p = (source: string) => portfolioCopy(source, language);
+  const p = useCallback((source: string) => portfolioCopy(source, language), [language]);
+  const dynamicText = PORTFOLIO_DYNAMIC_TEXT[language];
   const text = PORTFOLIO_TEXT[language];
   const riskDashboardText = PORTFOLIO_RISK_DASHBOARD_TEXT[language];
   const decisionActionLabels = useMemo(() => buildDecisionActionLabelMap(t), [t]);
@@ -810,7 +811,7 @@ const PortfolioPage: React.FC = () => {
         setSelectedBroker(FALLBACK_BROKERS[0].broker);
       }
     }
-  }, [selectedBroker]);
+  }, [selectedBroker, p]);
 
   const loadSnapshotAndRisk = useCallback(async () => {
     setIsLoading(true);
@@ -843,7 +844,7 @@ const PortfolioPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [queryAccountId, costMethod]);
+  }, [queryAccountId, costMethod, p]);
 
   const loadEventsPage = useCallback(async (page: number) => {
     setEventLoading(true);
@@ -1086,7 +1087,7 @@ const PortfolioPage: React.FC = () => {
         analysisPhase: 'auto',
         force: false,
       });
-      setPositionAnalysisMessage(`已提交 ${row.symbol} 分析任务：${task.taskId}`);
+      setPositionAnalysisMessage(formatUiText(dynamicText.analysisSubmitted, { code: row.symbol, taskId: task.taskId }));
     } catch (err) {
       setError(getParsedApiError(err));
     } finally {
@@ -1430,7 +1431,7 @@ const PortfolioPage: React.FC = () => {
       if (!reloaded || !isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
         return;
       }
-      setFxRefreshFeedback(buildFxRefreshFeedback(result));
+      setFxRefreshFeedback(buildFxRefreshFeedback(result, language));
     } catch (err) {
       if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
         return;
@@ -1789,7 +1790,7 @@ const PortfolioPage: React.FC = () => {
                       <td className="py-2 pr-2 text-right">
                         <div>{formatPositionPrice(row)}</div>
                         <div className={`text-[11px] ${hasPositionPrice(row) ? 'text-secondary' : 'text-warning'}`}>
-                          {getPositionPriceLabel(row)}
+                          {getPositionPriceLabel(row, language)}
                         </div>
                       </td>
                       <td className="py-2 pr-2 text-right">{formatPositionMoney(row.marketValueBase, row)}</td>
@@ -1977,7 +1978,7 @@ const PortfolioPage: React.FC = () => {
             </div>
             <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder={p("金额")}
               value={cashForm.amount} onChange={(e) => setCashForm((prev) => ({ ...prev, amount: e.target.value }))} required />
-            <input className={PORTFOLIO_INPUT_CLASS} placeholder={`币种（可选，默认 ${writableAccount?.baseCurrency || p("账户基准币")}）`} value={cashForm.currency}
+            <input className={PORTFOLIO_INPUT_CLASS} placeholder={formatUiText(dynamicText.currencyPlaceholder, { currency: writableAccount?.baseCurrency || p('账户基准币') })} value={cashForm.currency}
               onChange={(e) => setCashForm((prev) => ({ ...prev, currency: e.target.value }))} />
             <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>{p("提交资金流水")}</button>
           </form>
@@ -2025,9 +2026,9 @@ const PortfolioPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-2">
               <select className={PORTFOLIO_SELECT_CLASS} value={selectedBroker} onChange={(e) => setSelectedBroker(e.target.value)}>
                 {brokers.length > 0 ? (
-                  brokers.map((item) => <option key={item.broker} value={item.broker}>{formatBrokerLabel(item.broker, item.displayName)}</option>)
+                  brokers.map((item) => <option key={item.broker} value={item.broker}>{formatBrokerLabel(item.broker, item.displayName, language)}</option>)
                 ) : (
-                  <option value="huatai">huatai（华泰）</option>
+                  <option value="huatai">{formatBrokerLabel('huatai', '华泰', language)}</option>
                 )}
               </select>
               <label className={PORTFOLIO_FILE_PICKER_CLASS}>
@@ -2053,7 +2054,7 @@ const PortfolioPage: React.FC = () => {
               <InlineAlert
                 variant={getCsvParseVariant(csvParseResult)}
                 title={p("CSV 解析结果")}
-                message={`有效 ${csvParseResult.recordCount} 条，跳过 ${csvParseResult.skippedCount} 条，错误 ${csvParseResult.errorCount} 条。`}
+                message={formatUiText(dynamicText.csvParse, { valid: csvParseResult.recordCount, skipped: csvParseResult.skippedCount, errors: csvParseResult.errorCount })}
                 className="rounded-lg px-3 py-2 text-xs shadow-none"
               />
             ) : null}
@@ -2061,7 +2062,7 @@ const PortfolioPage: React.FC = () => {
               <InlineAlert
                 variant={getCsvCommitVariant(csvCommitResult, csvDryRun)}
                 title={csvDryRun ? p("CSV 预演结果") : p("CSV 提交结果")}
-                message={`${csvDryRun ? p("预演检查") : p("实际写入")}：写入 ${csvCommitResult.insertedCount} 条，重复 ${csvCommitResult.duplicateCount} 条，失败 ${csvCommitResult.failedCount} 条。`}
+                message={formatUiText(dynamicText.csvCommit, { mode: csvDryRun ? p('预演检查') : p('实际写入'), inserted: csvCommitResult.insertedCount, duplicate: csvCommitResult.duplicateCount, failed: csvCommitResult.failedCount })}
                 className="rounded-lg px-3 py-2 text-xs shadow-none"
               />
             ) : null}
@@ -2119,7 +2120,7 @@ const PortfolioPage: React.FC = () => {
               {eventType === 'trade' && tradeEvents.map((item) => (
                 <div key={`t-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.tradeDate} {formatSideLabel(item.side)} {item.symbol} 数量={item.quantity} 价格={item.price}
+                    {formatUiText(dynamicText.tradeRow, { date: item.tradeDate, side: formatSideLabel(item.side, language), code: item.symbol, quantity: item.quantity, price: item.price })}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2128,7 +2129,7 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'trade',
                         id: item.id,
-                        message: `确认删除 ${item.tradeDate} 的${formatSideLabel(item.side)}流水 ${item.symbol}（数量 ${item.quantity}，价格 ${item.price}）吗？`,
+                        message: formatUiText(dynamicText.deleteTrade, { date: item.tradeDate, side: formatSideLabel(item.side, language), code: item.symbol, quantity: item.quantity, price: item.price }),
                       })}
                     >
                       {p("删除")}
@@ -2139,7 +2140,7 @@ const PortfolioPage: React.FC = () => {
               {eventType === 'cash' && cashEvents.map((item) => (
                 <div key={`c-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.eventDate} {formatCashDirectionLabel(item.direction)} {item.amount} {item.currency}
+                    {item.eventDate} {formatCashDirectionLabel(item.direction, language)} {item.amount} {item.currency}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2148,7 +2149,7 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'cash',
                         id: item.id,
-                        message: `确认删除 ${item.eventDate} 的资金流水（${formatCashDirectionLabel(item.direction)} ${item.amount} ${item.currency}）吗？`,
+                        message: formatUiText(dynamicText.deleteCash, { date: item.eventDate, direction: formatCashDirectionLabel(item.direction, language), amount: item.amount, currency: item.currency }),
                       })}
                     >
                       {p("删除")}
@@ -2159,7 +2160,7 @@ const PortfolioPage: React.FC = () => {
               {eventType === 'corporate' && corporateEvents.map((item) => (
                 <div key={`ca-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.effectiveDate} {formatCorporateActionLabel(item.actionType)} {item.symbol}
+                    {item.effectiveDate} {formatCorporateActionLabel(item.actionType, language)} {item.symbol}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2168,7 +2169,7 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'corporate',
                         id: item.id,
-                        message: `确认删除 ${item.effectiveDate} 的公司行为 ${formatCorporateActionLabel(item.actionType)}（${item.symbol}）吗？`,
+                        message: formatUiText(dynamicText.deleteCorporate, { date: item.effectiveDate, action: formatCorporateActionLabel(item.actionType, language), code: item.symbol }),
                       })}
                     >
                       {p("删除")}
@@ -2188,7 +2189,7 @@ const PortfolioPage: React.FC = () => {
                   ) : null}
             </div>
             <div className="flex items-center justify-between text-xs text-secondary">
-              <span>第 {eventPage} / {totalEventPages} 页</span>
+              <span>{formatUiText(dynamicText.page, { page: eventPage, total: totalEventPages })}</span>
               <div className="flex gap-2">
                 <button type="button" className="btn-secondary text-xs px-3 py-1" disabled={eventPage <= 1}
                   onClick={() => setEventPage((prev) => Math.max(1, prev - 1))}>
