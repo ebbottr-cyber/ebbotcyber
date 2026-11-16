@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import io
 import json
 import math
@@ -38,13 +38,7 @@ def _parse_date(line: list[str]) -> date:
     if len(line) != 2 or line[0].strip() != "Fund Holdings as of":
         raise ValueError("Expected issuer's 'Fund Holdings as of' header")
     try:
-        return date.strptime(line[1], "%b %d, %Y")  # Python 3.11 replacement below
-    except AttributeError:
-        from datetime import datetime
-        try:
-            return datetime.strptime(line[1], "%b %d, %Y").date()
-        except ValueError as exc:
-            raise ValueError("Invalid issuer holdings date") from exc
+        return datetime.strptime(line[1], "%b %d, %Y").date()
     except ValueError as exc:
         raise ValueError("Invalid issuer holdings date") from exc
 
