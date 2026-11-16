@@ -369,7 +369,7 @@ def combine_batches(
         "requested_symbols": 400,
         "pending_symbols": 400 - len(results),
         "checked_all": len(results) == 400,
-        "all_analyzed": len(results) == 400 and analyzed == 400,
+        "all_analyzed": len(results) == 400 and valid["analyzed_symbols"] == 400,
         "completed_batches": len(present),
         "batches_total": total,
         "missing_batch_indices": [n for n in range(total) if n not in present],
