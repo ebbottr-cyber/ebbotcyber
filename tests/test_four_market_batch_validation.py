@@ -19,6 +19,7 @@ from src.services.four_market_batch_validation import (
     MAX_BATCH_SIZE, combine_batches, load_source_dated_manifest, run_batch,
 )
 from src.services.five_market_report_reader import validate_five_market_sample_report
+from src.services.four_market_batch_progress import inspect_batch_progress
 
 
 AS_OF = date(2026, 11, 16)
@@ -382,3 +383,126 @@ def test_retry_limit_prevents_endless_provider_requests(tmp_path):
                   delay_seconds=0, **args)
     assert len(calls) == 15
     assert len(list(directory.glob("batch-001-of-040.before-retry-*.json"))) == 5
+
+
+def test_progress_empty_run_has_400_pending_and_no_yahoo_calls(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    report = inspect_batch_progress(
+        manifest, as_of=AS_OF, output_dir=tmp_path / "not-created",
+        batch_size=10,
+    )
+    assert report["scope"] == "etre_four_market_batch_progress"
+    assert report["checked_symbols"] == report["analyzed_symbols"] == 0
+    assert report["pending_symbols"] == 400
+    assert report["network_requests"] == 0
+    assert report["checked_all"] is False
+    assert report["all_analyzed"] is False
+    assert report["next_missing_batch_index"] == 0
+    assert report["missing_batch_indices"] == list(range(40))
+    assert report["invalid_batches"] == []
+    assert report["failed_rows"] == []
+    assert report["next_action"] == "run_next_missing_batch"
+    assert all(v["pending_symbols"] == 100
+               for v in report["by_market"].values())
+
+
+def test_progress_counts_failed_stocks_separately_from_missing_batches(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    directory = tmp_path / "batches"
+    success, calls_ok, _ = _helpers()
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, delay_seconds=0, **success)
+    fail_code = manifest["symbols"][10]
+    failure, calls_failed, _ = _helpers(failed=fail_code)
+    run_batch(manifest, as_of=AS_OF, batch_index=1, batch_size=10,
+              output_dir=directory, delay_seconds=0, **failure)
+
+    report = inspect_batch_progress(
+        manifest, as_of=AS_OF, output_dir=directory, batch_size=10,
+    )
+    assert report["checked_symbols"] == 20
+    assert report["analyzed_symbols"] == 19
+    assert report["failed_symbols"] == 1
+    assert report["pending_symbols"] == 380
+    assert report["verified_batch_indices"] == [0, 1]
+    assert report["clean_batch_indices"] == [0]
+    assert report["failed_batch_indices"] == [1]
+    assert report["missing_batch_indices"] == list(range(2, 40))
+    assert report["next_missing_batch_index"] == 2
+    assert report["failed_rows"] == [{
+        "batch_index": 1, "market": "tr",
+        "code": fail_code, "status": "fetch_error",
+    }]
+    assert report["by_market"]["tr"] == {
+        "target_symbols": 100,
+        "checked_symbols": 20,
+        "analyzed_symbols": 19,
+        "failed_symbols": 1,
+        "pending_symbols": 80,
+    }
+    assert report["by_market"]["us"]["checked_symbols"] == 0
+    assert report["next_action"] == "run_next_missing_batch"
+    assert report["network_requests"] == 0
+    assert len(calls_ok) + len(calls_failed) == 20
+
+
+def test_progress_does_not_count_tampered_batch_or_claim_success(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    directory = tmp_path / "batches"
+    args, calls, _ = _helpers()
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, delay_seconds=0, **args)
+    path = directory / "batch-001-of-040.json"
+    raw = json.loads(path.read_text())
+    raw["analyzed_symbols"] = 100
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    report = inspect_batch_progress(
+        manifest, as_of=AS_OF, output_dir=directory, batch_size=10,
+    )
+    assert report["checked_symbols"] == 0
+    assert report["analyzed_symbols"] == 0
+    assert report["pending_symbols"] == 400
+    assert report["verified_batch_indices"] == []
+    assert report["invalid_batches"][0]["batch_index"] == 0
+    assert report["invalid_batches"][0]["filename"] == path.name
+    assert report["next_action"] == "inspect_invalid_batches"
+    assert report["missing_batch_indices"] == list(range(1, 40))
+    assert len(calls) == 10
+
+
+def test_progress_after_selective_recovery_removes_failure_without_new_full_batch(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    directory = tmp_path / "batches"
+    failed = manifest["symbols"][0]
+    bad, first_calls, _ = _helpers(failed=failed)
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, delay_seconds=0, **bad)
+    before = inspect_batch_progress(
+        manifest, as_of=AS_OF, output_dir=directory, batch_size=10,
+    )
+    assert before["failed_batch_indices"] == [0]
+    assert before["failed_symbols"] == 1
+    good, retry_calls, _ = _helpers()
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, retry_failed=True,
+              delay_seconds=0, **good)
+    after = inspect_batch_progress(
+        manifest, as_of=AS_OF, output_dir=directory, batch_size=10,
+    )
+    assert after["clean_batch_indices"] == [0]
+    assert after["failed_batch_indices"] == []
+    assert after["failed_symbols"] == 0
+    assert after["analyzed_symbols"] == 10
+    assert after["pending_symbols"] == 390
+    assert len(first_calls) == 10
+    assert len(retry_calls) == 1
+
+
+def test_progress_rejects_invalid_requested_batch_size(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    for size in (0, 26):
+        with pytest.raises(ValueError, match="batch_size"):
+            inspect_batch_progress(
+                manifest, as_of=AS_OF, output_dir=tmp_path, batch_size=size,
+            )
