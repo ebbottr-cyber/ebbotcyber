@@ -292,6 +292,8 @@ def enrich_pending(max_items: int = 5) -> dict:
             "inserted_at DESC LIMIT ?", (max(1, min(max_items, 10)),)
         ).fetchall()
     for item in pending:
+        if not ai_enabled():  # honor the user switching off billable AI immediately
+            break
         # The LLM request runs OUTSIDE the inbox lock so unread controls stay responsive.
         prompt = (
             "You are a Turkish financial news metadata translator and classifier. "
@@ -311,8 +313,11 @@ def enrich_pending(max_items: int = 5) -> dict:
         try:
             response = analyzer.generate_text(prompt, max_tokens=450, temperature=0.0)
             parsed = _extract_json(response or "")
-            if not parsed or not isinstance(parsed.get("title_tr"), str) or not parsed["title_tr"].strip():
-                raise ValueError("missing valid Turkish translation")
+            if not parsed or not all(
+                isinstance(parsed.get(key), str) and parsed[key].strip()
+                for key in ("title_tr", "summary_tr", "impact_tr")
+            ):
+                raise ValueError("incomplete Turkish translation or market-impact note")
             title = _plain(parsed["title_tr"], 250)
             summary = _plain(str(parsed.get("summary_tr") or ""), 320)
             impact = _plain(str(parsed.get("impact_tr") or ""), 320)
