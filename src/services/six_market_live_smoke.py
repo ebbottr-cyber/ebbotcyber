@@ -121,6 +121,8 @@ def probe_six_markets(
     detect_market: Callable[[str], str | None] = get_market_for_stock,
     convert_ticker: Callable[[str], str] | None = None,
     analyzer: Callable[[pd.DataFrame, str], Any] | None = None,
+    probes: tuple[MarketProbe, ...] = PROBES,
+    scope: str = "six_market_yahoo_fallback_one_symbol_each",
 ) -> dict:
     if lookback_days < min_bars * 2 or min_bars < 60:
         raise ValueError("Need >=60 daily bars and sufficient calendar lookback")
@@ -132,7 +134,7 @@ def probe_six_markets(
 
     start = as_of - timedelta(days=lookback_days)
     results: list[dict[str, Any]] = []
-    for spec in PROBES:
+    for spec in probes:
         item: dict[str, Any] = {
             "market": spec.market, "code": spec.code, "yahoo_symbol": spec.yahoo,
             "currency_expected": spec.currency, "status": "unavailable",
@@ -211,7 +213,7 @@ def probe_six_markets(
         results.append(item)
 
     return {
-        "scope": "six_market_yahoo_fallback_one_symbol_each",
+        "scope": scope,
         "as_of": as_of.isoformat(), "source": "Yahoo Finance",
         "checked_markets": len(results),
         "analyzed_markets": sum(x["status"] == "analyzed" for x in results),
