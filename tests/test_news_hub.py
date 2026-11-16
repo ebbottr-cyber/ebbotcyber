@@ -81,6 +81,11 @@ class NewsHubTests(unittest.TestCase):
             news.mark_one_read("../bad")
         news.set_notifications(True)
         self.assertTrue(news.news_status()["notifications_enabled"])
+        self.assertFalse(news.news_status()["ai_enabled"])
+        news.set_ai_enabled(True)
+        self.assertTrue(news.news_status()["ai_enabled"])
+        news.set_ai_enabled(False)
+        self.assertFalse(news.news_status()["ai_enabled"])
 
     def test_does_not_fabricate_a_translation_without_ai(self):
         item = news._rss_items("us", feed("Markets are volatile today", "plain"))[0]
