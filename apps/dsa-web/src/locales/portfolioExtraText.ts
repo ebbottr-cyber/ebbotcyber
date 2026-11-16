@@ -338,3 +338,40 @@ export function portfolioCopy(sourceText: string, language: UiLanguage): string 
   if (language === 'zh') return sourceText;
   return TRANSLATIONS[sourceText]?.[language] ?? sourceText;
 }
+
+
+export const PORTFOLIO_DYNAMIC_TEXT = {
+  tr: {
+    analysisSubmitted: '{code} için analiz görevi başlatıldı: {taskId}',
+    currencyPlaceholder: 'Para birimi (isteğe bağlı, varsayılan: {currency})',
+    csvParse: 'Geçerli: {valid}, atlanan: {skipped}, hata: {errors} kayıt.',
+    csvCommit: '{mode}: kaydedilen {inserted}, yinelenen {duplicate}, başarısız {failed} kayıt.',
+    tradeRow: '{date} · {side} · {code} · Adet: {quantity} · Fiyat: {price}',
+    deleteTrade: '{date} tarihli {side} işlemini silmek istiyor musunuz? {code} · Adet: {quantity} · Fiyat: {price}',
+    deleteCash: '{date} tarihli nakit hareketini silmek istiyor musunuz? {direction} · {amount} {currency}',
+    deleteCorporate: '{date} tarihli şirket işlemini silmek istiyor musunuz? {action} · {code}',
+    page: 'Sayfa {page} / {total}',
+  },
+  en: {
+    analysisSubmitted: 'Analysis submitted for {code}: {taskId}',
+    currencyPlaceholder: 'Currency (optional, default: {currency})',
+    csvParse: 'Valid: {valid}, skipped: {skipped}, errors: {errors} records.',
+    csvCommit: '{mode}: inserted {inserted}, duplicate {duplicate}, failed {failed} records.',
+    tradeRow: '{date} · {side} · {code} · Quantity: {quantity} · Price: {price}',
+    deleteTrade: 'Delete {side} trade from {date}? {code} · Quantity: {quantity} · Price: {price}',
+    deleteCash: 'Delete cash transaction from {date}? {direction} · {amount} {currency}',
+    deleteCorporate: 'Delete corporate action from {date}? {action} · {code}',
+    page: 'Page {page} / {total}',
+  },
+  zh: {
+    analysisSubmitted: '已提交 {code} 分析任务：{taskId}',
+    currencyPlaceholder: '币种（可选，默认 {currency}）',
+    csvParse: '有效 {valid} 条，跳过 {skipped} 条，错误 {errors} 条。',
+    csvCommit: '{mode}：写入 {inserted} 条，重复 {duplicate} 条，失败 {failed} 条。',
+    tradeRow: '{date} {side} {code} 数量={quantity} 价格={price}',
+    deleteTrade: '确认删除 {date} 的{side}流水 {code}（数量 {quantity}，价格 {price}）吗？',
+    deleteCash: '确认删除 {date} 的资金流水（{direction} {amount} {currency}）吗？',
+    deleteCorporate: '确认删除 {date} 的公司行为 {action}（{code}）吗？',
+    page: '第 {page} / {total} 页',
+  },
+} as const;
