@@ -7,6 +7,7 @@ import { Bist100CoveragePanel } from '../components/data-center/Bist100CoverageP
 import { Bist100TechnicalPanel } from '../components/data-center/Bist100TechnicalPanel';
 import { FiveMarketSamplePanel } from '../components/data-center/FiveMarketSamplePanel';
 import { FourMarketScanPlanner } from '../components/data-center/FourMarketScanPlanner';
+import { CryptoTop100Panel } from '../components/data-center/CryptoTop100Panel';
 import { FourMarketBatchProgressPanel } from '../components/data-center/FourMarketBatchProgressPanel';
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
@@ -196,6 +197,7 @@ const DataCenterPage: React.FC = () => {
 
       <FourMarketScanPlanner />
       <FourMarketBatchProgressPanel />
+      <CryptoTop100Panel />
       <FiveMarketSamplePanel />
       <Bist100CoveragePanel />
       <Bist100TechnicalPanel />
