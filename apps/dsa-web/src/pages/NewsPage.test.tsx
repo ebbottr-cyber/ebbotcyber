@@ -28,6 +28,8 @@ describe('NewsPage', () => {
     vi.mocked(newsApi.status).mockReset().mockResolvedValue({
       unread_count: 1,
       notifications_enabled: true,
+      ai_enabled: false,
+      translation_waiting: 0,
       latest_unread: [],
     });
     vi.mocked(newsApi.read).mockReset().mockResolvedValue();
