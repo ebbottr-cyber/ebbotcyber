@@ -92,3 +92,25 @@ def test_xetra_mnemonic_collision_different_isin_is_rejected(tmp_path):
     records.append(collision)
     with pytest.raises(ValueError, match="more than one ISIN"):
         convert_xetra_t7_csv(_csv(tmp_path, records=records), as_of=AS_OF)
+
+
+def test_xetra_actual_publisher_metadata_uses_semicolon_between_label_and_value(tmp_path):
+    # Real XETR file observed 2026-11-16 has 'Market:;XETR', not
+    # 'Market: XETR'. Its update-date row has the same CSV separation.
+    market = "Market:;XETR"
+    date_label = "Date Last Update:;14.11.2026"
+    result = convert_xetra_t7_csv(
+        _csv(tmp_path, market=market, updated=date_label), as_of=AS_OF
+    )
+    assert result["market"] == "de"
+    assert result["as_of"] == "2026-11-14"
+    assert len(result["symbols"]) == 100
+
+
+def test_xetra_semicolon_form_does_not_accept_wrong_exchange(tmp_path):
+    with pytest.raises(ValueError, match="production XETR"):
+        convert_xetra_t7_csv(
+            _csv(tmp_path, market="Market:;XFRA",
+                 updated="Date Last Update:;14.11.2026"),
+            as_of=AS_OF,
+        )
