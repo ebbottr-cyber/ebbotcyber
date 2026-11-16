@@ -694,6 +694,33 @@ def parse_analysis_target(
             normalized_code=raw.upper(),
         )
 
+    # Xetra securities use an explicit .DE symbol (SAP.DE, VOW3.DE).
+    # Preserve its exchange identity instead of misrouting the input into
+    # US/CN symbol normalization and cross-market fallback logic.
+    from src.services.market_symbol_utils import get_suffix_market
+    if get_suffix_market(raw) == "de":
+        canonical = raw.upper()
+        return AnalysisTarget(
+            raw_input=raw_input,
+            asset_type=ParseStatus.STOCK,
+            canonical_id=canonical,
+            display_code=canonical,
+            exchange="DE",
+            normalized_prefix=None,
+            normalized_code=canonical,
+        )
+    if raw.upper().endswith(".DE"):
+        return AnalysisTarget(
+            raw_input=raw_input,
+            asset_type=ParseStatus.UNSUPPORTED,
+            canonical_id=raw.upper(),
+            display_code=raw.upper(),
+            exchange="DE",
+            unsupported_reason="invalid Xetra .DE stock symbol",
+            normalized_prefix=None,
+            normalized_code=raw.upper(),
+        )
+
     # Note: we deliberately use ``is None`` rather than ``or`` so that an
     # explicitly-injected empty :class:`IndexRegistry` (``IndexRegistry([])``)
     # is honoured as a legitimate "no indices whitelisted" configuration.
