@@ -58,12 +58,21 @@ def _connect() -> sqlite3.Connection:
     conn.execute("CREATE INDEX IF NOT EXISTS ix_news_newest ON news_articles(published_at DESC)")
     conn.execute("CREATE TABLE IF NOT EXISTS news_preferences (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     conn.execute("INSERT OR IGNORE INTO news_preferences(key,value) VALUES ('notifications_enabled','1')")
+    conn.execute(
+        "INSERT OR IGNORE INTO news_preferences(key,value) VALUES ('ai_enabled', ?)",
+        ("1" if os.getenv("NEWS_AI_ENABLED", "false").lower() in {"1", "true", "yes"} else "0",),
+    )
     conn.commit()
     return conn
 
 
 def _read_pref(conn: sqlite3.Connection) -> bool:
     row = conn.execute("SELECT value FROM news_preferences WHERE key='notifications_enabled'").fetchone()
+    return bool(row is not None and row["value"] == "1")
+
+
+def _ai_enabled(conn: sqlite3.Connection) -> bool:
+    row = conn.execute("SELECT value FROM news_preferences WHERE key='ai_enabled'").fetchone()
     return bool(row is not None and row["value"] == "1")
 
 
@@ -194,7 +203,7 @@ def news_status() -> dict:
         ).fetchall()
         return {
             "unread_count": unread, "notifications_enabled": _read_pref(db),
-            "ai_enabled": os.getenv("NEWS_AI_ENABLED", "false").lower() in {"1", "true", "yes"},
+            "ai_enabled": _ai_enabled(db),
             "translation_waiting": db.execute(
                 "SELECT COUNT(*) FROM news_articles WHERE ai_status='pending'"
             ).fetchone()[0],
@@ -232,6 +241,22 @@ def set_notifications(enabled: bool) -> dict:
         return {"notifications_enabled": _read_pref(db)}
 
 
+def set_ai_enabled(enabled: bool) -> dict:
+    """Explicit user opt-in; controls potentially billable translation calls."""
+    with _LOCK, closing(_connect()) as db:
+        db.execute(
+            "UPDATE news_preferences SET value=? WHERE key='ai_enabled'",
+            ("1" if enabled else "0",),
+        )
+        db.commit()
+        return {"ai_enabled": _ai_enabled(db)}
+
+
+def ai_enabled() -> bool:
+    with _LOCK, closing(_connect()) as db:
+        return _ai_enabled(db)
+
+
 def _extract_json(text: str) -> dict | None:
     candidate = text.strip()
     if candidate.startswith("&#96;&#96;&#96;"):
@@ -252,7 +277,7 @@ def enrich_pending(max_items: int = 5) -> dict:
     NEWS_AI_ENABLED=1 and a configured ETRE LLM are needed. The per-run budget
     prevents an uncontrolled API bill from RSS floods.
     """
-    if os.getenv("NEWS_AI_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+    if not ai_enabled():
         return {"processed": 0, "status": "ai_disabled"}
     from src.analyzer import GeminiAnalyzer
 
