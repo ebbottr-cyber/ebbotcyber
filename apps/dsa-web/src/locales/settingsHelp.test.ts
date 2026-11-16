@@ -71,3 +71,22 @@ describe('Skill Outcome auto-weight settings help', () => {
     expect(enHelp).toContain('does not directly');
   });
 });
+
+
+describe('Turkish locale help fallback', () => {
+  it('never falls back to Chinese help text for Turkish settings', () => {
+    const help = getSettingsHelpContent('settings.base.STOCK_LIST', undefined, 'tr');
+    expect(help?.title).toBe("Watchlist");
+    expect(flattenHelp(help)).not.toMatch(/[\u3400-\u9fff]/);
+  });
+
+  it('retains Chinese only for the explicitly selected Chinese locale', () => {
+    const help = getSettingsHelpContent('settings.base.STOCK_LIST', undefined, 'zh');
+    expect(help?.title).toBe('自选股列表');
+  });
+
+  it('uses a Turkish title for help without a detailed entry', () => {
+    const help = getSettingsHelpContent('no-such-config-key', 'Fallback details', 'tr');
+    expect(help?.title).toBe('Yapılandırma yardımı');
+  });
+});
