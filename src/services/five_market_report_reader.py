@@ -9,7 +9,6 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -73,7 +72,8 @@ def validate_five_market_sample_report(payload: Any) -> dict:
     if not isinstance(payload, dict):
         raise FiveMarketReportInvalid("Expected JSON object")
     scope = payload.get("scope")
-    if (scope not in _SCOPES or payload.get("source") != "Yahoo Finance"
+    if (not isinstance(scope, str) or scope not in _SCOPES
+            or payload.get("source") != "Yahoo Finance"
             or payload.get("market_scope") != list(_MARKETS)):
         raise FiveMarketReportInvalid("Unsupported five-market report identity")
     as_of = _iso_date(payload.get("as_of"))
@@ -94,7 +94,8 @@ def validate_five_market_sample_report(payload: Any) -> dict:
         market, code, status = item.get("market"), item.get("code"), item.get("status")
         if (market not in _MARKETS or not isinstance(code, str)
                 or not _PATTERNS[market].fullmatch(code)
-                or code in seen or status not in _STATUSES
+                or code in seen or not isinstance(status, str)
+                or status not in _STATUSES
                 or item.get("yahoo_symbol") != _yahoo_code(market, code)
                 or item.get("currency_expected") != _CURRENCIES[market]):
             raise FiveMarketReportInvalid("Invalid, duplicate or out-of-scope symbol")
