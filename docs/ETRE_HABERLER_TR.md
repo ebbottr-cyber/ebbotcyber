@@ -25,6 +25,7 @@ yeni gelenler yine okunmamış olur. `PUT /api/v1/news/notifications`
 future bildirimlerini açar/kapatır; okundu durumu silinmez.
 `GET /api/v1/news/status` okunmamış sayısını verir.
 `GET /api/v1/news/items` filtreli kayıtları verir.
+`PUT /api/v1/news/ai` otomatik AI çeviri/değerlendirmeyi açar/kapatır.
 `POST /api/v1/news/refresh` elle RSS kontrol eder.
 
 Tarayıcı masaüstü bildirimleri **ETRE açıkken**, tarayıcı izin verdiyse
@@ -45,8 +46,12 @@ işlem yaptıran bir talimat olarak yorumlanmaz. Önem seviyesi (genel,
 
 Bu AI çalışma yolu varsayılan olarak **kapalıdır**, çünkü model
 API çağrıları ücretli olabilir. Kullanıcının önce ETRE'de gerçek
-çalışan bir AI modelini yapılandırması, sonra FastAPI başlatılan
-PowerShell oturumunda `$env:NEWS_AI_ENABLED='true'` demesi gerekir.
+çalışan bir AI modelini yapılandırması, sonra Haberler sekmesindeki
+'AI çeviriyi ve etki analizini aç' düğmesini kullanması gerekir.
+Bu tercih haber SQLite veritabanında kalıcıdır; uygulama yeniden
+başlatıldığında korunur. İlk açılış için alternatif olarak FastAPI
+başlatılan PowerShell oturumunda `$env:NEWS_AI_ENABLED='true'`
+ayarlanabilir; sonrasında arayüzden kapatılabilir.
 Yapılandırma yoksa İngilizce metin çevrilmiş gibi gösterilmez,
 'Türkçe çeviri bekleniyor' etiketi görünür. Her kayıt AI kuyruğuna
 eklenir ve etkin worker sırayla değerlendirir; sınırlı hızda
