@@ -2530,7 +2530,8 @@ class DataFetcherManager:
         # ----------------------------------------------------------
         is_us_index = is_us_index_code(stock_code)
         is_tr = _is_tr_market(stock_code)
-        is_us = (not is_tr) and (is_us_index or _is_us_code(stock_code))
+        is_de = _is_de_market(stock_code)
+        is_us = (not is_tr) and (not is_de) and (is_us_index or _is_us_code(stock_code))
         is_hk = (not is_us) and (not is_tr) and _is_hk_market(stock_code)
         is_jp = (not is_us) and (not is_hk) and _is_jp_market(stock_code)
         is_kr = (not is_us) and (not is_hk) and _is_kr_market(stock_code)
@@ -4367,6 +4368,8 @@ class DataFetcherManager:
         stock_code = normalize_stock_code(stock_code)
         market = _market_tag(stock_code)
         is_etf = _is_etf_code(stock_code)
+        if market == "de":
+            return self._build_market_not_supported(market, "German fundamentals not validated for this adapter")
         if market in {"us", "hk", "jp", "kr", "tw"}:
             return self._build_offshore_fundamental_context(
                 stock_code,
