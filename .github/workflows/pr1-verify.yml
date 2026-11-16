@@ -395,3 +395,31 @@ jobs:
             ${{ runner.temp }}/four-market-core*.log
           if-no-files-found: warn
           retention-days: 7
+
+  # Fast, offline 4x100 regression gate; no Yahoo requests or persistent DB.
+  # Complements the full backend job, which takes substantially longer.
+  four-market-offline-batch-regression:
+    if: >-
+      github.event.pull_request.number == 11 &&
+      github.head_ref == 'integration/market-sqlite-safety' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify 4x100 manifest, retry, progress, source input and partial coverage
+        run: |
+          python -m pytest -q \
+            tests/test_four_market_batch_validation.py \
+            tests/test_four_market_universe_plan.py \
+            tests/test_five_market_sample_validation.py \
+            tests/test_five_market_report_reader.py
