@@ -332,11 +332,11 @@ const AlertsPage: React.FC = () => {
 
       {notificationsError ? <ApiErrorAlert error={notificationsError} onDismiss={() => setNotificationsError(null)} /> : null}
       <Card title="Bildirim gönderim kayıtları" subtitle="Bildirim sonucu" variant="bordered" padding="md">
-        {notificationsLoading ? <Loading label="正在加载Bildirim gönderim kayıtları" /> : null}
+        {notificationsLoading ? <Loading label="Bildirim gönderim kayıtları yükleniyor" /> : null}
         {!notificationsLoading && notifications.length === 0 ? (
           <EmptyState
             icon={<BellRing className="h-6 w-6" />}
-            title="暂无Bildirim gönderim kayıtları"
+            title="Henüz bildirim denemesi yok"
             description="Gösterilecek bildirim denemesi yok. Uyarılar etkin kanallardan gönderilmeye devam eder."
           />
         ) : null}
