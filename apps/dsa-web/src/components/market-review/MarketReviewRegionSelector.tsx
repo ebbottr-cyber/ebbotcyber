@@ -1,11 +1,9 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Globe2, RotateCcw } from 'lucide-react';
+import { Check, ChevronDown, Globe2 } from 'lucide-react';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import { cn } from '../../utils/cn';
-import {
-  type MarketReviewRegion,
-} from '../../utils/marketReviewRegion';
+import type { MarketReviewRegion } from '../../utils/marketReviewRegion';
 
 const VISIBLE_MARKET_REVIEW_REGIONS: readonly MarketReviewRegion[] = ['hk', 'us', 'jp'];
 
@@ -25,9 +23,9 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
   const menuOpen = open && !disabled;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const defaultButtonRef = useRef<HTMLButtonElement | null>(null);
+  const allButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const displayedRegions = value ?? [];
+  const displayedRegions = value ?? VISIBLE_MARKET_REVIEW_REGIONS;
 
   const regionLabels: Record<MarketReviewRegion, string> = {
     cn: t('home.marketRegionCn'),
@@ -40,9 +38,7 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
   const formatRegions = (regions: MarketReviewRegion[]) => (
     regions.map((region) => regionLabels[region]).join(' + ')
   );
-  const triggerLabel = value === undefined
-    ? t('home.marketRegionServerDefault')
-    : formatRegions([...displayedRegions]);
+  const triggerLabel = formatRegions([...displayedRegions]);
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false);
@@ -56,7 +52,7 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
       return undefined;
     }
 
-    const focusTimer = window.setTimeout(() => defaultButtonRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(() => allButtonRef.current?.focus(), 0);
     const handlePointerDown = (event: MouseEvent) => {
       if (event.target instanceof Node && containerRef.current?.contains(event.target)) {
         return;
@@ -139,30 +135,10 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
 
           <div className="space-y-1 py-2">
             <button
-              ref={defaultButtonRef}
+              ref={allButtonRef}
               type="button"
               disabled={disabled}
               aria-pressed={displayedRegions.length === VISIBLE_MARKET_REVIEW_REGIONS.length}
-              onClick={() => onChange([...VISIBLE_MARKET_REVIEW_REGIONS])}
-              className={cn(
-                'flex min-h-10 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
-                value === undefined ? 'bg-primary/12 text-primary' : 'text-secondary-text hover:bg-surface-hover hover:text-foreground',
-              )}
-            >
-              <RotateCcw className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{t('home.marketRegionServerDefault')}</span>
-                <span className="mt-0.5 block truncate text-xs text-muted-text">
-                  {t('home.marketRegionDefaultUnavailable')}
-                </span>
-              </span>
-              <Check className={cn('h-4 w-4', value === undefined ? 'opacity-100' : 'opacity-0')} aria-hidden="true" />
-            </button>
-
-            <button
-              type="button"
-              disabled={disabled}
-              aria-pressed={value !== undefined && displayedRegions.length === VISIBLE_MARKET_REVIEW_REGIONS.length}
               onClick={() => onChange([...VISIBLE_MARKET_REVIEW_REGIONS])}
               className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm text-secondary-text transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
             >
