@@ -12,6 +12,7 @@ import { formatDateTime } from '../../utils/format';
 import { Badge, Button, Card } from '../common';
 import { DashboardStateBlock } from '../dashboard';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import { getStockDisplayName } from '../../utils/stockDisplayName';
 import type { UiTextKey } from '../../i18n/uiText';
 
 interface StockHistoryTrendDrawerProps {
@@ -211,8 +212,8 @@ export const StockHistoryTrendDrawer: React.FC<StockHistoryTrendDrawerProps> = (
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground">{t('stockTrend.title')}</h2>
-              <p className="mt-1 text-sm text-secondary-text">
-                {report.meta.stockName || report.meta.stockCode} · {report.meta.stockCode}
+              <p className="notranslate mt-1 text-sm text-secondary-text" translate="no">
+                {getStockDisplayName(report.meta.stockCode, report.meta.stockName)} · {report.meta.stockCode}
               </p>
             </div>
           </div>
