@@ -29,7 +29,7 @@ _PATTERNS = {
 _CORE = ("THYAO.IS", "AAPL", "SAP.DE", "HK00700")
 _EXTRA = ("ASELS.IS", "MSFT", "SIE.DE", "HK01810")
 _SCOPES = {
-    "etre_five_market_core_historical_samples": _CORE,
+    "etre_four_market_core_historical_samples": _CORE,
     "etre_four_market_expanded_historical_samples": _CORE + _EXTRA,
     "etre_four_market_custom_historical_symbols": None,
 }
@@ -42,7 +42,7 @@ _STATUSES = frozenset({
 
 
 class FiveMarketReportUnavailable(Exception):
-    """No configured five-market JSON file is available for admin display."""
+    """No configured four-market JSON file is available for admin display."""
 
 
 class FiveMarketReportInvalid(Exception):
@@ -76,7 +76,7 @@ def validate_five_market_sample_report(payload: Any) -> dict:
     if (not isinstance(scope, str) or scope not in _SCOPES
             or payload.get("source") != "Yahoo Finance"
             or payload.get("market_scope") != list(_MARKETS)):
-        raise FiveMarketReportInvalid("Unsupported five-market report identity")
+        raise FiveMarketReportInvalid("Unsupported four-market report identity")
     as_of = _iso_date(payload.get("as_of"))
     rows = payload.get("results")
     if not isinstance(rows, list) or not 1 <= len(rows) <= _TOTAL_LIMIT:
