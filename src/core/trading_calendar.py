@@ -38,7 +38,7 @@ except ImportError:
     )
 
 # Market -> exchange code (exchange-calendars)
-MARKET_EXCHANGE = {"cn": "XSHG", "hk": "XHKG", "us": "XNYS", "jp": "XTKS", "kr": "XKRX", "tw": "XTAI", "tr": "XIST"}
+MARKET_EXCHANGE = {"cn": "XSHG", "hk": "XHKG", "us": "XNYS", "jp": "XTKS", "kr": "XKRX", "tw": "XTAI", "tr": "XIST", "de": "XETR"}
 
 # Market -> IANA timezone for "today"
 MARKET_TIMEZONE = {
@@ -49,6 +49,7 @@ MARKET_TIMEZONE = {
     "kr": "Asia/Seoul",
     "tw": "Asia/Taipei",
     "tr": "Europe/Istanbul",
+    "de": "Europe/Berlin",
 }
 
 # P0 market phase baseline (Issue #1386). This is an intentionally small
@@ -138,8 +139,8 @@ def get_market_for_stock(code: str) -> Optional[str]:
     # suffix classifier. Check them before importing data_provider, whose
     # eager initialization also loads unrelated market providers. This keeps
     # BIST analysis-market detection usable with only Yahoo dependencies.
-    if get_suffix_market(code) == "tr":
-        return "tr"
+    if get_suffix_market(code) in {"tr", "de"}:
+        return get_suffix_market(code)
 
     from data_provider import is_us_stock_code, is_us_index_code, is_hk_stock_code
 
