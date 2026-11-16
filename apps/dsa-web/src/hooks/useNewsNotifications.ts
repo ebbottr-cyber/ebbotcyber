@@ -25,10 +25,15 @@ export function useNewsNotifications(): number {
       typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       for (const item of status.latest_unread.filter(i => !known.current?.has(i.id)).reverse()) {
         try {
-          new Notification('ETRE · Yeni piyasa haberi', {
+          const notification = new Notification('ETRE · Yeni piyasa haberi', {
             body: item.title,
             tag: item.id,
           });
+          notification.onclick = () => {
+            window.focus();
+            window.location.assign('/news');
+            notification.close();
+          };
         } catch {
           // OS browser notifications are optional. In-app unread badge remains.
         }
