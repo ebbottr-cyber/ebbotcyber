@@ -81,7 +81,8 @@ function statusVariant(status: Status): 'success' | 'warning' | 'danger' | 'defa
 function formatDatasetMarkets(datasetMarkets: Record<string, string[]>): string {
   return Object.entries(datasetMarkets)
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([dataset, markets]) => `${dataset} [${markets.filter(isTurkishBrokerMarket).join(', ') || '--'}]`)
+    .filter(([, markets]) => markets.some(isTurkishBrokerMarket))
+    .map(([dataset, markets]) => `${dataset} [${markets.filter(isTurkishBrokerMarket).join(', ')}]`)
     .join(' · ');
 }
 
