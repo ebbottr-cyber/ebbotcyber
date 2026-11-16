@@ -10,6 +10,9 @@ Bu değişiklik yalnızca ETRE uygulamasının **kullanıcıya görünen arayüz
 - Mevcut 125 ayar-yardım anahtarına Türkçe **kısa açıklama** sağlanır. Bunlar ayrıntılı İngilizce/Çince kılavuzun birebir tam çevirisi değildir.
 - Ayarların hata durumları, model kanalı bağlantı testi ve model keşfi mesajları, hisse arama yer tutucuları, uyarı merkezi, sohbet, tarama ekranı ve bulunamayan sayfa metinleri Türkçe gösterilir.
 - Farklı dillere ait mevcut çeviri kaynağı, teknik hata kodları ve veri kaynaklarının orijinal işaretleri korunur.
+- Portföy ekranında hesap açma, alış/satış ve nakit/temettü girişleri, CSV içe aktarma, işlem geçmişi, silme onayları ve kur yenileme bildirimleri dil seçimine göre sunulur. Kullanılan hisse kodu, kur çifti, işlem tutarı, zaman damgası ve kayıt kimliği aynı kalır.
+- Portföy para tutarları, seçili arayüz dilinin sayı biçimiyle gösterilir; hiçbir döviz çevrimi veya tutar güncellemesi yapılmaz. Çince kurum isimleri Türkçe arayüzde, bilinen kurumlar için Latin adla ve bilinmeyenler için özgün kurum koduyla gösterilir.
+- Portföyün ilk Çince formları için Türkçe/İngilizce görünüm eşlemeleri `portfolioExtraText.ts` üzerinden yürütülür; `zh` görünümü korunur.
 
 ## Hisse adları
 
