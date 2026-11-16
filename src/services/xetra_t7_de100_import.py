@@ -111,8 +111,8 @@ def convert_xetra_t7_csv(path: Path, *, as_of: date) -> dict:
         "market": "de",
         "as_of": source_date.isoformat(),
         "source_name": (
-            "Deutsche Boerse T7 XETR reference, alphabetically first 100 "
-            "active CS EUR German-ISIN mnemonic candidates (operator downloaded)"
+            "Deutsche Boerse XETR T7 CSV: first 100 active DE-ISIN "
+            "CS mnemonic candidates (operator download)"
         ),
         "source_url": SOURCE_URL,
         "symbols": list(symbols),
