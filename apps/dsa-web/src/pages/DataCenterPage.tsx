@@ -93,6 +93,7 @@ function formatDatasetSources(dataset: DataCapabilityOverview['datasets'][number
     const sources = Object.entries(markets)
       .sort(([left], [right]) => left.localeCompare(right))
       .flatMap(([market, value]) => {
+        if (!isTurkishBrokerMarket(market)) return [];
         if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
         const source = (value as Record<string, unknown>).source;
         return typeof source === 'string' && source.trim() ? [`${market}: ${source.trim()}`] : [];
