@@ -255,3 +255,19 @@ def test_batch_date_mismatch_is_not_resumed(tmp_path):
     with pytest.raises(ValueError, match="analysis date"):
         run_batch(manifest, as_of=date(2026, 11, 17), batch_index=0, resume=True,
                   batch_size=10, output_dir=directory, delay_seconds=0, **kwargs)
+
+
+def test_source_provenance_change_invalidates_old_resume(tmp_path):
+    original = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    args, calls, _ = _helpers()
+    out = tmp_path / "batches"
+    run_batch(original, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=out, delay_seconds=0, **args)
+    changed = _manifest_payload()
+    changed["markets"]["us"]["source_url"] = "https://another-official-source.example/us100"
+    other = load_source_dated_manifest(_file(tmp_path, changed), as_of=AS_OF)
+    assert other["manifest_sha256"] != original["manifest_sha256"]
+    with pytest.raises(ValueError, match="does not belong"):
+        run_batch(other, as_of=AS_OF, batch_index=0, batch_size=10,
+                  output_dir=out, resume=True, delay_seconds=0, **args)
+    assert len(calls) == 10
