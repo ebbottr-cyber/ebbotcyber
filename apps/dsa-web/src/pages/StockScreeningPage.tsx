@@ -430,14 +430,14 @@ const formatScreenMessage = (value: string) => {
   if (snapshotFallback) {
     const parsed = parseSourceDiagnostic(snapshotFallback[1]);
     if (parsed) {
-      return `Veri kaynağı kısıtlı: ${parsed.source}（${summarizeScreeningDiagnostic(parsed.detail)}）`;
+      return `Veri kaynağı kısıtlı: ${parsed.source} (${summarizeScreeningDiagnostic(parsed.detail)})`;
     }
     return `Veri kaynağı kısıtlı: ${summarizeScreeningDiagnostic(snapshotFallback[1])}`;
   }
 
   const parsed = parseSourceDiagnostic(value);
   if (parsed && KNOWN_SNAPSHOT_SOURCES.has(parsed.source.toLowerCase())) {
-    return `Veri kaynağı kısıtlı: ${parsed.source}（${summarizeScreeningDiagnostic(parsed.detail)}）`;
+    return `Veri kaynağı kısıtlı: ${parsed.source} (${summarizeScreeningDiagnostic(parsed.detail)})`;
   }
   return truncateMessageDetail(value);
 };
@@ -580,7 +580,7 @@ const formatHotspotRouteDescription = (value: string) => {
     const localized = parts.map((part) => {
       const heat = part.match(/^(.*?)\s+heat\s+(-?\d+(?:\.\d+)?)$/i);
       if (heat) {
-        return `${heat[1]}İlgi puanı ${formatNumber(heat[2], 1)}`;
+        return `${heat[1]} İlgi puanı ${formatNumber(heat[2], 1)}`;
       }
       const stage = part.match(/^stage\s+(.+)$/i);
       if (stage) {
@@ -588,11 +588,11 @@ const formatHotspotRouteDescription = (value: string) => {
       }
       const leaders = part.match(/^leaders?\s+(.+)$/i);
       if (leaders) {
-        return `Öne çıkan hisseler ${leaders[1].split(/\s*,\s*/).filter(Boolean).join('、')}`;
+        return `Öne çıkan hisseler ${leaders[1].split(/\s*,\s*/).filter(Boolean).join(', ')}`;
       }
       return part;
     });
-    return `${localized.join('，')}。`;
+    return `${localized.join(', ')}.`;
   }
   if (/Dsa[A-Z]|Provider\b|stock_board_|concept_constituents|leader_stocks|last_good_cache/i.test(text)) {
     return 'Tema verilerinde yeni değişiklikler var.';
@@ -671,10 +671,10 @@ const getHotspotSummaryText = (detail: ScreeningHotspotDetail, hotspot?: Screeni
     parts.push(`Aşama ${getHotspotStageLabel(stage)}`);
   }
   if (leaders.length > 0) {
-    parts.push(`Öne çıkan hisseler ${leaders.join('、')}`);
+    parts.push(`Öne çıkan hisseler ${leaders.join(', ')}`);
   }
   if (parts.length > 0) {
-    return `${detail.name || detail.canonicalTopic || detail.topic}：${parts.join('，')}。`;
+    return `${detail.name || detail.canonicalTopic || detail.topic}: ${parts.join(', ')}.`;
   }
   const summary = String(detail.summary || '').trim();
   if (summary && !/\b(?:heat|stage|leaders?|quality status|available|partial|stale|failed)\b|Dsa[A-Z]|Provider\b|stock_board_/i.test(summary)) {
@@ -686,12 +686,12 @@ const getHotspotSummaryText = (detail: ScreeningHotspotDetail, hotspot?: Screeni
 const buildHotspotPreviewDetail = (hotspot: ScreeningHotspot): ScreeningHotspotDetail => {
   const leaders = (hotspot.leaders || []).map((value) => String(value).trim()).filter(Boolean);
   const stage = getHotspotStageLabel(hotspot.stage || hotspot.state);
-  const descriptionParts = [`${hotspot.name || hotspot.topic}İlgi puanı ${formatHotspotMetric(hotspot.heatScore)}`];
+  const descriptionParts = [`${hotspot.name || hotspot.topic} ilgi puanı ${formatHotspotMetric(hotspot.heatScore)}`];
   if (stage) {
     descriptionParts.push(`Aşama ${stage}`);
   }
   if (leaders.length > 0) {
-    descriptionParts.push(`Öne çıkan hisseler ${leaders.slice(0, 3).join('、')}`);
+    descriptionParts.push(`Öne çıkan hisseler ${leaders.slice(0, 3).join(', ')}`);
   }
   const stocks = (hotspot.leaderStocks || []).slice(0, 10);
   return {
@@ -705,7 +705,7 @@ const buildHotspotPreviewDetail = (hotspot: ScreeningHotspot): ScreeningHotspotD
       stage: hotspot.stage || hotspot.state,
       leaders,
     },
-    route: [{ title: 'Güncel gelişim', description: `${descriptionParts.join('，')}。` }],
+    route: [{ title: 'Güncel gelişim', description: `${descriptionParts.join(', ')}.` }],
     stocks,
     stockCount: hotspot.sampleStockCount ?? stocks.length,
     sourceErrors: hotspot.sourceErrors,
@@ -754,7 +754,7 @@ const formatHotspotMetric = (value: unknown, digits = 1) => {
 const getHotspotLeadersText = (item: ScreeningHotspot) => {
   const leaders = (item.leaders || []).map((value) => String(value).trim()).filter(Boolean);
   if (leaders.length > 0) {
-    return leaders.slice(0, 2).join('、');
+    return leaders.slice(0, 2).join(', ');
   }
   return 'İzleniyor';
 };
@@ -763,7 +763,7 @@ const getHotspotSampleText = (item: ScreeningHotspot) => {
   if (item.sampleStockCount == null || Number.isNaN(Number(item.sampleStockCount))) {
     return 'Aktif hisseler izleniyor';
   }
-  return `Kapsam ${item.sampleStockCount}  hisse`;
+  return `Kapsam: ${item.sampleStockCount} hisse`;
 };
 
 const formatStockChangeText = (value: unknown) => {
@@ -1685,7 +1685,7 @@ const StockScreeningPage: React.FC = () => {
                 <summary className="cursor-pointer font-semibold">Ayrıntılı veri kısıtlı; nedenini görmek için genişletin</summary>
                 <div className="mt-2 space-y-1 leading-5">
                   {(hotspotDetail.missingFields || []).length > 0 ? (
-                    <p>Eksik: {getHotspotMissingFieldLabels(hotspotDetail.missingFields).join('、')}</p>
+                    <p>Eksik: {getHotspotMissingFieldLabels(hotspotDetail.missingFields).join(', ')}</p>
                   ) : null}
                   {getHotspotDiagnosticMessages(hotspotDetail.sourceErrors).map((message, index) => (
                     <p key={`${message}-${index}`}>{message}</p>
@@ -2041,7 +2041,7 @@ const StockScreeningPage: React.FC = () => {
                                   <p className="text-xs font-semibold text-secondary-text">Risk etiketleri</p>
                                   <p className="mt-1 text-sm text-foreground">
                                     {[...(item.riskFlags || []), ...(item.llmRisks || [])].length
-                                      ? [...(item.riskFlags || []), ...(item.llmRisks || [])].join('，')
+                                      ? [...(item.riskFlags || []), ...(item.llmRisks || [])].join(', ')
                                       : 'Yok'}
                                   </p>
                                 </div>
@@ -2075,13 +2075,13 @@ const StockScreeningPage: React.FC = () => {
                                 {item.llmWatchItems?.length ? (
                                   <div>
                                     <p className="text-xs font-semibold text-secondary-text">Yapay zekâ dikkat noktaları</p>
-                                    <p className="mt-1 text-sm text-foreground">{item.llmWatchItems.join('，')}</p>
+                                    <p className="mt-1 text-sm text-foreground">{item.llmWatchItems.join(', ')}</p>
                                   </div>
                                 ) : null}
                                 {item.llmCatalysts?.length ? (
                                   <div>
                                     <p className="text-xs font-semibold text-secondary-text">Tetikleyici etkenler</p>
-                                    <p className="mt-1 text-sm text-foreground">{item.llmCatalysts.join('，')}</p>
+                                    <p className="mt-1 text-sm text-foreground">{item.llmCatalysts.join(', ')}</p>
                                   </div>
                                 ) : null}
                                 <div>
@@ -2115,7 +2115,7 @@ const StockScreeningPage: React.FC = () => {
                                 {dsaWarnings.length > 0 ? (
                                   <div>
                                     <p className="text-xs font-semibold text-secondary-text">Eksik veri notları</p>
-                                    <p className="mt-1 text-sm text-secondary-text">{dsaWarnings.join('，')}</p>
+                                    <p className="mt-1 text-sm text-secondary-text">{dsaWarnings.join(', ')}</p>
                                   </div>
                                 ) : null}
                               </div>
