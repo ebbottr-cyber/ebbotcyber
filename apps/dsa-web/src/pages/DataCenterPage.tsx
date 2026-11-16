@@ -6,6 +6,7 @@ import { dataCapabilityApi } from '../api/dataCapability';
 import { Bist100CoveragePanel } from '../components/data-center/Bist100CoveragePanel';
 import { Bist100TechnicalPanel } from '../components/data-center/Bist100TechnicalPanel';
 import { FiveMarketSamplePanel } from '../components/data-center/FiveMarketSamplePanel';
+import { FourMarketScanPlanner } from '../components/data-center/FourMarketScanPlanner';
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
@@ -192,6 +193,7 @@ const DataCenterPage: React.FC = () => {
         <EmptyState icon={<Database className="h-6 w-6" />} title={t('dataCenter.emptyTitle')} description={t('dataCenter.emptyDescription')} />
       ) : null}
 
+      <FourMarketScanPlanner />
       <FiveMarketSamplePanel />
       <Bist100CoveragePanel />
       <Bist100TechnicalPanel />
