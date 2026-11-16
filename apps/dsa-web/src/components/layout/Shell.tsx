@@ -9,6 +9,7 @@ import { cn } from '../../utils/cn';
 import { ThemeToggle } from '../theme/ThemeToggle';
 import { UiLanguageToggle } from '../i18n/UiLanguageToggle';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import { useNewsNotifications } from '../../hooks/useNewsNotifications';
 
 type ShellProps = {
   children?: React.ReactNode;
@@ -18,6 +19,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const collapsed = false;
   const { t } = useUiLanguage();
+  const newsUnread = useNewsNotifications();
 
   useEffect(() => {
     if (!mobileOpen) {
@@ -65,7 +67,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
           )}
           aria-label={t('layout.desktopSidebar')}
         >
-          <SidebarNav collapsed={collapsed} variant="rail" onNavigate={() => setMobileOpen(false)} />
+          <SidebarNav collapsed={collapsed} variant="rail" newsUnread={newsUnread} onNavigate={() => setMobileOpen(false)} />
         </aside>
 
         <main className="min-h-0 min-w-0 flex-1 pt-14 lg:pl-3 lg:pt-0 touch-pan-y">
@@ -81,7 +83,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
         zIndex={90}
         side="left"
       >
-        <SidebarNav onNavigate={() => setMobileOpen(false)} />
+        <SidebarNav newsUnread={newsUnread} onNavigate={() => setMobileOpen(false)} />
       </Drawer>
     </div>
   );
