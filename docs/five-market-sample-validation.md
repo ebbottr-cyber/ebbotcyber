@@ -32,4 +32,13 @@ cd "$env:USERPROFILE\Projects\ebbotcyber-test"
 
 GitHub'da taslak PR #11 için `five-market-core-live-yahoo` işi, başarılı Almanya 3-hisse testinden sonra çalışır ve geçici JSON artifact üretir. Ağ hataları veya geçici veri eksiklikleri başarısızlık olarak kaydedilir, gizlenmez.
 
+
+## ETRE Veri Merkezi'nde rapor görüntüleme
+
+Taslak PR #11'in `five-market-core-live-yahoo` GitHub Actions işi **başarılı** olduğunda, o çalışmanın `etre-five-market-sample-<run_id>` artifact'ını indirip ZIP dosyasını açın. ZIP içindeki `five-market-core-2026-11-15.json` dosyası, oluşturulduğu tarih itibarıyla 5 ayrı hissenin test sonuçlarını içerir; **anlık veri değildir**.
+
+ETRE'de **Veri Merkezi → Beş piyasa · Örnek veri kontrolü → JSON raporu seç** yolundan bu dosyayı yükleme yapmadan yerel tarayıcıda açın. Tabloda her piyasa ayrı görünür: kontrol yapılmayanlar `Kontrol edilmedi`, bir kısmı başarısız olanlar `Kısmi`, tamamı başarılı örnekler `Örnekler geçti` olarak etiketlenir. Hisse tablosunda para birimi, geçerli günlük satır sayısı, son tamamlanan seans ve teknik puan ayrıca listelenir. Rapordaki sayaçlar, piyasa kodları ve başarılı fiyat doğrulamaları uyuşmazsa dosya reddedilir. Bu yalnızca **yapısal tutarlılık kontrolüdür**, dosyanın kökeni kriptografik olarak doğrulanmaz.
+
+Bu ilk arayüz sürümü **dosya seçme tabanlıdır**: sunucudan otomatik rapor indirme veya taramayı web üzerinden başlatma yetkisi içermez. Masaüstünde rapor yoksa ekran hiç kontrol yapılmamış gibi davranır, sonucu kendiliğinden başarılı göstermez. Gerçek işlem veya aracı kurum bağlantısı eklenmemiştir.
+
 **Henüz yapılmayanlar:** tüm borsa sembol evreninin içe aktarılması; otomatik düzenli 5-piyasa taraması; market-wide sıralama; veri kalitesinin ETRE panelinde kalıcı/doğrulanmış olarak gösterilmesi; Midas dahil aracı kurum bağlantısı, işlem izni, alım-satım ve emir gönderme. Bunlar ayrı geliştirme ve onay kapıları gerektirir.
