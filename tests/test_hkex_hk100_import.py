@@ -120,3 +120,16 @@ def test_oversized_or_invalid_xlsx_rejected(tmp_path):
     large.write_text("not an XLSX", encoding="utf-8")
     with pytest.raises(ValueError, match="decode"):
         convert_hkex_equities(large, as_of=AS_OF)
+
+
+def test_official_large_workbook_above_old_15000_row_cap(tmp_path):
+    # The official HKEX Full List includes many non-equity instruments.
+    # The old 15k hard stop rejected the actual November 2026 publisher file.
+    # Only 105 eligible Equity codes here; other 15k rows must not count.
+    extra = [[str(10_000 + i), "Synthetic unrelated product", "Warrant", "HKD"]
+             for i in range(15_100)]
+    workbook = _xlsx(tmp_path, rows=_rows() + extra)
+    result = convert_hkex_equities(workbook, as_of=AS_OF)
+    assert result["eligible_equities_in_source"] == 105
+    assert len(result["symbols"]) == 100
+    assert result["symbols"][0] == "HK00001"
