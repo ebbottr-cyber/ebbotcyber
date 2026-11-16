@@ -44,7 +44,7 @@ export function validateCoinGeckoRoster(raw: unknown): CoinGeckoRoster {
     }
     seen.add(coin.id);
   }
-  return value as CoinGeckoRoster;
+  return value as unknown as CoinGeckoRoster;
 }
 
 export const coinGeckoApi = {
