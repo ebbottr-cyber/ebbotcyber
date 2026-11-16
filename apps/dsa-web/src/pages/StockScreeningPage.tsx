@@ -1487,7 +1487,7 @@ const StockScreeningPage: React.FC = () => {
               setStatusError('');
               setStatusAttempt((attempt) => attempt + 1);
             }}>
-              重试
+              Yeniden dene
             </Button>
           }
         />
@@ -1500,7 +1500,7 @@ const StockScreeningPage: React.FC = () => {
           message="Etkinleştirildiğinde hisse tarama stratejileri çalıştırılabilir."
           action={
             <Button size="sm" isLoading={enabling} loadingText="Etkinleştiriliyor..." onClick={() => void handleEnable()}>
-              开启Hisse tarama
+              Hisse taramayı etkinleştir
             </Button>
           }
         />
@@ -1746,7 +1746,7 @@ const StockScreeningPage: React.FC = () => {
                                 onClick={() => handleAnalyzeHotspotStock(stock)}
                               >
                                 <Play className="h-3 w-3" />
-                                分析
+                                Analiz et
                               </button>
                             ) : null}
                           </div>
