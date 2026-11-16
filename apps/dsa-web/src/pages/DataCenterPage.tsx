@@ -222,7 +222,7 @@ const DataCenterPage: React.FC = () => {
                       )}
                     </div>
                     <div className="mt-2 text-xs text-secondary-text">
-                      {source ? t('dataCenter.marketSource', { source }) : t('dataCenter.marketNotReported')}
+                      {status ? t('dataCenter.marketSource', { source: source || '—' }) : t('dataCenter.marketNotReported')}
                     </div>
                   </div>
                 ))}
