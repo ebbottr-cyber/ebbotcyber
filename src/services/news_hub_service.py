@@ -190,7 +190,7 @@ def news_status() -> dict:
         unread = db.execute("SELECT COUNT(*) FROM news_articles WHERE is_read=0").fetchone()[0]
         latest = db.execute(
             "SELECT id,market,title_original,title_tr,published_at,severity,ai_status,inserted_at "
-            "FROM news_articles WHERE is_read=0 ORDER BY inserted_at DESC, id DESC LIMIT 8"
+            "FROM news_articles WHERE is_read=0 ORDER BY inserted_at DESC, id DESC LIMIT 40"
         ).fetchall()
         return {
             "unread_count": unread, "notifications_enabled": _read_pref(db),
