@@ -38,6 +38,7 @@ MAX_BATCH_SIZE = 25
 DEFAULT_BATCH_SIZE = 10
 MAX_MANIFEST_BYTES = 100_000
 MAX_BATCH_REPORT_BYTES = 300_000
+MAX_RETRY_ATTEMPTS = 5
 MAX_ROSTER_AGE_DAYS = 45
 CUSTOM_SCOPE = "etre_four_market_custom_historical_symbols"
 
@@ -158,6 +159,9 @@ def _verify_batch(raw: dict, manifest: dict, *, index: int, size: int, as_of: da
         "batches_total": total,
     }:
         raise ValueError("Batch does not belong to this exact dated manifest / batch plan")
+    attempts = raw.get("_retry_attempts", 0)
+    if type(attempts) is not int or not 0 <= attempts <= MAX_RETRY_ATTEMPTS:
+        raise ValueError("Invalid batch retry counter")
     try:
         sanitized = validate_five_market_sample_report(raw)
     except FiveMarketReportInvalid as exc:
@@ -189,6 +193,43 @@ def _atomic_json(path: Path, data: dict) -> None:
             os.unlink(temp_name)
 
 
+def _validated_summary_from_rows(results: list[dict], *, as_of: date) -> dict:
+    """Recompute every market total from stock rows after a selective retry."""
+    analyzed = sum(row["status"] == "analyzed" for row in results)
+    summary = {}
+    for market in FOCUS_MARKETS:
+        subset = [row for row in results if row["market"] == market]
+        failed = Counter(row["status"] for row in subset if row["status"] != "analyzed")
+        passed = sum(row["status"] == "analyzed" for row in subset)
+        summary[market] = {
+            "checked_symbols": len(subset),
+            "analyzed_symbols": passed,
+            "target_symbols": 100,
+            "remaining_to_target": 100 - len(subset),
+            "sample_status": (
+                "not_requested" if not subset
+                else "samples_passed" if len(subset) == passed
+                else "partial" if passed else "samples_failed"
+            ),
+            "failure_status_counts": dict(sorted(failed.items())),
+        }
+    merged = {
+        "scope": CUSTOM_SCOPE, "source": "Yahoo Finance",
+        "as_of": as_of.isoformat(),
+        "checked_symbols": len(results),
+        "analyzed_symbols": analyzed,
+        "markets_checked": sum(bool(summary[m]["checked_symbols"]) for m in FOCUS_MARKETS),
+        "market_scope": list(FOCUS_MARKETS),
+        "target_symbols_per_market": 100, "target_symbols_total": 400,
+        "remaining_to_target": 400 - len(results),
+        "results": results, "by_market": summary,
+    }
+    # Output is compatible with the existing read-only Data Center viewer and
+    # authenticated report endpoint, but not trusted as issuer attestation.
+    valid = validate_five_market_sample_report(merged)
+    return valid
+
+
 def run_batch(
     manifest: dict,
     *,
@@ -197,6 +238,7 @@ def run_batch(
     output_dir: Path,
     batch_size: int = DEFAULT_BATCH_SIZE,
     resume: bool = False,
+    retry_failed: bool = False,
     delay_seconds: float = 2.0,
     fetch_history: Callable[..., Any] = _fetch_yahoo_history,
     pause: Callable[[float], None] = time.sleep,
@@ -204,6 +246,8 @@ def run_batch(
 ) -> dict:
     if not 1 <= batch_size <= MAX_BATCH_SIZE:
         raise ValueError("batch_size must be 1..25")
+    if resume and retry_failed:
+        raise ValueError("Select --resume or --retry-failed, not both")
     if not math.isfinite(delay_seconds) or not 0 <= delay_seconds <= 30:
         raise ValueError("delay_seconds must be between 0 and 30")
     symbols = manifest["symbols"]
@@ -211,12 +255,6 @@ def run_batch(
     if not 0 <= batch_index < total:
         raise ValueError("Invalid batch index")
     output = output_dir / _batch_name(batch_index, total)
-    if output.exists():
-        if not resume:
-            raise FileExistsError(f"{output} exists; use --resume only for verified completed batches")
-        existing = _verify_batch(_read_bounded_json(output), manifest,
-                                 index=batch_index, size=batch_size, as_of=as_of)
-        return {**existing, "resumed_without_yahoo_requests": True}
     subset = tuple(symbols[batch_index * batch_size:(batch_index + 1) * batch_size])
     calls = 0
 
@@ -226,6 +264,53 @@ def run_batch(
             pause(delay_seconds)
         calls += 1
         return fetch_history(symbol, start, current)
+
+    if retry_failed:
+        if not output.exists():
+            raise FileNotFoundError("Cannot retry failures before the original batch exists")
+        prior = _read_bounded_json(output)
+        checked = _verify_batch(prior, manifest, index=batch_index,
+                                size=batch_size, as_of=as_of)
+        failed = tuple(row["code"] for row in checked["results"]
+                       if row["status"] != "analyzed")
+        attempts = prior.get("_retry_attempts", 0)
+        if not failed:
+            return {**checked, "retried_symbols": 0,
+                    "retry_attempts": attempts}
+        if attempts >= MAX_RETRY_ATTEMPTS:
+            raise ValueError("Retry limit reached; review provider errors manually")
+        retried = validate_five_market_samples(
+            as_of=as_of,
+            symbols=failed,
+            fetch_history=paced_history,
+            **probe_kwargs,
+        )
+        retried_by_code = {row["code"]: row for row in retried["results"]}
+        updated_rows = [retried_by_code.get(row["code"], row)
+                        for row in checked["results"]]
+        updated = _validated_summary_from_rows(updated_rows, as_of=as_of)
+        updated["_batch"] = prior["_batch"]
+        updated["_retry_attempts"] = attempts + 1
+        _verify_batch(updated, manifest, index=batch_index,
+                      size=batch_size, as_of=as_of)
+        backup = output.with_name(
+            f"{output.stem}.before-retry-{attempts + 1:02d}.json"
+        )
+        if backup.exists():
+            raise FileExistsError("Previous retry audit backup already exists")
+        _atomic_json(backup, prior)
+        _atomic_json(output, updated)
+        return {**updated, "retried_symbols": len(failed),
+                "retry_attempts": attempts + 1}
+
+    if output.exists():
+        if not resume:
+            raise FileExistsError(
+                f"{output} exists; use --resume to skip or --retry-failed to recheck errors"
+            )
+        existing = _verify_batch(_read_bounded_json(output), manifest,
+                                 index=batch_index, size=batch_size, as_of=as_of)
+        return {**existing, "resumed_without_yahoo_requests": True}
 
     report = validate_five_market_samples(
         as_of=as_of,
@@ -277,38 +362,7 @@ def combine_batches(
             "missing_batch_indices": list(range(total)),
             "note": "No valid Yahoo result yet; cannot present a sample report.",
         }
-    analyzed = sum(row["status"] == "analyzed" for row in results)
-    summary = {}
-    for market in FOCUS_MARKETS:
-        subset = [row for row in results if row["market"] == market]
-        failed = Counter(row["status"] for row in subset if row["status"] != "analyzed")
-        passed = sum(row["status"] == "analyzed" for row in subset)
-        summary[market] = {
-            "checked_symbols": len(subset),
-            "analyzed_symbols": passed,
-            "target_symbols": 100,
-            "remaining_to_target": 100 - len(subset),
-            "sample_status": (
-                "not_requested" if not subset
-                else "samples_passed" if len(subset) == passed
-                else "partial" if passed else "samples_failed"
-            ),
-            "failure_status_counts": dict(sorted(failed.items())),
-        }
-    merged = {
-        "scope": CUSTOM_SCOPE, "source": "Yahoo Finance",
-        "as_of": as_of.isoformat(),
-        "checked_symbols": len(results),
-        "analyzed_symbols": analyzed,
-        "markets_checked": sum(bool(summary[m]["checked_symbols"]) for m in FOCUS_MARKETS),
-        "market_scope": list(FOCUS_MARKETS),
-        "target_symbols_per_market": 100, "target_symbols_total": 400,
-        "remaining_to_target": 400 - len(results),
-        "results": results, "by_market": summary,
-    }
-    # Output is compatible with the existing read-only Data Center viewer and
-    # authenticated report endpoint, but not trusted as issuer attestation.
-    valid = validate_five_market_sample_report(merged)
+    valid = _validated_summary_from_rows(results, as_of=as_of)
     valid.update({
         "manifest_sha256": manifest["manifest_sha256"],
         "source_as_of": manifest["source_as_of"],
@@ -340,11 +394,17 @@ def main() -> None:
                       help="0-based batch number; one invocation checks at most 25 equities")
     mode.add_argument("--combine", action="store_true",
                       help="Combine previously completed batches, without contacting Yahoo")
-    parser.add_argument("--resume", action="store_true", help="Skip only matching validated batches")
+    recovery = parser.add_mutually_exclusive_group()
+    recovery.add_argument("--resume", action="store_true",
+                          help="Skip any existing validated batch unchanged")
+    recovery.add_argument("--retry-failed", action="store_true",
+                          help="Recheck only failed stocks in an existing batch, with audit backup")
     parser.add_argument("--delay-seconds", type=float, default=2.0)
     parser.add_argument("--report", type=Path,
                         help="Output merged report JSON (with --combine)")
     args = parser.parse_args()
+    if args.combine and (args.resume or args.retry_failed):
+        parser.error("--combine cannot be used with --resume or --retry-failed")
     try:
         manifest = load_source_dated_manifest(args.manifest, as_of=args.as_of)
         if args.combine:
@@ -358,7 +418,8 @@ def main() -> None:
             result = run_batch(
                 manifest, as_of=args.as_of, output_dir=args.output_dir,
                 batch_index=args.batch_index, batch_size=args.batch_size,
-                resume=args.resume, delay_seconds=args.delay_seconds,
+                resume=args.resume, retry_failed=args.retry_failed,
+                delay_seconds=args.delay_seconds,
             )
     except (ValueError, FileExistsError, OSError) as exc:
         parser.error(str(exc))
