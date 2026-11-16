@@ -1,4 +1,5 @@
 """Isolated regression checks; never access the configured application DB."""
+from contextlib import closing
 import os
 import sqlite3
 
@@ -8,14 +9,14 @@ from scripts.sqlite_snapshot import create_snapshot, verify_snapshot, main
 
 
 def _seed(path):
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db, db:
         db.execute("CREATE TABLE history (id INTEGER PRIMARY KEY, symbol TEXT)")
         db.executemany("INSERT INTO history (symbol) VALUES (?)", [("THYAO.IS",), ("ASELS.IS",)])
 
 
 def test_snapshot_preserves_committed_wal_rows_without_touching_source(tmp_path):
     source, dest = tmp_path / "source.db", tmp_path / "backup.db"
-    with sqlite3.connect(source) as writer:
+    with closing(sqlite3.connect(source)) as writer, writer:
         writer.execute("PRAGMA journal_mode=WAL")
         writer.execute("CREATE TABLE history (id INTEGER PRIMARY KEY, symbol TEXT)")
         writer.execute("INSERT INTO history (symbol) VALUES ('THYAO.IS')")
@@ -23,7 +24,7 @@ def test_snapshot_preserves_committed_wal_rows_without_touching_source(tmp_path)
         report = create_snapshot(source, dest)
         assert report["integrity"] == "ok"
         assert report["tables"] == 1
-        with sqlite3.connect(dest) as backup:
+        with closing(sqlite3.connect(dest)) as backup, backup:
             assert backup.execute("SELECT symbol FROM history").fetchall() == [("THYAO.IS",)]
         assert writer.execute("SELECT COUNT(*) FROM history").fetchone()[0] == 1
 
