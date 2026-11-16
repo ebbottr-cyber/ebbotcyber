@@ -116,7 +116,7 @@ export function parseFourMarketBatchProgress(raw: unknown): FourMarketBatchProgr
   expect(isoDate(raw.as_of) && isoDate(raw.source_as_of) && raw.source_as_of <= raw.as_of);
   expect(typeof raw.manifest_sha256 === 'string' && /^[a-f0-9]{64}$/.test(raw.manifest_sha256));
   expect(Array.isArray(raw.market_scope) && raw.market_scope.length === 4
-    && FOUR_ACTIVE_MARKETS.every((market, index) => raw.market_scope[index] === market));
+    && FOUR_ACTIVE_MARKETS.every((market, index) => (raw.market_scope as unknown[])[index] === market));
   expect(raw.target_symbols_per_market === 100 && raw.target_symbols_total === 400);
   expect(integer(raw.batch_size, 1, 25));
   const size = raw.batch_size as number;
