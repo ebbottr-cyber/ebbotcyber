@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
+import { fourMarketUniverseApi } from '../../api/fourMarketUniverse';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiLanguage } from '../../i18n/uiText';
 import { Card } from '../common';
@@ -9,6 +10,7 @@ import {
   STOCKS_PER_MARKET,
   TOTAL_STOCK_TARGET,
   buildFourMarketScanPlan,
+  replaceTurkeyRosterCodes,
   type FourMarket,
 } from '../../utils/fourMarketScanPlan';
 
@@ -24,6 +26,7 @@ const TEXT: Record<UiLanguage, {
   textarea: string; selected: string; remaining: string;
   invalid: string; ready: string; notReady: string; download: string;
   command: string; note: string; incomplete: string;
+  loadTurkey: string; loadingTurkey: string; turkeyLoaded: string; turkeyUnavailable: string;
 }> = {
   tr: {
     title: 'Dört piyasa · 400 hisse listesi hazırla',
@@ -40,6 +43,9 @@ const TEXT: Record<UiLanguage, {
     command: 'Windows PowerShell kontrol komutu',
     note: 'Dosyayı bilgisayarınızın İndirilenler/Downloads klasöründen çalıştırın. Tarama komutu isteğe bağlıdır; rapor başarıya ulaşmadan hiçbir hisse sağlıklı sayılmaz. Sembol biçimi hisse kotasyonu veya aracı kurum izni kanıtı değildir.',
     incomplete: 'Hatalar düzeltilmeden liste indirilemez. Japonya, Çin, Güney Kore ve Tayvan kodları desteklenmez.',
+    loadTurkey: 'Kaynaklı BIST100 listesini ekle', loadingTurkey: 'BIST100 listesi kontrol ediliyor…',
+    turkeyLoaded: 'Kaynaklı BIST100 listesi eklendi. Fiyat/veri kontrolü henüz yapılmadı.',
+    turkeyUnavailable: 'BIST100 listesi alınamadı. Kaynak dönemi dolmuş veya sunucuya ulaşılamıyor.',
   },
   en: {
     title: 'Four markets · Prepare 400-stock list',
@@ -56,6 +62,9 @@ const TEXT: Record<UiLanguage, {
     command: 'Windows PowerShell check command',
     note: 'Use the downloaded file from your Downloads folder. The scan command is optional and never places orders. Syntactic validity does not prove listing or broker permissions.',
     incomplete: 'Correct errors before downloading. Japan, China, South Korea and Taiwan are excluded.',
+    loadTurkey: 'Add sourced BIST100 roster', loadingTurkey: 'Checking BIST100 roster…',
+    turkeyLoaded: 'Source-dated BIST100 roster loaded; price data has not been validated.',
+    turkeyUnavailable: 'Cannot load BIST100; source period expired or server unavailable.',
   },
   zh: {
     title: '四个市场 · 准备400只股票',
@@ -72,6 +81,9 @@ const TEXT: Record<UiLanguage, {
     command: 'Windows PowerShell 检查命令',
     note: '从下载文件夹使用该文件。运行验证为可选，不会下单。格式正确不代表已上市或有券商交易权限。',
     incomplete: '请修复错误再下载。日本、中国、韩国和台湾不在支持范围内。',
+    loadTurkey: '加入有来源的BIST100名单', loadingTurkey: '正在检查BIST100名单…',
+    turkeyLoaded: '已加入注明来源日期的BIST100名单；价格数据未验证。',
+    turkeyUnavailable: '无法获取BIST100；来源已过期或服务器不可用。',
   },
 };
 
@@ -86,7 +98,23 @@ export const FourMarketScanPlanner: React.FC = () => {
   const { language } = useUiLanguage();
   const t = TEXT[language];
   const [codesText, setCodesText] = useState('');
+  const [loadingTurkey, setLoadingTurkey] = useState(false);
+  const [turkeyMessage, setTurkeyMessage] = useState('');
   const plan = useMemo(() => buildFourMarketScanPlan(codesText), [codesText]);
+
+  const loadTurkey = async () => {
+    setLoadingTurkey(true);
+    setTurkeyMessage('');
+    try {
+      const roster = await fourMarketUniverseApi.getTurkeyBist100();
+      setCodesText(current => replaceTurkeyRosterCodes(current, roster.symbols));
+      setTurkeyMessage(t.turkeyLoaded + ' · ' + roster.effective_from + ' – ' + roster.effective_to);
+    } catch {
+      setTurkeyMessage(t.turkeyUnavailable);
+    } finally {
+      setLoadingTurkey(false);
+    }
+  };
 
   const downloadCodes = () => {
     if (!plan.readyForFullScan) return;
@@ -118,6 +146,15 @@ export const FourMarketScanPlanner: React.FC = () => {
             </div>
           ))}
         </div>
+        <button
+          type="button"
+          disabled={loadingTurkey}
+          onClick={() => { void loadTurkey(); }}
+          className="rounded-lg border border-border bg-elevated px-3 py-2 text-sm text-foreground disabled:opacity-40"
+        >
+          {loadingTurkey ? t.loadingTurkey : t.loadTurkey}
+        </button>
+        {turkeyMessage ? <p role="status" className="text-xs text-muted-text">{turkeyMessage}</p> : null}
         <label className="block text-sm font-medium text-foreground" htmlFor="etre-four-market-codes">
           {t.textarea}
         </label>
