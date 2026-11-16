@@ -213,6 +213,11 @@ def _is_tr_market(code: str) -> bool:
     return is_suffix_market_symbol(code, "tr")
 
 
+def _is_de_market(code: str) -> bool:
+    """Xetra equities require an explicit validated .DE Yahoo suffix."""
+    return is_suffix_market_symbol(code, "de")
+
+
 def _is_etf_code(code: str) -> bool:
     """判定 A 股 ETF 基金代码（保守规则）。"""
     normalized = normalize_stock_code(code)
@@ -266,6 +271,8 @@ def _market_tag(code: str) -> str:
         return "tw"
     if _is_tr_market(code):
         return "tr"
+    if _is_de_market(code):
+        return "de"
     return "cn"
 
 
@@ -657,7 +664,7 @@ class DataFetcherManager:
         "MiaoxiangFetcher": set(),
         "PytdxFetcher": {"cn"},
         "BaostockFetcher": {"cn"},
-        "YfinanceFetcher": {"cn", "hk", "us", "jp", "kr", "tw", "tr"},
+        "YfinanceFetcher": {"cn", "hk", "us", "jp", "kr", "tw", "tr", "de"},
         "LongbridgeFetcher": {"hk", "us"},
         "FutuFetcher": {"hk"},
         "FinnhubFetcher": {"us"},
@@ -816,7 +823,7 @@ class DataFetcherManager:
 
         # Never route a Turkish .IS request through a CN/unknown fetcher.
         # A second TR provider requires a separate reviewed contract.
-        if market == "tr":
+        if market in {"tr", "de"}:
             return [f for f in fetchers if f.name == "YfinanceFetcher"]
 
         kept: List[BaseFetcher] = []
@@ -2004,19 +2011,20 @@ class DataFetcherManager:
         #   - 美股指数:       始终 YFinance 为首选（Longbridge 不提供指数K线）
         is_us_index = is_us_index_code(stock_code)
         is_tr = _is_tr_market(stock_code)
-        is_us = (not is_tr) and (is_us_index or is_us_stock_code(stock_code))
+        is_de = _is_de_market(stock_code)
+        is_us = (not is_tr) and (not is_de) and (is_us_index or is_us_stock_code(stock_code))
         is_hk = (not is_us) and (not is_tr) and _is_hk_market(stock_code)
         is_jp = (not is_us) and (not is_hk) and _is_jp_market(stock_code)
         is_kr = (not is_us) and (not is_hk) and _is_kr_market(stock_code)
         is_tw = (not is_us) and (not is_hk) and _is_tw_market(stock_code)
-        market = "tr" if is_tr else "us" if is_us else "hk" if is_hk else "jp" if is_jp else "kr" if is_kr else "tw" if is_tw else "cn"
+        market = "tr" if is_tr else "de" if is_de else "us" if is_us else "hk" if is_hk else "jp" if is_jp else "kr" if is_kr else "tw" if is_tw else "cn"
         if market != "cn":
             fetchers = self._filter_daily_fetchers_for_market(fetchers, market)
         fetchers = self._filter_fetchers_by_capability(fetchers, capability="daily_data")
         total_fetchers = len(fetchers)
 
         if total_fetchers == 0:
-            market_label = "BIST hissesi" if is_tr else "美股指数" if is_us_index else "美股" if is_us else "港股" if is_hk else "台股" if is_tw else "A股"
+            market_label = "BIST hissesi" if is_tr else "Xetra hissesi" if is_de else "美股指数" if is_us_index else "美股" if is_us else "港股" if is_hk else "台股" if is_tw else "A股"
             error_summary = f"{market_label} {stock_code} 获取失败:\n暂无可用数据源"
             logger.error(f"[数据源终止] {stock_code} 获取失败: {error_summary}")
             raise DataFetchError(error_summary)
@@ -2528,8 +2536,8 @@ class DataFetcherManager:
         is_kr = (not is_us) and (not is_hk) and _is_kr_market(stock_code)
         is_tw = (not is_us) and (not is_hk) and _is_tw_market(stock_code)
 
-        if is_jp or is_kr or is_tw or is_tr:
-            market_label = "BIST hissesi" if is_tr else "日股" if is_jp else "韩股" if is_kr else "台股"
+        if is_jp or is_kr or is_tw or is_tr or is_de:
+            market_label = "BIST hissesi" if is_tr else "Xetra hissesi" if is_de else "日股" if is_jp else "韩股" if is_kr else "台股"
             quote = self._try_fetcher_quote(stock_code, "YfinanceFetcher", **target_kwargs)
             if quote is not None:
                 logger.info(f"[实时行情] {market_label} {stock_code} 成功获取 (来源: YfinanceFetcher)")
