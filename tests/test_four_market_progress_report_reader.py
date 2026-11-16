@@ -134,10 +134,14 @@ def test_api_requires_admin_and_ignores_query_path(tmp_path, monkeypatch):
         monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: True)
         monkeypatch.setattr(endpoint, "verify_session", lambda value: value == "valid")
         assert client.get("/api/v1/data/four-market/batch-progress").status_code == 401
-        client.cookies.set(endpoint.COOKIE_NAME, "bad")
-        assert client.get("/api/v1/data/four-market/batch-progress").status_code == 401
-        client.cookies.set(endpoint.COOKIE_NAME, "valid")
-        response = client.get("/api/v1/data/four-market/batch-progress?path=/etc/passwd")
+        assert client.get(
+            "/api/v1/data/four-market/batch-progress",
+            cookies={endpoint.COOKIE_NAME: "bad"},
+        ).status_code == 401
+        response = client.get(
+            "/api/v1/data/four-market/batch-progress?path=/etc/passwd",
+            cookies={endpoint.COOKIE_NAME: "valid"},
+        )
         assert response.status_code == 200
         assert response.json()["checked_symbols"] == 10
         assert "passwd" not in response.text
@@ -150,9 +154,11 @@ def test_api_missing_or_malformed_progress_statuses(tmp_path, monkeypatch):
     with _app() as client:
         monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: True)
         monkeypatch.setattr(endpoint, "verify_session", lambda _: True)
-        client.cookies.set(endpoint.COOKIE_NAME, "valid")
         monkeypatch.delenv(KEY, raising=False)
-        response = client.get("/api/v1/data/four-market/batch-progress")
+        response = client.get(
+            "/api/v1/data/four-market/batch-progress",
+            cookies={endpoint.COOKIE_NAME: "valid"},
+        )
         assert response.status_code == 404
         assert response.json()["detail"] == "Four-market progress not configured"
 
@@ -161,6 +167,9 @@ def test_api_missing_or_malformed_progress_statuses(tmp_path, monkeypatch):
         invalid = tmp_path / "forged.json"
         invalid.write_text(json.dumps(raw), encoding="utf-8")
         monkeypatch.setenv(KEY, str(invalid))
-        response = client.get("/api/v1/data/four-market/batch-progress")
+        response = client.get(
+            "/api/v1/data/four-market/batch-progress",
+            cookies={endpoint.COOKIE_NAME: "valid"},
+        )
         assert response.status_code == 422
         assert response.json()["detail"] == "Four-market progress failed validation"
