@@ -26,6 +26,11 @@ from src.services.five_market_report_reader import (
     FiveMarketReportUnavailable,
     load_configured_five_market_sample_report,
 )
+from src.services.four_market_progress_report_reader import (
+    FourMarketProgressInvalid,
+    FourMarketProgressUnavailable,
+    load_configured_four_market_batch_progress,
+)
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -211,5 +216,33 @@ def get_four_market_turkey_universe(request: Request):
             "target_symbols": 100,
             "note": "Dated index membership only, not a live Yahoo quote or broker permission.",
         },
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
+    )
+
+@router.get(
+    "/four-market/batch-progress",
+    summary="Read an operator-approved four-market 400-stock progress report",
+    description=(
+        "Admin-only, pre-generated local --status JSON. Never starts a Yahoo scan, "
+        "enumerates server directories, accepts filenames over HTTP, reads SQLite "
+        "or places brokerage orders."
+    ),
+)
+def get_four_market_batch_progress(request: Request):
+    """Fail closed if admin auth or the operator-configured JSON is absent."""
+    if not is_auth_enabled():
+        raise HTTPException(status_code=404, detail="Four-market progress unavailable")
+    session = request.cookies.get(COOKIE_NAME)
+    if not session or not verify_session(session):
+        raise HTTPException(status_code=401, detail="Admin login required")
+    try:
+        report = load_configured_four_market_batch_progress()
+    except FourMarketProgressUnavailable as exc:
+        raise HTTPException(status_code=404, detail="Four-market progress not configured") from exc
+    except FourMarketProgressInvalid as exc:
+        logger.warning("Configured four-market progress JSON failed validation")
+        raise HTTPException(status_code=422, detail="Four-market progress failed validation") from exc
+    return JSONResponse(
+        content=report,
         headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
     )
