@@ -84,6 +84,7 @@ export function SuggestionsList({
 
 const MARKET_LABELS = {
   TR: { zh: '土耳其', en: 'Türkiye', tr: 'Türkiye' },
+  DE: { zh: '德国', en: 'Germany', tr: 'Almanya' },
   CN: { zh: 'A股', en: 'A-shares', tr: 'Çin' },
   HK: { zh: '港股', en: 'Hong Kong', tr: 'Hong Kong' },
   US: { zh: '美股', en: 'US', tr: 'ABD' },
@@ -103,6 +104,7 @@ const MATCH_LABELS = {
 
 const MARKET_BADGE_CONFIG = {
   TR: { label: 'Türkiye', className: 'border-success/25 bg-success/10 text-success' },
+  DE: { label: 'Almanya', className: 'border-warning/25 bg-warning/10 text-warning' },
   CN: { label: 'Çin', className: 'border-danger/25 bg-danger/10 text-danger' },
   HK: { label: 'Hong Kong', className: 'border-success/25 bg-success/10 text-success' },
   US: { label: 'ABD', className: 'border-cyan/25 bg-cyan/10 text-cyan' },
