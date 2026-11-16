@@ -64,6 +64,16 @@ Birleştirme yeni Yahoo isteği yapmaz. Tamamlanmış partilerin gerçek tarihin
 
 Birleştirilmiş JSON, ETRE Veri Merkezi içindeki mevcut dört piyasa rapor görüntüleyicisiyle uyumludur. Rapor fiyat geçmişi testidir; canlı fiyat, yatırım tavsiyesi, aracı kurum erişimi veya gerçek işlem değildir.
 
+## 4. ETRE ekranında ilerleme raporu
+
+Terminalde üretilen `--status` raporunu, ETRE Veri Merkezi → **400 hisse · Tarama ilerlemesi** → **İlerleme JSON dosyasını seç** alanından açabilirsiniz. Bu ekran veri indirmez, `--batch-index` komutu çalıştırmaz, rapor yüklemez veya emir göndermez; yalnızca kullanıcının seçtiği yerel JSON dosyasını tarayıcıda okur.
+
+Arayüzde dört piyasa için `kontrol edildi / 100`, `başarılı / kontrol edildi`, başarısız ve bekleyen hisse sayıları; geçerli parti adedi, bozuk rapor sayısı, ilk eksik parti ve sorunlu semboller ayrı gösterilir. Parti numaraları operatör komutlarındaki **0 tabanlı** `--batch-index` değerinin aksine kullanıcıya **1 tabanlı** olarak gösterilir. Örneğin ekrandaki parti **3**, komutta `--batch-index 2` demektir.
+
+Raporu kabul etmeden önce yapı denetimi yapılır: `tr/us/de/hk` kapsamı, SHA-256 biçimi, analiz tarihi, tam **400 hedefi**, parti büyüklüğü, `verified / clean / failed / missing / invalid` dizilerinin çelişmemesi, her piyasa için gerçek doğrulanmış parti aralıklarından hesaplanan hisse sayıları, hata kayıtlarının durumu ve `checked / analyzed / pending` toplamlarının tutarlılığı. Japonya dahil edilmiş, sayaçları şişirilmiş, kopya parti numaralı veya yeri/üyeliği yanlış bildirilen JSON dosyaları geçersizdir.
+
+**Sınır:** Bu istemci kontrolü, tarama raporunun gerçekten Yahoo'dan üretildiğinin veya kaynak dosyalarının yayıncı tarafından imzalandığının kanıtı değildir. Bozuk parti, başarılıya değil **bekleyene** dahil edilir. Henüz gerçek 100'er yabancı hisse kaynak listeleri sunulmadığından, 400/400 gerçek Yahoo başarı raporu mevcut değildir.
+
 ## Güvenlik sınırları
 
 İşlem emri, Midas hesabı erişimi, SQLite veri yazımı, gizli anahtar veya LLM çağrısı yoktur. Kaynaklar yokken veya ağ istekleri yetkisizken modül işletilmemelidir. Testlerde sentetik hisse kodları kullanılır; bunlar gerçek borsa listesi veya 400 başarılı Yahoo fiyat verisi kanıtı değildir. Resmî ham dosyaların lisans şartlarına uyun.
