@@ -242,13 +242,13 @@ async def _news_hub_ai_loop() -> None:
     from src.services.news_hub_service import enrich_pending
 
     while True:
-        if os.getenv("NEWS_AI_ENABLED", "false").lower() in {"1", "true", "yes"}:
-            try:
-                await run_in_threadpool(enrich_pending, 5)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("[news] Turkish AI enrichment failed (%s)", type(exc).__name__)
+        try:
+            # Reads the user's saved News AI preference on every cycle.
+            await run_in_threadpool(enrich_pending, 5)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[news] Turkish AI enrichment failed (%s)", type(exc).__name__)
         await asyncio.sleep(60)
 
 
