@@ -78,7 +78,7 @@ export function getStockDisplayName(
   // For Hong Kong, use the real Latin name from the source before a shorter
   // fallback brand: preserve identity without changing ticker/data records.
   // Chinese-only source names are never rendered in this Latin workspace.
-  const isHongKong = /^HK\\d{5}$/i.test(ticker) || /^\\d{5}\\.HK$/i.test(ticker);
+  const isHongKong = /^HK\d{5}$/i.test(ticker) || /^\d{5}\.HK$/i.test(ticker);
   if (isHongKong && latinCompanyName(options.nameEn)) return options.nameEn!.trim();
   if (isHongKong && latinCompanyName(raw)) return raw;
   // Prefer a stable, ticker-bound brand identity over a translated
