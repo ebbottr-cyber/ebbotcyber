@@ -145,8 +145,8 @@ def convert_hkex_equities(path: Path, *, as_of: date) -> dict:
         "market": "hk",
         "as_of": as_of.isoformat(),
         "source_name": (
-            "HKEX official ListOfSecurities Equity category, lowest 100 eligible "
-            "numeric stock codes (operator-downloaded; date operator declared)"
+            "HKEX official Equity list: first 100 eligible stock codes "
+            "(operator-dated local workbook)"
         ),
         "source_url": SOURCE_URL,
         "symbols": list(symbols),
