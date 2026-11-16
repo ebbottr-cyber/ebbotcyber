@@ -2660,6 +2660,8 @@ const settingsHelpSummaryTr: Record<string, string> = {
 };
 
 const settingsHelpSpecialTitlesTr: Record<string, string> = {
+  'settings.base.SCREENING_ENABLED': 'Hisse taramayı etkinleştir',
+  'settings.agent.AGENT_SKILL_CONCURRENCY': 'Eş zamanlı strateji sayısı',
   'settings.ai_model.provider_keys': 'Model sağlayıcısı API anahtarları',
   'settings.ai_model.anspire_llm': 'Anspire model hizmeti',
   'settings.ai_model.legacy_provider_params': 'Eski sağlayıcı ayarları',
@@ -2711,9 +2713,8 @@ const settingsHelpTrTR: SettingsHelpMap = Object.fromEntries(
   }),
 );
 
-// Only explicit Chinese locale should show Chinese help text.
-// Until each Turkish help entry has its own translation, English is safer
-// than silently falling back to Chinese in the Turkish workspace.
+// Chinese details are shown only for the explicit Chinese locale.
+// Turkish uses a native concise summary; English keeps full reference help.
 function getPreferredHelpMap(locale?: string | null): SettingsHelpMap {
   if (locale?.toLowerCase().startsWith('zh')) {
     return settingsHelpZhCN;
