@@ -78,3 +78,24 @@ export function buildFourMarketScanPlan(text: string): FourMarketScanPlan {
     FOUR_ACTIVE_MARKETS.every(market => counts[market] === STOCKS_PER_MARKET);
   return { codes, counts, remaining, errors, readyForFullScan, total: codes.length };
 }
+
+
+/**
+ * Pre-fill the dated BIST100 block without changing other market codes.
+ * Repeated press replaces Türkiye's prior .IS selection, never adds a 101st.
+ * The roster must already be validated by parseDatedTurkeyRoster.
+ */
+export function replaceTurkeyRosterCodes(
+  currentText: string,
+  sourcedTurkeySymbols: readonly string[],
+): string {
+  if (sourcedTurkeySymbols.length !== 100 ||
+    new Set(sourcedTurkeySymbols).size !== 100 ||
+    sourcedTurkeySymbols.some(code => !PATTERNS.tr.test(code))) {
+    throw new Error('Expected exactly 100 BIST100 equities.');
+  }
+  const others = currentText.trim() ? currentText.trim().split(/[\s,;]+/).filter(
+    code => !/\.IS$/i.test(code),
+  ) : [];
+  return [...sourcedTurkeySymbols, ...others].join('\n');
+}
