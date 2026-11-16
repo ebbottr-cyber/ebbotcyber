@@ -44,6 +44,10 @@ export const newsApi = {
     await apiClient.post('/api/v1/news/read-all');
     window.dispatchEvent(new Event(NEWS_CHANGED_EVENT));
   },
+  async ai(enabled: boolean): Promise<void> {
+    await apiClient.put('/api/v1/news/ai', { enabled });
+    window.dispatchEvent(new Event(NEWS_CHANGED_EVENT));
+  },
   async notifications(enabled: boolean): Promise<void> {
     await apiClient.put('/api/v1/news/notifications', { enabled });
     window.dispatchEvent(new Event(NEWS_CHANGED_EVENT));
