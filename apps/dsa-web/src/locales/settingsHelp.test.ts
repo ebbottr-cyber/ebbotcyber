@@ -73,10 +73,32 @@ describe('Skill Outcome auto-weight settings help', () => {
 });
 
 
+describe('Turkish settings help localization', () => {
+  it('serves Turkish titles and descriptions without English or Chinese fallback', () => {
+    const keys = [
+      'settings.base.STOCK_LIST',
+      'settings.ai_model.LITELLM_MODEL',
+      'settings.agent.AGENT_SKILL_AUTOWEIGHT',
+      'settings.system.WEBUI_PORT',
+    ];
+    for (const key of keys) {
+      const help = getSettingsHelpContent(key, undefined, 'tr');
+      expect(help?.title).toBeTruthy();
+      expect(flattenHelp(help)).toMatch(/[çğıöşüÇĞİÖŞÜ]/);
+      expect(flattenHelp(help)).not.toMatch(/[\u3400-\u9fff]/);
+    }
+    expect(getSettingsHelpContent('settings.base.STOCK_LIST', undefined, 'tr')?.title)
+      .toBe('İzleme listesi');
+    expect(getSettingsHelpContent('settings.agent.AGENT_SKILL_AUTOWEIGHT', undefined, 'tr')?.summary)
+      .toContain('genel geri test');
+  });
+});
+
+
 describe('Turkish locale help fallback', () => {
   it('never falls back to Chinese help text for Turkish settings', () => {
     const help = getSettingsHelpContent('settings.base.STOCK_LIST', undefined, 'tr');
-    expect(help?.title).toBe("Watchlist");
+    expect(help?.title).toBe('İzleme listesi');
     expect(flattenHelp(help)).not.toMatch(/[\u3400-\u9fff]/);
   });
 
