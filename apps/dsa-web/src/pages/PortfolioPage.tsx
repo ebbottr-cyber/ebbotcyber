@@ -574,7 +574,8 @@ const PortfolioExposureList: React.FC<{
   currency: string;
   emptyLabel: string;
   positionLabel: string;
-}> = ({ title, rows, currency, emptyLabel, positionLabel }) => (
+  language: UiLanguage;
+}> = ({ title, rows, currency, emptyLabel, positionLabel, language }) => (
   <div className="rounded-xl border border-border/70 bg-surface/45 p-3">
     <h3 className="text-sm font-semibold text-foreground">{title}</h3>
     {rows.length === 0 ? (
@@ -596,7 +597,7 @@ const PortfolioExposureList: React.FC<{
               />
             </div>
             <div className="mt-1 flex justify-between gap-2 text-[11px] text-muted-text">
-              <span>{formatMoney(row.value, currency)}</span>
+              <span>{formatMoney(row.value, currency, language)}</span>
               <span>{positionLabel} {row.count}</span>
             </div>
           </div>
@@ -1647,15 +1648,15 @@ const PortfolioPage: React.FC = () => {
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalEquity}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalEquity, snapshot?.currency || 'CNY')}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalEquity, snapshot?.currency || 'CNY', language)}</p>
         </Card>
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalMarketValue}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalMarketValue, snapshot?.currency || 'CNY')}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalMarketValue, snapshot?.currency || 'CNY', language)}</p>
         </Card>
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalCash}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalCash, snapshot?.currency || 'CNY')}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalCash, snapshot?.currency || 'CNY', language)}</p>
         </Card>
         <Card variant="gradient" padding="md">
           <div className="flex items-start justify-between gap-3">
@@ -1694,7 +1695,7 @@ const PortfolioPage: React.FC = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-secondary">
               <span>{riskDashboardText.positions}: {positionCount}</span>
-              <span>{text.totalMarketValue}: {formatMoney(exposureTotal, snapshot?.currency || 'CNY')}</span>
+              <span>{text.totalMarketValue}: {formatMoney(exposureTotal, snapshot?.currency || 'CNY', language)}</span>
             </div>
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
@@ -1715,6 +1716,7 @@ const PortfolioPage: React.FC = () => {
                 {riskDashboardText.marketExposure} / {riskDashboardText.currencyExposure}
               </div>
               <PortfolioExposureList
+                language={language}
                 title={riskDashboardText.marketExposure}
                 rows={marketExposureRows}
                 currency={snapshot?.currency || 'CNY'}
@@ -1722,6 +1724,7 @@ const PortfolioPage: React.FC = () => {
                 positionLabel={riskDashboardText.positions}
               />
               <PortfolioExposureList
+                language={language}
                 title={riskDashboardText.currencyExposure}
                 rows={currencyExposureRows}
                 currency={snapshot?.currency || 'CNY'}
@@ -1793,7 +1796,7 @@ const PortfolioPage: React.FC = () => {
                           {getPositionPriceLabel(row, language)}
                         </div>
                       </td>
-                      <td className="py-2 pr-2 text-right">{formatPositionMoney(row.marketValueBase, row)}</td>
+                      <td className="py-2 pr-2 text-right">{formatPositionMoney(row.marketValueBase, row, language)}</td>
                       <td
                         className={`py-2 pr-3 text-right ${
                           hasPositionPrice(row)
@@ -1803,7 +1806,7 @@ const PortfolioPage: React.FC = () => {
                             : 'text-secondary'
                         }`}
                       >
-                        {formatPositionMoney(row.unrealizedPnlBase, row)}
+                        {formatPositionMoney(row.unrealizedPnlBase, row, language)}
                       </td>
                       <td
                         className={`py-2 pr-3 text-right ${
