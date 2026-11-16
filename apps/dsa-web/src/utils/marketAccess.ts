@@ -6,7 +6,7 @@
  * additional exchanges subject to account-specific permissions.
  *
  * Selected markets: Türkiye (BIST), USA (NYSE/Nasdaq), Germany (Xetra),
- * Hong Kong (HKEX), Japan (TSE). Midas officially lists Xetra access;
+ * and Hong Kong (HKEX). Midas officially lists Xetra access;
  * actual instrument access depends on account and broker permissions.
  *
  * IMPORTANT: This does NOT grant order permissions or make the current bot
@@ -15,7 +15,7 @@
  */
 import type { StockIndexItem } from '../types/stockIndex';
 
-export const TURKISH_BROKER_MARKETS = ['tr', 'us', 'de', 'hk', 'jp'] as const;
+export const TURKISH_BROKER_MARKETS = ['tr', 'us', 'de', 'hk'] as const;
 export type TurkishBrokerMarket = (typeof TURKISH_BROKER_MARKETS)[number];
 
 const accessibleMarketSet: ReadonlySet<string> = new Set(TURKISH_BROKER_MARKETS);
