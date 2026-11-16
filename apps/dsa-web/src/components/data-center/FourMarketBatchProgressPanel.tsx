@@ -1,5 +1,6 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fourMarketBatchProgressApi } from '../../api/fourMarketBatchProgress';
 import { Badge, Card } from '../common';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiLanguage } from '../../i18n/uiText';
@@ -28,6 +29,7 @@ const LABELS: Record<UiLanguage, {
   failedRows: string; errorType: string; batch: string; status: string;
   date: string; source: string; totalBatches: string; omitted: string;
   footer: string; market: string;
+  refreshServer: string; loadingServer: string; noServer: string; savedServer: string;
 }> = {
   tr: {
     title: '400 hisse · Tarama ilerlemesi',
@@ -60,6 +62,10 @@ const LABELS: Record<UiLanguage, {
     omitted: 'Diğer satırlar gösterilmedi; detaylar rapor dosyasında.',
     footer: 'Bu ekran yalnızca yerel raporun biçimini ve sayaç tutarlılığını doğrular. Kaynağın gerçekten Yahoo olduğu, kodların kotasyonu ve aracı kurum izinleri bağımsız olarak doğrulanmış değildir.',
     market: 'Piyasa',
+    refreshServer: 'Sunucu raporunu yenile',
+    loadingServer: 'Sunucu ilerlemesi okunuyor…',
+    noServer: 'Sunucuda yönetici tarafından onaylanmış ilerleme raporu yok veya yönetici oturumu kapalı. Yerel JSON dosyası seçebilirsiniz.',
+    savedServer: 'Sunucuda kayıtlı ilerleme raporu (salt okunur)',
   },
   en: {
     title: '400-stock · Batch progress',
@@ -92,6 +98,10 @@ const LABELS: Record<UiLanguage, {
     omitted: 'More records are in the local report file.',
     footer: 'Only the local report shape and totals are validated. Yahoo origin, true listings, and brokerage permissions have not been independently verified.',
     market: 'Market',
+    refreshServer: 'Refresh saved progress',
+    loadingServer: 'Loading saved progress…',
+    noServer: 'No operator-approved progress report is configured, or admin access is disabled. Select a local JSON file instead.',
+    savedServer: 'Saved server progress (read-only)',
   },
   zh: {
     title: '400只股票 · 批次进度',
@@ -124,6 +134,10 @@ const LABELS: Record<UiLanguage, {
     omitted: '其余记录请查看本地报告文件。',
     footer: '仅验证本地报告格式和计数。未独立验证Yahoo来源、真实上市状态或券商授权。',
     market: '市场',
+    refreshServer: '刷新服务器进度',
+    loadingServer: '正在读取进度…',
+    noServer: '服务器没有管理员批准的进度报告，或管理员访问已禁用。可使用本地JSON文件。',
+    savedServer: '服务器已存进度（只读）',
   },
 };
 
@@ -142,12 +156,51 @@ export const FourMarketBatchProgressPanel: React.FC = () => {
   const [report, setReport] = useState<FourMarketBatchProgress | null>(null);
   const [fileLabel, setFileLabel] = useState('');
   const [error, setError] = useState('');
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverMessage, setServerMessage] = useState('');
   const generation = useRef(0);
+  const selectedLocal = useRef(false);
+
+  const loadSaved = useCallback(async () => {
+    if (selectedLocal.current) return;
+    const request = ++generation.current;
+    setServerLoading(true);
+    setServerMessage('');
+    try {
+      const saved = await fourMarketBatchProgressApi.getSavedReport();
+      if (request !== generation.current || selectedLocal.current) return;
+      setReport(saved);
+      setFileLabel(t.savedServer);
+      setError('');
+    } catch {
+      if (request !== generation.current || selectedLocal.current) return;
+      setServerMessage(t.noServer);
+    } finally {
+      if (request === generation.current) setServerLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadSaved();
+    return () => { generation.current += 1; };
+  }, [loadSaved]);
+
+  const reloadSaved = () => {
+    selectedLocal.current = false;
+    generation.current += 1;
+    setReport(null);
+    setFileLabel('');
+    setError('');
+    void loadSaved();
+  };
 
   const chooseFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
+    selectedLocal.current = true;
+    setServerLoading(false);
+    setServerMessage('');
     const selected = ++generation.current;
     setReport(null);
     setFileLabel('');
@@ -177,6 +230,13 @@ export const FourMarketBatchProgressPanel: React.FC = () => {
     <Card title={t.title} subtitle={t.subtitle} variant="bordered" padding="md">
       <div className="space-y-4">
         <p className="text-sm text-secondary-text">{t.intro}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={serverLoading}
+            onClick={reloadSaved}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground disabled:opacity-40"
+          >{serverLoading ? t.loadingServer : t.refreshServer}</button>
         <label className="inline-flex cursor-pointer items-center rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground">
           {t.select}
           <input
@@ -187,8 +247,10 @@ export const FourMarketBatchProgressPanel: React.FC = () => {
             onChange={event => { void chooseFile(event); }}
           />
         </label>
+        </div>
+        {serverMessage ? <p role="status" className="text-xs text-muted-text">{serverMessage}</p> : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-        {!report && !error ? <p className="text-sm text-muted-text">{t.empty}</p> : null}
+        {!report && !error && !serverLoading ? <p className="text-sm text-muted-text">{t.empty}</p> : null}
         {report ? (
           <>
             <div className="text-xs text-muted-text">
