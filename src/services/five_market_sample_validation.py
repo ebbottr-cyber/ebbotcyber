@@ -42,11 +42,11 @@ EXTRA_PROBES: tuple[MarketProbe, ...] = (
 # Explicit, conservative equity shapes. US classes (BRK.B) remain allowed;
 # known US index aliases, e.g. SPX, are excluded separately.
 _MARKET_CODE_PATTERNS = {
-    "tr": re.compile(r"[A-Z]{4,5}\\.IS"),
-    "us": re.compile(r"[A-Z]{1,5}(?:\\.[A-Z])?"),
-    "de": re.compile(r"[A-Z][A-Z0-9]{0,7}\\.DE"),
+    "tr": re.compile(r"[A-Z]{4,5}\.IS"),
+    "us": re.compile(r"[A-Z]{1,5}(?:\.[A-Z])?"),
+    "de": re.compile(r"[A-Z][A-Z0-9]{0,7}\.DE"),
     "hk": re.compile(r"HK[0-9]{5}"),
-    "jp": re.compile(r"[0-9]{4,5}\\.T"),
+    "jp": re.compile(r"[0-9]{4,5}\.T"),
 }
 _MARKET_CURRENCIES = {
     "tr": "TRY", "us": "USD", "de": "EUR", "hk": "HKD", "jp": "JPY",
