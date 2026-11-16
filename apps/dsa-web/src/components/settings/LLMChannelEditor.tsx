@@ -767,7 +767,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 
             {manualOnlyModels.length > 0 ? (
               <p className="text-[11px] text-secondary-text">
-                Elle eklenen modeller: {manualOnlyModels.join('，')}
+                Elle eklenen modeller: {manualOnlyModels.join(', ')}
               </p>
             ) : null}
           </div>
@@ -1252,7 +1252,7 @@ function buildLlmTestHint(result: {
   const reason = typeof result.details?.reason === 'string' ? result.details.reason : '';
   const detailsModel = typeof result.details?.model === 'string' ? result.details.model : '';
   const testedModel = result.resolvedModel || detailsModel;
-  const modelHint = testedModel ? `Bu testte kullanılan model: ${testedModel}。` : '';
+  const modelHint = testedModel ? `Bu testte kullanılan model: ${testedModel}.` : '';
   const scopeInfo = 'Temel bağlantı testi yalnızca listedeki ilk modeli dener.';
   const shouldSuggestModelListChange = reason === 'model_access_denied'
     || reason === 'model_not_found'
@@ -1273,9 +1273,9 @@ function buildLlmFailureText(result: {
   const prefix = `${getLlmStageLabel(result.stage)} · ${getLlmErrorCodeLabel(result.errorCode)}`;
   const summary = result.message || 'Test başarısız';
   if (result.error && result.error !== result.message) {
-    return `${prefix}：${summary}（Özgün özet: ${result.error}）`;
+    return `${prefix}: ${summary} (Özgün özet: ${result.error})`;
   }
-  return `${prefix}：${summary}`;
+  return `${prefix}: ${summary}`;
 }
 
 function getCapabilityResultVariant(status: LLMCapabilityCheckResult['status']): 'success' | 'danger' | 'warning' {
