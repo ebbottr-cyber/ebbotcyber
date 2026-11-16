@@ -25,12 +25,18 @@ GERMANY_BASKET_PROBES: tuple[MarketProbe, ...] = (
 
 def probe_germany_xetra_basket(*, as_of: date, **kwargs) -> dict:
     """Check all three independently; never mask a failed member by averaging."""
-    return probe_six_markets(
+    report = probe_six_markets(
         as_of=as_of,
         probes=GERMANY_BASKET_PROBES,
         scope="germany_xetra_yahoo_three_equities",
         **kwargs,
     )
+    # The reused helper counts market probes. Here all three probes belong
+    # to Germany; label these counts as equities, not three distinct markets.
+    report["market"] = "de"
+    report["checked_equities"] = report.pop("checked_markets")
+    report["analyzed_equities"] = report.pop("analyzed_markets")
+    return report
 
 
 def main() -> None:
@@ -54,9 +60,9 @@ def main() -> None:
         args.output.write_text(output, encoding="utf-8")
     print(output, end="")
     expected = len(GERMANY_BASKET_PROBES)
-    if report["checked_markets"] != expected or report["analyzed_markets"] != expected:
+    if report["checked_equities"] != expected or report["analyzed_equities"] != expected:
         raise SystemExit(
-            f"Germany Xetra basket incomplete: {report['analyzed_markets']}/{expected}; "
+            f"Germany Xetra basket incomplete: {report['analyzed_equities']}/{expected}; "
             "inspect the per-symbol JSON statuses"
         )
 
