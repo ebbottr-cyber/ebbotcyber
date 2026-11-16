@@ -194,6 +194,10 @@ def news_status() -> dict:
         ).fetchall()
         return {
             "unread_count": unread, "notifications_enabled": _read_pref(db),
+            "ai_enabled": os.getenv("NEWS_AI_ENABLED", "false").lower() in {"1", "true", "yes"},
+            "translation_waiting": db.execute(
+                "SELECT COUNT(*) FROM news_articles WHERE ai_status='pending'"
+            ).fetchone()[0],
             "latest_unread": [
                 {**dict(row), "title": row["title_tr"] or "Yeni piyasa haberi"}
                 for row in latest
@@ -259,7 +263,8 @@ def enrich_pending(max_items: int = 5) -> dict:
     with _LOCK, closing(_connect()) as db:
         pending = db.execute(
             "SELECT id, market, title_original, source FROM news_articles WHERE ai_status='pending' "
-            "ORDER BY inserted_at ASC LIMIT ?", (max(1, min(max_items, 10)),)
+            "ORDER BY CASE severity WHEN 'breaking' THEN 0 WHEN 'important' THEN 1 ELSE 2 END, "
+            "inserted_at DESC LIMIT ?", (max(1, min(max_items, 10)),)
         ).fetchall()
     for item in pending:
         # The LLM request runs OUTSIDE the inbox lock so unread controls stay responsive.
