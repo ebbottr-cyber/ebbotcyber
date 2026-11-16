@@ -8,7 +8,7 @@ import { Bist100TechnicalPanel } from '../components/data-center/Bist100Technica
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
-import type { UiTextKey } from '../i18n/uiText';
+import type { UiLanguage, UiTextKey } from '../i18n/uiText';
 import { formatDateTime } from '../utils/format';
 
 type Status = DatasetQualityStatus | ProviderCapabilityStatus;
@@ -22,6 +22,49 @@ const STATUS_LABEL_KEYS: Record<Status, UiTextKey> = {
   unconfigured: 'dataCenter.status.unconfigured',
   unavailable: 'dataCenter.status.unavailable',
 };
+
+const DAILY_MARKET_ORDER = ['tr', 'us', 'cn', 'hk', 'jp', 'kr', 'tw'] as const;
+type DailyMarketCode = (typeof DAILY_MARKET_ORDER)[number];
+
+const DAILY_MARKET_LABELS: Record<DailyMarketCode, Record<UiLanguage, string>> = {
+  tr: { tr: 'Türkiye', en: 'Türkiye', zh: '土耳其' },
+  us: { tr: 'ABD', en: 'United States', zh: '美国' },
+  cn: { tr: 'Çin', en: 'China', zh: '中国大陆' },
+  hk: { tr: 'Hong Kong', en: 'Hong Kong', zh: '香港' },
+  jp: { tr: 'Japonya', en: 'Japan', zh: '日本' },
+  kr: { tr: 'Güney Kore', en: 'South Korea', zh: '韩国' },
+  tw: { tr: 'Tayvan', en: 'Taiwan', zh: '台湾' },
+};
+
+type DailyMarketCapability = {
+  market: DailyMarketCode;
+  status: Status | null;
+  source: string | null;
+};
+
+function getDailyMarketCapabilities(overview: DataCapabilityOverview | null): DailyMarketCapability[] {
+  const daily = overview?.datasets.find((item) => item.dataset === 'kline.daily');
+  const rawMarkets = daily?.coverage?.markets;
+  if (!rawMarkets || typeof rawMarkets !== 'object' || Array.isArray(rawMarkets)) return [];
+
+  const markets = rawMarkets as Record<string, unknown>;
+  return DAILY_MARKET_ORDER.map((market) => {
+    const raw = markets[market];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { market, status: null, source: null };
+    }
+    const entry = raw as Record<string, unknown>;
+    const status = typeof entry.status === 'string'
+      && Object.prototype.hasOwnProperty.call(STATUS_LABEL_KEYS, entry.status)
+      ? entry.status as Status
+      : null;
+    return {
+      market,
+      status,
+      source: typeof entry.source === 'string' && entry.source.trim() ? entry.source : null,
+    };
+  });
+}
 
 const DIAGNOSTIC_LABEL_KEYS: Record<string, UiTextKey> = {
   runtime_probe_not_performed: 'dataCenter.diagnostic.runtime_probe_not_performed',
@@ -70,7 +113,7 @@ function SummaryTile({ label, value, note }: { label: string; value: number; not
 }
 
 const DataCenterPage: React.FC = () => {
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
   const [overview, setOverview] = useState<DataCapabilityOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -113,6 +156,8 @@ const DataCenterPage: React.FC = () => {
       attention: datasets.filter((item) => item.status !== 'ok').length,
     };
   }, [overview]);
+
+  const dailyMarkets = useMemo(() => getDailyMarketCapabilities(overview), [overview]);
 
   return (
     <AppPage className="space-y-5">
@@ -162,6 +207,28 @@ const DataCenterPage: React.FC = () => {
             <SummaryTile label={t('dataCenter.healthyDatasets')} value={summary.healthy} note={`${overview.datasets.length} ${t('dataCenter.totalDatasets')}`} />
             <SummaryTile label={t('dataCenter.attentionDatasets')} value={summary.attention} note={t('dataCenter.attentionNote')} />
           </div>
+
+          {dailyMarkets.length > 0 ? (
+            <Card title={t('dataCenter.marketDailyTitle')} subtitle={t('dataCenter.marketDailyDescription')} variant="bordered" padding="md">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {dailyMarkets.map(({ market, status, source }) => (
+                  <div key={market} className="rounded-xl border border-border/70 bg-surface/60 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-foreground">{DAILY_MARKET_LABELS[market][language]}</span>
+                      {status ? (
+                        <Badge variant={statusVariant(status)}>{t(STATUS_LABEL_KEYS[status])}</Badge>
+                      ) : (
+                        <Badge variant="default">{t('dataCenter.marketNotReported')}</Badge>
+                      )}
+                    </div>
+                    <div className="mt-2 text-xs text-secondary-text">
+                      {source ? t('dataCenter.marketSource', { source }) : t('dataCenter.marketNotReported')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
 
           <Card title={t('dataCenter.providers')} subtitle={formatDateTime(overview.asOf)} variant="bordered" padding="md">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
