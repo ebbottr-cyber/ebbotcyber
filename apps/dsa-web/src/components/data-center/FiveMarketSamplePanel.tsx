@@ -1,5 +1,6 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fiveMarketSampleApi } from '../../api/fiveMarketSample';
 import { Badge, Card } from '../common';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiLanguage } from '../../i18n/uiText';
@@ -25,6 +26,7 @@ const MARKET_NAMES: Record<FocusMarket, Record<UiLanguage, string>> = {
 
 const LABELS: Record<UiLanguage, {
   title: string; subtitle: string; description: string; import: string;
+  reloadServer: string; checkingServer: string; noServerReport: string; savedServerReport: string;
   noReport: string; fileLarge: string; badFile: string;
   date: string; checked: string; analyzed: string; markets: string;
   market: string; marketStatus: string; checkedShort: string; status: string;
@@ -37,6 +39,10 @@ const LABELS: Record<UiLanguage, {
     subtitle: 'Kaydedilmiş Yahoo günlük veri raporu · Salt okunur',
     description: 'Yalnızca daha önce oluşturulan JSON raporu görüntülenir. Dosya sunucuya gönderilmez; bu ekran fiyat çekmez, analiz başlatmaz veya emir vermez.',
     import: 'JSON raporu seç',
+    reloadServer: 'Sunucu raporunu yenile',
+    checkingServer: 'Sunucu raporu kontrol ediliyor…',
+    noServerReport: 'Sunucuda doğrulanmış beş piyasa raporu yok veya yönetici erişimi kapalı. Yerel JSON raporu seçebilirsiniz.',
+    savedServerReport: 'Sunucuda kayıtlı rapor (salt okunur)',
     noReport: 'Henüz rapor seçilmedi. GitHub Actions test çıktısından veya yerel kontrol komutundan oluşturulmuş beş piyasa JSON dosyasını açabilirsiniz. Kontrol yapılmadıysa başarı varsayılmaz.',
     fileLarge: 'Rapor dosyası en fazla 2 MB olabilir.',
     badFile: 'Rapor okunamadı veya içeriği geçersiz.',
@@ -66,6 +72,10 @@ const LABELS: Record<UiLanguage, {
     subtitle: 'Saved Yahoo daily history report · Read-only',
     description: 'Displays an existing JSON report only. The file is never uploaded; this screen does not fetch prices, run analyses, or place orders.',
     import: 'Choose JSON report',
+    reloadServer: 'Refresh server report',
+    checkingServer: 'Checking server report…',
+    noServerReport: 'No validated five-market report is configured on the server, or admin access is disabled. You can select a local JSON file.',
+    savedServerReport: 'Saved server report (read-only)',
     noReport: 'No report selected. Open a five-market JSON file produced by GitHub Actions or the local validation command. No unperformed check is marked successful.',
     fileLarge: 'Report file must be no larger than 2 MB.',
     badFile: 'Report could not be read or validated.',
@@ -95,6 +105,10 @@ const LABELS: Record<UiLanguage, {
     subtitle: '已保存的 Yahoo 日线报告 · 只读',
     description: '仅显示已生成的 JSON 报告。文件不会上传；此页面不抓取行情、不启动分析，也不下单。',
     import: '选择 JSON 报告',
+    reloadServer: '刷新服务器报告',
+    checkingServer: '正在检查服务器报告…',
+    noServerReport: '服务器未配置经过验证的五市场报告，或管理员权限未开启。可以选择本地 JSON 文件。',
+    savedServerReport: '已保存服务器报告（只读）',
     noReport: '尚未选择报告。请选择 GitHub Actions 或本地检查命令生成的五市场 JSON 文件。',
     fileLarge: '报告不得超过 2 MB。',
     badFile: '报告读取或验证失败。',
@@ -176,16 +190,55 @@ export const FiveMarketSamplePanel: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverMessage, setServerMessage] = useState('');
   const [page, setPage] = useState(0);
   const generation = useRef(0);
+  const manuallySelected = useRef(false);
 
-  useEffect(() => () => { generation.current += 1; }, []);
+  const loadSavedReport = useCallback(async () => {
+    if (manuallySelected.current) return;
+    const request = ++generation.current;
+    setServerLoading(true);
+    setServerMessage('');
+    try {
+      const saved = await fiveMarketSampleApi.getSavedReport();
+      if (request !== generation.current || manuallySelected.current) return;
+      setReport(saved);
+      setSelectedFile(t.savedServerReport);
+      setPage(0);
+      setError('');
+    } catch {
+      if (request !== generation.current || manuallySelected.current) return;
+      setServerMessage(t.noServerReport);
+    } finally {
+      if (request === generation.current) setServerLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void loadSavedReport();
+    return () => { generation.current += 1; };
+  }, [loadSavedReport]);
+
+  const reloadSavedReport = () => {
+    manuallySelected.current = false;
+    generation.current += 1;
+    setReport(null);
+    setSelectedFile('');
+    setError('');
+    setPage(0);
+    void loadSavedReport();
+  };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
+    manuallySelected.current = true;
     const request = ++generation.current;
+    setServerLoading(false);
+    setServerMessage('');
     setReport(null);
     setSelectedFile('');
     setPage(0);
@@ -218,6 +271,13 @@ export const FiveMarketSamplePanel: React.FC = () => {
     <Card title={t.title} subtitle={t.subtitle} variant="bordered" padding="md">
       <div className="space-y-4">
         <p className="text-sm text-secondary-text">{t.description}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={serverLoading}
+            onClick={reloadSavedReport}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-40"
+          >{serverLoading ? t.checkingServer : t.reloadServer}</button>
         <label className="inline-flex cursor-pointer items-center rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground">
           {t.import}
           <input
@@ -228,9 +288,11 @@ export const FiveMarketSamplePanel: React.FC = () => {
             onChange={(event) => { void handleFileChange(event); }}
           />
         </label>
+        </div>
+        {serverMessage ? <p role="status" className="text-sm text-muted-text">{serverMessage}</p> : null}
         {loading ? <p role="status" className="text-sm text-muted-text">…</p> : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-        {!report && !loading && !error ? <p className="text-sm text-muted-text">{t.noReport}</p> : null}
+        {!report && !loading && !serverLoading && !error ? <p className="text-sm text-muted-text">{t.noReport}</p> : null}
 
         {report ? (
           <>
