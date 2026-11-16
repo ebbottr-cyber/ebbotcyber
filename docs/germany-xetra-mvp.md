@@ -24,7 +24,7 @@
 
 İlk kontrol `SAP.DE` ile **252 günlük OHLCV kaydı**, **EUR** ve **2026-11-13** son tamamlanan Xetra seansı üzerinden başarıyla çalıştı (2026-11-16, [GitHub Actions #43843905485](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/43843905485)). Bu yalnızca bir hisse için geçmiş fiyat ve teknik analiz doğrulamasıdır; alış/satış sinyali veya Midas işlem izni değildir.
 
-İkinci kontrol `src.services.germany_xetra_basket_smoke` ile **SAP.DE**, **SIE.DE** ve **BMW.DE** örneklerini **tek tek** kontrol eder. Her hisse için geçerli OHLCV, en az 60 gün fiyat, EUR kur etiketi, son Xetra işlem gününe kadar güncellik, doğru `de` kod yönlendirmesi ve teknik puan ayrı ayrı gereklidir. Bir hisse başarısızsa tüm kapı başarısız olur; başarılı iki hisse üçüncünün eksiğini gizleyemez. Dış servis hataları JSON'da hisse bazında bırakılır.
+İkinci kontrol `src.services.germany_xetra_basket_smoke` ile **SAP.DE**, **SIE.DE** ve **BMW.DE** örneklerini **tek tek** kontrol eder. Her hisse için geçerli OHLCV, en az 60 gün fiyat, EUR kur etiketi, son Xetra işlem gününe kadar güncellik, doğru `de` kod yönlendirmesi ve teknik puan ayrı ayrı gereklidir. Bir hisse başarısızsa tüm kapı başarısız olur; başarılı iki hisse üçüncünün eksiğini gizleyemez. Dış servis hataları JSON'da hisse bazında bırakılır. JSON raporu `market=de`, `checked_equities` ve `analyzed_equities` alanlarını kullanır; üç hisse **üç ayrı piyasa** olarak sayılmaz.
 
 GitHub'daki `germany-xetra-basket-live-yahoo` işi, temel `germany-xetra-live-yahoo` başarılı olduktan sonra çalışır; raporlar geçici Actions artifact'ı olarak saklanır. Bu işlem **yalnızca salt-okunur** bir kontrol olup SQLite'a yazmaz, API anahtarı istemez ve gerçek işlem yapmaz.
 
