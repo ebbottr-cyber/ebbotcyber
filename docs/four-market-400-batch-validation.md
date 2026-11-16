@@ -78,7 +78,7 @@ Raporu kabul etmeden önce yapı denetimi yapılır: `tr/us/de/hk` kapsamı, SHA
 
 `--status` ile oluşturulmuş, kaynak kimliği ve 400 hisse hedefi tutarlı **yerel JSON** raporu sunucunun erişebildiği uygun bir dizine yönetici yerleştirebilir. Yönetici oturum doğrulaması **etkinse**, aşağıdaki ortam değişkeni mutlak dosya yolunu işaret edecek şekilde ayarlanabilir:
 
-    $env:ETRE_FOUR_MARKET_PROGRESS_PATH = "C:\\Reports\\etre-400-progress.json"
+    $env:ETRE_FOUR_MARKET_PROGRESS_PATH = "C:\Reports\etre-400-progress.json"
 
 Buradaki yol **örnektir**. Bu değişken varsayılan olarak ayarlı değildir; sunucuya yeni dosya otomatik yüklenmez veya kendi kendine ilerleme raporu üretilmez. Ayrı `ETRE_FOUR_MARKET_REPORT_PATH` değişkeni, hisse bazındaki *başka* Yahoo örnek/analiz raporunu açar; iki yapı birbirine karıştırılmamalıdır.
 
