@@ -6,6 +6,7 @@
 
 import type { StockIndexData, StockIndexItem, StockIndexTuple } from '../types/stockIndex';
 import { INDEX_FIELD } from './stockIndexFields';
+import { GERMAN_STOCK_EXAMPLES } from './germanStockExamples';
 
 const STOCK_INDEX_LOAD_TIMEOUT_MS = 10_000;
 
@@ -49,10 +50,14 @@ export async function loadStockIndex(): Promise<IndexLoadResult> {
       ? unpackTuples(data as StockIndexTuple[])
       : data as StockIndexItem[];
 
-    // Registered index rows flow to autocomplete/search/group consumers. The
-    // per-consumer gates (popular keeps stock-only) are enforced by each
-    // consumer, not by a global filter here.
-    const visibleItems = items;
+    // Keep the provider index unchanged, but append an explicitly labelled
+    // small Xetra search reference set when those symbols are missing.
+    // This does not claim full German-market coverage or broker permissions.
+    const registered = new Set(items.map((item) => item.canonicalCode.toUpperCase()));
+    const germanExamples = GERMAN_STOCK_EXAMPLES.filter(
+      (item) => !registered.has(item.canonicalCode),
+    );
+    const visibleItems = [...items, ...germanExamples];
 
     return {
       data: visibleItems,
