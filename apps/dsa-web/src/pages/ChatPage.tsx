@@ -572,7 +572,7 @@ const ChatPage: React.FC = () => {
       const usedSkillIds = normalizeSelectedSkillIds(
         requestedSkillIds ?? selectedSkillIds,
       );
-      const usedSkillNames = usedSkillIds.length > 0 ? getSkillNames(usedSkillIds) : ['通用'];
+      const usedSkillNames = usedSkillIds.length > 0 ? getSkillNames(usedSkillIds) : ['Genel'];
       // Only report/shortcut hints accompany this request. Ordinary follow-ups
       // rely on the server's accepted state, not a replay or a client-selected fact.
       const contextForSend = overrideStockContext ?? followUpContextRef.current ?? undefined;
