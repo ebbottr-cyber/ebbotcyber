@@ -34,6 +34,16 @@ Sonraki parti için --batch-index 1; toplam 0..39 indeksleri. Bir kontrol başar
       if ($LASTEXITCODE -ne 0) { Write-Warning "Parti $_: eksik veya hatalı veri; rapor dosyasını kontrol edin." }
     }
 
+## 2a. Bir partide yalnızca başarısız hisseleri yeniden deneme
+
+Bir partide Yahoo veri erişimi kesilmişse veya hisse bazında teknik kontrol başarısızsa, baştan 10–25 hisseyi tekrar sorgulamak gerekmez. Normal `--resume` yalnızca önceden doğrulanmış raporu **değiştirmeden** okur. Bunun yerine `--retry-failed` kullanın:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.four_market_batch_validation --manifest "$env:USERPROFILE\Documents\etre-source-400-plan.json" --as-of 2026-11-16 --output-dir "$env:TEMP\etre-400-batches" --batch-index 0 --batch-size 10 --retry-failed
+
+Bu komut yalnızca mevcut partinin `analyzed` olmayan hisselerine yeniden Yahoo fiyatı ve teknik kontrol uygular; başarılı hisseleri yeniden sorgulamaz. Eski raporu `batch-001-of-040.before-retry-01.json` gibi ayrı bir **denetim yedeğinde** koruyup yeni sonuçları atomik olarak kaydeder. Aynı parti için en fazla 5 yeniden deneme mümkündür; sonrasında sorunlu semboller ve kaynak ayrıca incelenmelidir. Başarısızlık devam ederse status yine başarısız kalır, başarı uydurulmaz.
+
+`--retry-failed` ile `--resume` aynı anda kullanılamaz; eski rapor yoksa, bozulmuşsa veya kaynak kimliği/seans tarihi uyuşmuyorsa yeniden sorgulama başlamadan reddedilir. Yedekler saklanmalıdır; otomatik silinmezler. Aynı partiyi eş zamanlı iki ayrı süreçte çalıştırmayın.
+
 ## 3. Hisse bazındaki kontrol sonuçlarını birleştirin
 
     & ".\.venv\Scripts\python.exe" -m src.services.four_market_batch_validation --manifest "$env:USERPROFILE\Documents\etre-source-400-plan.json" --as-of 2026-11-16 --output-dir "$env:TEMP\etre-400-batches" --batch-size 10 --combine --report "$env:USERPROFILE\Documents\etre-400-historical-report.json"
