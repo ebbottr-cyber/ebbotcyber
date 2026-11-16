@@ -135,7 +135,9 @@ export function formatBrokerLabel(value: string, displayName?: string, language:
   const name = language === 'zh'
     ? latinName
     : isChinese ? latinAliases[value] || value : latinName;
-  if (name) return `${value} (${name})`;
+  if (name && name !== value) {
+    return language === 'zh' ? `${value}（${name}）` : `${value} (${name})`;
+  }
   if (language === 'zh') {
     const zhAliases: Record<string, string> = { huatai: '华泰', citic: '中信', cmb: '招商' };
     return zhAliases[value] ? `${value}（${zhAliases[value]}）` : value;
