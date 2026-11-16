@@ -78,6 +78,10 @@ _MARKET_ROLES = {
         "zh": "台股",
         "en": "Taiwan stock",
     },
+    "de": {
+        "zh": "德国 Xetra 股票",
+        "en": "Germany Xetra-listed stock",
+    },
     "tr": {
         "zh": "土耳其 BIST 股票",
         "en": "Türkiye BIST-listed equity",
