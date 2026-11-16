@@ -74,6 +74,18 @@ Raporu kabul etmeden önce yapı denetimi yapılır: `tr/us/de/hk` kapsamı, SHA
 
 **Sınır:** Bu istemci kontrolü, tarama raporunun gerçekten Yahoo'dan üretildiğinin veya kaynak dosyalarının yayıncı tarafından imzalandığının kanıtı değildir. Bozuk parti, başarılıya değil **bekleyene** dahil edilir. Henüz gerçek 100'er yabancı hisse kaynak listeleri sunulmadığından, 400/400 gerçek Yahoo başarı raporu mevcut değildir.
 
+## 5. ETRE'ye yönetici oturumuyla otomatik ilerleme raporu bağlama
+
+`--status` ile oluşturulmuş, kaynak kimliği ve 400 hisse hedefi tutarlı **yerel JSON** raporu sunucunun erişebildiği uygun bir dizine yönetici yerleştirebilir. Yönetici oturum doğrulaması **etkinse**, aşağıdaki ortam değişkeni mutlak dosya yolunu işaret edecek şekilde ayarlanabilir:
+
+    $env:ETRE_FOUR_MARKET_PROGRESS_PATH = "C:\\Reports\\etre-400-progress.json"
+
+Buradaki yol **örnektir**. Bu değişken varsayılan olarak ayarlı değildir; sunucuya yeni dosya otomatik yüklenmez veya kendi kendine ilerleme raporu üretilmez. Ayrı `ETRE_FOUR_MARKET_REPORT_PATH` değişkeni, hisse bazındaki *başka* Yahoo örnek/analiz raporunu açar; iki yapı birbirine karıştırılmamalıdır.
+
+Sunucunun `GET /api/v1/data/four-market/batch-progress` adresi sadece yöneticinin belirlediği mutlak, normal, 2 MB'ı aşmayan JSON dosyasını okur. **Tarayıcı/URL ile dosya yolu seçilmez**, klasör listelenmez, tarama başlatılmaz, SQLite'a yazılmaz, hesap anahtarı kullanılmaz ve emir gönderilmez. Yönetici doğrulaması kapalıysa **404**; oturum eksikse **401**; rapor yoksa **404**; rapor sahte/tutarsızsa **422** döner. Başarılı cevaplar `Cache-Control: no-store, private` ile sunulur. Sunucu ayrıca önceki tarayıcı doğrulamasını tekrar ederek her piyasanın 100 hedefini, partilerin sayısını, hataları ve kaynak kimliği biçimini kontrol eder.
+
+ETRE Veri Merkezi → **400 hisse · Tarama ilerlemesi** sayfası yönetici oturumu ve onaylı dosya varsa raporu otomatik görüntüler. Yoksa **İlerleme JSON dosyasını seç** işlevi çalışmaya devam eder; kullanıcı dosyası **sunucuya yüklenmez**. `Sunucu raporunu yenile` düğmesi yalnızca **kaydedilmiş dosyayı tekrar okur**; yeni 400 hisse fiyat taraması başlatmaz. Raporun `as_of` tarihi kullanıcı tarafından ayrıca kontrol edilmelidir; otomatik görüntüleme gerçek zamanlı bir durum akışı değildir.
+
 ## Güvenlik sınırları
 
 İşlem emri, Midas hesabı erişimi, SQLite veri yazımı, gizli anahtar veya LLM çağrısı yoktur. Kaynaklar yokken veya ağ istekleri yetkisizken modül işletilmemelidir. Testlerde sentetik hisse kodları kullanılır; bunlar gerçek borsa listesi veya 400 başarılı Yahoo fiyat verisi kanıtı değildir. Resmî ham dosyaların lisans şartlarına uyun.
