@@ -147,8 +147,8 @@ def get_bist100_technical_ranking(request: Request):
     )
 
 @router.get(
-    "/five-market/samples",
-    summary="Read an operator-configured five-market historical sample report",
+    "/four-market/samples",
+    summary="Read an operator-configured four-market historical sample report",
     description=(
         "Admin-only, pre-generated Yahoo sample report. Never scans markets, "
         "reads the user's SQLite database, fetches prices, or places orders."
@@ -157,17 +157,17 @@ def get_bist100_technical_ranking(request: Request):
 def get_five_market_sample_report(request: Request):
     """Server file path comes only from the operator environment, never HTTP."""
     if not is_auth_enabled():
-        raise HTTPException(status_code=404, detail="Five-market report unavailable")
+        raise HTTPException(status_code=404, detail="Four-market report unavailable")
     session = request.cookies.get(COOKIE_NAME)
     if not session or not verify_session(session):
         raise HTTPException(status_code=401, detail="Admin login required")
     try:
         report = load_configured_five_market_sample_report()
     except FiveMarketReportUnavailable as exc:
-        raise HTTPException(status_code=404, detail="Five-market report not configured") from exc
+        raise HTTPException(status_code=404, detail="Four-market report not configured") from exc
     except FiveMarketReportInvalid as exc:
-        logger.warning("Configured five-market sample report failed validation")
-        raise HTTPException(status_code=422, detail="Five-market report failed validation") from exc
+        logger.warning("Configured four-market sample report failed validation")
+        raise HTTPException(status_code=422, detail="Four-market report failed validation") from exc
     return JSONResponse(
         content=report,
         headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
