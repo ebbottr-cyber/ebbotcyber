@@ -271,3 +271,114 @@ def test_source_provenance_change_invalidates_old_resume(tmp_path):
         run_batch(other, as_of=AS_OF, batch_index=0, batch_size=10,
                   output_dir=out, resume=True, delay_seconds=0, **args)
     assert len(calls) == 10
+
+
+def test_retry_failed_only_rechecks_unsuccessful_stock_and_preserves_audit(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    first = manifest["symbols"][0]
+    args_fail, original_calls, _ = _helpers(failed=first)
+    directory = tmp_path / "batches"
+    original = run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                         output_dir=directory, delay_seconds=0, **args_fail)
+    assert original["analyzed_symbols"] == 9
+    untouched = original["results"][1:]
+    old_path = directory / "batch-001-of-040.json"
+
+    args_ok, new_calls, _ = _helpers()
+    retry = run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                      output_dir=directory, retry_failed=True,
+                      delay_seconds=0, **args_ok)
+    assert new_calls == [build_custom_probes((first,))[0].yahoo]
+    assert len(original_calls) == 10
+    assert retry["retried_symbols"] == 1
+    assert retry["retry_attempts"] == 1
+    assert retry["checked_symbols"] == retry["analyzed_symbols"] == 10
+    assert retry["results"][1:] == untouched
+
+    backup = directory / "batch-001-of-040.before-retry-01.json"
+    assert backup.is_file()
+    before = json.loads(backup.read_text())
+    after = json.loads(old_path.read_text())
+    assert before["results"][0]["status"] == "fetch_error"
+    assert after["results"][0]["status"] == "analyzed"
+    assert after["_retry_attempts"] == 1
+    assert after["_batch"] == before["_batch"]
+    assert combine_batches(manifest, as_of=AS_OF, output_dir=directory,
+                           batch_size=10)["analyzed_symbols"] == 10
+
+    # Already green: an explicit retry invokes no network calls and makes no backup.
+    empty_calls: list[str] = []
+    args_none, _, _ = _helpers()
+    args_none["fetch_history"] = lambda symbol, *_: empty_calls.append(symbol)
+    done = run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                     output_dir=directory, retry_failed=True, delay_seconds=0, **args_none)
+    assert done["retried_symbols"] == 0
+    assert empty_calls == []
+    assert not (directory / "batch-001-of-040.before-retry-02.json").exists()
+
+
+def test_retry_of_failed_provider_remains_failed_and_retains_original_evidence(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    first = manifest["symbols"][0]
+    fail_args, calls, _ = _helpers(failed=first)
+    directory = tmp_path / "batches"
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, delay_seconds=0, **fail_args)
+    retry = run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                      output_dir=directory, retry_failed=True,
+                      delay_seconds=0, **fail_args)
+    assert retry["analyzed_symbols"] == 9
+    assert retry["results"][0]["status"] == "fetch_error"
+    assert retry["retry_attempts"] == 1
+    assert len(calls) == 11
+    assert (directory / "batch-001-of-040.before-retry-01.json").exists()
+
+
+def test_retry_requires_existing_valid_batch_and_not_resume_simultaneously(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    args, calls, _ = _helpers()
+    directory = tmp_path / "batches"
+    with pytest.raises(FileNotFoundError, match="original batch"):
+        run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                  output_dir=directory, retry_failed=True, delay_seconds=0, **args)
+    with pytest.raises(ValueError, match="not both"):
+        run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                  output_dir=directory, resume=True, retry_failed=True,
+                  delay_seconds=0, **args)
+    assert calls == []
+
+    failed = manifest["symbols"][0]
+    failed_args, _, _ = _helpers(failed=failed)
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, delay_seconds=0, **failed_args)
+    path = directory / "batch-001-of-040.json"
+    raw = json.loads(path.read_text())
+    raw["checked_symbols"] = 50
+    path.write_text(json.dumps(raw))
+    with pytest.raises(ValueError, match="integrity"):
+        run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                  output_dir=directory, retry_failed=True, delay_seconds=0, **args)
+    assert calls == []
+    assert not list(directory.glob("*.before-retry-*.json"))
+
+
+def test_retry_limit_prevents_endless_provider_requests(tmp_path):
+    manifest = load_source_dated_manifest(_file(tmp_path), as_of=AS_OF)
+    failed = manifest["symbols"][0]
+    args, calls, _ = _helpers(failed=failed)
+    directory = tmp_path / "batches"
+    run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+              output_dir=directory, delay_seconds=0, **args)
+    for i in range(5):
+        retry = run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                          output_dir=directory, retry_failed=True,
+                          delay_seconds=0, **args)
+        assert retry["retry_attempts"] == i + 1
+        assert retry["analyzed_symbols"] == 9
+    assert len(calls) == 15
+    with pytest.raises(ValueError, match="Retry limit"):
+        run_batch(manifest, as_of=AS_OF, batch_index=0, batch_size=10,
+                  output_dir=directory, retry_failed=True,
+                  delay_seconds=0, **args)
+    assert len(calls) == 15
+    assert len(list(directory.glob("batch-001-of-040.before-retry-*.json"))) == 5
