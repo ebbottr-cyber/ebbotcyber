@@ -45,6 +45,12 @@ export interface StockSuggestion {
   displayCode: string;
   /** Chinese name */
   nameZh: string;
+  /** Optional Latin company identity, if supplied by the index. */
+  nameEn?: string;
+  /** Existing full romanized Chinese name, when available. */
+  pinyinFull?: string;
+  /** Source-provided alternate names. */
+  aliases?: string[];
   /** Market */
   market: Market;
   /** Match type */
