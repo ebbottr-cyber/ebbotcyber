@@ -9,6 +9,7 @@ from src.services.five_market_sample_validation import (
     CORE_PROBES,
     EXTRA_PROBES,
     FOCUS_MARKETS,
+    build_custom_probes,
     validate_five_market_samples,
 )
 
@@ -136,3 +137,62 @@ def test_live_adapter_symbol_contracts_for_sampled_equities():
     for spec in CORE_PROBES + EXTRA_PROBES:
         assert get_market_for_stock(spec.code) == spec.market
         assert adapter._convert_stock_code(spec.code) == spec.yahoo
+
+
+def test_custom_symbols_accept_only_explicit_five_market_equities():
+    symbols = (" THYAO.IS ", "aapl", "sap.de", "HK00700", "7203.t")
+    probes = build_custom_probes(symbols)
+    assert [(p.market, p.code, p.yahoo, p.currency) for p in probes] == [
+        ("tr", "THYAO.IS", "THYAO.IS", "TRY"),
+        ("us", "AAPL", "AAPL", "USD"),
+        ("de", "SAP.DE", "SAP.DE", "EUR"),
+        ("hk", "HK00700", "0700.HK", "HKD"),
+        ("jp", "7203.T", "7203.T", "JPY"),
+    ]
+
+
+@pytest.mark.parametrize("symbols", [
+    (),
+    ("AAPL", "aapl"),
+    ("",),
+    ("600519.SH",),
+    ("005930.KS",),
+    ("2330.TW",),
+    ("SPX",),
+    ("XU100.IS",),
+    ("1234.DE",),
+    ("HK00ABC",),
+    ("7203",),
+    ("BAD-TICKER",),
+    tuple(["AAPL"] * 51),
+])
+def test_custom_symbols_reject_unsupported_ambiguous_or_duplicate_request(symbols):
+    with pytest.raises(ValueError):
+        build_custom_probes(symbols)
+
+
+def test_custom_validation_reports_only_one_requested_market_without_false_green():
+    report = validate_five_market_samples(
+        as_of=AS_OF,
+        symbols=("AAPL",),
+        fetch_history=lambda symbol, *_: _ohlcv(),
+        fetch_currency=lambda symbol: "USD",
+        sessions_for_market=lambda market, *_: pd.DatetimeIndex([LAST]),
+        analyzer=lambda frame, symbol: type("Result", (), {"signal_score": 62})(),
+    )
+    assert report["scope"] == "etre_five_market_custom_historical_symbols"
+    assert report["markets_checked"] == 1
+    assert report["market_scope"] == ["tr", "us", "de", "hk", "jp"]
+    assert report["analyzed_symbols"] == 1
+    assert report["by_market"]["us"]["sample_status"] == "samples_passed"
+    for market in ("tr", "de", "hk", "jp"):
+        assert report["by_market"][market]["sample_status"] == "not_requested"
+        assert report["by_market"][market]["checked_symbols"] == 0
+
+
+def test_custom_symbols_do_not_infer_xetra_from_us_adr_ticker():
+    probes = build_custom_probes(("SAP", "SAP.DE"))
+    assert [(p.code, p.market) for p in probes] == [
+        ("SAP", "us"),
+        ("SAP.DE", "de"),
+    ]
