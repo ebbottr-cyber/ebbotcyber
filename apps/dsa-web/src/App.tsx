@@ -30,6 +30,7 @@ const AlertsPage = lazy(() => import('./pages/AlertsPage'));
 const TokenUsagePage = lazy(() => import('./pages/TokenUsagePage'));
 const StockScreeningPage = lazy(() => import('./pages/StockScreeningPage'));
 const DataCenterPage = lazy(() => import('./pages/DataCenterPage'));
+const NewsPage = lazy(() => import('./pages/NewsPage'));
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -96,6 +97,7 @@ const routeChildren = [
   { path: '/data', element: <DataCenterPage /> },
   { path: '/backtest', element: <BacktestPage /> },
   { path: '/alerts', element: <AlertsPage /> },
+  { path: '/news', element: <NewsPage /> },
   { path: '/usage', element: <TokenUsagePage /> },
   { path: '/settings', element: <SettingsPage /> },
   { path: '*', element: <NotFoundPage /> },
