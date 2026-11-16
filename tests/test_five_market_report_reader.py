@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Offline checks for an authenticated, pre-generated five-market JSON endpoint."""
+"""Offline checks for an authenticated, pre-generated four-market JSON endpoint."""
 from copy import deepcopy
 from datetime import date
 import json
@@ -43,18 +43,22 @@ def _report() -> dict:
     )
 
 
-def test_saved_sample_report_matches_real_five_market_producer(tmp_path, monkeypatch):
+def test_saved_sample_report_matches_real_four_market_producer(tmp_path, monkeypatch):
     raw = _report()
     path = tmp_path / "five.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
-    monkeypatch.setenv("ETRE_FIVE_MARKET_REPORT_PATH", str(path))
+    monkeypatch.setenv("ETRE_FOUR_MARKET_REPORT_PATH", str(path))
     loaded = load_configured_five_market_sample_report()
-    assert loaded["checked_symbols"] == 5
-    assert loaded["analyzed_symbols"] == 5
-    assert loaded["markets_checked"] == 5
+    assert loaded["checked_symbols"] == 4
+    assert loaded["analyzed_symbols"] == 4
+    assert loaded["markets_checked"] == 4
     assert loaded["by_market"]["de"]["sample_status"] == "samples_passed"
     assert [x["code"] for x in loaded["results"]] == [p.code for p in CORE_PROBES]
     assert "note" not in loaded  # sanitize ancillary arbitrary text
+    assert loaded["target_symbols_total"] == 400
+    assert loaded["target_symbols_per_market"] == 100
+    assert loaded["remaining_to_target"] == 396
+    assert all(x["remaining_to_target"] == 99 for x in loaded["by_market"].values())
 
 
 @pytest.mark.parametrize("corrupt", [
@@ -62,7 +66,7 @@ def test_saved_sample_report_matches_real_five_market_producer(tmp_path, monkeyp
     lambda r: r.update(markets_checked=3),
     lambda r: r.update(source="unverified"),
     lambda r: r.update(scope="germany_xetra_yahoo_three_equities"),
-    lambda r: r.update(market_scope=["tr", "us", "de", "hk", "cn"]),
+    lambda r: r.update(market_scope=["tr", "us", "de", "cn"]),
     lambda r: r["results"][2].update(market="cn"),
     lambda r: r["results"][2].update(code="1234.DE"),
     lambda r: r["results"][1].update(code="THYAO.IS"),
@@ -85,15 +89,15 @@ def test_untrustworthy_saved_report_rejected(corrupt):
 
 
 def test_missing_relative_and_oversized_reports_not_served(monkeypatch, tmp_path):
-    monkeypatch.delenv("ETRE_FIVE_MARKET_REPORT_PATH", raising=False)
+    monkeypatch.delenv("ETRE_FOUR_MARKET_REPORT_PATH", raising=False)
     with pytest.raises(FiveMarketReportUnavailable):
         load_configured_five_market_sample_report()
-    monkeypatch.setenv("ETRE_FIVE_MARKET_REPORT_PATH", "reports/five.json")
+    monkeypatch.setenv("ETRE_FOUR_MARKET_REPORT_PATH", "reports/five.json")
     with pytest.raises(FiveMarketReportUnavailable):
         load_configured_five_market_sample_report()
     large = tmp_path / "big.json"
     large.write_bytes(b"x" * 2_000_001)
-    monkeypatch.setenv("ETRE_FIVE_MARKET_REPORT_PATH", str(large))
+    monkeypatch.setenv("ETRE_FOUR_MARKET_REPORT_PATH", str(large))
     with pytest.raises(FiveMarketReportUnavailable):
         load_configured_five_market_sample_report()
 
@@ -102,27 +106,27 @@ def test_admin_endpoint_fail_closed_and_no_http_path_selection(monkeypatch, tmp_
     report = _report()
     file = tmp_path / "approved.json"
     file.write_text(json.dumps(report), encoding="utf-8")
-    monkeypatch.setenv("ETRE_FIVE_MARKET_REPORT_PATH", str(file))
+    monkeypatch.setenv("ETRE_FOUR_MARKET_REPORT_PATH", str(file))
     app = FastAPI()
     app.include_router(endpoint.router, prefix="/api/v1/data")
     with TestClient(app) as client:
         monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: False)
-        assert client.get("/api/v1/data/five-market/samples").status_code == 404
+        assert client.get("/api/v1/data/four-market/samples").status_code == 404
 
         monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: True)
         monkeypatch.setattr(endpoint, "verify_session", lambda value: value == "valid-session")
-        assert client.get("/api/v1/data/five-market/samples").status_code == 401
+        assert client.get("/api/v1/data/four-market/samples").status_code == 401
         assert client.get(
-            "/api/v1/data/five-market/samples",
+            "/api/v1/data/four-market/samples",
             cookies={endpoint.COOKIE_NAME: "invalid"},
         ).status_code == 401
 
         res = client.get(
-            "/api/v1/data/five-market/samples?path=/etc/passwd",
+            "/api/v1/data/four-market/samples?path=/etc/passwd",
             cookies={endpoint.COOKIE_NAME: "valid-session"},
         )
         assert res.status_code == 200
-        assert res.json()["analyzed_symbols"] == 5
+        assert res.json()["analyzed_symbols"] == 4
         assert res.headers["cache-control"] == "no-store, private"
         assert res.headers["x-content-type-options"] == "nosniff"
         assert "passwd" not in res.text
@@ -134,20 +138,85 @@ def test_admin_endpoint_rejects_tampered_or_missing_report(monkeypatch, tmp_path
     monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: True)
     monkeypatch.setattr(endpoint, "verify_session", lambda session: True)
     with TestClient(app) as client:
-        monkeypatch.delenv("ETRE_FIVE_MARKET_REPORT_PATH", raising=False)
-        response = client.get("/api/v1/data/five-market/samples", cookies={
+        monkeypatch.delenv("ETRE_FOUR_MARKET_REPORT_PATH", raising=False)
+        response = client.get("/api/v1/data/four-market/samples", cookies={
             endpoint.COOKIE_NAME: "session",
         })
         assert response.status_code == 404
-        assert response.json()["detail"] == "Five-market report not configured"
+        assert response.json()["detail"] == "Four-market report not configured"
 
         bad = _report()
         bad["results"][0]["technical_score"] = 200
         path = tmp_path / "forged.json"
         path.write_text(json.dumps(bad), encoding="utf-8")
-        monkeypatch.setenv("ETRE_FIVE_MARKET_REPORT_PATH", str(path))
-        response = client.get("/api/v1/data/five-market/samples", cookies={
+        monkeypatch.setenv("ETRE_FOUR_MARKET_REPORT_PATH", str(path))
+        response = client.get("/api/v1/data/four-market/samples", cookies={
             endpoint.COOKIE_NAME: "session",
         })
         assert response.status_code == 422
-        assert response.json()["detail"] == "Five-market report failed validation"
+        assert response.json()["detail"] == "Four-market report failed validation"
+
+
+def _synthetic_full_400_report():
+    """A contract fixture with structurally plausible codes, not real listings."""
+    from src.services.five_market_report_reader import _MARKETS
+    from collections import Counter
+
+    report = _report()
+    report["scope"] = "etre_four_market_custom_historical_symbols"
+    originals = {row["market"]: row for row in report["results"]}
+    codes = {
+        "tr": [f"T{chr(65 + n // 26)}{chr(65 + n % 26)}A.IS" for n in range(100)],
+        "us": [f"U{chr(65 + n // 26)}{chr(65 + n % 26)}" for n in range(100)],
+        "de": [f"D{n:04d}.DE" for n in range(100)],
+        "hk": [f"HK{n + 1:05d}" for n in range(100)],
+    }
+    rows = []
+    for market in _MARKETS:
+        for code in codes[market]:
+            entry = deepcopy(originals[market])
+            entry["code"] = code
+            entry["yahoo_symbol"] = (
+                f"{int(code[2:]):04d}.HK" if market == "hk" else code
+            )
+            rows.append(entry)
+    report["results"] = rows
+    report["checked_symbols"] = report["analyzed_symbols"] = 400
+    report["markets_checked"] = 4
+    report["target_symbols_per_market"] = 100
+    report["target_symbols_total"] = 400
+    report["remaining_to_target"] = 0
+    report["by_market"] = {market: {
+        "checked_symbols": 100,
+        "analyzed_symbols": 100,
+        "target_symbols": 100,
+        "remaining_to_target": 0,
+        "sample_status": "samples_passed",
+        "failure_status_counts": {},
+    } for market in _MARKETS}
+    return report
+
+
+def test_reader_accepts_400_with_100_per_market_and_rejects_401():
+    report = _synthetic_full_400_report()
+    parsed = validate_five_market_sample_report(report)
+    assert parsed["checked_symbols"] == parsed["analyzed_symbols"] == 400
+    assert parsed["target_symbols_total"] == 400
+    assert parsed["remaining_to_target"] == 0
+    report["results"].append(deepcopy(report["results"][0]))
+    with pytest.raises(FiveMarketReportInvalid):
+        validate_five_market_sample_report(report)
+
+
+def test_reader_rejects_old_five_market_japan_scope():
+    report = _report()
+    report["market_scope"] = ["tr", "us", "de", "hk", "jp"]
+    with pytest.raises(FiveMarketReportInvalid):
+        validate_five_market_sample_report(report)
+
+
+def test_reader_rejects_false_target_completion():
+    report = _report()
+    report["remaining_to_target"] = 0
+    with pytest.raises(FiveMarketReportInvalid):
+        validate_five_market_sample_report(report)
