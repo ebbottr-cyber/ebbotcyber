@@ -4,9 +4,10 @@ import { Check, ChevronDown, Globe2, RotateCcw } from 'lucide-react';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import { cn } from '../../utils/cn';
 import {
-  MARKET_REVIEW_REGION_ORDER,
   type MarketReviewRegion,
 } from '../../utils/marketReviewRegion';
+
+const VISIBLE_MARKET_REVIEW_REGIONS: readonly MarketReviewRegion[] = ['hk', 'us', 'jp'];
 
 type MarketReviewRegionSelectorProps = {
   value?: readonly MarketReviewRegion[];
@@ -90,7 +91,7 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
     } else {
       next.add(region);
     }
-    onChange(MARKET_REVIEW_REGION_ORDER.filter((item) => next.has(item)));
+    onChange(VISIBLE_MARKET_REVIEW_REGIONS.filter((item) => next.has(item)));
   };
 
   return (
@@ -141,8 +142,8 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
               ref={defaultButtonRef}
               type="button"
               disabled={disabled}
-              aria-pressed={value === undefined}
-              onClick={() => onChange(undefined)}
+              aria-pressed={displayedRegions.length === VISIBLE_MARKET_REVIEW_REGIONS.length}
+              onClick={() => onChange([...VISIBLE_MARKET_REVIEW_REGIONS])}
               className={cn(
                 'flex min-h-10 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
                 value === undefined ? 'bg-primary/12 text-primary' : 'text-secondary-text hover:bg-surface-hover hover:text-foreground',
@@ -161,13 +162,13 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
             <button
               type="button"
               disabled={disabled}
-              aria-pressed={value !== undefined && displayedRegions.length === MARKET_REVIEW_REGION_ORDER.length}
-              onClick={() => onChange([...MARKET_REVIEW_REGION_ORDER])}
+              aria-pressed={value !== undefined && displayedRegions.length === VISIBLE_MARKET_REVIEW_REGIONS.length}
+              onClick={() => onChange([...VISIBLE_MARKET_REVIEW_REGIONS])}
               className="flex min-h-10 w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm text-secondary-text transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
             >
               <span className="flex h-4 w-4 items-center justify-center rounded border border-primary/60 bg-primary/10">
                 <Check
-                  className={cn('h-3 w-3 text-primary', displayedRegions.length === MARKET_REVIEW_REGION_ORDER.length ? 'opacity-100' : 'opacity-0')}
+                  className={cn('h-3 w-3 text-primary', displayedRegions.length === VISIBLE_MARKET_REVIEW_REGIONS.length ? 'opacity-100' : 'opacity-0')}
                   aria-hidden="true"
                 />
               </span>
@@ -175,7 +176,7 @@ export const MarketReviewRegionSelector: React.FC<MarketReviewRegionSelectorProp
             </button>
 
             <div className="grid grid-cols-1 gap-1 pt-1 sm:grid-cols-2">
-              {MARKET_REVIEW_REGION_ORDER.map((region) => {
+              {VISIBLE_MARKET_REVIEW_REGIONS.map((region) => {
                 const checked = displayedRegions.includes(region);
                 return (
                   <label
