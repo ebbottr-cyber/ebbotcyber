@@ -42,7 +42,7 @@ import {
 import { formatParsedApiError, getParsedApiError, toApiErrorMessage, type ParsedApiError } from '../api/error';
 import { AppPage, Button, InlineAlert, Select } from '../components/common';
 
-const MARKETS = [{ id: 'cn', label: 'A  hisse' }];
+const MARKETS = [{ id: 'cn', label: 'Çin A hisseleri' }];
 const SCREEN_TASK_STORAGE_KEY = 'dsa.screening.activeScreenTask.v1';
 const SCREEN_TASK_POLL_INTERVAL_MS = 2000;
 const CUSTOM_STRATEGY_OPTION_VALUE = '__custom_strategy__';
@@ -59,7 +59,7 @@ const STRATEGY_CATEGORY_LABELS: Record<string, string> = {
 const formatStrategyCategory = (value?: string) => {
   const normalized = value?.trim();
   if (!normalized) {
-    return '自定义';
+    return 'Özel';
   }
   return STRATEGY_CATEGORY_LABELS[normalized.toLowerCase()] || normalized;
 };
@@ -89,13 +89,13 @@ const formatRunCreatedAt = (value: string | null | undefined) => {
   });
 };
 
-// 历史条目里展示筛选条件：Strateji ID → Orta文名（找不到时回退到原始 ID）
+// 历史条目里展示筛选条件：策略 ID → 中文名（找不到时回退到原始 ID）
 const formatHistoryStrategyName = (strategyId: string, strategies: ScreeningStrategy[]): string => {
   const matched = strategies.find((item) => item.id === strategyId);
   return matched?.name || matched?.title || strategyId || 'Bilinmeyen strateji';
 };
 
-// 历史条目里展示筛选条件：Piyasa ID → Orta文标签
+// 历史条目里展示筛选条件：市场 ID → 中文标签
 const formatHistoryMarketLabel = (marketId: string | null | undefined): string =>
   MARKETS.find((item) => item.id === marketId)?.label || marketId || 'cn';
 
@@ -174,10 +174,10 @@ const formatAmount = (value: unknown) => {
   }
   const amount = Number(value);
   if (Math.abs(amount) >= 100_000_000) {
-    return `${(amount / 100_000_000).toFixed(2)} 亿`;
+    return `${(amount / 1_000_000).toFixed(2)} milyon`;
   }
   if (Math.abs(amount) >= 10_000) {
-    return `${(amount / 10_000).toFixed(2)} 万`;
+    return `${(amount / 1_000).toFixed(2)} bin`;
   }
   return amount.toFixed(2);
 };
@@ -229,7 +229,7 @@ const HOTSPOT_ROLE_LABELS: Record<string, string> = {
 const HOTSPOT_MISSING_FIELD_LABELS: Record<string, string> = {
   canonical_topic: 'Standart tema',
   hotspot_constituents: 'İlgili hisseler listesi',
-  leader_stocks: '核心 hisse',
+  leader_stocks: 'Öne çıkan hisseler',
   live_stocks: 'Tema hisselerinin canlı fiyatları',
   route: 'Gelişim rotası',
   source: 'Veri kaynağı',
@@ -260,7 +260,7 @@ const getHotspotQualityLabel = (value: unknown) => {
 
 const getCandidateReason = (item: ScreeningCandidate) => {
   if (item.llmThesis || item.llmScore != null) {
-    return item.reason || item.llmThesis || 'LLM 已完成相对排序。';
+    return item.reason || item.llmThesis || 'Modelin göreli sıralaması tamamlandı.';
   }
   if (item.reason) {
     return item.reason;
@@ -295,7 +295,7 @@ const getSelectionExplanations = (item: ScreeningCandidate): ScreeningExplanatio
   ));
   return summaries.map((summary) => ({
     code: 'legacy_summary',
-    text: `历史Özet（来源未记录）：${summary}`,
+    text: `Geçmiş özet (kaynak belirtilmemiş): ${summary}`,
     source: 'legacy_result',
     quality: 'unknown',
   }));
@@ -308,7 +308,7 @@ const ExplanationItems = ({ items, emptyText }: { items?: ScreeningExplanationIt
         <li key={`${item.code}-${item.source}-${index}`} className="rounded-lg border border-border/50 bg-background/30 p-2">
           <p className="text-sm leading-6 text-foreground">{item.text}</p>
           <p className="mt-1 text-xs text-secondary-text">
-            来源：{item.source || 'unknown'} · Kalite：{item.quality || 'unknown'}
+            Kaynak: {item.source || 'unknown'} · Kalite: {item.quality || 'unknown'}
           </p>
         </li>
       ))}
@@ -384,9 +384,9 @@ const normalizeScreenMessageKey = (value: string) => {
 
 const formatEnrichmentSummary = (value: string) =>
   value
-    .replace(/DSA行情\s*[:：]\s*/gi, '行情：')
-    .replace(/DSA新闻\s*[:：]\s*/gi, '新闻：')
-    .replace(/DSA事件\s*[:：]\s*/gi, '事件：');
+    .replace(/DSA行情\s*[:：]\s*/gi, 'Piyasa verisi: ')
+    .replace(/DSA新闻\s*[:：]\s*/gi, 'Haberler: ')
+    .replace(/DSA事件\s*[:：]\s*/gi, 'Olaylar: ');
 
 const formatScreenMessage = (value: string) => {
   if (/^DSA provider context applied \d+ of \d+ candidates/i.test(value)) {
@@ -601,7 +601,7 @@ const formatHotspotRouteDescription = (value: string) => {
 };
 
 const getHotspotMissingFieldLabels = (values: string[] | undefined) => {
-  const labels = (values || []).map((value) => HOTSPOT_MISSING_FIELD_LABELS[String(value).trim().toLowerCase()] || '部分明细');
+  const labels = (values || []).map((value) => HOTSPOT_MISSING_FIELD_LABELS[String(value).trim().toLowerCase()] || 'Bazı ayrıntılar');
   return [...new Set(labels)];
 };
 
@@ -649,10 +649,10 @@ const hasHotspotDetailDegradation = (detail: ScreeningHotspotDetail) => {
 const getHotspotFallbackLabel = (detail: ScreeningHotspotDetail) => {
   if (detail.stale || detail.cacheUsed) {
     return detail.staleAgeHours != null
-      ? `Önbellek回退 ${formatNumber(detail.staleAgeHours, 1)}h`
-      : 'Önbellek回退';
+      ? `Önbellekten gelen veri (${formatNumber(detail.staleAgeHours, 1)} saat eski)`
+      : 'Önbellek verisi';
   }
-  return '备用数据源';
+  return 'Yedek veri kaynağı';
 };
 
 const getHotspotSummaryText = (detail: ScreeningHotspotDetail, hotspot?: ScreeningHotspot) => {
@@ -873,9 +873,9 @@ const StockScreeningPage: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const [restoreResolved, setRestoreResolved] = useState(() => !restoredTask?.runId);
-  // 标记当前 strategy 是否来自历史 run（Yenile自动恢复或手动历史Seç）的上下文同步。
+  // 标记当前 strategy 是否来自历史 run（刷新自动恢复或手动历史选择）的上下文同步。
   // 为 true 时 loadStrategies 跳过“不在列表则回退第一项”的归一化，
-  // 防止迟到的 /strategies 响应把历史上下文改写回默认Strateji。
+  // 防止迟到的 /strategies 响应把历史上下文改写回默认策略。
   const historyContextStrategyRef = useRef(false);
   const [loadingStrategies, setLoadingStrategies] = useState(false);
   const [error, setError] = useState('');
@@ -936,8 +936,8 @@ const StockScreeningPage: React.FC = () => {
     const requestId = historyRunRequestIdRef.current + 1;
     historyRunRequestIdRef.current = requestId;
     const isCurrentRequest = () => historyRunRequestIdRef.current === requestId;
-    // 与运行Orta的Hisse tarama任务互斥：手动SeçGeçmiş kayıtlar后，暂停/取消后台任务轮询，
-    // 避免任务完成后把当前任务的候选结果回写到历史上下文Orta。
+    // 与运行中的选股任务互斥：手动选择历史记录后，暂停/取消后台任务轮询，
+    // 避免任务完成后把当前任务的候选结果回写到历史上下文中。
     setActiveTaskId(null);
     setHistoryError('');
     setLoading(true);
@@ -949,10 +949,10 @@ const StockScreeningPage: React.FC = () => {
       if (detail?.result) {
         applyScreenResult(detail.result);
         historyContextStrategyRef.current = true;
-        // 同步持久化恢复指针：Yenile后应恢复用户刚选Orta的历史 run，
-        // 而不是停留在更早的 task/run。历史Ayrıntı不携带 taskId，以 runId
-        // 作为占位——正常路径Yenile走 getRun(runId) 恢复、不会触发轮询；
-        // 若该 run 恢复失败，占位轮询会命Orta不可恢复错误并清理过期指针。
+        // 同步持久化恢复指针：刷新后应恢复用户刚选中的历史 run，
+        // 而不是停留在更早的 task/run。历史详情不携带 taskId，以 runId
+        // 作为占位——正常路径刷新走 getRun(runId) 恢复、不会触发轮询；
+        // 若该 run 恢复失败，占位轮询会命中不可恢复错误并清理过期指针。
         persistScreenTask({
           taskId: runId,
           runId,
@@ -960,8 +960,8 @@ const StockScreeningPage: React.FC = () => {
           strategy: detail.strategy || strategy,
           maxResults,
         });
-        // 同步历史 run 的Strateji与Piyasa上下文，确保结果区文案和后续深度分析
-        // 使用该历史 run 对应的 strategy/market，而不是当前表单的Seç
+        // 同步历史 run 的策略与市场上下文，确保结果区文案和后续深度分析
+        // 使用该历史 run 对应的 strategy/market，而不是当前表单的选择
         if (detail.strategy) {
           setStrategy(detail.strategy);
         }
@@ -1065,8 +1065,8 @@ const StockScreeningPage: React.FC = () => {
       const result = await screeningApi.getStrategies();
       const loadedStrategies = result.strategies || [];
       setStrategies(loadedStrategies);
-      // 历史 run 的自定义/下线Strateji不在当前列表属预期行为，不做“回退第一项”的归一化，
-      // 否则迟到的Strateji列表会把刚恢复好的上下文改写回默认Strateji。
+      // 历史 run 的自定义/下线策略不在当前列表属预期行为，不做“回退第一项”的归一化，
+      // 否则迟到的策略列表会把刚恢复好的上下文改写回默认策略。
       if (loadedStrategies.length > 0 && !historyContextStrategyRef.current) {
         setStrategy((currentStrategy) =>
           loadedStrategies.some((item) => item.id === currentStrategy) ? currentStrategy : loadedStrategies[0].id,
@@ -1223,7 +1223,7 @@ const StockScreeningPage: React.FC = () => {
     };
   }, [loadHistory, loadHotspots, loadStrategies, statusAttempt]);
 
-  // Yenile后优先从 history API 按 run_id 恢复结果；恢复失败再回退到 task 轮询
+  // 刷新后优先从 history API 按 run_id 恢复结果；恢复失败再回退到 task 轮询
   useEffect(() => {
     const runId = restoredTask?.runId;
     if (!runId) {
@@ -1232,9 +1232,9 @@ const StockScreeningPage: React.FC = () => {
     }
     let active = true;
     setLoading(true);
-    // 记录自动恢复的请求基准：若在自动恢复返回前用户手动点开了Geçmiş kayıtlar
+    // 记录自动恢复的请求基准：若在自动恢复返回前用户手动点开了历史记录
     // （historyRunRequestIdRef 被 handleHistoryRunSelect 递增），则放弃本次自动恢复响应，
-    // 避免较晚返回的自动恢复把页面切回旧 run，覆盖用户最新一次的历史Seç。
+    // 避免较晚返回的自动恢复把页面切回旧 run，覆盖用户最新一次的历史选择。
     const restoreRequestBase = historyRunRequestIdRef.current;
     screeningApi
       .getRun(runId)
@@ -1245,8 +1245,8 @@ const StockScreeningPage: React.FC = () => {
         if (detail?.result) {
           applyScreenResult(detail.result);
           historyContextStrategyRef.current = true;
-          // 同步恢复该历史 run 的Strateji与Piyasa上下文，避免结果区展示和
-          // 深度分析沿用当前表单Strateji（与 handleHistoryRunSelect 一致）
+          // 同步恢复该历史 run 的策略与市场上下文，避免结果区展示和
+          // 深度分析沿用当前表单策略（与 handleHistoryRunSelect 一致）
           if (detail.strategy) {
             setStrategy(detail.strategy);
           }
@@ -1260,19 +1260,19 @@ const StockScreeningPage: React.FC = () => {
         }
       })
       .catch(() => {
-        // Geçmiş kayıtlar恢复失败（run 不存在或服务重启），回退到 task 轮询；
-        // 若用户已手动Seç了Geçmiş kayıtlar，则不再回退，保持用户的Seç。
+        // 历史记录恢复失败（run 不存在或服务重启），回退到 task 轮询；
+        // 若用户已手动选择了历史记录，则不再回退，保持用户的选择。
         if (active && historyRunRequestIdRef.current === restoreRequestBase) {
           setActiveTaskId(restoredTask?.taskId ?? null);
         }
       })
       .finally(() => {
-        // Yok论结果是否过期都要解除自动恢复门闩，否则新任务的轮询会被阻塞到旧İstek zaman aşımına uğradı。
+        // 无论结果是否过期都要解除自动恢复门闩，否则新任务的轮询会被阻塞到旧请求超时。
         if (active) {
           setRestoreResolved(true);
         }
-        // 过期的自动恢复不得触碰共享 loading：用户手动Seç的历史Ayrıntı请求可能仍在飞行，
-        // 提前清掉会重新放开“Hisse taramayı başlat”入口，随后迟到的历史响应会覆盖新任务状态。
+        // 过期的自动恢复不得触碰共享 loading：用户手动选择的历史详情请求可能仍在飞行，
+        // 提前清掉会重新放开“运行选股”入口，随后迟到的历史响应会覆盖新任务状态。
         if (active && historyRunRequestIdRef.current === restoreRequestBase) {
           setLoading(false);
         }
@@ -1305,7 +1305,7 @@ const StockScreeningPage: React.FC = () => {
         if (task.result) {
           applyScreenResult(task.result);
           setError('');
-          // 持久化 runId：Yenile后优先从 history API 恢复结果，而非依赖内存 task
+          // 持久化 runId：刷新后优先从 history API 恢复结果，而非依赖内存 task
           const completedRunId = task.result.runId || screenMeta?.runId;
           if (completedRunId) {
             persistScreenTask({
@@ -1359,7 +1359,7 @@ const StockScreeningPage: React.FC = () => {
         }
         const parsedError = getParsedApiError(err);
         if (isUnrecoverableScreenTaskError(parsedError)) {
-          setError(formatParsedApiError(parsedError) || 'Hisse tarama任务不可恢复，请重新提交。');
+          setError(formatParsedApiError(parsedError) || 'Tarama görevi kurtarılamadı, yeniden gönderin.');
           setCandidates([]);
           setScreenMeta(null);
           clearPersistedScreenTask();
@@ -1429,7 +1429,7 @@ const StockScreeningPage: React.FC = () => {
 
   const handleSubmit = async () => {
     // 新任务提交即代表用户放弃当前历史/恢复上下文：
-    // 递增请求代号作废飞行Orta的历史Ayrıntı与自动恢复响应；
+    // 递增请求代号作废飞行中的历史详情与自动恢复响应；
     // 解除自动恢复门闩，保证刚提交的任务轮询立即可启动。
     historyRunRequestIdRef.current += 1;
     setRestoreResolved(true);
@@ -1499,7 +1499,7 @@ const StockScreeningPage: React.FC = () => {
           title="Hisse tarama kapalı"
           message="Etkinleştirildiğinde hisse tarama stratejileri çalıştırılabilir."
           action={
-            <Button size="sm" isLoading={enabling} loadingText="开启Orta..." onClick={() => void handleEnable()}>
+            <Button size="sm" isLoading={enabling} loadingText="Etkinleştiriliyor..." onClick={() => void handleEnable()}>
               开启Hisse tarama
             </Button>
           }
@@ -1514,7 +1514,7 @@ const StockScreeningPage: React.FC = () => {
         />
       ) : null}
 
-      {error ? <InlineAlert variant="danger" title="调用失败" message={error} /> : null}
+      {error ? <InlineAlert variant="danger" title="Çağrı başarısız" message={error} /> : null}
 
       <section className="rounded-2xl border border-border/80 bg-card/95 p-4 shadow-soft-card">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1522,7 +1522,7 @@ const StockScreeningPage: React.FC = () => {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-500/10 text-orange-500 shadow-[0_10px_30px_rgba(249,115,22,0.16)]">
               <Flame className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-bold tracking-normal text-foreground">热点题材</h2>
+            <h2 className="text-lg font-bold tracking-normal text-foreground">Öne çıkan temalar</h2>
           </div>
           <div className="flex flex-col items-start gap-2 lg:items-end">
             <div className="flex flex-wrap items-center gap-2">
@@ -1551,7 +1551,7 @@ const StockScreeningPage: React.FC = () => {
               ) : null}
             </div>
             {hotspotsUpdatedAt ? (
-              <p className="text-xs text-secondary-text">更新于 {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
+              <p className="text-xs text-secondary-text">Güncelleme: {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
             ) : null}
           </div>
         </div>
@@ -1741,7 +1741,7 @@ const StockScreeningPage: React.FC = () => {
                             {stock.code ? (
                               <button
                                 type="button"
-                                aria-label={`分析 ${stock.name || stock.code}`}
+                                aria-label={`Analiz et: ${stock.name || stock.code}`}
                                 className="inline-flex h-7 items-center gap-1 rounded-full border border-cyan/30 bg-cyan/10 px-2 text-[11px] font-semibold text-cyan transition-colors hover:border-cyan hover:bg-cyan/15 hover:text-foreground"
                                 onClick={() => handleAnalyzeHotspotStock(stock)}
                               >
@@ -1844,7 +1844,7 @@ const StockScreeningPage: React.FC = () => {
           <Button
             className="h-11 min-w-40"
             isLoading={loading}
-            loadingText="筛选Orta..."
+            loadingText="Taranıyor..."
             disabled={!isScreeningEnabled || loading || !strategy.trim()}
             onClick={() => void handleSubmit()}
           >
@@ -1871,7 +1871,7 @@ const StockScreeningPage: React.FC = () => {
                 <h2 className="text-sm font-semibold text-foreground">{loading ? 'Tarama sürüyor' : 'Tarama tamamlandı'}</h2>
                 <p className="mt-1 text-xs text-secondary-text">
                   {loading
-                    ? `${taskMessage || '正在执行Hisse tarama'} · ${taskProgress}%`
+                    ? `${taskMessage || 'Hisse tarama yapılıyor'} · ${taskProgress}%`
                     : `${displayedStrategy} · ${MARKETS.find((item) => item.id === market)?.label}`}
                 </p>
               </div>
@@ -1887,7 +1887,7 @@ const StockScreeningPage: React.FC = () => {
                 Anlık görüntü {screenMeta?.snapshotCount ?? '-'} · Filtre sonrası {screenMeta?.afterFilterCount ?? '-'} · Aday {screenMeta?.candidateCount ?? candidates.length}
               </span>
               <span>
-                排序：{screenMeta?.llmRanked ? 'Yapay zekâ sıralaması' : screenMeta ? 'Faktör puanlaması' : '-'}
+                Sıralama: {screenMeta?.llmRanked ? 'Yapay zekâ sıralaması' : screenMeta ? 'Faktör puanlaması' : '-'}
                 {screenMeta?.llmModelUsed ? ` · ${screenMeta.llmModelUsed}` : ''}
                 {screenMeta?.llmCoverage != null ? ` · Kapsam ${formatPercent(screenMeta.llmCoverage)}` : ''}
               </span>
@@ -1921,7 +1921,7 @@ const StockScreeningPage: React.FC = () => {
             <h2 className="text-base font-semibold text-foreground">Tarama sonuçları</h2>
           <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-xs text-secondary-text">
             <Search className="h-4 w-4 text-cyan" />
-            {candidates.length} 条候选
+            {candidates.length} aday
           </div>
           </div>
 
@@ -2033,7 +2033,7 @@ const StockScreeningPage: React.FC = () => {
                                     <p className="text-xs font-semibold text-secondary-text">Yapay zekâ değerlendirmesi</p>
                                     <p className="mt-1 text-sm leading-6 text-foreground">{item.llmThesis || item.reason}</p>
                                     <p className="mt-1 text-xs text-secondary-text">
-                                      板块 {item.llmSector || '-'} · Tema {item.llmTheme || '-'} · 置信度 {formatPercent(item.llmConfidence)}
+                                      Sektör {item.llmSector || '-'} · Tema {item.llmTheme || '-'} · Güven {formatPercent(item.llmConfidence)}
                                     </p>
                                   </div>
                                 ) : null}
@@ -2172,7 +2172,7 @@ const StockScreeningPage: React.FC = () => {
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs text-secondary-text">
-                    返回 {run.candidateCount ?? 0} 只
+                    {run.candidateCount ?? 0} sonuç
                     {run.snapshotCount != null ? ` · Anlık görüntü ${run.snapshotCount}` : ''}
                     {run.llmRanked ? ' · Yapay zekâ sıralaması' : ''}
                   </span>
