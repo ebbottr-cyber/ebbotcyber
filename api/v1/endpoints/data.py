@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
+from zoneinfo import ZoneInfo
+
+from src.services.bist100_universe import load_bist100_universe
 
 from fastapi.responses import JSONResponse
 from src.auth import COOKIE_NAME, is_auth_enabled, verify_session
@@ -170,5 +174,42 @@ def get_five_market_sample_report(request: Request):
         raise HTTPException(status_code=422, detail="Four-market report failed validation") from exc
     return JSONResponse(
         content=report,
+        headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
+    )
+
+@router.get(
+    "/four-market/universe/tr",
+    summary="Read the source-dated public BIST100 equity roster",
+    description=(
+        "Return only the already cross-checked 100-member BIST100 quarterly "
+        "snapshot. No SQLite, quote fetch, brokerage or trade operations. "
+        "Login required when admin authentication is enabled."
+    ),
+)
+def get_four_market_turkey_universe(request: Request):
+    """Fail closed outside the verified BIST100 index-membership period."""
+    if is_auth_enabled():
+        session = request.cookies.get(COOKIE_NAME)
+        if not session or not verify_session(session):
+            raise HTTPException(status_code=401, detail="Admin login required")
+    as_of = datetime.now(ZoneInfo("Europe/Istanbul")).date()
+    try:
+        universe = load_bist100_universe(as_of)
+    except (OSError, ValueError) as exc:
+        logger.warning("BIST100 snapshot unavailable or outside effective period")
+        raise HTTPException(status_code=404, detail="Current BIST100 roster unavailable") from exc
+    return JSONResponse(
+        content={
+            "market": "tr",
+            "index": "BIST100",
+            "as_of": as_of.isoformat(),
+            "effective_from": universe.effective_from.isoformat(),
+            "effective_to": universe.effective_to.isoformat(),
+            "verified_on": universe.verified_on.isoformat(),
+            "source_urls": list(universe.source_urls),
+            "symbols": list(universe.symbols),
+            "target_symbols": 100,
+            "note": "Dated index membership only, not a live Yahoo quote or broker permission.",
+        },
         headers={"Cache-Control": "no-store, private", "X-Content-Type-Options": "nosniff"},
     )
