@@ -18,13 +18,14 @@ DATE = date(2026, 11, 15)
 
 
 def test_all_seven_market_classifications_are_distinct_and_explicit():
-    assert set(MARKET_EXCHANGE) == {"cn", "hk", "us", "jp", "kr", "tw", "tr"}
+    assert set(MARKET_EXCHANGE) == {"cn", "hk", "us", "jp", "kr", "tw", "tr", "de"}
     assert len(PROBES) == 6
     for sample in PROBES:
         assert get_market_for_stock(sample.code) == sample.market
         assert sample.market != "tr"
     assert get_market_for_stock("THYAO.IS") == "tr"
     assert get_market_for_stock("AKFYE.IS") == "tr"
+    assert get_market_for_stock("SAP.DE") == "de"
 
 
 def test_yahoo_conversion_does_not_rewrite_any_bist_or_foreign_probe():
