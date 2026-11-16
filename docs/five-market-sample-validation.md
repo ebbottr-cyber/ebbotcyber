@@ -41,4 +41,20 @@ ETRE'de **Veri Merkezi → Beş piyasa · Örnek veri kontrolü → JSON raporu 
 
 Bu ilk arayüz sürümü **dosya seçme tabanlıdır**: sunucudan otomatik rapor indirme veya taramayı web üzerinden başlatma yetkisi içermez. Masaüstünde rapor yoksa ekran hiç kontrol yapılmamış gibi davranır, sonucu kendiliğinden başarılı göstermez. Gerçek işlem veya aracı kurum bağlantısı eklenmemiştir.
 
+## Yönetici oturumu ile sunucu raporunu otomatik görüntüleme
+
+Yeni `GET /api/v1/data/five-market/samples` API adresi **sadece daha önce üretilmiş JSON raporunu okur**. Fiyat indirme, teknik analiz başlatma, SQLite yazma, gerçek emir gönderme veya hesap bağlama yapmaz.
+
+Bu özellik **varsayılan olarak kapalıdır**. Açılabilmesi için sunucu yöneticisinin tümüyle kendisinin belirlediği, mutlak bir dosya yolunu `ETRE_FIVE_MARKET_REPORT_PATH` ortam değişkenine yazması ve yönetici oturum doğrulamasını etkin tutması gerekir. Örnek Windows PowerShell kullanımı (yönetici test ortamında, önce rapor dosyasını kontrol ederek):
+
+```powershell
+$env:ETRE_FIVE_MARKET_REPORT_PATH = "C:\\Reports\\etre-five-market-core.json"
+# Dosyanın varlığını ve doğrulanmış beş piyasa çıktısı olduğunu ayrıca kontrol edin.
+# Ardından normal test sunucusunu kendi izole SQLite ayarlarınızla başlatın.
+```
+
+Sunucu verilen yolu **istemciden veya URL parametresinden kabul etmez**. Yönetici kimlik doğrulaması kapalıysa **404**, oturum yoksa **401**, yapılandırma yoksa **404**, rapor çelişkiliyse **422** döndürülür. Rapor yalnızca 2 MB altındaki mutlak konumdaki tek dosyadan, sınırlı alanlarla ve `no-store, private` başlıklarıyla sunulur.
+
+ETRE Veri Merkezi artık sunucudaki uygun raporu otomatik okur ve yönetici oturumunda gösterir. Sunucu raporu yoksa, önceki **yerel JSON seçimi** kullanılmaya devam eder. Yerel dosya hiçbir zaman sunucuya yüklenmez. Otomatik okuma, raporun kendisini yenilemez; rapor eskiyse tarihini kontrol edin. Tüm örneklerin geçmesi tüm hisse evreninin veya işlem yetkisinin doğrulandığı anlamına gelmez.
+
 **Henüz yapılmayanlar:** tüm borsa sembol evreninin içe aktarılması; otomatik düzenli 5-piyasa taraması; market-wide sıralama; veri kalitesinin ETRE panelinde kalıcı/doğrulanmış olarak gösterilmesi; Midas dahil aracı kurum bağlantısı, işlem izni, alım-satım ve emir gönderme. Bunlar ayrı geliştirme ve onay kapıları gerektirir.
