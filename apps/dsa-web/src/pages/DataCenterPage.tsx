@@ -7,6 +7,7 @@ import { Bist100CoveragePanel } from '../components/data-center/Bist100CoverageP
 import { Bist100TechnicalPanel } from '../components/data-center/Bist100TechnicalPanel';
 import { FiveMarketSamplePanel } from '../components/data-center/FiveMarketSamplePanel';
 import { FourMarketScanPlanner } from '../components/data-center/FourMarketScanPlanner';
+import { FourMarketBatchProgressPanel } from '../components/data-center/FourMarketBatchProgressPanel';
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
@@ -194,6 +195,7 @@ const DataCenterPage: React.FC = () => {
       ) : null}
 
       <FourMarketScanPlanner />
+      <FourMarketBatchProgressPanel />
       <FiveMarketSamplePanel />
       <Bist100CoveragePanel />
       <Bist100TechnicalPanel />
