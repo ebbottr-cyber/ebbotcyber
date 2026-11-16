@@ -1,14 +1,16 @@
 /**
- * Validate read-only ETRE five-market historical sample JSON before displaying it.
+ * Validate read-only ETRE four-market historical sample JSON before displaying it.
  * Only the browser reads local files; the input is NOT uploaded or executed.
  * Shape checks guard against contradictory "5/5" / per-market claims, but a
  * third-party JSON file is not cryptographically attested proof of price data.
  */
-export const FOCUS_MARKETS = ['tr', 'us', 'de', 'hk', 'jp'] as const;
+export const FOCUS_MARKETS = ['tr', 'us', 'de', 'hk'] as const;
 export type FocusMarket = (typeof FOCUS_MARKETS)[number];
+export const PER_MARKET_TARGET = 100;
+export const MAX_SYMBOLS = FOCUS_MARKETS.length * PER_MARKET_TARGET;
 
 export const MARKET_CURRENCIES: Record<FocusMarket, string> = {
-  tr: 'TRY', us: 'USD', de: 'EUR', hk: 'HKD', jp: 'JPY',
+  tr: 'TRY', us: 'USD', de: 'EUR', hk: 'HKD',
 };
 
 const MARKET_CODE: Record<FocusMarket, RegExp> = {
@@ -16,16 +18,15 @@ const MARKET_CODE: Record<FocusMarket, RegExp> = {
   us: /^[A-Z]{1,5}(?:\.[A-Z])?$/,
   de: /^[A-Z][A-Z0-9]{0,7}\.DE$/,
   hk: /^HK\d{5}$/,
-  jp: /^\d{4,5}\.T$/,
 };
 
-const CORE = ['THYAO.IS', 'AAPL', 'SAP.DE', 'HK00700', '7203.T'] as const;
-const EXTRA = ['ASELS.IS', 'MSFT', 'SIE.DE', 'HK01810', '6758.T'] as const;
+const CORE = ['THYAO.IS', 'AAPL', 'SAP.DE', 'HK00700'] as const;
+const EXTRA = ['ASELS.IS', 'MSFT', 'SIE.DE', 'HK01810'] as const;
 
 const SCOPES = new Set([
-  'etre_five_market_core_historical_samples',
-  'etre_five_market_expanded_historical_samples',
-  'etre_five_market_custom_historical_symbols',
+  'etre_four_market_core_historical_samples',
+  'etre_four_market_expanded_historical_samples',
+  'etre_four_market_custom_historical_symbols',
 ]);
 
 export const SAMPLE_STATUSES = [
@@ -56,6 +57,8 @@ export type MarketSampleSummary = {
   analyzed_symbols: number;
   sample_status: SampleQuality;
   failure_status_counts: Record<string, number>;
+  target_symbols: number;
+  remaining_to_target: number;
 };
 
 export type FiveMarketSampleReport = {
@@ -66,6 +69,9 @@ export type FiveMarketSampleReport = {
   analyzed_symbols: number;
   markets_checked: number;
   market_scope: FocusMarket[];
+  target_symbols_per_market: number;
+  target_symbols_total: number;
+  remaining_to_target: number;
   results: SampleResult[];
   by_market: Record<FocusMarket, MarketSampleSummary>;
 };
@@ -168,13 +174,15 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
   if (!isRecord(input) || !SCOPES.has(String(input.scope)) ||
       input.source !== 'Yahoo Finance' || !validDate(input.as_of) ||
       !Array.isArray(input.results) || input.results.length < 1 ||
-      input.results.length > 50 || !nonnegativeInt(input.checked_symbols) ||
+      input.results.length > MAX_SYMBOLS || !nonnegativeInt(input.checked_symbols) ||
       !nonnegativeInt(input.analyzed_symbols) || !nonnegativeInt(input.markets_checked) ||
+      input.target_symbols_per_market !== PER_MARKET_TARGET ||
+      input.target_symbols_total !== MAX_SYMBOLS ||
       !Array.isArray(input.market_scope) ||
       input.market_scope.length !== FOCUS_MARKETS.length ||
       !FOCUS_MARKETS.every((m, i) => (input.market_scope as unknown[])[i] === m) ||
       !isRecord(input.by_market)) {
-    throw new Error('Beş piyasa raporunun kimliği veya biçimi geçersiz.');
+    throw new Error('Dört piyasa raporunun kimliği veya biçimi geçersiz.');
   }
 
   const asOf = input.as_of;
@@ -184,12 +192,14 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
   if (input.checked_symbols !== results.length ||
       input.analyzed_symbols !== results.filter(r => r.status === 'analyzed').length ||
       input.markets_checked !== new Set(results.map(r => r.market)).size ||
+      input.remaining_to_target !== MAX_SYMBOLS - results.length ||
+      FOCUS_MARKETS.some(m => results.filter(r => r.market === m).length > PER_MARKET_TARGET) ||
       !exactKeys(input.by_market, FOCUS_MARKETS)) {
     throw new Error('Özet sayıları hisse sonuçlarıyla uyuşmuyor.');
   }
 
   // The fixed sample sets must actually contain the documented market symbols.
-  if (scope !== 'etre_five_market_custom_historical_symbols') {
+  if (scope !== 'etre_four_market_custom_historical_symbols') {
     const expected = scope.includes('_expanded_') ? [...CORE, ...EXTRA] : [...CORE];
     if (results.length !== expected.length ||
         !expected.every(code => seen.has(code))) {
@@ -213,6 +223,8 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
     }
     if (!isRecord(raw) || raw.checked_symbols !== rows.length ||
         raw.analyzed_symbols !== passed || raw.sample_status !== expectedStatus ||
+        raw.target_symbols !== PER_MARKET_TARGET ||
+        raw.remaining_to_target !== PER_MARKET_TARGET - rows.length ||
         !isRecord(raw.failure_status_counts) ||
         !exactKeys(raw.failure_status_counts, Object.keys(failures)) ||
         Object.keys(failures).some(key => (raw.failure_status_counts as Record<string, unknown>)[key] !== failures[key])) {
@@ -223,6 +235,8 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
       analyzed_symbols: passed,
       sample_status: expectedStatus,
       failure_status_counts: failures,
+      target_symbols: PER_MARKET_TARGET,
+      remaining_to_target: PER_MARKET_TARGET - rows.length,
     };
   }
   return {
@@ -231,6 +245,9 @@ export function parseFiveMarketSampleReport(input: unknown): FiveMarketSampleRep
     analyzed_symbols: results.filter(r => r.status === 'analyzed').length,
     markets_checked: input.markets_checked,
     market_scope: [...FOCUS_MARKETS],
+    target_symbols_per_market: PER_MARKET_TARGET,
+    target_symbols_total: MAX_SYMBOLS,
+    remaining_to_target: MAX_SYMBOLS - results.length,
     results, by_market: byMarket,
   };
 }
