@@ -20,13 +20,12 @@ from src.services.six_market_live_smoke import MarketProbe, probe_six_markets
 
 
 # One independently checked equity per selected market.
-FOCUS_MARKETS = ("tr", "us", "de", "hk", "jp")
+FOCUS_MARKETS = ("tr", "us", "de", "hk")
 CORE_PROBES: tuple[MarketProbe, ...] = (
     MarketProbe("tr", "THYAO.IS", "THYAO.IS", "TRY"),
     MarketProbe("us", "AAPL", "AAPL", "USD"),
     MarketProbe("de", "SAP.DE", "SAP.DE", "EUR"),
     MarketProbe("hk", "HK00700", "0700.HK", "HKD"),
-    MarketProbe("jp", "7203.T", "7203.T", "JPY"),
 )
 # Bounded expansion for coverage exploration; not an official exchange
 # constituent list or a guarantee that these names trade at every broker.
@@ -35,7 +34,6 @@ EXTRA_PROBES: tuple[MarketProbe, ...] = (
     MarketProbe("us", "MSFT", "MSFT", "USD"),
     MarketProbe("de", "SIE.DE", "SIE.DE", "EUR"),
     MarketProbe("hk", "HK01810", "1810.HK", "HKD"),
-    MarketProbe("jp", "6758.T", "6758.T", "JPY"),
 )
 
 
@@ -46,10 +44,9 @@ _MARKET_CODE_PATTERNS = {
     "us": re.compile(r"[A-Z]{1,5}(?:\.[A-Z])?"),
     "de": re.compile(r"[A-Z][A-Z0-9]{0,7}\.DE"),
     "hk": re.compile(r"HK[0-9]{5}"),
-    "jp": re.compile(r"[0-9]{4,5}\.T"),
 }
 _MARKET_CURRENCIES = {
-    "tr": "TRY", "us": "USD", "de": "EUR", "hk": "HKD", "jp": "JPY",
+    "tr": "TRY", "us": "USD", "de": "EUR", "hk": "HKD",
 }
 _MAX_SYMBOLS_PER_MARKET = 100
 _MAX_CUSTOM_SYMBOLS = _MAX_SYMBOLS_PER_MARKET * len(FOCUS_MARKETS)
@@ -57,7 +54,7 @@ _MAX_SYMBOLS_FILE_BYTES = 64_000
 
 
 def build_custom_probes(symbols: tuple[str, ...]) -> tuple[MarketProbe, ...]:
-    """Validate up to 100 symbols per market, maximum 500, before any fetch.
+    """Validate up to 100 symbols per market, maximum 400, before any fetch.
 
     Syntax is not evidence that an instrument is listed or broker-tradable.
     Unknown market identities and US indexes are rejected rather than
@@ -68,7 +65,7 @@ def build_custom_probes(symbols: tuple[str, ...]) -> tuple[MarketProbe, ...]:
     from src.core.trading_calendar import get_market_for_stock
 
     if not 1 <= len(symbols) <= _MAX_CUSTOM_SYMBOLS:
-        raise ValueError("Select between 1 and 500 stock symbols (100 per market)")
+        raise ValueError("Select between 1 and 400 stock symbols (100 per market)")
     converter = YfinanceFetcher()
     probes = []
     seen: set[str] = set()
@@ -84,7 +81,7 @@ def build_custom_probes(symbols: tuple[str, ...]) -> tuple[MarketProbe, ...]:
             or is_us_index_code(code)
             or _MARKET_CODE_PATTERNS[market].fullmatch(code) is None
         ):
-            raise ValueError(f"Unsupported or ambiguous five-market equity symbol: {code}")
+            raise ValueError(f"Unsupported or ambiguous four-market equity symbol: {code}")
         yahoo = converter._convert_stock_code(code)
         if not yahoo or not isinstance(yahoo, str):
             raise ValueError(f"Cannot determine Yahoo ticker for {code}")
@@ -116,8 +113,8 @@ def validate_five_market_samples(
         as_of=as_of,
         probes=probes,
         scope=(
-            "etre_five_market_custom_historical_symbols" if symbols is not None else
-            f"etre_five_market_{sample_set}_historical_samples"
+            "etre_four_market_custom_historical_symbols" if symbols is not None else
+            f"etre_four_market_{sample_set}_historical_samples"
         ),
         **kwargs,
     )
@@ -159,17 +156,17 @@ def validate_five_market_samples(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="ETRE five-market read-only historical sample validation"
+        description="ETRE four-market read-only historical sample validation"
     )
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--sample-set", choices=("core", "expanded"), default="core")
     source.add_argument(
         "--symbols",
-        help="Comma-separated stock codes (up to 100 per market, 500 total)",
+        help="Comma-separated stock codes (up to 100 per market, 400 total)",
     )
     source.add_argument(
         "--symbols-file", type=Path,
-        help="UTF-8 file of newline/comma-separated stock codes (up to 500)"
+        help="UTF-8 file of newline/comma-separated stock codes (up to 400)"
     )
     parser.add_argument(
         "--as-of", type=date.fromisoformat,
@@ -185,7 +182,7 @@ def main() -> None:
             content = args.symbols_file.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeError) as exc:
             parser.error(f"Cannot read stock code file: {exc}")
-        symbols = tuple(re.split(r"[,\\s]+", content.strip()))
+        symbols = tuple(re.split(r"[,\s]+", content.strip()))
         if not content.strip():
             parser.error("Stock code file is empty")
     report = validate_five_market_samples(
