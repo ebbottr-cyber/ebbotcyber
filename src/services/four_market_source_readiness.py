@@ -142,6 +142,18 @@ def check_source(
         result["status"] = "unavailable_or_invalid"
         result["error_type"] = type(exc).__name__
         result["message"] = str(exc)[:180]
+        if market == "de" and "blob" in locals() and isinstance(blob, bytes):
+            # Show only the CSV's *metadata marker*, never any instruments,
+            # ISINs, member codes or raw CSV contents in CI logs/artifacts.
+            first = blob.splitlines()[0][:100] if blob else b""
+            decoded = first.decode("utf-8-sig", errors="replace").strip()
+            if decoded.lower().startswith(("market", "sep=")):
+                result["first_metadata_line"] = decoded[:100]
+            else:
+                result["first_bytes_signature"] = first[:8].hex()
+                result["payload_looks_html"] = (
+                    first.lstrip().lower().startswith((b"<html", b"<!doctype", b"<head"))
+                )
     return result
 
 
