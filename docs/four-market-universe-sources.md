@@ -55,3 +55,27 @@ Yerel PowerShell, resmî siteden indirilmiş CSV ile:
     & ".\.venv\Scripts\python.exe" -m src.services.ishares_oef_us100_import --input "$env:USERPROFILE\Downloads\latest-holdings.csv" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\us.json"
 
 Sonra 400-hisselik hazırlayıcının --us-roster seçeneğiyle Documents\us.json dosyasını kullanın. DE/HK için 100'er kaynaklı liste hâlâ gereklidir. Bu adımlar gerçek emir göndermez, portföye erişmez, SQLite'a yazmaz ve lisanslı listeyi GitHub'a yüklemez.
+
+## DE100 — Deutsche Börse Xetra kaynağı
+
+Resmî CSV indirme sayfası:
+https://www.cashmarket.deutsche-boerse.com/cash-en/trading/Tradable-Instruments-Xetra/Downloads/xetra-downloads
+
+"T7 (Xetra) All tradable instruments" CSV dosyası yerel bilgisayara indirilir. Frankfurt (XFRA) verisi kabul edilmez. Kaynakta iki meta satır vardır: Market: XETR ve Date Last Update: gg.aa.yyyy. Noktalı virgülle ayrılan tabloda yalnızca CS hisse türü, Active durum, MIC Code XETR, EUR ödeme para birimi ve DE ile başlayan Alman ISIN satırları aday alınır. src/services/xetra_t7_de100_import.py, uygun sembolleri alfabetik sıralayarak ilk 100 hisseyi de.json dosyasına yazar. Bu 100 en büyük Alman şirketi / DAX üyeleri / 100 başarılı Yahoo verisi anlamına GELMEZ.
+
+PowerShell:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.xetra_t7_de100_import --input "$env:USERPROFILE\Downloads\t7-xetr-allTradableInstruments.csv" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\de.json"
+
+## HK100 — HKEX resmî menkul kıymet listesi
+
+HKEX resmî Excel kaynağı:
+https://www.hkex.com.hk/eng/services/trading/securities/securitieslists/ListOfSecurities.xlsx
+
+src/services/hkex_hk100_import.py indirilen yerel ListOfSecurities.xlsx dosyasını, ya da Excel'den kaydedilmiş Stock Code / Category sütunlu CSV'yi okur. Equity olmayan kıymetler (ETF, varant, nakit vb.) ile RMB ikili sayaçları, belirli SPAC ve GEM kod aralıkları reddedilir. Geriye kalan kodlar sayısal sırada ilk 100 aday olarak hk.json içine yazılır. Bu en likit/en büyük 100 şirket seçimi değildir. --as-of tarihi HKEX dosyasının indirildiği ve operatörce teyit edildiği gündür; dosyadan otomatik resmî zaman damgası doğrulanmaz.
+
+PowerShell:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.hkex_hk100_import --input "$env:USERPROFILE\Downloads\ListOfSecurities.xlsx" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\hk.json"
+
+Sonra us.json (resmî OEF dosyasından), de.json, hk.json ve mevcut TR100 ile 400 kodlu plan hazırlanabilir. Bu dört tarihli listenin varlığı, Yahoo fiyatların ve teknik analizlerin 400/400 başarılı olduğunu göstermez. Sembol-hisse kotasyonu, Yahoo eşleşmesi ve aracı kurum işlem izni ayrıca doğrulanmalıdır. Resmî ham dosyalar veya yeniden dağıtımı sınırlanan lisanslı veriler GitHub'a kopyalanmaz.
