@@ -31,7 +31,10 @@ const LABELS: Record<UiLanguage, Record<string, string>> = {
     recent: 'Yeni haberler geldikçe burada listelenir.',
     note: 'AI etkisi yalnızca haber başlığına dayanır; kesin fiyat yönü veya işlem tavsiyesi değildir. Türkçe çeviri için ETRE AI modeli yapılandırılmalı ve NEWS_AI_ENABLED=true olarak açılmalıdır.',
     refreshing: 'RSS kaynakları kontrol ediliyor…',
-    aiOff: 'AI çeviri devre dışı. Mevcut AI modeliyle çalıştırmak için sunucuda NEWS_AI_ENABLED=true ayarlayın.',
+    aiOff: 'AI çeviri kapalı. Etkinleştirmek için mevcut ETRE yapay zekâ modelinizin yapılandırılmış olması gerekir.',
+    aiOn: 'AI Türkçe çeviri ve haber etkisi analizi açık. Model kullanımı ücretli olabilir.',
+    aiEnable: 'AI çeviriyi ve etki analizini aç',
+    aiDisable: 'AI çeviriyi kapat',
     aiPendingCount: 'Türkçe çeviri ve AI değerlendirmesi bekleyen haber',
   },
   en: {
@@ -49,7 +52,9 @@ const LABELS: Record<UiLanguage, Record<string, string>> = {
     readCount: 'Unread', failed: 'News service unavailable.', recent: 'New stories appear here as they arrive.',
     note: 'AI impact is based only on the headline, not a trading signal. Turkish translation needs a configured ETRE AI model and NEWS_AI_ENABLED=true.',
     refreshing: 'Checking RSS sources…',
-    aiOff: 'AI translation disabled. Set NEWS_AI_ENABLED=true on the server with your configured model.',
+    aiOff: 'AI translation is off. A configured ETRE AI model is required to turn it on.',
+    aiOn: 'AI translation and market-impact check are on. Model usage may incur costs.',
+    aiEnable: 'Enable AI translation', aiDisable: 'Disable AI translation',
     aiPendingCount: 'Pending translation/AI assessments',
   },
   zh: {
@@ -67,7 +72,9 @@ const LABELS: Record<UiLanguage, Record<string, string>> = {
     readCount: '未读新闻', failed: '新闻服务不可用。', recent: '新新闻将持续更新。',
     note: 'AI 影响仅根据标题推断，不构成交易建议。土耳其语翻译需要启用 ETRE AI 和 NEWS_AI_ENABLED=true。',
     refreshing: '检查 RSS…',
-    aiOff: 'AI 翻译已关闭，需要在服务器上配置模型和 NEWS_AI_ENABLED=true。',
+    aiOff: 'AI 翻译已关闭，需要配置 ETRE AI 模型。',
+    aiOn: 'AI 翻译已开启，模型使用可能产生费用。',
+    aiEnable: '启用 AI 翻译', aiDisable: '关闭 AI 翻译',
     aiPendingCount: '待翻译/AI 评估新闻',
   },
 };
@@ -152,6 +159,14 @@ const NewsPage: React.FC = () => {
   const changeAlerts = async () => {
     try { await newsApi.notifications(!notificationsEnabled); await load(); } catch { setError(true); }
   };
+  const toggleAi = async () => {
+    try {
+      await newsApi.ai(!aiEnabled);
+      await load();
+    } catch {
+      setError(true);
+    }
+  };
   const allowBrowser = () => {
     if ('Notification' in window) void Notification.requestPermission();
   };
@@ -187,7 +202,13 @@ const NewsPage: React.FC = () => {
             )}
           </div>
 <p className="text-xs text-muted-text">{notificationsEnabled ? t.enabled : t.disabled} · {t.browserHint}</p>
-          {!aiEnabled ? <p className="text-xs text-warning">{t.aiOff}</p> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => void toggleAi()}
+              className="rounded-lg border border-border px-3 py-2 text-sm text-foreground">
+              {aiEnabled ? t.aiDisable : t.aiEnable}
+            </button>
+            <p className="text-xs text-muted-text">{aiEnabled ? t.aiOn : t.aiOff}</p>
+          </div>
           {translationWaiting > 0 ? <p className="text-xs text-muted-text">
             {t.aiPendingCount}: {translationWaiting}
           </p> : null}
