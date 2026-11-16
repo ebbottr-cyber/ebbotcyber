@@ -106,9 +106,16 @@ The rehearsal script creates its **own temporary SQLite clone** using the
 read-only-source online backup API and passes only that temporary path to
 `DatabaseManager`. It checks preexisting table counts, hashes the stable
 historical OHLCV columns in `stock_daily` and preserved source/title/URL
-columns of `intelligence_items`, and verifies post-migration integrity.
+columns of `intelligence_items`, verifies that existing named indexes and
+triggers retain their SQL definitions, and checks post-migration integrity.
 It deletes the staged copy at exit. It **never** opens the input backup
 with a write connection. New migration metadata rows may be expected.
+
+The rehearsal intentionally **blocks if any previously defined named index
+or trigger is removed or changed**, even when the application's legacy
+migration might legitimately replace a URL-only uniqueness index. Such a
+change requires operator schema review and recorded signoff; the script does
+not silently allow it or approve production migration.
 
 **A passing automated rehearsal is only one gate.** The operator must still
 examine old/new schema and custom indexes/constraints, record an isolated
