@@ -12,6 +12,8 @@ export type NewsArticle = {
 export type NewsStatus = {
   unread_count: number;
   notifications_enabled: boolean;
+  ai_enabled: boolean;
+  translation_waiting: number;
   latest_unread: Array<{
     id: string; market: NewsMarket; title: string; title_tr: string | null;
     published_at: string; inserted_at: string; severity: NewsSeverity;
