@@ -120,3 +120,51 @@ def test_rejects_non_https_and_oversized_foreign_roster(tmp_path):
     path.write_bytes(b" " * 100001)
     with pytest.raises(ValueError, match="100 KB"):
         _load_foreign_roster("us", path, as_of=AS_OF)
+
+
+def test_public_bist100_roster_endpoint_is_sourced_and_no_orders(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from api.v1.endpoints import data as endpoint
+
+    app = FastAPI()
+    app.include_router(endpoint.router, prefix="/api/v1/data")
+    with TestClient(app) as client:
+        monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: False)
+        response = client.get("/api/v1/data/four-market/universe/tr")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["market"] == "tr"
+        assert data["index"] == "BIST100"
+        assert data["target_symbols"] == 100
+        assert len(data["symbols"]) == len(set(data["symbols"])) == 100
+        assert all(symbol.endswith(".IS") for symbol in data["symbols"])
+        assert "XU100.IS" not in data["symbols"]
+        assert data["effective_from"] == "2026-10-01"
+        assert data["effective_to"] == "2026-12-31"
+        assert response.headers["cache-control"] == "no-store, private"
+
+        monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: True)
+        assert client.get("/api/v1/data/four-market/universe/tr").status_code == 401
+        monkeypatch.setattr(endpoint, "verify_session", lambda val: val == "valid")
+        good = client.get("/api/v1/data/four-market/universe/tr", cookies={
+            endpoint.COOKIE_NAME: "valid"
+        })
+        assert good.status_code == 200
+
+
+def test_public_bist100_endpoint_refuses_stale_or_missing_universe(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from api.v1.endpoints import data as endpoint
+
+    app = FastAPI()
+    app.include_router(endpoint.router, prefix="/api/v1/data")
+    monkeypatch.setattr(endpoint, "is_auth_enabled", lambda: False)
+    def stale(_as_of):
+        raise ValueError("Snapshot is outside valid period")
+    monkeypatch.setattr(endpoint, "load_bist100_universe", stale)
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/data/four-market/universe/tr")
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Current BIST100 roster unavailable"
