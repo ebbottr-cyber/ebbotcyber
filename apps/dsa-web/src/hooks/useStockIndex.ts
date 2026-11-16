@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import type { StockIndexItem } from '../types/stockIndex';
 import { loadStockIndex } from '../utils/stockIndexLoader';
+import { filterTurkishBrokerStockIndex } from '../utils/marketAccess';
 import type { IndexLoadResult } from '../utils/stockIndexLoader';
 
 export interface UseStockIndexResult {
@@ -47,7 +48,7 @@ export function useStockIndex(enabled = true): UseStockIndexResult {
       const result: IndexLoadResult = await loadStockIndex();
 
       if (mounted) {
-        setIndex(result.data);
+        setIndex(filterTurkishBrokerStockIndex(result.data));
         setFallback(result.fallback);
         if (result.error) {
           setError(result.error);
