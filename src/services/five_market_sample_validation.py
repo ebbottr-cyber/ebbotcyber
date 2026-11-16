@@ -51,11 +51,13 @@ _MARKET_CODE_PATTERNS = {
 _MARKET_CURRENCIES = {
     "tr": "TRY", "us": "USD", "de": "EUR", "hk": "HKD", "jp": "JPY",
 }
-_MAX_CUSTOM_SYMBOLS = 50
+_MAX_SYMBOLS_PER_MARKET = 100
+_MAX_CUSTOM_SYMBOLS = _MAX_SYMBOLS_PER_MARKET * len(FOCUS_MARKETS)
+_MAX_SYMBOLS_FILE_BYTES = 64_000
 
 
 def build_custom_probes(symbols: tuple[str, ...]) -> tuple[MarketProbe, ...]:
-    """Validate the entire 1..50 symbol request before fetching any prices.
+    """Validate up to 100 symbols per market, maximum 500, before any fetch.
 
     Syntax is not evidence that an instrument is listed or broker-tradable.
     Unknown market identities and US indexes are rejected rather than
@@ -66,10 +68,11 @@ def build_custom_probes(symbols: tuple[str, ...]) -> tuple[MarketProbe, ...]:
     from src.core.trading_calendar import get_market_for_stock
 
     if not 1 <= len(symbols) <= _MAX_CUSTOM_SYMBOLS:
-        raise ValueError("Select between 1 and 50 stock symbols")
+        raise ValueError("Select between 1 and 500 stock symbols (100 per market)")
     converter = YfinanceFetcher()
     probes = []
     seen: set[str] = set()
+    per_market: Counter[str] = Counter()
     for raw in symbols:
         code = str(raw).strip().upper()
         if not code or code in seen:
@@ -85,6 +88,9 @@ def build_custom_probes(symbols: tuple[str, ...]) -> tuple[MarketProbe, ...]:
         yahoo = converter._convert_stock_code(code)
         if not yahoo or not isinstance(yahoo, str):
             raise ValueError(f"Cannot determine Yahoo ticker for {code}")
+        per_market[market] += 1
+        if per_market[market] > _MAX_SYMBOLS_PER_MARKET:
+            raise ValueError(f"Market {market} exceeds 100 selected stock symbols")
         probes.append(MarketProbe(market, code, yahoo, _MARKET_CURRENCIES[market]))
     return tuple(probes)
 
@@ -126,6 +132,8 @@ def validate_five_market_samples(
         by_market[market] = {
             "checked_symbols": len(subset),
             "analyzed_symbols": successes,
+            "target_symbols": _MAX_SYMBOLS_PER_MARKET,
+            "remaining_to_target": _MAX_SYMBOLS_PER_MARKET - len(subset),
             "sample_status": (
                 "not_requested" if not subset
                 else "samples_passed" if successes == len(subset)
@@ -136,6 +144,9 @@ def validate_five_market_samples(
             },
         }
     result["markets_checked"] = len({spec.market for spec in probes})
+    result["target_symbols_per_market"] = _MAX_SYMBOLS_PER_MARKET
+    result["target_symbols_total"] = _MAX_CUSTOM_SYMBOLS
+    result["remaining_to_target"] = _MAX_CUSTOM_SYMBOLS - len(probes)
     result["market_scope"] = list(FOCUS_MARKETS)
     result["by_market"] = by_market
     result["note"] = (
@@ -154,7 +165,11 @@ def main() -> None:
     source.add_argument("--sample-set", choices=("core", "expanded"), default="core")
     source.add_argument(
         "--symbols",
-        help="Comma-separated explicit market stock codes (1..50); e.g. THYAO.IS,AAPL,SAP.DE,HK00700,7203.T",
+        help="Comma-separated stock codes (up to 100 per market, 500 total)",
+    )
+    source.add_argument(
+        "--symbols-file", type=Path,
+        help="UTF-8 file of newline/comma-separated stock codes (up to 500)"
     )
     parser.add_argument(
         "--as-of", type=date.fromisoformat,
@@ -163,6 +178,16 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     symbols = tuple(args.symbols.split(",")) if args.symbols is not None else None
+    if args.symbols_file is not None:
+        try:
+            if not args.symbols_file.is_file() or args.symbols_file.stat().st_size > _MAX_SYMBOLS_FILE_BYTES:
+                parser.error("Stock code file missing or exceeds 64 KB")
+            content = args.symbols_file.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeError) as exc:
+            parser.error(f"Cannot read stock code file: {exc}")
+        symbols = tuple(re.split(r"[,\\s]+", content.strip()))
+        if not content.strip():
+            parser.error("Stock code file is empty")
     report = validate_five_market_samples(
         as_of=args.as_of,
         sample_set=args.sample_set,
