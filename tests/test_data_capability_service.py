@@ -1032,3 +1032,26 @@ def test_yahoo_turkish_daily_market_is_visible_without_claiming_live_price_succe
     assert turkey["status"] == "ok"
     # This is a configured/available source state, not a completed OHLCV probe.
     assert "last_success" in daily
+
+
+def test_xetra_germany_has_yahoo_daily_capability_without_realtime_claim() -> None:
+    """Configured source visibility is NOT proof of a live Xetra price fetch."""
+    manager = _FetcherManager([
+        _Fetcher("YfinanceFetcher", 4, available=True),
+    ])
+    overview = DataCapabilityService(
+        config=_config(),
+        fetcher_manager=manager,
+    ).get_overview()
+
+    yahoo = _provider(overview, "yfinance")
+    assert "de" in yahoo["markets"]
+    assert "de" in yahoo["dataset_markets"]["kline.daily"]
+    assert "de" not in yahoo["dataset_markets"]["quote.realtime"]
+    assert "de" not in yahoo["dataset_markets"]["financial.snapshot"]
+
+    daily = _dataset(overview, "kline.daily")
+    germany = daily["coverage"]["markets"]["de"]
+    assert germany["source"] == "yfinance"
+    assert germany["status"] == "ok"
+    assert daily["last_success"] is None
