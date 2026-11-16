@@ -51,6 +51,11 @@ def mark_all_read():
     return service.mark_all_read()
 
 
+@router.put("/ai")
+def save_news_ai(payload: NotificationPreference):
+    return service.set_ai_enabled(payload.enabled)
+
+
 @router.put("/notifications")
 def save_notifications(payload: NotificationPreference):
     return service.set_notifications(payload.enabled)
