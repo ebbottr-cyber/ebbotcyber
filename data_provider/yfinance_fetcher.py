@@ -131,6 +131,11 @@ class YfinanceFetcher(BaseFetcher):
         if is_suffix_market_symbol(code, "de"):
             return code
 
+        # NYSE BRK.B is listed as BRK B in issuer holdings, and Yahoo
+        # Finance uses BRK-B. Preserve canonical identity at input boundaries.
+        if code == "BRK.B":
+            return "BRK-B"
+
         # 美股：1-5 个大写字母（可选 .X 后缀），原样返回
         if is_us_stock_code(code):
             logger.debug(f"识别为美股代码: {code}")
