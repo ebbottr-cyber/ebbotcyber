@@ -84,7 +84,7 @@ describe('ETRE offline four-market progress report checks', () => {
     expect(report.failed_symbols).toBe(1);
     expect(report.pending_symbols).toBe(380);
     expect(report.by_market.tr.failed_symbols).toBe(1);
-    expect(report.by_market.jp).toBeUndefined();
+    expect('jp' in report.by_market).toBe(false);
     expect(report.failed_rows[0]).toEqual({
       batch_index: 1, market: 'tr', code: 'THYAO.IS', status: 'fetch_error',
     });
