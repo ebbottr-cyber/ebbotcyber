@@ -21,7 +21,6 @@ const MARKET_NAMES: Record<FocusMarket, Record<UiLanguage, string>> = {
   us: { tr: 'ABD', en: 'USA', zh: '美国' },
   de: { tr: 'Almanya', en: 'Germany', zh: '德国' },
   hk: { tr: 'Hong Kong', en: 'Hong Kong', zh: '香港' },
-  jp: { tr: 'Japonya', en: 'Japan', zh: '日本' },
 };
 
 const LABELS: Record<UiLanguage, {
@@ -31,19 +30,20 @@ const LABELS: Record<UiLanguage, {
   date: string; checked: string; analyzed: string; markets: string;
   market: string; marketStatus: string; checkedShort: string; status: string;
   code: string; currency: string; bars: string; session: string; score: string;
+  target: string; remaining: string;
   attention: string; note: string; sampleNote: string; previous: string;
   next: string; page: string; missing: string;
 }> = {
   tr: {
-    title: 'Beş piyasa · Örnek veri kontrolü',
+    title: 'Dört piyasa · 400 hisse hedefi',
     subtitle: 'Kaydedilmiş Yahoo günlük veri raporu · Salt okunur',
     description: 'Yalnızca daha önce oluşturulan JSON raporu görüntülenir. Dosya sunucuya gönderilmez; bu ekran fiyat çekmez, analiz başlatmaz veya emir vermez.',
     import: 'JSON raporu seç',
     reloadServer: 'Sunucu raporunu yenile',
     checkingServer: 'Sunucu raporu kontrol ediliyor…',
-    noServerReport: 'Sunucuda doğrulanmış beş piyasa raporu yok veya yönetici erişimi kapalı. Yerel JSON raporu seçebilirsiniz.',
+    noServerReport: 'Sunucuda doğrulanmış dört piyasa raporu yok veya yönetici erişimi kapalı. Yerel JSON raporu seçebilirsiniz.',
     savedServerReport: 'Sunucuda kayıtlı rapor (salt okunur)',
-    noReport: 'Henüz rapor seçilmedi. GitHub Actions test çıktısından veya yerel kontrol komutundan oluşturulmuş beş piyasa JSON dosyasını açabilirsiniz. Kontrol yapılmadıysa başarı varsayılmaz.',
+    noReport: 'Henüz rapor seçilmedi. GitHub Actions test çıktısından veya yerel kontrol komutundan oluşturulmuş dört piyasa JSON dosyasını açabilirsiniz. Kontrol yapılmadıysa başarı varsayılmaz.',
     fileLarge: 'Rapor dosyası en fazla 2 MB olabilir.',
     badFile: 'Rapor okunamadı veya içeriği geçersiz.',
     date: 'Rapor tarihi',
@@ -65,18 +65,18 @@ const LABELS: Record<UiLanguage, {
     previous: 'Önceki',
     next: 'Sonraki',
     page: 'Sayfa',
-    missing: '—',
+    target: 'Hedef', remaining: 'Hedefe kalan', missing: '—',
   },
   en: {
-    title: 'Five markets · Sample data check',
+    title: 'Four markets · 400-stock target',
     subtitle: 'Saved Yahoo daily history report · Read-only',
     description: 'Displays an existing JSON report only. The file is never uploaded; this screen does not fetch prices, run analyses, or place orders.',
     import: 'Choose JSON report',
     reloadServer: 'Refresh server report',
     checkingServer: 'Checking server report…',
-    noServerReport: 'No validated five-market report is configured on the server, or admin access is disabled. You can select a local JSON file.',
+    noServerReport: 'No validated four-market report is configured on the server, or admin access is disabled. You can select a local JSON file.',
     savedServerReport: 'Saved server report (read-only)',
-    noReport: 'No report selected. Open a five-market JSON file produced by GitHub Actions or the local validation command. No unperformed check is marked successful.',
+    noReport: 'No report selected. Open a four-market JSON file produced by GitHub Actions or the local validation command. No unperformed check is marked successful.',
     fileLarge: 'Report file must be no larger than 2 MB.',
     badFile: 'Report could not be read or validated.',
     date: 'Report date',
@@ -98,18 +98,18 @@ const LABELS: Record<UiLanguage, {
     previous: 'Previous',
     next: 'Next',
     page: 'Page',
-    missing: '—',
+    target: 'Target', remaining: 'Remaining', missing: '—',
   },
   zh: {
-    title: '五个市场 · 样本数据检查',
+    title: '四个市场 · 400只股票目标',
     subtitle: '已保存的 Yahoo 日线报告 · 只读',
     description: '仅显示已生成的 JSON 报告。文件不会上传；此页面不抓取行情、不启动分析，也不下单。',
     import: '选择 JSON 报告',
     reloadServer: '刷新服务器报告',
     checkingServer: '正在检查服务器报告…',
-    noServerReport: '服务器未配置经过验证的五市场报告，或管理员权限未开启。可以选择本地 JSON 文件。',
+    noServerReport: '服务器未配置经过验证的四市场报告，或管理员权限未开启。可以选择本地 JSON 文件。',
     savedServerReport: '已保存服务器报告（只读）',
-    noReport: '尚未选择报告。请选择 GitHub Actions 或本地检查命令生成的五市场 JSON 文件。',
+    noReport: '尚未选择报告。请选择 GitHub Actions 或本地检查命令生成的四市场 JSON 文件。',
     fileLarge: '报告不得超过 2 MB。',
     badFile: '报告读取或验证失败。',
     date: '报告日期',
@@ -131,7 +131,7 @@ const LABELS: Record<UiLanguage, {
     previous: '上一页',
     next: '下一页',
     page: '页',
-    missing: '—',
+    target: '目标', remaining: '距目标剩余', missing: '—',
   },
 };
 
@@ -304,6 +304,8 @@ export const FiveMarketSamplePanel: React.FC = () => {
               {summaryTile(t.analyzed, report.analyzed_symbols)}
               {summaryTile(t.markets, report.markets_checked)}
               {summaryTile(t.attention, failed)}
+              {summaryTile(t.target, report.target_symbols_total)}
+              {summaryTile(t.remaining, report.remaining_to_target)}
             </div>
             <p className="text-xs text-muted-text" role="note">{t.note}</p>
             <div className="overflow-x-auto">
@@ -327,7 +329,7 @@ export const FiveMarketSamplePanel: React.FC = () => {
                           <Badge variant={variant}>{QUALITY_LABELS[language][result.sample_status]}</Badge>
                         </td>
                         <td className="px-3 py-2 text-secondary-text">
-                          {result.analyzed_symbols} / {result.checked_symbols}
+                          {result.analyzed_symbols} / {result.checked_symbols} · {t.target}: {result.target_symbols} · {t.remaining}: {result.remaining_to_target}
                         </td>
                       </tr>
                     );
