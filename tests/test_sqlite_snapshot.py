@@ -1,4 +1,5 @@
 """Isolated regression checks; never access the configured application DB."""
+import os
 import sqlite3
 
 import pytest
@@ -52,3 +53,25 @@ def test_invalid_db_fails_closed_and_never_publishes_backup(tmp_path):
     assert main(["--source", str(source), "--output", str(dest)]) == 2
     assert not dest.exists()
     assert main(["--verify-only", str(source)]) == 2
+
+
+
+def test_snapshot_sync_uses_writable_file_descriptor(tmp_path, monkeypatch):
+    # A read-only descriptor can cause Windows os.fsync to raise Errno 9.
+    # Writing zero bytes checks that the descriptor permits writes without
+    # changing any actual backup contents.
+    source, dest = tmp_path / "source.db", tmp_path / "backup.db"
+    _seed(source)
+    real_fsync = os.fsync
+    seen = []
+
+    def fsync_with_write_access_check(fd):
+        assert os.write(fd, b"") == 0
+        seen.append(True)
+        return real_fsync(fd)
+
+    monkeypatch.setattr("scripts.sqlite_snapshot.os.fsync", fsync_with_write_access_check)
+    report = create_snapshot(source, dest)
+    assert seen == [True]
+    assert report["integrity"] == "ok"
+    assert verify_snapshot(dest)["integrity"] == "ok"
