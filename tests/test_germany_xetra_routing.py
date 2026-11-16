@@ -87,3 +87,16 @@ def test_xetra_calendar_is_berlin_and_uses_xetr():
         result = trading_calendar.get_trading_dates("de", date(2024, 10, 2), date(2024, 10, 4))
     getter.assert_called_once_with("XETR")
     assert result.equals(pd.DatetimeIndex(["2024-10-02", "2024-10-04"]))
+
+
+@pytest.mark.parametrize("raw", ["1234.DE", "INVALID-NAME.DE", "TOO_LONG_NAMED.DE"])
+def test_invalid_xetra_quotes_do_not_fall_through_to_cn_provider(raw):
+    manager = DataFetcherManager(fetchers=[])
+    with (
+        patch("src.config.get_config", return_value=SimpleNamespace(enable_realtime_quote=True)),
+        patch.object(manager, "_try_fetcher_quote") as fetch_quote,
+        patch.object(manager, "_get_cn_index_realtime_quote") as cn_index,
+    ):
+        assert manager.get_realtime_quote(raw) is None
+    fetch_quote.assert_not_called()
+    cn_index.assert_not_called()
