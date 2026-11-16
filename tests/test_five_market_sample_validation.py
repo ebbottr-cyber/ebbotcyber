@@ -64,7 +64,7 @@ def test_core_samples_match_exact_four_etre_markets():
 
 def test_core_sample_reports_all_markets_and_original_stock_codes():
     report, called = _check()
-    assert report["checked_symbols"] == report["analyzed_symbols"] == 3
+    assert report["checked_symbols"] == report["analyzed_symbols"] == 4
     assert report["markets_checked"] == 4
     assert "checked_markets" not in report
     assert "analyzed_markets" not in report
