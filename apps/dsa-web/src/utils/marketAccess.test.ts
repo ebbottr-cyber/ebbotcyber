@@ -12,10 +12,11 @@ const instrument = (code: string, market: StockIndexItem['market']): StockIndexI
 });
 
 describe('Turkish domestic-broker focus', () => {
-  it('keeps only the four evidenced markets in the investment UI', () => {
-    expect(TURKISH_BROKER_MARKETS).toEqual(['tr', 'us', 'hk', 'jp']);
+  it('keeps the five selected markets in the investment UI', () => {
+    expect(TURKISH_BROKER_MARKETS).toEqual(['tr', 'us', 'de', 'hk', 'jp']);
     expect(isTurkishBrokerMarket('TR')).toBe(true);
     expect(isTurkishBrokerMarket(' US ')).toBe(true);
+    expect(isTurkishBrokerMarket('DE')).toBe(true);
     expect(isTurkishBrokerMarket('CN')).toBe(false);
     expect(isTurkishBrokerMarket('KR')).toBe(false);
     expect(isTurkishBrokerMarket('TW')).toBe(false);
@@ -25,6 +26,7 @@ describe('Turkish domestic-broker focus', () => {
     const stocks = [
       instrument('THYAO.IS', 'TR'),
       instrument('AAPL', 'US'),
+      instrument('SAP.DE', 'DE'),
       instrument('HK00700', 'HK'),
       instrument('7203.T', 'JP'),
       instrument('600519.SH', 'CN'),
@@ -33,7 +35,7 @@ describe('Turkish domestic-broker focus', () => {
       instrument('399001.SZ', 'INDEX'),
     ];
     expect(filterTurkishBrokerStockIndex(stocks).map((row) => row.canonicalCode))
-      .toEqual(['THYAO.IS', 'AAPL', 'HK00700', '7203.T']);
-    expect(stocks).toHaveLength(8);
+      .toEqual(['THYAO.IS', 'AAPL', 'SAP.DE', 'HK00700', '7203.T']);
+    expect(stocks).toHaveLength(9);
   });
 });
