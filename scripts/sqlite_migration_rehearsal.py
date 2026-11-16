@@ -73,7 +73,19 @@ def _read_baseline(path: Path) -> dict[str, object]:
                 digest.update(len(payload).to_bytes(8, "big"))
                 digest.update(payload)
             digests[name] = {"columns": columns, "sha256": digest.hexdigest()}
-        return {"counts": counts, "critical_digests": digests}
+        # A data-only comparison cannot detect silently dropped custom
+        # indexes or triggers. Treat any modification of a preexisting
+        # explicitly defined schema object as a release-blocking review item.
+        objects = {
+            f"{kind}:{name}": {"table": table, "sql": ddl}
+            for kind, name, table, ddl in db.execute(
+                "SELECT type, name, tbl_name, sql FROM sqlite_master "
+                "WHERE type IN ('index', 'trigger') AND sql IS NOT NULL "
+                "AND name NOT LIKE 'sqlite_%' ORDER BY type, name"
+            )
+        }
+        return {"counts": counts, "critical_digests": digests,
+                "schema_objects": objects}
 
 
 def _migrate_isolated(path: Path) -> None:
@@ -123,6 +135,16 @@ def rehearse(source: Path) -> dict[str, object]:
                     f"Migration changed critical {name!r} historical values"
                 )
 
+        # Even a successful ORM migration must never silently discard
+        # operator-defined indexes or triggers. Legitimate legacy-index
+        # replacements need explicit manual signoff, not automatic approval.
+        for obj_id, definition in before["schema_objects"].items():
+            if after["schema_objects"].get(obj_id) != definition:
+                raise RuntimeError(
+                    f"Migration changed or removed schema object {obj_id!r}; "
+                    "manual review required"
+                )
+
         return {
             "status": "isolated_rehearsal_passed",
             "input_verified": verified_source["integrity"],
@@ -131,6 +153,7 @@ def rehearse(source: Path) -> dict[str, object]:
                 name for name in old_counts if name not in _ALLOWED_COUNT_CHANGE
             ),
             "critical_tables_fingerprinted": sorted(before["critical_digests"]),
+            "preexisting_indexes_and_triggers_preserved": len(before["schema_objects"]),
             "new_tables": sorted(set(new_counts) - set(old_counts)),
             "disclaimer": "Synthetic/isolated rehearsal only; no production approval.",
         }
