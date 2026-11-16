@@ -89,6 +89,17 @@ _MARKET_ROLES = {
 }
 
 _MARKET_GUIDELINES = {
+    "de": {
+        "zh": (
+            "- 本次分析对象为德国 Xetra 上市股票，Yahoo Finance 后缀为 .DE，计价货币为 EUR。\n"
+            "- 必须使用德国交易时段和欧洲市场语境；缺失的数据需明确标记。不得套用中国 A 股资金流、涨跌停或龙虎榜规则。"
+        ),
+        "en": (
+            "- Analyze an equity listed on Germany's Xetra exchange, using explicit Yahoo suffix .DE and EUR quotes.\n"
+            "- Use German/EU market context, Europe/Berlin trading sessions, ECB policy and EUR currency exposure. "
+            "Mark missing data as unavailable. Do not apply China-specific A-share price limits, fund-flow, or Dragon Tiger assumptions."
+        ),
+    },
     "tr": {
         "zh": (
             "- 本次分析对象为土耳其 Borsa İstanbul (BIST) 上市股票，报价货币为 TRY（土耳其里拉）。\n"
