@@ -38,6 +38,18 @@ cd "$env:USERPROFILE\Projects\ebbotcyber-test"
 
 **Not:** Eski dahili Python dosya adı \`five_market_sample_validation.py\` geriye dönük uyumluluk için korunmuştur; *aktif* \`FOCUS_MARKETS\` listesi 4 piyasadır. Raporun \`scope\` kimliği \`etre_four_market_...\` biçimine çevrilmiştir; eski beş-piyasa/Japonya raporları yeni arayüzce geçersiz sayılır.
 
+## ETRE Veri Merkezi'nde 400 kodluk listeyi hazırlama
+
+Yeni **Dört piyasa · 400 hisse listesi hazırla** alanına doğrulanmış kodları virgülle, boşlukla veya satır satır girebilirsiniz. Ekran Türkiye, ABD, Almanya ve Hong Kong için ayrı ayrı `x / 100` sayacı ve eksik miktarı gösterir. **Her piyasada tam 100 geçerli, tekrarsız kod olmadan** `400 kodluk TXT listesini indir` düğmesi etkinleşmez. Japonya, Çin, Güney Kore ve Tayvan kodları reddedilir. Liste tarayıcıda işlenir, sunucuya gönderilmez. Kodların yalnızca biçimi doğrulanır; borsada gerçekten işlem gördüğünün ve aracı kurum erişiminin kanıtı değildir.
+
+TXT listeyi indirdikten sonra `Downloads\etre-400-tickers.txt` dosyasını şu **manuel ve salt-okunur** komutla işleyebilirsiniz. Komut öncesinde güncel GitHub dalının PC'ye çekilmiş ve Python ortamının kurulmuş olması gerekir. Bu yalnızca veri kontrolü yapar, emir göndermez:
+
+```powershell
+& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --symbols-file "$env:USERPROFILE\Downloads\etre-400-tickers.txt" --output "$env:TEMP\etre-four-market-400.json"
+```
+
+**Önemli:** 400 kod için başarılı biçim kontrolü, 400 hissenin analiz edildiği anlamına gelmez. Asıl Yahoo veri taraması yapılmadan 400/400 başarı gösterilmez. 100'er güncel, resmî borsa listesi henüz doğrulanmış değildir ve hayalî şirket/sembol üretilmez.
+
 ## ETRE Veri Merkezi — salt okunur rapor görüntüleme
 
 Taslak PR #11'de \`four-market-core-live-yahoo\` işi 4 örneği kontrol eder. Başarılı olduğunda \`etre-four-market-sample-<run_id>\` artifact'ındaki JSON raporu indirip Veri Merkezi → **Dört piyasa · 400 hisse hedefi** → JSON raporu seç menüsünden açabilirsiniz.
