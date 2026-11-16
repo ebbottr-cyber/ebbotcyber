@@ -423,6 +423,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_four_market_batch_validation.py \
+            tests/test_four_market_progress_report_reader.py \
             tests/test_four_market_universe_plan.py \
             tests/test_five_market_sample_validation.py \
             tests/test_five_market_report_reader.py
