@@ -1,60 +1,51 @@
-# ETRE — Beş piyasa için salt-okunur örnek veri kapsamı (taslak)
+# ETRE — Dört piyasa, piyasa başına 100 hisse hedefi (taslak)
 
-**Kullanıcıya görünen yatırım kapsamı:** Türkiye (BIST), ABD, Almanya (Xetra), Hong Kong, Japonya. Çin, Güney Kore ve Tayvan'ın eski veri/analiz kodları silinmeden yatırım görünümünden gizlenir.
+**Aktif yatırım/örnek veri kontrolü kapsamı:** 🇹🇷 Türkiye (BIST), 🇺🇸 ABD (NYSE/Nasdaq), 🇩🇪 Almanya (Xetra), 🇭🇰 Hong Kong (HKEX). **Japonya, Çin, Güney Kore ve Tayvan bu ETRE yatırım kapsamına dahil değildir.** Mevcut geçmiş veri ve eski arka uç testleri veri bütünlüğü için silinmez. Tekil şirketin aracı kurumda işlem izni ayrıca doğrulanmalıdır.
 
-Bu modül bir **örnek veri sağlığı kontrolüdür**, kapsamlı borsa tarayıcısı değildir. Gerçek para, aracı kurum hesabı, işlem emri, SQLite yazımı veya LLM kullanmaz.
+## Hedef, kapsam ve mevcut gerçek durum
 
-## Çalışma kapsamı
+| Piyasa | 100-hisse hedefi | Temel veri örneği | İkinci örnek | Para birimi |
+|---|---:|---|---|---|
+| Türkiye | 100 | \`THYAO.IS\` | \`ASELS.IS\` | TRY |
+| ABD | 100 | \`AAPL\` | \`MSFT\` | USD |
+| Almanya | 100 | \`SAP.DE\` | \`SIE.DE\` | EUR |
+| Hong Kong | 100 | \`HK00700\` → \`0700.HK\` | \`HK01810\` → \`1810.HK\` | HKD |
+| **Toplam** | **400** | 4 temel örnek | 4 ek örnek | |
 
-| Piyasa | Temel örnek | İkinci örnek | Beklenen para birimi |
-|---|---|---|---|
-| Türkiye | `THYAO.IS` | `ASELS.IS` | TRY |
-| ABD | `AAPL` | `MSFT` | USD |
-| Almanya | `SAP.DE` | `SIE.DE` | EUR |
-| Hong Kong | `HK00700` → `0700.HK` | `HK01810` → `1810.HK` | HKD |
-| Japonya | `7203.T` | `6758.T` | JPY |
+**Önemli:** 100 x 4 şu anda **istenen tarama kapasitesi**, 400 hissenin mevcut/veri yönünden hazır olduğu iddiası değildir. Dört piyasanın her birinden 100 gerçek, o tarihte aktif ve uygun hisseden oluşan **güvenilir sembol listeleri** ayrıca içeri aktarılmalı ve veri kalitesi doğrulanmalıdır. Sahte sembol oluşturulmaz; sembol biçiminin doğruluğu kote olduğunun kanıtı değildir.
 
-`core` = 5 piyasada birer hisse, `expanded` = 5 piyasada ikişer hisse (10 toplam). `--symbols` seçeneği, kullanıcının belirlediği **1–50 hisse koduyla** aynı güvenli kontrolü yapar. Girişte bütün kodlar önce doğrulanır; desteklenmeyen piyasa, endeks, boş/tekrar eden veya hatalı kod veri çekilmeden reddedilir. Girilmemiş piyasalar `not_requested` gösterilir. Alman SAP için `SAP.DE` gereklidir; çıplak `SAP` farklı bir ABD kodu olarak değerlendirilir. Fiyatlar Yahoo'dan alınır; her örnek için piyasa ve Yahoo kod eşleşmesi, en az 60 geçerli günlük OHLCV kaydı, son tamamlanan seans, para birimi ve mevcut teknik analiz puanı kontrol edilir. Bir hissede sorun çıkarsa durumu saklanmaz.
+\`core\` modu her piyasadan 1 gerçek veri örneği (toplam 4); \`expanded\` modu her piyasadan 2 örnek (toplam 8) denetler. \`--symbols\` veya \`--symbols-file\` seçeneği, **tek piyasada en fazla 100**, toplam **en fazla 400** farklı hisse kodunu tamamen kontrol eder; 101'inci kod, yinelenen kod ve Japonya/Çin/Kore/Tayvan kodu ağ sorgusuna başlamadan reddedilir. Sonuçta \`target_symbols_per_market=100\`, \`target_symbols_total=400\`, \`remaining_to_target\`, \`checked_symbols\`, \`analyzed_symbols\`, \`markets_checked\` ve her piyasa için ayrı \`by_market\` sayaçları bulunur. **Bir hisse başarısızsa başarıya dahil edilmez.**
 
-Rapor `checked_symbols`, `analyzed_symbols`, `markets_checked`, `results` ve `by_market` alanlarını içerir. Piyasa bazındaki `sample_status`, yalnızca seçilmiş **örneklerin** geçtiğini (`samples_passed`), kısmen geçtiğini (`partial`) veya hiçbirinin geçmediğini (`samples_failed`) gösterir; bütün borsa veya bütün hisseler hakkında kesin bir sağlık iddiası değildir.
+Kontroller Yahoo Finance günlük OHLCV tarihçesini, tamamlanan işlem gününü, fiyatın güncelliğini, gözlenen TRY/USD/EUR/HKD para birimini ve teknik analiz puanını kullanır. Geçmiş verinin başarılı kontrolü **anlık fiyat, 400 hisse tam kapsaması, AI yatırım tavsiyesi veya aracı kurum emir yetkisi** değildir.
 
-## Çalıştırma (izole ve manuel)
+## Windows PowerShell — yerel ve isteğe bağlı
 
-```powershell
+Çalıştırmadan önce GitHub dalındaki değişiklikler yerel test kopyasına çekilmeli ve Python bağımlılıkları hazırlanmalıdır.
+
+\`\`\`powershell
 cd "$env:USERPROFILE\Projects\ebbotcyber-test"
-& ".\.venv\Scripts\python.exe" -m pytest -q tests/test_five_market_sample_validation.py
-& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --sample-set core --as-of 2026-11-15 --output "$env:TEMP\etre-five-market-core.json"
-# Daha geniş kontrol yalnızca gerektiğinde, salt-okunur:
-& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --sample-set expanded --as-of 2026-11-15 --output "$env:TEMP\etre-five-market-expanded.json"
-# Özel 5-piyasa hisse listesi (yalnızca okuma)
-& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --symbols "THYAO.IS,AAPL,SAP.DE,HK00700,7203.T" --as-of 2026-11-15 --output "$env:TEMP\etre-custom-symbols.json"
-```
 
-GitHub'da taslak PR #11 için `five-market-core-live-yahoo` işi, başarılı Almanya 3-hisse testinden sonra çalışır ve geçici JSON artifact üretir. Ağ hataları veya geçici veri eksiklikleri başarısızlık olarak kaydedilir, gizlenmez.
+# Küçük doğrulama
+& ".\.venv\Scripts\python.exe" -m pytest -q tests/test_five_market_sample_validation.py tests/test_five_market_report_reader.py
+& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --sample-set core --as-of 2026-11-15 --output "$env:TEMP\etre-four-market-core.json"
 
+# Kullanıcının seçtiği hisseler için (Japonya desteklenmez)
+& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --symbols "THYAO.IS,AAPL,SAP.DE,HK00700" --as-of 2026-11-15 --output "$env:TEMP\etre-four-market-selected.json"
 
-## ETRE Veri Merkezi'nde rapor görüntüleme
+# Tam liste bulunduğunda: UTF-8, satır veya virgül ayrılmış, piyasa başına en fazla 100 hisse
+& ".\.venv\Scripts\python.exe" -m src.services.five_market_sample_validation --symbols-file "$env:USERPROFILE\Documents\etre-400-tickers.txt" --output "$env:TEMP\etre-four-market-400.json"
+\`\`\`
 
-Taslak PR #11'in `five-market-core-live-yahoo` GitHub Actions işi **başarılı** olduğunda, o çalışmanın `etre-five-market-sample-<run_id>` artifact'ını indirip ZIP dosyasını açın. ZIP içindeki `five-market-core-2026-11-15.json` dosyası, oluşturulduğu tarih itibarıyla 5 ayrı hissenin test sonuçlarını içerir; **anlık veri değildir**.
+**Not:** Eski dahili Python dosya adı \`five_market_sample_validation.py\` geriye dönük uyumluluk için korunmuştur; *aktif* \`FOCUS_MARKETS\` listesi 4 piyasadır. Raporun \`scope\` kimliği \`etre_four_market_...\` biçimine çevrilmiştir; eski beş-piyasa/Japonya raporları yeni arayüzce geçersiz sayılır.
 
-ETRE'de **Veri Merkezi → Beş piyasa · Örnek veri kontrolü → JSON raporu seç** yolundan bu dosyayı yükleme yapmadan yerel tarayıcıda açın. Tabloda her piyasa ayrı görünür: kontrol yapılmayanlar `Kontrol edilmedi`, bir kısmı başarısız olanlar `Kısmi`, tamamı başarılı örnekler `Örnekler geçti` olarak etiketlenir. Hisse tablosunda para birimi, geçerli günlük satır sayısı, son tamamlanan seans ve teknik puan ayrıca listelenir. Rapordaki sayaçlar, piyasa kodları ve başarılı fiyat doğrulamaları uyuşmazsa dosya reddedilir. Bu yalnızca **yapısal tutarlılık kontrolüdür**, dosyanın kökeni kriptografik olarak doğrulanmaz.
+## ETRE Veri Merkezi — salt okunur rapor görüntüleme
 
-Bu ilk arayüz sürümü **dosya seçme tabanlıdır**: sunucudan otomatik rapor indirme veya taramayı web üzerinden başlatma yetkisi içermez. Masaüstünde rapor yoksa ekran hiç kontrol yapılmamış gibi davranır, sonucu kendiliğinden başarılı göstermez. Gerçek işlem veya aracı kurum bağlantısı eklenmemiştir.
+Taslak PR #11'de \`four-market-core-live-yahoo\` işi 4 örneği kontrol eder. Başarılı olduğunda \`etre-four-market-sample-<run_id>\` artifact'ındaki JSON raporu indirip Veri Merkezi → **Dört piyasa · 400 hisse hedefi** → JSON raporu seç menüsünden açabilirsiniz.
 
-## Yönetici oturumu ile sunucu raporunu otomatik görüntüleme
+Sunucuda zaten üretilmiş ve doğrulanmış rapor bulunuyorsa, yönetici oturumuyla \`GET /api/v1/data/four-market/samples\` üzerinden otomatik görüntülenebilir. Bu erişim **varsayılan olarak kapalıdır**. Sunucu yöneticisi, yönetici oturum doğrulamasını etkinleştirip yalnızca kendi belirlediği **mutlak** rapor yolunu \`ETRE_FOUR_MARKET_REPORT_PATH\` değişkeniyle ayarlar. Sunucu URL'den dosya yolu kabul etmez, maksimum 2 MB JSON okur, 400 toplam/100 piyasa sınırlarını doğrular; yetki yoksa veya rapor geçersizse rapor sunmaz. Dosya seçimi tarayıcıda kalır ve sunucuya yüklenmez.
 
-Yeni `GET /api/v1/data/five-market/samples` API adresi **sadece daha önce üretilmiş JSON raporunu okur**. Fiyat indirme, teknik analiz başlatma, SQLite yazma, gerçek emir gönderme veya hesap bağlama yapmaz.
+Gösterilen \`Hedefe kalan\` sayısı başarılı analiz sayısını değil **henüz kontrol edilmeyen hisse sayısını** ifade eder. Kontrol edilip veri hatası yaşayan hisseler ayrı olarak başarısız gösterilir. \`4/400\` yalnızca 4 örneğin kontrol edildiğini anlatır; tamamlanmış bir 400-hisse taraması değildir.
 
-Bu özellik **varsayılan olarak kapalıdır**. Açılabilmesi için sunucu yöneticisinin tümüyle kendisinin belirlediği, mutlak bir dosya yolunu `ETRE_FIVE_MARKET_REPORT_PATH` ortam değişkenine yazması ve yönetici oturum doğrulamasını etkin tutması gerekir. Örnek Windows PowerShell kullanımı (yönetici test ortamında, önce rapor dosyasını kontrol ederek):
+## Bilinçli olarak yapılmayanlar
 
-```powershell
-$env:ETRE_FIVE_MARKET_REPORT_PATH = "C:\\Reports\\etre-five-market-core.json"
-# Dosyanın varlığını ve doğrulanmış beş piyasa çıktısı olduğunu ayrıca kontrol edin.
-# Ardından normal test sunucusunu kendi izole SQLite ayarlarınızla başlatın.
-```
-
-Sunucu verilen yolu **istemciden veya URL parametresinden kabul etmez**. Yönetici kimlik doğrulaması kapalıysa **404**, oturum yoksa **401**, yapılandırma yoksa **404**, rapor çelişkiliyse **422** döndürülür. Rapor yalnızca 2 MB altındaki mutlak konumdaki tek dosyadan, sınırlı alanlarla ve `no-store, private` başlıklarıyla sunulur.
-
-ETRE Veri Merkezi artık sunucudaki uygun raporu otomatik okur ve yönetici oturumunda gösterir. Sunucu raporu yoksa, önceki **yerel JSON seçimi** kullanılmaya devam eder. Yerel dosya hiçbir zaman sunucuya yüklenmez. Otomatik okuma, raporun kendisini yenilemez; rapor eskiyse tarihini kontrol edin. Tüm örneklerin geçmesi tüm hisse evreninin veya işlem yetkisinin doğrulandığı anlamına gelmez.
-
-**Henüz yapılmayanlar:** tüm borsa sembol evreninin içe aktarılması; otomatik düzenli 5-piyasa taraması; market-wide sıralama; veri kalitesinin ETRE panelinde kalıcı/doğrulanmış olarak gösterilmesi; Midas dahil aracı kurum bağlantısı, işlem izni, alım-satım ve emir gönderme. Bunlar ayrı geliştirme ve onay kapıları gerektirir.
+Bu arayüz yeni veri taraması başlatmaz, kendi kendine 400 hissenin tam listesini oluşturmaz, SQLite'a yazmaz, gerçek emir vermez ve Midas/başka bir aracı kuruma bağlanmaz. Sonraki önemli geliştirme, her piyasanın resmi ve güncel 100-hisselik evrenini doğrulayarak tarama listelerini üretmek ve daha sonra güvenli, kademeli veri kontrolleri yapmaktır.
