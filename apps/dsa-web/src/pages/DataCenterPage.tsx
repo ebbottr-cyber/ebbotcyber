@@ -8,9 +8,27 @@ import { Bist100TechnicalPanel } from '../components/data-center/Bist100Technica
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
+import type { UiTextKey } from '../i18n/uiText';
 import { formatDateTime } from '../utils/format';
 
 type Status = DatasetQualityStatus | ProviderCapabilityStatus;
+
+const STATUS_LABEL_KEYS: Record<Status, UiTextKey> = {
+  ok: 'dataCenter.status.ok',
+  partial: 'dataCenter.status.partial',
+  degraded: 'dataCenter.status.degraded',
+  stale: 'dataCenter.status.stale',
+  unknown: 'dataCenter.status.unknown',
+  unconfigured: 'dataCenter.status.unconfigured',
+  unavailable: 'dataCenter.status.unavailable',
+};
+
+const DIAGNOSTIC_LABEL_KEYS: Record<string, UiTextKey> = {
+  runtime_probe_not_performed: 'dataCenter.diagnostic.runtime_probe_not_performed',
+  provider_not_initialized: 'dataCenter.diagnostic.provider_not_initialized',
+  provider_marked_unavailable: 'dataCenter.diagnostic.provider_marked_unavailable',
+};
+
 
 function statusVariant(status: Status): 'success' | 'warning' | 'danger' | 'default' {
   if (status === 'ok') return 'success';
@@ -98,7 +116,7 @@ const DataCenterPage: React.FC = () => {
 
   return (
     <AppPage className="space-y-5">
-      <PageHeader eyebrow="Data Center" title={t('dataCenter.title')} description={t('dataCenter.description')} />
+      <PageHeader eyebrow={t('dataCenter.title')} title={t('dataCenter.title')} description={t('dataCenter.description')} />
 
       <div className="flex justify-end gap-2">
         <Link
@@ -136,6 +154,9 @@ const DataCenterPage: React.FC = () => {
             <InlineAlert variant="warning" title={t('dataCenter.partialTitle')} message={overview.warnings.join(' · ')} />
           ) : null}
 
+          <p className="text-xs leading-relaxed text-muted-text" role="note">
+            {t('dataCenter.noteUnverified')}
+          </p>
           <div className="grid gap-3 md:grid-cols-3">
             <SummaryTile label={t('dataCenter.configuredProviders')} value={summary.configured} note={`${overview.providers.length} ${t('dataCenter.totalProviders')}`} />
             <SummaryTile label={t('dataCenter.healthyDatasets')} value={summary.healthy} note={`${overview.datasets.length} ${t('dataCenter.totalDatasets')}`} />
@@ -151,19 +172,19 @@ const DataCenterPage: React.FC = () => {
                       <div className="truncate font-semibold text-foreground">{provider.label || provider.name}</div>
                       <div className="mt-1 font-mono text-xs text-muted-text">{provider.name}</div>
                     </div>
-                    <Badge variant={statusVariant(provider.status)}>{provider.status}</Badge>
+                    <Badge variant={statusVariant(provider.status)}>{t(STATUS_LABEL_KEYS[provider.status])}</Badge>
                   </div>
                   <div className="mt-3 text-xs leading-5 text-secondary-text">
                     <div>{t('dataCenter.markets')}: {provider.markets.join(', ') || '--'}</div>
                     <div>{t('dataCenter.datasets')}: {formatDatasetMarkets(provider.datasetMarkets) || '--'}</div>
                   </div>
-                  {provider.warnings.length > 0 ? <div className="mt-2 text-xs text-warning">{provider.warnings.join(' · ')}</div> : null}
+                  {provider.warnings.length > 0 ? <div className="mt-2 text-xs text-warning">{provider.warnings.map((warning) => DIAGNOSTIC_LABEL_KEYS[warning] ? t(DIAGNOSTIC_LABEL_KEYS[warning]) : warning).join(' · ')}</div> : null}
                 </div>
               ))}
             </div>
           </Card>
 
-          <Card title={t('dataCenter.datasetQuality')} subtitle="Quality" variant="bordered" padding="md">
+          <Card title={t('dataCenter.datasetQuality')} subtitle={t('dataCenter.datasetQuality')} variant="bordered" padding="md">
             {overview.datasets.length === 0 ? (
               <EmptyState title={t('dataCenter.noDatasetQuality')} />
             ) : (
@@ -182,7 +203,7 @@ const DataCenterPage: React.FC = () => {
                     {overview.datasets.map((dataset) => (
                       <tr key={dataset.dataset}>
                         <td className="px-3 py-3 font-mono text-foreground">{dataset.dataset}</td>
-                        <td className="px-3 py-3"><Badge variant={statusVariant(dataset.status)}>{dataset.status}</Badge></td>
+                        <td className="px-3 py-3"><Badge variant={statusVariant(dataset.status)}>{t(STATUS_LABEL_KEYS[dataset.status])}</Badge></td>
                         <td className="px-3 py-3 text-secondary-text">{formatDatasetSources(dataset)}</td>
                         <td className="px-3 py-3 text-secondary-text">{dataset.lastSuccess ? formatDateTime(dataset.lastSuccess) : '--'}</td>
                         <td className="px-3 py-3 text-secondary-text">{[dataset.lastError, ...dataset.warnings].filter(Boolean).join(' · ') || '--'}</td>
@@ -194,7 +215,7 @@ const DataCenterPage: React.FC = () => {
             )}
           </Card>
 
-          <Card title={t('dataCenter.priorities')} subtitle="Routing" variant="bordered" padding="md">
+          <Card title={t('dataCenter.priorities')} subtitle={t('dataCenter.priorities')} variant="bordered" padding="md">
             {overview.priorities.length === 0 ? (
               <EmptyState icon={<TriangleAlert className="h-6 w-6" />} title={t('dataCenter.noPriorities')} />
             ) : (
