@@ -92,9 +92,9 @@ export function formatPositionPrice(row: PortfolioPositionItem): string {
   return row.lastPrice.toFixed(4);
 }
 
-export function formatPositionMoney(value: number, row: PortfolioPositionItem): string {
+export function formatPositionMoney(value: number, row: PortfolioPositionItem, language: UiLanguage = 'tr'): string {
   if (!hasPositionPrice(row)) return '--';
-  return formatMoney(value, row.valuationCurrency);
+  return formatMoney(value, row.valuationCurrency, language);
 }
 
 export function getPositionPriceLabel(row: PortfolioPositionItem, language: UiLanguage = 'tr'): string {
