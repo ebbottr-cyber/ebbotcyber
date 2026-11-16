@@ -5,10 +5,9 @@
  * Türkiye can never invest in other markets: international brokers may offer
  * additional exchanges subject to account-specific permissions.
  *
- * Listed equities in Türkiye (BIST), USA (NYSE/Nasdaq), Hong Kong (HKEX)
- * and Japan (TSE) have documented access via Türkiye-serving domestic
- * intermediaries; see NCM Investment's overseas-execution policy and
- * Garanti BBVA Yatırım's exchange list.
+ * Selected markets: Türkiye (BIST), USA (NYSE/Nasdaq), Germany (Xetra),
+ * Hong Kong (HKEX), Japan (TSE). Midas officially lists Xetra access;
+ * actual instrument access depends on account and broker permissions.
  *
  * IMPORTANT: This does NOT grant order permissions or make the current bot
  * capable of executing live trades. Existing backend providers, historical
@@ -16,7 +15,7 @@
  */
 import type { StockIndexItem } from '../types/stockIndex';
 
-export const TURKISH_BROKER_MARKETS = ['tr', 'us', 'hk', 'jp'] as const;
+export const TURKISH_BROKER_MARKETS = ['tr', 'us', 'de', 'hk', 'jp'] as const;
 export type TurkishBrokerMarket = (typeof TURKISH_BROKER_MARKETS)[number];
 
 const accessibleMarketSet: ReadonlySet<string> = new Set(TURKISH_BROKER_MARKETS);
