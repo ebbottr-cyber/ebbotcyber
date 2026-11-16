@@ -27,7 +27,10 @@ from src.services.five_market_sample_validation import (
     build_custom_probes,
     validate_five_market_samples,
 )
-from src.services.five_market_report_reader import validate_five_market_sample_report
+from src.services.five_market_report_reader import (
+    FiveMarketReportInvalid,
+    validate_five_market_sample_report,
+)
 from src.services.six_market_live_smoke import _fetch_yahoo_history
 
 MAX_BATCH_SIZE = 25
@@ -138,7 +141,10 @@ def _verify_batch(raw: dict, manifest: dict, *, index: int, size: int, as_of: da
         "batches_total": total,
     }:
         raise ValueError("Batch does not belong to this exact dated manifest / batch plan")
-    sanitized = validate_five_market_sample_report(raw)
+    try:
+        sanitized = validate_five_market_sample_report(raw)
+    except FiveMarketReportInvalid as exc:
+        raise ValueError("Saved batch report failed four-market integrity checks") from exc
     if sanitized["as_of"] != as_of.isoformat() or sanitized["scope"] != CUSTOM_SCOPE:
         raise ValueError("Batch must match the selected analysis date and custom scope")
     if [row["code"] for row in sanitized["results"]] != expected:
