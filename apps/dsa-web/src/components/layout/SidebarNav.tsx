@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, LogOut, MessageSquareQuote, Search, Settings2 } from 'lucide-react';
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, LogOut, MessageSquareQuote, Newspaper, Search, Settings2 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -15,6 +15,7 @@ type SidebarNavProps = {
   collapsed?: boolean;
   onNavigate?: () => void;
   variant?: 'default' | 'rail';
+  newsUnread?: number;
 };
 
 type NavItem = {
@@ -23,7 +24,7 @@ type NavItem = {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   exact?: boolean;
-  badge?: 'completion';
+  badge?: 'completion' | 'news';
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -34,12 +35,13 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'decision-signals', labelKey: 'layout.nav.decisionSignals', to: '/decision-signals', icon: Activity },
   { key: 'backtest', labelKey: 'layout.nav.backtest', to: '/backtest', icon: BarChart3 },
   { key: 'alerts', labelKey: 'layout.nav.alerts', to: '/alerts', icon: Bell },
+  { key: 'news', labelKey: 'layout.nav.news', to: '/news', icon: Newspaper, badge: 'news' },
   { key: 'data', labelKey: 'layout.nav.dataCenter', to: '/data', icon: Database },
   { key: 'usage', labelKey: 'layout.nav.usage', to: '/usage', icon: Gauge },
   { key: 'settings', labelKey: 'layout.nav.settings', to: '/settings', icon: Settings2 },
 ];
 
-export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNavigate, variant = 'default' }) => {
+export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNavigate, variant = 'default', newsUnread = 0 }) => {
   const { authEnabled, logout } = useAuth();
   const location = useLocation();
   const { t } = useUiLanguage();
@@ -106,6 +108,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
               <>
                 <Icon className={cn(itemIconClass, isActive ? 'text-[var(--nav-icon-active)]' : 'text-current')} />
                 {!collapsed ? <span className={itemLabelClass}>{label}</span> : null}
+                {badge === 'news' && newsUnread > 0 ? (
+                  <span aria-label={t('layout.newsUnread', { count: newsUnread })}
+                    className="absolute right-1 top-0 rounded-full bg-danger px-1.5 text-[10px] leading-4 text-white">
+                    {newsUnread > 99 ? '99+' : newsUnread}
+                  </span>
+                ) : null}
                 {badge === 'completion' && completionBadge ? (
                   <StatusDot
                     tone="info"
