@@ -51,7 +51,10 @@ def test_basket_has_three_distinct_xetra_tickers_not_us_symbols():
 def test_three_equities_report_individual_scores_and_currency():
     report, called = _check()
     assert report["scope"] == "germany_xetra_yahoo_three_equities"
-    assert report["checked_markets"] == report["analyzed_markets"] == 3
+    assert report["market"] == "de"
+    assert "checked_markets" not in report
+    assert "analyzed_markets" not in report
+    assert report["checked_equities"] == report["analyzed_equities"] == 3
     assert called == ["SAP.DE", "SIE.DE", "BMW.DE"]
     assert [r["code"] for r in report["results"]] == called
     assert all(r["status"] == "analyzed" and r["currency_observed"] == "EUR"
@@ -66,8 +69,8 @@ def test_failed_second_stock_is_not_hidden_by_two_successes():
         return _ohlcv()
 
     report, _ = _check(fetch_history=history)
-    assert report["checked_markets"] == 3
-    assert report["analyzed_markets"] == 2
+    assert report["checked_equities"] == 3
+    assert report["analyzed_equities"] == 2
     assert [r["status"] for r in report["results"]] == [
         "analyzed", "fetch_error", "analyzed"
     ]
@@ -76,7 +79,7 @@ def test_failed_second_stock_is_not_hidden_by_two_successes():
 
 def test_wrong_bmw_currency_cannot_be_reported_as_success():
     report, _ = _check(fetch_currency=lambda symbol: "USD" if symbol == "BMW.DE" else "EUR")
-    assert report["analyzed_markets"] == 2
+    assert report["analyzed_equities"] == 2
     assert report["results"][2]["status"] == "currency_mismatch"
     assert report["results"][2]["currency_observed"] == "USD"
 
@@ -93,7 +96,7 @@ def test_xetra_routing_mismatch_never_queries_mismatched_stock():
         fetch_history=history,
     )
     assert called == ["SAP.DE", "BMW.DE"]
-    assert report["analyzed_markets"] == 2
+    assert report["analyzed_equities"] == 2
     assert report["results"][1]["status"] == "routing_mismatch"
 
 
@@ -103,6 +106,6 @@ def test_stale_bmw_candle_fails_just_bmw():
             last="2026-11-12" if symbol == "BMW.DE" else "2026-11-13"
         )
     )
-    assert report["analyzed_markets"] == 2
+    assert report["analyzed_equities"] == 2
     assert report["results"][2]["status"] == "stale_price"
     assert "technical_score" not in report["results"][2]
