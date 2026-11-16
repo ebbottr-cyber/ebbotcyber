@@ -38,7 +38,7 @@ _SOURCES = {
     "de": {
         "url": (
             "https://www.cashmarket.deutsche-boerse.com/resource/blob/1528/"
-            "b52ea43a2edac92e8283d40645d1c076/data/t7-xetr-allTradableInstruments.csv"
+            "a4b7965b87cf1ef4621a28b85f145ae9/data/t7-xetr-allTradableInstruments.csv"
         ),
         "suffix": ".csv",
         "max_bytes": 5_000_000,
