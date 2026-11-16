@@ -44,6 +44,18 @@ Bu komut yalnızca mevcut partinin `analyzed` olmayan hisselerine yeniden Yahoo 
 
 `--retry-failed` ile `--resume` aynı anda kullanılamaz; eski rapor yoksa, bozulmuşsa veya kaynak kimliği/seans tarihi uyuşmuyorsa yeniden sorgulama başlamadan reddedilir. Yedekler saklanmalıdır; otomatik silinmezler. Aynı partiyi eş zamanlı iki ayrı süreçte çalıştırmayın.
 
+## 2b. Taramaya devam etmeden önce durumunu kontrol etme
+
+Yeni --status seçeneği sadece tamamlanmış JSON parti dosyalarını inceler; Yahoo'ya hiç istek göndermez, sonuçları değiştirmez ve hiçbir emri tetiklemez. Her piyasada kontrol edilen, başarılı, başarısız ve henüz bekleyen hisse sayılarını ayrı listeler. Eksik, hatalı/bozulmuş veya başka kaynak listesine ait partileri başarılı saymaz; parti indekslerini ve bir sonraki eksik parti numarasını gösterir.
+
+PowerShell örneği:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.four_market_batch_validation --manifest "$env:USERPROFILE\Documents\etre-source-400-plan.json" --as-of 2026-11-16 --output-dir "$env:TEMP\etre-400-batches" --batch-size 10 --status --report "$env:USERPROFILE\Documents\etre-400-progress.json"
+
+Raporun checked_symbols sayısı yalnızca kaynak kimliği, tarih, hisse sırası ve iç tutarlılığı onaylanmış partilerdeki hisseleri içerir. analyzed_symbols başarı sayısıdır; failed_symbols veri/analiz hatalarıdır; pending_symbols henüz güvenilir şekilde kontrol edilmemiş hisse sayısıdır. invalid_batches varsa ilk yapılacak iş eski dosyanın neden reddedildiğini incelemektir. missing_batch_indices, sıradaki kontrol edilmemiş partileri gösterir; failed_batch_indices yalnızca sonuç alınmış ancak sorunlu hisse bulunan partilerdir. Rapor network_requests=0 alanını içerir.
+
+--status, --combine veya --batch-index ile aynı anda seçilemez. Kaynaklı gerçek 400 kodlu manifest henüz oluşmamışsa bu komut 400 başarılı hisse varsaymaz, baştan reddeder.
+
 ## 3. Hisse bazındaki kontrol sonuçlarını birleştirin
 
     & ".\.venv\Scripts\python.exe" -m src.services.four_market_batch_validation --manifest "$env:USERPROFILE\Documents\etre-source-400-plan.json" --as-of 2026-11-16 --output-dir "$env:TEMP\etre-400-batches" --batch-size 10 --combine --report "$env:USERPROFILE\Documents\etre-400-historical-report.json"
