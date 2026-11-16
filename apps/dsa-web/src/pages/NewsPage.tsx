@@ -31,6 +31,8 @@ const LABELS: Record<UiLanguage, Record<string, string>> = {
     recent: 'Yeni haberler geldikçe burada listelenir.',
     note: 'AI etkisi yalnızca haber başlığına dayanır; kesin fiyat yönü veya işlem tavsiyesi değildir. Türkçe çeviri için ETRE AI modeli yapılandırılmalı ve NEWS_AI_ENABLED=true olarak açılmalıdır.',
     refreshing: 'RSS kaynakları kontrol ediliyor…',
+    aiOff: 'AI çeviri devre dışı. Mevcut AI modeliyle çalıştırmak için sunucuda NEWS_AI_ENABLED=true ayarlayın.',
+    aiPendingCount: 'Türkçe çeviri ve AI değerlendirmesi bekleyen haber',
   },
   en: {
     title: 'News', description: 'Market headlines from Türkiye, USA, Germany, Hong Kong and crypto',
@@ -47,6 +49,8 @@ const LABELS: Record<UiLanguage, Record<string, string>> = {
     readCount: 'Unread', failed: 'News service unavailable.', recent: 'New stories appear here as they arrive.',
     note: 'AI impact is based only on the headline, not a trading signal. Turkish translation needs a configured ETRE AI model and NEWS_AI_ENABLED=true.',
     refreshing: 'Checking RSS sources…',
+    aiOff: 'AI translation disabled. Set NEWS_AI_ENABLED=true on the server with your configured model.',
+    aiPendingCount: 'Pending translation/AI assessments',
   },
   zh: {
     title: '新闻', description: '土耳其、美国、德国、香港和加密货币市场资讯',
@@ -63,6 +67,8 @@ const LABELS: Record<UiLanguage, Record<string, string>> = {
     readCount: '未读新闻', failed: '新闻服务不可用。', recent: '新新闻将持续更新。',
     note: 'AI 影响仅根据标题推断，不构成交易建议。土耳其语翻译需要启用 ETRE AI 和 NEWS_AI_ENABLED=true。',
     refreshing: '检查 RSS…',
+    aiOff: 'AI 翻译已关闭，需要在服务器上配置模型和 NEWS_AI_ENABLED=true。',
+    aiPendingCount: '待翻译/AI 评估新闻',
   },
 };
 
@@ -79,6 +85,8 @@ const NewsPage: React.FC = () => {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [translationWaiting, setTranslationWaiting] = useState(0);
   const [market, setMarket] = useState<MarketChoice>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [search, setSearch] = useState('');
@@ -95,6 +103,8 @@ const NewsPage: React.FC = () => {
       setArticles(news);
       setUnreadCount(status.unread_count);
       setNotificationsEnabled(status.notifications_enabled);
+      setAiEnabled(status.ai_enabled);
+      setTranslationWaiting(status.translation_waiting);
       setError(false);
     } catch {
       setError(true);
@@ -176,7 +186,11 @@ const NewsPage: React.FC = () => {
               </button>
             )}
           </div>
-          <p className="text-xs text-muted-text">{notificationsEnabled ? t.enabled : t.disabled} · {t.browserHint}</p>
+<p className="text-xs text-muted-text">{notificationsEnabled ? t.enabled : t.disabled} · {t.browserHint}</p>
+          {!aiEnabled ? <p className="text-xs text-warning">{t.aiOff}</p> : null}
+          {translationWaiting > 0 ? <p className="text-xs text-muted-text">
+            {t.aiPendingCount}: {translationWaiting}
+          </p> : null}
           <div className="flex flex-wrap gap-2">
             {order.map(category => (
               <button key={category} type="button" onClick={() => setMarket(category)}
