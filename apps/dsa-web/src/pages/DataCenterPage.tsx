@@ -10,6 +10,7 @@ import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
 import type { UiLanguage, UiTextKey } from '../i18n/uiText';
 import { formatDateTime } from '../utils/format';
+import { TURKISH_BROKER_MARKETS } from '../utils/marketAccess';
 
 type Status = DatasetQualityStatus | ProviderCapabilityStatus;
 
@@ -23,17 +24,14 @@ const STATUS_LABEL_KEYS: Record<Status, UiTextKey> = {
   unavailable: 'dataCenter.status.unavailable',
 };
 
-const DAILY_MARKET_ORDER = ['tr', 'us', 'cn', 'hk', 'jp', 'kr', 'tw'] as const;
+const DAILY_MARKET_ORDER = TURKISH_BROKER_MARKETS;
 type DailyMarketCode = (typeof DAILY_MARKET_ORDER)[number];
 
 const DAILY_MARKET_LABELS: Record<DailyMarketCode, Record<UiLanguage, string>> = {
   tr: { tr: 'Türkiye', en: 'Türkiye', zh: '土耳其' },
   us: { tr: 'ABD', en: 'United States', zh: '美国' },
-  cn: { tr: 'Çin', en: 'China', zh: '中国大陆' },
   hk: { tr: 'Hong Kong', en: 'Hong Kong', zh: '香港' },
   jp: { tr: 'Japonya', en: 'Japan', zh: '日本' },
-  kr: { tr: 'Güney Kore', en: 'South Korea', zh: '韩国' },
-  tw: { tr: 'Tayvan', en: 'Taiwan', zh: '台湾' },
 };
 
 type DailyMarketCapability = {
