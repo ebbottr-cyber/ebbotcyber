@@ -424,6 +424,43 @@ jobs:
           python -m pytest -q \
             tests/test_four_market_batch_validation.py \
             tests/test_four_market_progress_report_reader.py \
+            tests/test_four_market_source_readiness.py \
             tests/test_four_market_universe_plan.py \
             tests/test_five_market_sample_validation.py \
             tests/test_five_market_report_reader.py
+
+  # Non-blocking by design: external publishers may throttle/redirect.
+  # Never publish licensed CSV/XLSX or member symbol rosters as artifacts.
+  four-market-official-source-smoke:
+    if: >-
+      github.event.pull_request.number == 11 &&
+      github.head_ref == 'integration/market-sqlite-safety' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Check actual US DE HK publisher-format compatibility (aggregate only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.four_market_source_readiness \
+            --output "$RUNNER_TEMP/etre-foreign-source-readiness.json"
+      - name: Upload aggregate source-format audit (never issuer bytes or member codes)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: etre-foreign-source-compatibility-${{ github.run_id }}
+          path: ${{ runner.temp }}/etre-foreign-source-readiness.json
+          if-no-files-found: warn
+          retention-days: 3
