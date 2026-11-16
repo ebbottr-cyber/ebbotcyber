@@ -9,7 +9,10 @@ without introducing import cycles.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Optional
+
+from src.services.bist_symbols import normalize_bist_equity_symbol
 
 
 @dataclass(frozen=True)
@@ -52,6 +55,13 @@ def split_suffix_symbol(stock_code: str) -> tuple[str, str] | None:
 def get_suffix_market(stock_code: str) -> Optional[str]:
     """Return jp/kr/tw for supported suffix-only Yahoo symbols, else None."""
 
+    if normalize_bist_equity_symbol(stock_code) is not None:
+        return "tr"
+    # Xetra Yahoo tickers require an explicit .DE suffix; never infer
+    # Germany from bare SAP/BMW because those can collide with US tickers.
+    # Start with a letter, allow numbers (e.g. VOW3.DE, MUV2.DE).
+    if re.fullmatch(r"[A-Z][A-Z0-9]{0,7}\.DE", (stock_code or "").strip().upper()):
+        return "de"
     parts = split_suffix_symbol(stock_code)
     if parts is None:
         return None
@@ -109,5 +119,10 @@ def suffix_base_lookup_allowed(canonical_code: str) -> bool:
 
 
 def market_suffixes(market: str) -> tuple[str, ...]:
-    spec = _MARKET_TO_SPEC.get((market or "").strip().lower())
+    normalized = (market or "").strip().lower()
+    if normalized == "tr":
+        return ("IS",)
+    if normalized == "de":
+        return ("DE",)
+    spec = _MARKET_TO_SPEC.get(normalized)
     return spec.suffixes if spec else ()

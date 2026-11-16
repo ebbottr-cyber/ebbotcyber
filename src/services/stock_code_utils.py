@@ -202,6 +202,8 @@ def is_code_like(value: str) -> bool:
         return False
     if text.isdigit() and len(text) in (5, 6):
         return True
+    if get_suffix_market(text) == "de":
+        return True
     explicit_parts = _split_explicit_exchange(text)
     if explicit_parts is not None:
         return _normalize_explicit_exchange_parts(explicit_parts) is not None

@@ -293,7 +293,7 @@ const HomePage: React.FC = () => {
   const [marketReviewError, setMarketReviewError] = useState<ParsedApiError | null>(null);
   const [marketReviewReport, setMarketReviewReport] = useState<string | null>(null);
   const [marketReviewPayload, setMarketReviewPayload] = useState<MarketReviewPayload | null>(null);
-  const [marketReviewRegionOverride, setMarketReviewRegionOverride] = useState<MarketReviewRegion[] | undefined>();
+  const [marketReviewRegionOverride, setMarketReviewRegionOverride] = useState<MarketReviewRegion[] | undefined>(['hk', 'us']);
   const [analysisSkills, setAnalysisSkills] = useState<SkillInfo[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState('');
   const [strategyMenuOpen, setStrategyMenuOpen] = useState(false);

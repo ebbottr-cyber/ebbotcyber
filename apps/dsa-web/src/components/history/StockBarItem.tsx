@@ -6,6 +6,7 @@ import { buildDecisionActionLabelMap, getDecisionActionLabel } from '../../utils
 import { formatDateTime } from '../../utils/format';
 import { getMarketPhaseSummaryLabel } from '../../utils/marketPhase';
 import { truncateStockName } from '../../utils/stockName';
+import { getStockDisplayName } from '../../utils/stockDisplayName';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 
 interface StockBarItemProps {
@@ -28,7 +29,7 @@ export const StockBarItemComponent: React.FC<StockBarItemProps> = ({
   const { language, t } = useUiLanguage();
   const sentimentScore = typeof item.sentimentScore === 'number' ? item.sentimentScore : null;
   const sentimentColor = sentimentScore !== null ? getSentimentColor(sentimentScore) : null;
-  const stockName = item.stockName || item.stockCode;
+  const stockName = getStockDisplayName(item.stockCode, item.stockName);
   const actionLabels = buildDecisionActionLabelMap(t);
   const operationLabel = getDecisionActionLabel(
     item.action,
@@ -68,7 +69,7 @@ export const StockBarItemComponent: React.FC<StockBarItemProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <span className="block w-full truncate text-sm font-semibold text-foreground tracking-tight">
+              <span className="notranslate block w-full truncate text-sm font-semibold text-foreground tracking-tight" translate="no">
                 {truncateStockName(stockName)}
               </span>
             </div>
@@ -110,7 +111,7 @@ export const StockBarItemComponent: React.FC<StockBarItemProps> = ({
                   }}
                   disabled={isDeleting}
                   className="opacity-0 group-hover/item:opacity-100 transition-opacity h-6 w-6 p-0 flex items-center justify-center"
-                  aria-label={t('history.deleteRecord', { name: item.stockName || item.stockCode })}
+                  aria-label={t('history.deleteRecord', { name: stockName })}
                 >
                   <svg className="h-3.5 w-3.5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

@@ -22,6 +22,7 @@ import { buildDecisionActionLabelMap, getDecisionActionLabel } from '../../utils
 import { formatDateTime } from '../../utils/format';
 import { areAssetAwareCodesEquivalent, toAssetAwareCodeKey, type AssetAwareAssetType } from '../../utils/stockCode';
 import { truncateStockName } from '../../utils/stockName';
+import { getStockDisplayName } from '../../utils/stockDisplayName';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import type { UiTextKey, UiTextParams } from '../../i18n/uiText';
 import { isWatchlistRowPendingAnalysis } from './watchlistRowState';
@@ -251,7 +252,7 @@ const WatchlistRowItem: React.FC<{
   const isLatestDetailLoading = Boolean(row.isTodayStatusLoading);
   const isLatestDetailUnavailable = !isLatestDetailLoading && Boolean(row.isTodayStatusUnknown);
   const item = isLatestDetailLoading || isLatestDetailUnavailable ? undefined : row.latestItem;
-  const stockName = row.latestItem?.stockName || row.code;
+  const stockName = getStockDisplayName(row.code, row.latestItem?.stockName);
   const canOpenDetail = typeof item?.id === 'number';
   const signals = buildWatchlistRowSignals({
     row,
@@ -295,7 +296,7 @@ const WatchlistRowItem: React.FC<{
         </span>
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold text-foreground">
+            <span className="notranslate truncate text-sm font-semibold text-foreground" translate="no">
               {truncateStockName(stockName)}
             </span>
             {row.isTodayStatusLoading ? (
@@ -364,7 +365,7 @@ const WatchlistRowItem: React.FC<{
 };
 
 const TodayItem: React.FC<{ item: StockBarItem; onClick: (recordId: number) => void }> = ({ item, onClick }) => {
-  const stockName = item.stockName || item.stockCode;
+  const stockName = getStockDisplayName(item.stockCode, item.stockName);
 
   return (
     <button
@@ -373,7 +374,7 @@ const TodayItem: React.FC<{ item: StockBarItem; onClick: (recordId: number) => v
       onClick={() => onClick(item.id)}
     >
       <div className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-foreground">
+        <span className="notranslate block truncate text-sm font-semibold text-foreground" translate="no">
           {truncateStockName(stockName)}
         </span>
         <span className="mt-1 block truncate font-mono text-[11px] text-secondary-text">

@@ -1008,3 +1008,50 @@ def test_data_capability_api_paths_return_valid_contract() -> None:
     assert capabilities_response.status_code == 200
     assert overview_response.json() == overview_payload
     assert capabilities_response.json() == overview_payload
+
+
+def test_yahoo_turkish_daily_market_is_visible_without_claiming_live_price_success() -> None:
+    """BIST capability metadata includes tr; no network or candles are queried."""
+    manager = _FetcherManager([
+        _Fetcher("YfinanceFetcher", 4, available=True),
+    ])
+    overview = DataCapabilityService(
+        config=_config(),
+        fetcher_manager=manager,
+    ).get_overview()
+
+    yahoo = _provider(overview, "yfinance")
+    assert "tr" in yahoo["markets"]
+    assert "tr" in yahoo["dataset_markets"]["kline.daily"]
+    assert "tr" not in yahoo["dataset_markets"]["quote.realtime"]
+    assert "tr" not in yahoo["dataset_markets"]["financial.snapshot"]
+
+    daily = _dataset(overview, "kline.daily")
+    turkey = daily["coverage"]["markets"]["tr"]
+    assert turkey["source"] == "yfinance"
+    assert turkey["status"] == "ok"
+    # This is a configured/available source state, not a completed OHLCV probe.
+    assert "last_success" in daily
+
+
+def test_xetra_germany_has_yahoo_daily_capability_without_realtime_claim() -> None:
+    """Configured source visibility is NOT proof of a live Xetra price fetch."""
+    manager = _FetcherManager([
+        _Fetcher("YfinanceFetcher", 4, available=True),
+    ])
+    overview = DataCapabilityService(
+        config=_config(),
+        fetcher_manager=manager,
+    ).get_overview()
+
+    yahoo = _provider(overview, "yfinance")
+    assert "de" in yahoo["markets"]
+    assert "de" in yahoo["dataset_markets"]["kline.daily"]
+    assert "de" not in yahoo["dataset_markets"]["quote.realtime"]
+    assert "de" not in yahoo["dataset_markets"]["financial.snapshot"]
+
+    daily = _dataset(overview, "kline.daily")
+    germany = daily["coverage"]["markets"]["de"]
+    assert germany["source"] == "yfinance"
+    assert germany["status"] == "ok"
+    assert daily["last_success"] is None

@@ -4,7 +4,7 @@
  * Stock data index for autocomplete functionality
  */
 
-export type Market = 'CN' | 'HK' | 'US' | 'JP' | 'KR' | 'INDEX' | 'ETF' | 'BSE';
+export type Market = 'TR' | 'DE' | 'CN' | 'HK' | 'US' | 'JP' | 'KR' | 'TW' | 'INDEX' | 'ETF' | 'BSE';
 export type AssetType = 'stock' | 'index' | 'etf';
 
 /**
@@ -45,6 +45,12 @@ export interface StockSuggestion {
   displayCode: string;
   /** Chinese name */
   nameZh: string;
+  /** Optional Latin company identity, if supplied by the index. */
+  nameEn?: string;
+  /** Existing full romanized Chinese name, when available. */
+  pinyinFull?: string;
+  /** Source-provided alternate names. */
+  aliases?: string[];
   /** Market */
   market: Market;
   /** Match type */

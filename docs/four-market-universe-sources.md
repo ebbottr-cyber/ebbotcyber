@@ -1,0 +1,91 @@
+# ETRE dört piyasa — gerçek 100'er hisse evreni hazırlama
+
+Aktif yatırım kapsamı: Türkiye (BIST), ABD, Almanya (Xetra), Hong Kong (HKEX). Japonya/Çin/Güney Kore/Tayvan aktif yeni taramaya dahil değildir.
+
+## Kaynak taraması — 16 Kasım 2026
+
+- TR: Projede src/data/bist100_constituents_2026q4.json ve src/services/bist100_universe.py ile 01.10–31.12.2026 aralığında geçerli, kaynak karşılaştırması yapılmış 100 BIST100 üyesi vardır. Resmî duyuru + iki bağımsız tam liste kullanılır. Bu üyelik kanıtıdır, 100 Yahoo fiyat serisinin tamamı doğrulandı demek değildir.
+- US: [S&P Dow Jones S&P 100](https://www.spglobal.com/spdji/en/indices/equity/sp-100/) büyük ABD şirketlerinin aday kaynağıdır. Her hisse sınıfı, kote pazar ve Yahoo kodu ayrı değerlendirilir. ADR/ETF/endeksler hisse listesine karıştırılmaz.
+- DE: [ISS STOXX DAX/MDAX/SDAX değişiklikleri](https://www.iss-stoxx.com/press-releases/stoxx-announces-scheduled-adjustments-to-dax-blue-chip-indices-4/) ve [Deutsche Börse işlem gören kıymetler](https://www.cashmarket.deutsche-boerse.com/cash-de/Handel/Handelbare-Werte-Xetra/frankfurt) kaynak olabilir. DAX40 + MDAX50 + kaynaklı 10 farklı SDAX şirketi yalnızca aday seçim yöntemidir; Xetra işlem yeri ve Yahoo .DE kodları ayrı teyit edilmelidir.
+- HK: [Hang Seng Composite HSCI](https://www.hsi.com.hk/en-hk/indexes/all-indexes/index-details/?seriesCode=hsci) yüzlerce hisse barındırır. Kasım 2026 Hang Seng Index HSI yaklaşık 95 bileşene sahip olduğundan, HSI tek başına 100 hisse gereksinimini garanti etmez. 100 ayrı HKEX hissesi HSCI veya resmî HKEX kayıtlarından teyit edilmelidir. HK00700 sembolü Yahoo'da 0700.HK olarak karşılanır.
+
+Bunlar kaynak adaylarıdır; her pazarın 100 ayrı gerçek hissesinin tümü henüz otomatik çekilmiş ve teyit edilmiş değildir. Kaynak URL yazmak, kaynağın gerçekten doğrulandığının kriptografik kanıtı değildir. Endeks üyeliği ile aracı kurum işlem izni farklıdır.
+
+## Yabancı piyasa için tarihli JSON
+
+Her yabancı pazar için ayrı UTF-8 JSON dosyası gerekir. Şema örneği (bu iki kod 100 hisse yerine GEÇMEZ):
+
+    {
+      "market": "us",
+      "as_of": "2026-11-16",
+      "source_name": "S&P Dow Jones S&P 100 (operator verified)",
+      "source_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-100/",
+      "symbols": ["AAPL", "MSFT"]
+    }
+
+Her piyasanın kendi dosyası olacak: us.json, de.json, hk.json. Her dosyada kaynakça doğrulanmış tam 100 benzersiz hisse bulunmalıdır. As-of tarihi gelecekte veya kontrol tarihinden 45 günden eski olamaz. Biçim denetimi, hisselerin gerçekten kote olduğunu veya Yahoo fiyat verisinin geldiğini kanıtlamaz.
+
+## Windows PowerShell (yalnızca liste hazırlar)
+
+Yerel kodun GitHub'dan çekilmiş olması gerekir.
+
+    cd "$env:USERPROFILE\Projects\ebbotcyber-test"
+
+    # Kaynaklı BIST100 listesini ayrı dışa aktar; 400 listesi yoksa üretme
+    & ".\.venv\Scripts\python.exe" -m src.services.four_market_universe_plan --as-of 2026-11-16 --export-tr100 "$env:TEMP\etre-bist100.txt" --report "$env:TEMP\etre-four-market-readiness.json"
+
+    # Kaynaklı üç yabancı 100-lük JSON dosyası tamamlandıktan sonra:
+    & ".\.venv\Scripts\python.exe" -m src.services.four_market_universe_plan --as-of 2026-11-16 --us-roster "$env:USERPROFILE\Documents\us.json" --de-roster "$env:USERPROFILE\Documents\de.json" --hk-roster "$env:USERPROFILE\Documents\hk.json" --export-400 "$env:USERPROFILE\Downloads\etre-400-tickers.txt" --report "$env:TEMP\etre-four-market-readiness.json"
+
+Yalnızca BIST100 mevcutken rapor 100/400 üyelik listesi hazır, 300 eksik şeklinde görünür. 400 kodluk dosya yabancı pazar listeleri sağlanmadan üretilmez. Dört pazarın tamamında üyelik/sözdizim/para birimi tarih denetimi geçse bile, Yahoo verisi ayrı kontrol edilir.
+
+ETRE Veri Merkezi → Dört piyasa · 400 hisse listesi hazırla → Kaynaklı BIST100 listesini ekle düğmesi mevcut dönem tarihli TR100 listesini API'den getirir; ABD/DE/HK girdilerini değiştirmez. Dönem bitince eski Türkiye listesini başarı gibi sunmaz.
+
+Bu özellik SQLite'a yazmaz, yeni canlı veri çekmez, gerçek emir göndermez. 400 hisse için gerçek günlük fiyat ve teknik analiz başarısı henüz gösterilmemiştir.
+
+
+## ABD: resmî iShares OEF CSV dosyasından 100 gerçek hisse adayı
+
+iShares'ın [resmî S&P 100 ETF (OEF) günlük pozisyon CSV bağlantısı](https://www.ishares.com/us/products/239723/x/latest-holdings.csv), 13 Kasım 2026 tarihli sürümde 100'ün üzerinde ABD hisse pozisyonu ve ayrıca nakit/türev satırları gösteriyor. Bu, S&P100 endeksindeki 100 şirketin birebir listesi değil, bir ETF'nin hisse pozisyonlarıdır. En yüksek piyasa değerine sahip 100 farklı NYSE/Nasdaq Equity pozisyonundan 100 hisselik aday izleme listesi hazırlanır. Resmî CSV'deki yeniden dağıtım şartları nedeniyle CSV veya türetilen hisse listesini GitHub'a kopyalamayın.
+
+Araç: src/services/ishares_oef_us100_import.py. İnternetten veri indirmez; kullanıcı CSV dosyasını resmî siteden bilgisayarına indirir. Dosya kimliği, 45 günlük tazelik, 100 farklı NYSE/NASDAQ Equity kodu, USD ve ABD lokasyonu, pozitif piyasa değeri kontrol edilir. Nakit, vadeli işlemler ve para piyasası fonları ayıklanır. Kaynağın BRK B kodu NYSE gösterimi BRK.B olarak tutulur; Yahoo sorgusunda BRK-B olarak eşlenir. Aday hisse listesi gerçek Yahoo veri doğrulaması veya aracı kurum işlem izni değildir.
+
+Yerel PowerShell, resmî siteden indirilmiş CSV ile:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.ishares_oef_us100_import --input "$env:USERPROFILE\Downloads\latest-holdings.csv" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\us.json"
+
+Sonra 400-hisselik hazırlayıcının --us-roster seçeneğiyle Documents\us.json dosyasını kullanın. DE/HK için 100'er kaynaklı liste hâlâ gereklidir. Bu adımlar gerçek emir göndermez, portföye erişmez, SQLite'a yazmaz ve lisanslı listeyi GitHub'a yüklemez.
+
+## DE100 — Deutsche Börse Xetra kaynağı
+
+Resmî CSV indirme sayfası:
+https://www.cashmarket.deutsche-boerse.com/cash-en/trading/Tradable-Instruments-Xetra/Downloads/xetra-downloads
+
+"T7 (Xetra) All tradable instruments" CSV dosyası yerel bilgisayara indirilir. Frankfurt (XFRA) verisi kabul edilmez. Kaynakta iki meta satır vardır: Market: XETR ve Date Last Update: gg.aa.yyyy. Noktalı virgülle ayrılan tabloda yalnızca CS hisse türü, Active durum, MIC Code XETR, EUR ödeme para birimi ve DE ile başlayan Alman ISIN satırları aday alınır. src/services/xetra_t7_de100_import.py, uygun sembolleri alfabetik sıralayarak ilk 100 hisseyi de.json dosyasına yazar. Bu 100 en büyük Alman şirketi / DAX üyeleri / 100 başarılı Yahoo verisi anlamına GELMEZ.
+
+PowerShell:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.xetra_t7_de100_import --input "$env:USERPROFILE\Downloads\t7-xetr-allTradableInstruments.csv" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\de.json"
+
+## HK100 — HKEX resmî menkul kıymet listesi
+
+HKEX resmî Excel kaynağı:
+https://www.hkex.com.hk/eng/services/trading/securities/securitieslists/ListOfSecurities.xlsx
+
+src/services/hkex_hk100_import.py indirilen yerel ListOfSecurities.xlsx dosyasını, ya da Excel'den kaydedilmiş Stock Code / Category sütunlu CSV'yi okur. Equity olmayan kıymetler (ETF, varant, nakit vb.) ile RMB ikili sayaçları, belirli SPAC ve GEM kod aralıkları reddedilir. Geriye kalan kodlar sayısal sırada ilk 100 aday olarak hk.json içine yazılır. Bu en likit/en büyük 100 şirket seçimi değildir. --as-of tarihi HKEX dosyasının indirildiği ve operatörce teyit edildiği gündür; dosyadan otomatik resmî zaman damgası doğrulanmaz.
+
+PowerShell:
+
+    & ".\.venv\Scripts\python.exe" -m src.services.hkex_hk100_import --input "$env:USERPROFILE\Downloads\ListOfSecurities.xlsx" --as-of 2026-11-16 --output "$env:USERPROFILE\Documents\hk.json"
+
+Sonra us.json (resmî OEF dosyasından), de.json, hk.json ve mevcut TR100 ile 400 kodlu plan hazırlanabilir. Bu dört tarihli listenin varlığı, Yahoo fiyatların ve teknik analizlerin 400/400 başarılı olduğunu göstermez. Sembol-hisse kotasyonu, Yahoo eşleşmesi ve aracı kurum işlem izni ayrıca doğrulanmalıdır. Resmî ham dosyalar veya yeniden dağıtımı sınırlanan lisanslı veriler GitHub'a kopyalanmaz.
+
+
+## Gerçek resmî kaynak dosyası uyumluluk kontrolü (sadece özet)
+
+`python -m src.services.four_market_source_readiness --output "$env:TEMP\etre-foreign-source-readiness.json"` komutu **açıkça çalıştırıldığında**, yalnızca sabitlenmiş resmî ABD iShares OEF, Alman Deutsche Börse XETR ve Hong Kong HKEX indirme adreslerini ziyaret eder; kaynağı geçici dosyada mevcut içe aktarıcıdan geçirir, sonra dosyayı siler. Başarılı kaynak için yalnızca **100 aday seçildi** ve **kaynakta kaç uygun hisse vardı** bilgilerini, dosyanın SHA-256 özetini ve kaynak tarihini kaydeder. İndirilen CSV/XLSX ham verisi veya 100 hisse kodunun tamamı çıktı JSON'una/GitHub'a yazılmaz.
+
+GitHub PR #11'de `four-market-official-source-smoke` adlı **harici erişim nedeniyle zorunlu olmayan** test işi, aynı işlemi silinebilen CI çalıştırıcısında yapar; yalnızca küçük özet JSON artefaktını saklar. Kaynak sitesi erişimi reddeder, dosya yerleşimi değişir veya 100 geçerli hisse seçilemezse o piyasa `unavailable_or_invalid` olur; **başarı sayılmaz**. CI işinin zorunlu olmaması, kaynak doğrulamasını geçmiş saymak anlamına gelmez. Ham dosyaların indirilmesi kullanım/lisans koşullarına bağlıdır; rapor veri yeniden dağıtımı veya yatırım tavsiyesi değildir.
+
+Bu araç **400 hisse listesi oluşturmaz**, Yahoo OHLCV incelemesi veya aracı kurum işlem izni kontrolü **yapmaz**. Sonraki adım, operatörün kaynakları inceleyip yerelde `us.json`, `de.json`, `hk.json` üretmesi ve kaynaklı 400 kodlu planı oluşturarak parça parça fiyat/teknik analiz kontrolünü başlatmasıdır.
+

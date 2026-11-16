@@ -105,17 +105,22 @@ def test_akshare_call_with_timeout_uses_spawn_context(monkeypatch) -> None:
 
 
 def test_akshare_call_with_timeout_returns_promptly() -> None:
+    # Spawning a fresh child can take several hundred milliseconds on loaded
+    # CI runners, especially under the required Windows-compatible spawn
+    # start method. The 0.5-second wall-clock limit was scheduler-sensitive.
+    # A long-running child makes the intent testable: timeout must interrupt
+    # the operation instead of waiting for natural completion.
     started = time.monotonic()
 
     with pytest.raises(TimeoutError, match="unit-hang"):
         _akshare_call_with_timeout(
             _sleep_for,
-            0.2,
+            5.0,
             timeout=0.01,
             call_name="unit-hang",
         )
 
-    assert time.monotonic() - started < 0.5
+    assert time.monotonic() - started < 2.0
 
 
 def test_akshare_call_with_timeout_reaps_timed_out_worker_process() -> None:
