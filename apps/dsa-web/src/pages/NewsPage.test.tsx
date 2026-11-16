@@ -7,7 +7,7 @@ import { newsApi } from '../api/news';
 vi.mock('../api/news', () => ({
   NEWS_CHANGED_EVENT: 'etre:news-updated',
   newsApi: {
-    list: vi.fn(), status: vi.fn(), refresh: vi.fn(),
+    list: vi.fn(), status: vi.fn(), refresh: vi.fn(), ai: vi.fn(),
     read: vi.fn(), readAll: vi.fn(), notifications: vi.fn(),
   },
 }));
@@ -35,6 +35,7 @@ describe('NewsPage', () => {
     vi.mocked(newsApi.read).mockReset().mockResolvedValue();
     vi.mocked(newsApi.readAll).mockReset().mockResolvedValue();
     vi.mocked(newsApi.notifications).mockReset().mockResolvedValue();
+    vi.mocked(newsApi.ai).mockReset().mockResolvedValue();
     vi.mocked(newsApi.refresh).mockReset().mockResolvedValue({
       inserted: 0, failed_markets: [],
     });
