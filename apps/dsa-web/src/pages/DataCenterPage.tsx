@@ -10,7 +10,7 @@ import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
 import type { UiLanguage, UiTextKey } from '../i18n/uiText';
 import { formatDateTime } from '../utils/format';
-import { TURKISH_BROKER_MARKETS } from '../utils/marketAccess';
+import { isTurkishBrokerMarket, TURKISH_BROKER_MARKETS } from '../utils/marketAccess';
 
 type Status = DatasetQualityStatus | ProviderCapabilityStatus;
 
@@ -81,7 +81,7 @@ function statusVariant(status: Status): 'success' | 'warning' | 'danger' | 'defa
 function formatDatasetMarkets(datasetMarkets: Record<string, string[]>): string {
   return Object.entries(datasetMarkets)
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([dataset, markets]) => `${dataset} [${markets.join(', ') || '--'}]`)
+    .map(([dataset, markets]) => `${dataset} [${markets.filter(isTurkishBrokerMarket).join(', ') || '--'}]`)
     .join(' · ');
 }
 
@@ -146,7 +146,7 @@ const DataCenterPage: React.FC = () => {
   }, [load]);
 
   const summary = useMemo(() => {
-    const providers = overview?.providers ?? [];
+    const providers = overview?.providers.filter((provider) => provider.markets.some(isTurkishBrokerMarket)) ?? [];
     const datasets = overview?.datasets ?? [];
     return {
       configured: providers.filter((item) => item.configured).length,
@@ -156,6 +156,7 @@ const DataCenterPage: React.FC = () => {
   }, [overview]);
 
   const dailyMarkets = useMemo(() => getDailyMarketCapabilities(overview), [overview]);
+  const focusedProviders = useMemo(() => overview?.providers.filter((provider) => provider.markets.some(isTurkishBrokerMarket)) ?? [], [overview]);
 
   return (
     <AppPage className="space-y-5">
@@ -201,7 +202,7 @@ const DataCenterPage: React.FC = () => {
             {t('dataCenter.noteUnverified')}
           </p>
           <div className="grid gap-3 md:grid-cols-3">
-            <SummaryTile label={t('dataCenter.configuredProviders')} value={summary.configured} note={`${overview.providers.length} ${t('dataCenter.totalProviders')}`} />
+            <SummaryTile label={t('dataCenter.configuredProviders')} value={summary.configured} note={`${focusedProviders.length} ${t('dataCenter.totalProviders')}`} />
             <SummaryTile label={t('dataCenter.healthyDatasets')} value={summary.healthy} note={`${overview.datasets.length} ${t('dataCenter.totalDatasets')}`} />
             <SummaryTile label={t('dataCenter.attentionDatasets')} value={summary.attention} note={t('dataCenter.attentionNote')} />
           </div>
@@ -230,7 +231,7 @@ const DataCenterPage: React.FC = () => {
 
           <Card title={t('dataCenter.providers')} subtitle={formatDateTime(overview.asOf)} variant="bordered" padding="md">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {overview.providers.map((provider) => (
+              {focusedProviders.map((provider) => (
                 <div key={provider.name} className="rounded-xl border border-border/70 bg-surface/60 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -240,7 +241,7 @@ const DataCenterPage: React.FC = () => {
                     <Badge variant={statusVariant(provider.status)}>{t(STATUS_LABEL_KEYS[provider.status])}</Badge>
                   </div>
                   <div className="mt-3 text-xs leading-5 text-secondary-text">
-                    <div>{t('dataCenter.markets')}: {provider.markets.join(', ') || '--'}</div>
+                    <div>{t('dataCenter.markets')}: {provider.markets.filter(isTurkishBrokerMarket).join(', ') || '--'}</div>
                     <div>{t('dataCenter.datasets')}: {formatDatasetMarkets(provider.datasetMarkets) || '--'}</div>
                   </div>
                   {provider.warnings.length > 0 ? <div className="mt-2 text-xs text-warning">{provider.warnings.map((warning) => DIAGNOSTIC_LABEL_KEYS[warning] ? t(DIAGNOSTIC_LABEL_KEYS[warning]) : warning).join(' · ')}</div> : null}
