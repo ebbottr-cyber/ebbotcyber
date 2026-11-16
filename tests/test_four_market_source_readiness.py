@@ -109,3 +109,21 @@ def test_issuer_network_source_urls_are_hardcoded_to_three_allowlisted_hosts():
     assert len({v["url"] for v in _SOURCES.values()}) == 3
     assert all(v["url"].startswith("https://" + v["hostname"] + "/")
                for v in _SOURCES.values())
+
+
+def test_xetra_failure_reports_only_safe_metadata_not_stock_rosters(tmp_path):
+    samples = _fixture_bytes(tmp_path)
+    original = samples["de"]
+    modified = b"sep=;\n" + original
+    result = check_source("de", as_of=AS_OF, get_bytes=lambda _: modified)
+    assert result["status"] == "unavailable_or_invalid"
+    assert result["first_metadata_line"] == "sep=;"
+    assert "symbols" not in result
+    assert "ISIN" not in str(result)
+    bogus_html = check_source(
+        "de", as_of=AS_OF,
+        get_bytes=lambda _: b"<!doctype html><html><body>Unavailable</body></html>",
+    )
+    assert bogus_html["status"] == "unavailable_or_invalid"
+    assert bogus_html["payload_looks_html"] is True
+    assert "first_metadata_line" not in bogus_html
