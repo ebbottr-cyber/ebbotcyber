@@ -72,7 +72,10 @@ def create_snapshot(source: Path, output: Path) -> dict[str, object]:
 
         # Verify a completed, closed snapshot before making it visible.
         report = verify_snapshot(Path(staged))
-        with open(staged, "rb") as file:
+        # Windows' CRT _commit (used by os.fsync) requires a writable fd.
+        # The SQLite backup connection is already closed; open only the
+        # finished staging file in r+b mode, without altering its content.
+        with open(staged, "r+b") as file:
             os.fsync(file.fileno())
         # Hard-link publish is atomic and fails rather than overwriting an
         # output created by a concurrent operator/process. Same dir/volume.
