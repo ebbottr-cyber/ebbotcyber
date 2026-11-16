@@ -21,6 +21,7 @@ from pathlib import Path
 import tempfile
 import time
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 from src.services.five_market_sample_validation import (
     FOCUS_MARKETS,
@@ -96,11 +97,27 @@ def load_source_dated_manifest(path: Path, *, as_of: date) -> dict:
         if not isinstance(info.get("source_name"), str) or not info["source_name"].strip():
             raise ValueError(f"{market}: missing source description")
         url = info.get("source_url")
-        if not isinstance(url, str) or not url.startswith("https://") or len(url) > 500:
+        if not isinstance(url, str) or len(url) > 500:
             raise ValueError(f"{market}: missing HTTPS source provenance")
+        parsed = urlparse(url)
+        if (parsed.scheme != "https" or not parsed.hostname or
+                parsed.username or parsed.password or
+                parsed.hostname in {"localhost", "127.0.0.1"} or
+                parsed.hostname.endswith(".local")):
+            raise ValueError(f"{market}: invalid public HTTPS source provenance")
 
     canonical = json.dumps(
-        {"as_of": recorded.isoformat(), "symbols": symbols},
+        {
+            "as_of": recorded.isoformat(), "symbols": symbols,
+            "market_sources": {
+                market: {
+                    "source_date": items[market]["source_date"],
+                    "source_name": items[market]["source_name"],
+                    "source_url": items[market]["source_url"],
+                }
+                for market in FOCUS_MARKETS
+            },
+        },
         separators=(",", ":"), sort_keys=True, ensure_ascii=True,
     ).encode("utf-8")
     return {
