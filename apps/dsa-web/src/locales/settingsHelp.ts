@@ -1,4 +1,5 @@
 import type { SystemConfigDocLink } from '../types/systemConfig';
+import { getFieldTitle } from '../utils/systemConfigI18n';
 
 export interface SettingsHelpContent {
   title: string;
@@ -2526,12 +2527,199 @@ const settingsHelpEnUS: SettingsHelpMap = {
   },
 };
 
+
+// Concise Turkish descriptions for all settings help entries. The original
+// Chinese and English detailed references remain available in their locales.
+// Never translate technical keys, model names or stock identifiers.
+const settingsHelpSummaryTr: Record<string, string> = {
+  "settings.base.STOCK_LIST": "Analizde kullanılacak hisse kodlarını virgülle ayırarak girin. Bu alan izleme listesini ve zamanlanmış analizleri etkiler.",
+  "settings.ai_model.GENERATION_BACKEND": "Analiz yanıtlarını hangi yapay zekâ çalışma yönteminin oluşturacağını seçin.",
+  "settings.ai_model.GENERATION_FALLBACK_BACKEND": "Birincil yöntem başarısız olursa kullanılacak yedek oluşturma yöntemini belirleyin.",
+  "settings.ai_model.OPENCODE_CLI_MODEL": "Yerel OpenCode CLI için kullanılacak model kimliğini belirtin.",
+  "settings.ai_model.GENERATION_BACKEND_TIMEOUT_SECONDS": "Bir model yanıtı için izin verilen en uzun bekleme süresini saniye cinsinden belirleyin.",
+  "settings.ai_model.GENERATION_BACKEND_MAX_OUTPUT_BYTES": "Modelin tek çalışmada üretebileceği azami çıktı boyutunu sınırlayın.",
+  "settings.ai_model.GENERATION_BACKEND_MAX_CONCURRENCY": "Aynı anda çalışabilecek model oluşturma işlemlerinin üst sınırını belirleyin.",
+  "settings.ai_model.LOCAL_CLI_BACKEND_MAX_CONCURRENCY": "Aynı anda başlatılabilecek yerel komut satırı işlemlerini sınırlayın.",
+  "settings.ai_model.LITELLM_MODEL": "Varsayılan hisse analizi ve raporlar için ana modeli seçin.",
+  "settings.ai_model.LLM_CHANNELS": "Kullanılacak model sağlayıcılarını ve bağlantı kanallarını tanımlayın.",
+  "settings.ai_model.AGENT_LITELLM_MODEL": "Strateji asistanına özel bir model seçin; boşsa ana model kullanılır.",
+  "settings.ai_model.LITELLM_FALLBACK_MODELS": "Ana model çalışmadığında sırayla denenecek yedek modelleri belirtin.",
+  "settings.ai_model.LITELLM_CONFIG": "Gelişmiş model yönlendirme kuralları için YAML dosyası belirtin.",
+  "settings.ai_model.LLM_TEMPERATURE": "Model yanıtlarının çeşitliliğini ayarlar; düşük değerler daha tutarlı sonuçlar üretir.",
+  "settings.ai_model.LLM_PROMPT_CACHE_TELEMETRY_ENABLED": "Model istemi önbelleği hakkında ölçüm ve tanılama verilerini kaydetmeyi yönetir.",
+  "settings.ai_model.LLM_PROMPT_CACHE_HINTS_ENABLED": "Desteklenen sağlayıcılara istem önbelleği ipuçlarının gönderilip gönderilmeyeceğini belirler.",
+  "settings.ai_model.LLM_PROMPT_CACHE_DIAGNOSTICS_LEVEL": "Önbellek davranışına ilişkin kayıt ayrıntı düzeyini seçin.",
+  "settings.ai_model.LLM_USAGE_HMAC_SECRET": "Kullanım kayıtlarındaki içerik izlerini koruyan gizli HMAC anahtarını yönetir; anahtarı paylaşmayın.",
+  "settings.ai_model.LLM_USAGE_HMAC_KEY_VERSION": "HMAC anahtarının sürüm etiketini belirleyin; anahtar değişirse sürümü de güncelleyin.",
+  "settings.ai_model.provider_keys": "Yapay zekâ sağlayıcılarının API anahtarlarını düzenleyin; gerçek anahtarları kod deposuna veya günlük kayıtlarına eklemeyin.",
+  "settings.ai_model.anspire_llm": "Anspire uyumlu model hizmetinin bağlantısını ve varsayılan modelini yapılandırın.",
+  "settings.ai_model.legacy_provider_params": "Eski model sağlayıcısı ayarlarıyla uyumluluk için saklanan alanlardır.",
+  "settings.ai_model.OPENAI_BASE_URL": "OpenAI uyumlu model hizmetinin bağlantı adresini belirtin.",
+  "settings.data_source.TUSHARE_TOKEN": "Tushare veri hizmeti için erişim anahtarını belirtin.",
+  "settings.data_source.TICKPLUS_API_KEY": "TickPlus fiyat ve gösterge verileri için API anahtarını belirtin.",
+  "settings.data_source.TICKPLUS_PRIORITY": "TickPlus günlük fiyat verilerinin kaynak sırasındaki önceliğini belirler.",
+  "settings.data_source.TICKFLOW_API_KEY": "TickFlow piyasa verileri için erişim anahtarını belirtin.",
+  "settings.data_source.MX_APIKEY": "MX ek veri hizmeti için API anahtarını belirtin.",
+  "settings.data_source.MX_PRIORITY": "MX veri kaynağının deneme önceliğini belirler.",
+  "settings.data_source.TICKFLOW_PRIORITY": "TickFlow günlük fiyat kaynağının önceliğini ayarlar.",
+  "settings.data_source.TICKFLOW_KLINE_ADJUST": "TickFlow fiyat serileri için temettü ve bölünme düzeltme yöntemini seçin.",
+  "settings.data_source.TICKFLOW_BATCH_DAILY_ENABLED": "Günlük fiyat verilerini gruplar hâlinde önceden alma seçeneğidir.",
+  "settings.data_source.TICKFLOW_BATCH_SIZE": "Tek günlük veri isteğinde işlenecek hisse sayısını belirler.",
+  "settings.data_source.FUTU_OPEND_HOST": "Futu OpenD hizmetinin ağ adresini belirtin.",
+  "settings.data_source.FUTU_OPEND_PORT": "Futu OpenD hizmetinin bağlantı noktasını belirtin.",
+  "settings.data_source.FUTU_HK_REALTIME_SOURCE_PRIORITY": "Hong Kong canlı fiyat sağlayıcılarının deneme sırasını belirleyin.",
+  "settings.data_source.stock_index_remote": "Hisse arama endeksinin uzaktan güncellenmesini denetler.",
+  "settings.base.SCREENING_ENABLED": "Hisse tarama özelliğini açar veya kapatır; piyasa kodlarını değiştirmez.",
+  "settings.data_source.REALTIME_SOURCE_PRIORITY": "Canlı fiyat sağlayıcılarının kullanılma sırasını belirler.",
+  "settings.data_source.realtime_quotes": "Canlı fiyat ve teknik gösterge özelliklerini yönetir.",
+  "settings.data_source.search_api_keys": "Haber ve web araması için kullanılan hizmet anahtarlarını yapılandırın.",
+  "settings.data_source.SEARXNG_BASE_URLS": "SearXNG arama sunucularının adreslerini belirtin.",
+  "settings.data_source.ENABLE_CHIP_DISTRIBUTION": "Desteklenen piyasalarda maliyet dağılımı verilerinin kullanılmasını yönetir.",
+  "settings.data_source.BIAS_THRESHOLD": "Fiyat sapması göstergesi için eşik değeri belirler.",
+  "settings.data_source.pytdx": "PyTDX bağlantı sunucularını ve bağlantı noktalarını yapılandırın.",
+  "settings.data_source.news_window": "Analizde kullanılacak haberlerin güncellik aralığını belirleyin.",
+  "settings.notification.FEISHU_WEBHOOK_URL": "Feishu bildirimleri için gönderim adresini tanımlayın.",
+  "settings.notification.FEISHU_STREAM_ENABLED": "Feishu akış bağlantısıyla bildirim veya mesaj almayı yönetir.",
+  "settings.notification.FEISHU_CHAT_ID": "Feishu sohbet hedefinin kimliğini belirtin.",
+  "settings.notification.FEISHU_RECEIVE_ID_TYPE": "Feishu alıcı kimliğinin türünü belirleyin.",
+  "settings.notification.FEISHU_DOMAIN": "Feishu hizmetinin bağlantı alanını seçin.",
+  "settings.notification.DINGTALK_STREAM_ENABLED": "DingTalk akış modunu açar veya kapatır.",
+  "settings.notification.DINGTALK_WEBHOOK_URL": "DingTalk bildirim adresini belirtin.",
+  "settings.notification.DINGTALK_SECRET": "DingTalk bildirim imzasını doğrulamak için kullanılan gizli anahtardır.",
+  "settings.notification.webhooks": "Webhook üzerinden gönderilecek bildirim bağlantılarını ve güvenlik seçeneklerini yönetir.",
+  "settings.notification.CUSTOM_WEBHOOK_URLS": "Özel bildirim hedeflerini virgülle ayırarak girin.",
+  "settings.notification.WEBHOOK_VERIFY_SSL": "Bildirim gönderirken HTTPS sertifikasının doğrulanmasını yönetir; açık tutulması önerilir.",
+  "settings.notification.telegram": "Telegram botunun erişim anahtarını ve sohbet hedefini yapılandırın.",
+  "settings.notification.email": "E-posta bildirimleri için SMTP gönderici ve alıcı bilgilerini yapılandırın.",
+  "settings.notification.chat_bots": "Desteklenen mesajlaşma botlarını ve kanallarını yapılandırın.",
+  "settings.notification.report_output": "Raporun biçimini, dilini ve bildirim içeriğini seçin.",
+  "settings.system.WEBUI_HOST": "Web uygulamasının dinleyeceği sunucu adresini belirler.",
+  "settings.system.WEBUI_PORT": "Web uygulamasının dinleyeceği bağlantı noktasını belirler.",
+  "settings.system.LOG_DIR": "Uygulama günlüklerinin kaydedileceği klasörü belirtin.",
+  "settings.system.WEBUI_ENABLED": "Web arayüzüyle açılma davranışını yönetir.",
+  "settings.system.WEBUI_AUTO_BUILD": "Web arayüzünün başlangıçta otomatik derlenmesini yönetir.",
+  "settings.system.ADMIN_AUTH_ENABLED": "Yönetici girişi için kimlik doğrulamayı etkinleştirir.",
+  "settings.system.TRUST_X_FORWARDED_FOR": "Güvenilir ters vekil sunucudan gelen istemci IP başlıklarına güvenilmesini yönetir.",
+  "settings.system.schedule": "Zamanlanmış analiz görevlerinin açılmasını ve çalışma saatlerini belirleyin.",
+  "settings.system.RUN_IMMEDIATELY": "Uygulama başlatıldığında bir analiz başlatılıp başlatılmayacağını belirler.",
+  "settings.system.TRADING_DAY_CHECK_ENABLED": "İşlem yapılmayan günlerde planlı analizin atlanmasını sağlar.",
+  "settings.system.HTTP_PROXY": "Ağa erişimde kullanılacak vekil sunucu adresini belirtin.",
+  "settings.llm_channel.channel_name": "Model kanalı için ayırt edici bir ad belirleyin.",
+  "settings.llm_channel.protocol": "Model hizmetiyle konuşmak için kullanılacak API iletişim türünü seçin.",
+  "settings.llm_channel.api_surface": "Model sağlayıcısının desteklediği API arayüzünü belirtin.",
+  "settings.llm_channel.base_url": "Model sağlayıcısının bağlantı adresini girin.",
+  "settings.llm_channel.api_key": "Model sağlayıcısı için gizli API anahtarını girin.",
+  "settings.llm_channel.models": "Bu kanal üzerinden kullanılacak model kimliklerini belirtin.",
+  "settings.llm_channel.capability_checks": "Sağlayıcının model ve API yetenekleri için uyumluluk kontrolünü yapılandırın.",
+  "settings.llm_channel.temperature": "Model yanıt çeşitliliğini ayarlar.",
+  "settings.llm_channel.primary_model": "Varsayılan analiz işlemlerinde kullanılacak ana modeli belirleyin.",
+  "settings.llm_channel.agent_primary_model": "Asistan işlemlerinde kullanılacak modeli belirleyin.",
+  "settings.llm_channel.fallback_models": "Bu kanal için yedek model seçeneklerini belirtin.",
+  "settings.llm_channel.vision_model": "Görsel içerikleri yorumlayacak modeli seçin.",
+  "settings.agent.AGENT_MODE": "Strateji asistanı işlevini etkinleştirir.",
+  "settings.agent.AGENT_BACKEND": "Asistanın kullanacağı model çalışma yöntemini belirler.",
+  "settings.agent.AGENT_GENERATION_BACKEND": "Asistan yanıtları için oluşturma yöntemini seçin.",
+  "settings.agent.AGENT_MAX_STEPS": "Asistanın tek görevde gerçekleştireceği azami adım sayısıdır.",
+  "settings.agent.AGENT_SKILLS": "Asistanın değerlendirebileceği strateji dosyalarını seçin.",
+  "settings.agent.AGENT_SKILL_DIR": "Strateji tanımlarının saklandığı klasörü belirtin.",
+  "settings.agent.AGENT_NL_ROUTING": "Asistanın kullanıcı isteğini doğal dil üzerinden sınıflandırmasını sağlar.",
+  "settings.agent.AGENT_ARCH": "Tek asistan veya çoklu asistan çalışma mimarisini belirleyin.",
+  "settings.agent.AGENT_ORCHESTRATOR_MODE": "Birden çok asistanın hangi ayrıntı düzeyinde birlikte çalışacağını belirleyin.",
+  "settings.agent.AGENT_ORCHESTRATOR_TIMEOUT_S": "Asistanın toplam çalışma süresi sınırını saniye cinsinden belirtin.",
+  "settings.agent.AGENT_SKILL_CONCURRENCY": "Aynı anda çalışabilecek strateji değerlendirmelerinin sayısını belirler.",
+  "settings.agent.AGENT_RISK_OVERRIDE": "Kritik riskler görüldüğünde alış yönündeki kararların engellenmesini sağlar.",
+  "settings.agent.DEEP_RESEARCH": "Kapsamlı araştırmanın süre ve kaynak sınırlarını ayarlayın.",
+  "settings.agent.AGENT_MEMORY_ENABLED": "Geçmiş analizlerle ilgili asistan hafızasını etkinleştirir.",
+  "settings.agent.AGENT_SKILL_AUTOWEIGHT": "Yeterli ve ilişkilendirilebilir strateji sonuçlarından hareketle ağırlıkları temkinli biçimde günceller; genel geri test başarısı tek başına kullanılmaz.",
+  "settings.agent.AGENT_SKILL_ROUTING": "Piyasa durumuna göre otomatik ya da elle strateji seçilmesini yönetir.",
+  "settings.agent.context_compression": "Uzun asistan konuşmalarında eski bağlamın nasıl kısaltılacağını seçin.",
+  "settings.agent.event_monitor": "Olayların hangi aralıklarla kontrol edileceğini ve uyarı üretilmesini yönetir.",
+  "settings.agent.EVENT_ALERT_RULES_JSON": "Olay uyarılarının eşik ve koşullarını JSON biçiminde tanımlayın.",
+  "settings.backtest.BACKTEST_ENABLED": "Geçmiş veriler üzerinde geri test yapılmasını etkinleştirir; gerçek emir göndermez.",
+  "settings.backtest.eval_params": "Geri test değerlendirme süresini, geçmiş koşullarını ve eşiklerini belirleyin.",
+  "settings.backtest.BACKTEST_ENGINE_VERSION": "Geri test motorunun sürüm etiketini belirtin.",
+  "settings.report.REPORT_SUMMARY_ONLY": "Bildirimlerde yalnızca analiz özetinin gönderilmesini sağlar.",
+  "settings.report.REPORT_SHOW_LLM_MODEL": "Bildirim raporunda kullanılan model adının gösterilmesini yönetir.",
+  "settings.report.REPORT_TEMPLATES_DIR": "Özel rapor şablonlarının bulunduğu klasörü belirtin.",
+  "settings.report.REPORT_RENDERER_ENABLED": "Yapılandırılmış rapor verisinin okunabilir bir görünüme dönüştürülmesini yönetir.",
+  "settings.report.REPORT_INTEGRITY_ENABLED": "Eksik veya tutarsız raporları göndermeden önce denetlenmesini sağlar.",
+  "settings.report.REPORT_HISTORY_COMPARE_N": "Karşılaştırmada kullanılacak önceki rapor sayısını belirleyin.",
+  "settings.report.SINGLE_STOCK_NOTIFY": "Her hisse için ayrı bildirim gönderilip gönderilmeyeceğini belirler.",
+  "settings.report.MERGE_EMAIL_NOTIFICATION": "Aynı dönemdeki e-posta bildirimlerinin birleştirilmesini sağlar.",
+  "settings.notification.channel_routing": "Bildirimlerin türlerine göre hangi kanallara gönderileceğini seçin.",
+  "settings.notification.dedup": "Tekrarlanan bildirimleri belirli bir süre içinde engellemeyi yönetir.",
+  "settings.notification.quiet_hours": "Belirli saatlerde yalnızca öncelikli bildirimlerin gönderilmesini sağlar.",
+  "settings.notification.MIN_SEVERITY": "Gönderilecek bildirimlerin en düşük önem düzeyini seçin.",
+  "settings.notification.DAILY_DIGEST_ENABLED": "Günlük bildirim özetini açar veya kapatır.",
+  "settings.system.LOG_LEVEL": "Günlük kayıtlarının ayrıntı ve önem düzeyini belirler.",
+  "settings.system.DEBUG": "Hata ayıklama için ayrıntılı günlük kayıtlarını etkinleştirir.",
+  "settings.system.MAX_WORKERS": "Aynı anda yürütülecek analiz görevlerinin üst sınırını belirler.",
+  "settings.system.ANALYSIS_DELAY": "Analiz görevleri arasındaki bekleme süresini belirler.",
+  "settings.system.SAVE_CONTEXT_SNAPSHOT": "Geçmiş analiz kayıtlarına bağlam özetlerinin eklenmesini yönetir.",
+  "settings.system.market_review": "Piyasa değerlendirmesini, kapsanan piyasaları ve görsel renkleri yapılandırın.",
+};
+
+const settingsHelpSpecialTitlesTr: Record<string, string> = {
+  'settings.ai_model.provider_keys': 'Model sağlayıcısı API anahtarları',
+  'settings.ai_model.anspire_llm': 'Anspire model hizmeti',
+  'settings.ai_model.legacy_provider_params': 'Eski sağlayıcı ayarları',
+  'settings.data_source.stock_index_remote': 'Hisse arama endeksi güncellemesi',
+  'settings.data_source.realtime_quotes': 'Canlı piyasa verileri',
+  'settings.data_source.search_api_keys': 'Arama hizmeti anahtarları',
+  'settings.data_source.pytdx': 'PyTDX bağlantısı',
+  'settings.data_source.news_window': 'Haber araştırma aralığı',
+  'settings.notification.webhooks': 'Webhook bildirimleri',
+  'settings.notification.telegram': 'Telegram bildirimleri',
+  'settings.notification.email': 'E-posta bildirimleri',
+  'settings.notification.chat_bots': 'Sohbet botları',
+  'settings.notification.report_output': 'Rapor çıktısı',
+  'settings.system.schedule': 'Zamanlanmış görevler',
+  'settings.llm_channel.channel_name': 'Model kanalı adı',
+  'settings.llm_channel.protocol': 'Model iletişim türü',
+  'settings.llm_channel.api_surface': 'Model API arayüzü',
+  'settings.llm_channel.base_url': 'Model sunucu adresi',
+  'settings.llm_channel.api_key': 'Model API anahtarı',
+  'settings.llm_channel.models': 'Kanal modelleri',
+  'settings.llm_channel.capability_checks': 'Model yetenek kontrolü',
+  'settings.llm_channel.temperature': 'Model yaratıcılık düzeyi',
+  'settings.llm_channel.primary_model': 'Ana model',
+  'settings.llm_channel.agent_primary_model': 'Asistanın ana modeli',
+  'settings.llm_channel.fallback_models': 'Yedek modeller',
+  'settings.llm_channel.vision_model': 'Görsel modeli',
+  'settings.agent.DEEP_RESEARCH': 'Derin araştırma ayarları',
+  'settings.agent.context_compression': 'Asistan bağlamını sıkıştırma',
+  'settings.agent.event_monitor': 'Olay izleme',
+  'settings.backtest.eval_params': 'Geri test parametreleri',
+  'settings.notification.channel_routing': 'Bildirim yönlendirme',
+  'settings.notification.dedup': 'Bildirim tekrar engeli',
+  'settings.notification.quiet_hours': 'Bildirim sessiz saatleri',
+  'settings.system.market_review': 'Piyasa değerlendirmesi',
+};
+
+// Keep the user's Turkish workspace fully legible without discarding the
+// richer English/Chinese source documentation or disclosing API keys.
+const settingsHelpTrTR: SettingsHelpMap = Object.fromEntries(
+  Object.entries(settingsHelpEnUS).map(([key, original]) => {
+    const settingKey = key.slice(key.lastIndexOf('.') + 1);
+    return [key, {
+      title: settingsHelpSpecialTitlesTr[key] ?? getFieldTitle(settingKey, settingKey, 'tr'),
+      summary: settingsHelpSummaryTr[key],
+      examples: original.examples,
+      docs: original.docs,
+      showFieldKey: original.showFieldKey,
+    }];
+  }),
+);
+
 // Only explicit Chinese locale should show Chinese help text.
 // Until each Turkish help entry has its own translation, English is safer
 // than silently falling back to Chinese in the Turkish workspace.
 function getPreferredHelpMap(locale?: string | null): SettingsHelpMap {
   if (locale?.toLowerCase().startsWith('zh')) {
     return settingsHelpZhCN;
+  }
+  if (locale?.toLowerCase().startsWith('tr')) {
+    return settingsHelpTrTR;
   }
   return settingsHelpEnUS;
 }
@@ -2557,7 +2745,9 @@ export function getSettingsHelpContent(
         : locale?.toLowerCase().startsWith('tr')
           ? 'Yapılandırma yardımı'
           : 'Configuration help',
-      summary: fallbackDescription,
+      summary: locale?.toLowerCase().startsWith('tr')
+        ? 'Bu ayar için ayrıntılı Türkçe açıklama henüz bulunmuyor.'
+        : fallbackDescription,
     };
   }
 
