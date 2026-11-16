@@ -314,3 +314,43 @@ jobs:
             ${{ runner.temp }}/xetra-yahoo*.log
           if-no-files-found: warn
           retention-days: 7
+
+  # Only expand to SAP, Siemens and BMW after the baseline single-stock check.
+  # Any one stock failing OHLCV/session/currency/score fails this independent job.
+  germany-xetra-basket-live-yahoo:
+    needs: germany-xetra-live-yahoo
+    if: >-
+      github.event.pull_request.number == 11 &&
+      github.head_ref == 'integration/market-sqlite-safety' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify three independent Xetra histories, EUR and technical scores
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m src.services.germany_xetra_basket_smoke \
+            --as-of 2026-11-15 \
+            --output "$RUNNER_TEMP/xetra-basket-yahoo-2026-11-15.json" \
+            2> "$RUNNER_TEMP/xetra-basket-yahoo.stderr.log"
+      - name: Upload read-only basket JSON and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xetra-basket-yahoo-smoke-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/xetra-basket-yahoo-*.json
+            ${{ runner.temp }}/xetra-basket-yahoo*.log
+          if-no-files-found: warn
+          retention-days: 7
