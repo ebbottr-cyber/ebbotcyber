@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Activity, ArrowRight, Bot, CircleAlert, Database, ExternalLink, Layers, LockKeyhole, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cryptoOfficeApi, isObject, type CryptoOfficeDashboard } from '../api/cryptoOffice';
+import { CryptoSpotPanel } from '../components/crypto/CryptoSpotPanel';
 
 type SectionId =
   | 'overview' | 'spot' | 'futures' | 'analysis' | 'signals'
@@ -151,6 +152,7 @@ const CryptoTradingPage: React.FC = () => {
   const current = SECTIONS.find(section => section.id === active)?.label ?? SECTIONS[0].label;
 
   const body = () => {
+    if (active === 'spot') return <CryptoSpotPanel />;
     if (!data) return null;
     switch (active) {
       case 'overview':
@@ -160,9 +162,7 @@ const CryptoTradingPage: React.FC = () => {
           <ReadOnlySection title="Sistem operasyonları" value={data.operations}
             description="Scheduler, veri akışı ve servis operasyon bilgileri." />
         </div>;
-      case 'spot':
-        return <ReadOnlySection title="Spot sanal hesap" value={field(data.portfolio, 'spot')}
-          description="Spot analizi için piyasa verisi entegrasyonu sonraki aşamada tamamlanacak." />;
+
       case 'futures':
         return <ReadOnlySection title="Futures sanal hesap" value={field(data.portfolio, 'futures')}
           description="Futures verileri Spot hesabıyla karıştırılmaz. Kaldıraçlı işlem yürütme kapalıdır." />;
@@ -279,7 +279,7 @@ const CryptoTradingPage: React.FC = () => {
               <span className="text-xs text-muted-text"><Activity className="mr-1 inline h-4 w-4" />Yalnızca doğrulanmış kaynak verileri</span>
             </div>
             {body()}
-          </> : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
+          </> : active === 'spot' ? <CryptoSpotPanel /> : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
             Kripto paneli, doğrulanmış servis yanıtı alınmadan hesap bilgisi göstermez.
           </div>}
         </section>
