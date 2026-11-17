@@ -223,6 +223,8 @@ export const CryptoRiskPanel: React.FC = () => {
         <Stat name="Kayma (iki yön)" value={display(result.estimated_round_trip_slippage, 4) + ' USDT'}/>
         <Stat name="Funding rezervi" value={display(result.estimated_one_period_funding_reserve, 4) + ' USDT'}/>
         <Stat name="Net risk/getiri" value={result.net_risk_reward == null ? 'Hesaplanamadı' : display(result.net_risk_reward, 2) + ':1'}/>
+        <Stat name="Birleşik Spot+Futures tahmini risk" value={'%' + display(result.estimated_combined_risk_pct, 3)}/>
+        <Stat name="Kaynak portföy risk çarpanı" value={display(result.upstream_risk_multiplier, 2) + 'x'}/>
       </div>
       <div className="text-xs leading-6 text-secondary-text">
         <strong>Karar gerekçeleri:</strong>
