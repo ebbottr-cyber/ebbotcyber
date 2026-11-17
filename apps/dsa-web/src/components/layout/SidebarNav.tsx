@@ -49,7 +49,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isRail = variant === 'rail';
   const itemBaseClass = cn(
-    'group relative flex h-[var(--nav-item-height)] w-full items-center overflow-hidden rounded-2xl border border-transparent text-sm leading-none text-secondary-text transition-all',
+    'etre-nav-link group relative flex h-[var(--nav-item-height)] w-full items-center overflow-hidden rounded-xl border border-transparent text-sm leading-none text-secondary-text transition-all',
     isRail
       ? 'justify-center gap-2.5 px-2'
       : collapsed
@@ -61,7 +61,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
     'hover:bg-[var(--nav-hover-bg)] hover:text-foreground'
   );
   const itemActiveClass = 'border-[var(--nav-active-border)] bg-[var(--nav-active-bg)] font-medium text-[hsl(var(--primary))]';
-  const itemIconClass = cn(isRail ? 'h-[18px] w-[18px]' : 'h-5 w-5', 'shrink-0');
+  const itemIconClass = cn(isRail ? 'h-[18px] w-[18px]' : 'etre-nav-icon h-5 w-5', 'shrink-0');
   const itemLabelClass = cn('truncate', isRail ? 'text-center' : '');
 
   return (
@@ -69,7 +69,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
       <div
         className={cn(
           'flex shrink-0 items-center',
-          isRail ? 'mb-5 justify-center gap-2 pt-1' : 'mb-4 gap-2 px-1',
+          isRail ? 'mb-5 justify-center gap-2 pt-1' : 'mb-6 gap-3 px-1',
           collapsed || isRail ? 'justify-center' : ''
         )}
       >
@@ -82,7 +82,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
           <BarChart3 className={cn(isRail ? 'h-[19px] w-[19px]' : 'h-5 w-5')} />
         </div>
         {!collapsed ? (
-          <p className={cn('min-w-0 truncate font-semibold text-foreground', isRail ? 'text-[0.95rem] leading-none' : 'text-sm')}>DSA</p>
+          <div className="min-w-0">
+            <p className={cn('font-black tracking-tight text-foreground', isRail ? 'text-[0.95rem] leading-none' : 'text-xl')}>ETRE</p>
+            {!isRail ? <p className="mt-0.5 text-[10px] leading-4 text-muted-text">Hisse ve Kripto Analiz Platformu</p> : null}
+          </div>
         ) : null}
       </div>
 
@@ -110,7 +113,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
                 {!collapsed ? <span className={itemLabelClass}>{label}</span> : null}
                 {badge === 'news' && newsUnread > 0 ? (
                   <span aria-label={t('layout.newsUnread', { count: newsUnread })}
-                    className="absolute right-1 top-0 rounded-full bg-danger px-1.5 text-[10px] leading-4 text-white">
+                    className="etre-nav-badge absolute right-1 top-0">
                     {newsUnread > 99 ? '99+' : newsUnread}
                   </span>
                 ) : null}
