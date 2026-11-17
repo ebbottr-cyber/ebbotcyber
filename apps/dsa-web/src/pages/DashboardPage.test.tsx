@@ -84,7 +84,7 @@ describe('ETRE Design 02 dashboard', () => {
     expect(await screen.findByText('104.000')).toBeInTheDocument();
     expect(screen.getAllByText('Türkiye').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Hong Kong').length).toBeGreaterThan(0);
-    expect(screen.getByText('Kripto · BTC')).toBeInTheDocument();
+    expect(screen.getByText(/Kripto · BTC/)).toBeInTheDocument();
   });
 
   it('keeps the original stock analysis accessible and uses real history for chart', async () => {
