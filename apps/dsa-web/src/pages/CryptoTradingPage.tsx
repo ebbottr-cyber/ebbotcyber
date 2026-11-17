@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { cryptoOfficeApi, isObject, type CryptoOfficeDashboard } from '../api/cryptoOffice';
 import { CryptoSpotPanel } from '../components/crypto/CryptoSpotPanel';
 import { CryptoFuturesPanel } from '../components/crypto/CryptoFuturesPanel';
+import { CryptoResearchPanel } from '../components/crypto/CryptoResearchPanel';
 
 type SectionId =
   | 'overview' | 'spot' | 'futures' | 'analysis' | 'signals'
@@ -155,6 +156,9 @@ const CryptoTradingPage: React.FC = () => {
   const body = () => {
     if (active === 'spot') return <CryptoSpotPanel />;
     if (active === 'futures') return <CryptoFuturesPanel paperSnapshot={field(data?.portfolio, 'futures')} />;
+    if (active === 'analysis' || active === 'signals' || active === 'agents') {
+      return <CryptoResearchPanel view={active} />;
+    }
     if (!data) return null;
     switch (active) {
       case 'overview':
@@ -166,14 +170,6 @@ const CryptoTradingPage: React.FC = () => {
         </div>;
 
 
-      case 'analysis':
-        return <div className="grid gap-4 xl:grid-cols-2">
-          <ReadOnlySection title="Ajan değerlendirme özeti" value={data.agents} />
-          <ReadOnlySection title="Sinyal doğrulama" value={data.validation} />
-        </div>;
-      case 'agents':
-        return <ReadOnlySection title="Ajanların kapalı sinyal sonuçlarına dayalı ağırlıkları"
-          value={data.agents} description="Ajan ağırlıkları tek başına emir veya pozisyon üretmez." />;
       case 'positions':
         return <section className="rounded-2xl border border-border bg-card p-4">
           <h3 className="font-semibold">Açık sanal pozisyonlar ({positions.length})</h3>
@@ -200,7 +196,6 @@ const CryptoTradingPage: React.FC = () => {
           <ReadOnlySection title="Operasyonel sağlık" value={data.operations} />
           <ReadOnlySection title="Strateji sonuç doğrulaması" value={data.validation} />
         </div>;
-      case 'signals':
       case 'scanner':
       case 'backtest':
       case 'history':
@@ -279,7 +274,7 @@ const CryptoTradingPage: React.FC = () => {
               <span className="text-xs text-muted-text"><Activity className="mr-1 inline h-4 w-4" />Yalnızca doğrulanmış kaynak verileri</span>
             </div>
             {body()}
-          </> : (active === 'spot' || active === 'futures') ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
+          </> : (['spot', 'futures', 'analysis', 'signals', 'agents'] as SectionId[]).includes(active) ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
             Kripto paneli, doğrulanmış servis yanıtı alınmadan hesap bilgisi göstermez.
           </div>}
         </section>
