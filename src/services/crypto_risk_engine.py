@@ -248,9 +248,13 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
     reward_net = notional * (reward - friction_pct)
     risk_reward_net = reward_net / estimated_loss if estimated_loss > 0 else None
     margin_needed = notional / lev
+    free_futures_cash = _number(future.get("wallet_balance"), "futures_wallet_unavailable", nonnegative=True)
     liquidation_buffer = (1 / lev - SOURCE_LIMITS["maintenance_margin_proxy"]) if market == "futures" else None
     existing_market_risk = srisk if market == "spot" else frisk
     total_risk_pct = (existing_market_risk + estimated_loss) / equity * 100
+    combined_risk_pct = (srisk + frisk + estimated_loss) / combined["equity"] * 100
+    combined_daily_pnl = spot_daily_pnl + min(futures_daily_pnl, projected)
+    combined_daily_limit = min(400.0, combined["equity"] * .02)
 
     reasons = []
     if (guard["new_positions_allowed"] is not True or daily["new_positions_allowed"] is not True
@@ -260,6 +264,14 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
         reasons.append("spot_daily_loss_limit")
     if market == "futures" and min(futures_daily_pnl, projected) <= -daily_limit:
         reasons.append("futures_daily_loss_limit")
+    if market == "futures" and (
+        margin_needed + notional * SOURCE_LIMITS["fee_rate_per_side"] > free_futures_cash
+    ):
+        reasons.append("insufficient_futures_wallet_balance")
+    if combined_risk_pct > SOURCE_LIMITS["max_aggregate_risk_pct"] + 1e-9:
+        reasons.append("combined_portfolio_risk_limit")
+    if combined_daily_pnl <= -combined_daily_limit:
+        reasons.append("combined_daily_loss_limit")
     if market == "futures" and (fgross + notional) / futures_equity > 1.0:
         reasons.append("gross_futures_limit")
     if market == "futures" and (
@@ -275,7 +287,10 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
         reasons.append("stop_near_estimated_liquidation")
     if quantity <= 0 or estimated_loss <= 0 or notional < SOURCE_LIMITS["min_research_notional_usdt"]:
         reasons.append("insufficient_risk_or_liquidity_budget")
-    if not all(math.isfinite(x) for x in (budget, notional, quantity, estimated_loss, reward_net, margin_needed, total_risk_pct)):
+    if not all(math.isfinite(x) for x in (
+        budget, notional, quantity, estimated_loss, reward_net,
+        margin_needed, total_risk_pct, combined_risk_pct, combined_daily_pnl,
+    )):
         raise RiskInputError("numeric_overflow")
 
     return {
@@ -295,6 +310,8 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
         "estimated_margin": round(margin_needed, 6),
         "net_risk_reward": round(risk_reward_net, 4) if risk_reward_net is not None else None,
         "estimated_aggregate_risk_pct": round(total_risk_pct, 4),
+        "estimated_combined_risk_pct": round(combined_risk_pct, 4),
+        "combined_daily_loss_basis_pnl": round(combined_daily_pnl, 4),
         "liquidation_proxy_distance_pct": round(liquidation_buffer * 100, 3) if liquidation_buffer is not None else None,
         "limits": SOURCE_LIMITS,
         "assumptions": [
