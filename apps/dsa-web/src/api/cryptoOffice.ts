@@ -48,7 +48,11 @@ export function validateCryptoOfficeDashboard(input: unknown): CryptoOfficeDashb
   if (!Number.isFinite(timestamp) || age > 24 * 60 * 60 * 1000 || age < -5 * 60 * 1000) {
     throw new CryptoOfficeContractError('Kripto servisinden gelen veri eski veya geçersiz.');
   }
-  const combined = input.portfolio.combined;
+  const portfolio = input.portfolio;
+  if (!isObject(portfolio)) {
+    throw new CryptoOfficeContractError('Kripto portföy verisi eksik.');
+  }
+  const combined = portfolio.combined;
   if (!isObject(combined) || typeof combined.valuation_complete !== 'boolean') {
     throw new CryptoOfficeContractError('Kripto portföy değerleme durumu geçersiz.');
   }
