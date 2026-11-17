@@ -1,13 +1,15 @@
-"""Source Paper V2 handshake must never enable EBBot execution.
+"""Paper V2 source claims do not enable EBBot orders.
 
-No network, no writes. An unknown/legacy upstream is explicitly unavailable.
+An absent protocol and a transport outage MUST NOT both be silently turned
+into a fresh-looking 'not installed' result. Source claims are never proof
+of executable safety. No network, exchange credentials, or writes.
 """
 import unittest
-from unittest.mock import AsyncMock, patch
-from src.services import crypto_paper_bridge as p
+
+from src.services import crypto_paper_v2_status as p
 
 
-def response(enabled=False):
+def source(enabled=False):
     return {
         "mode": "paper_only", "source": "Trading Office",
         "protocol": "paper_v2_atomic_sqlite",
@@ -19,35 +21,31 @@ def response(enabled=False):
     }
 
 
-class PaperV2HandshakeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_valid_source_protocol_is_detected_but_ebbot_remains_read_only(self):
-        get = AsyncMock(return_value=response(True))
-        with patch.object(p, "_get", get):
-            out = await p.read_paper_v2_capabilities()
-        self.assertTrue(out["upstream_v2_present"])
-        self.assertTrue(out["upstream_v2_opted_in"])
-        self.assertFalse(out["ebbot_paper_execution_permitted"])
-        self.assertFalse(out["real_exchange_orders"])
-        self.assertEqual(get.await_args.args[0], "v2-capabilities")
-        self.assertEqual(p._ALLOWED["v2-capabilities"], "/api/v1/paper/v2/capabilities")
+class SourceClaimTests(unittest.TestCase):
+    def test_installed_source_on_flag_never_grants_ebbot_execution(self):
+        result = p.verify_capabilities(source(True))
+        self.assertEqual(result["source_state"], "SOURCE_FLAG_ON_UNVERIFIED")
+        self.assertFalse(result["readiness_verified"])
+        self.assertFalse(result["paper_execution_permitted"])
+        self.assertFalse(result["ebbot_paper_writes_enabled"])
+        self.assertFalse(result["real_exchange_orders"])
 
-    async def test_legacy_upstream_or_missing_protocol_reports_unavailable(self):
-        for output in (
-            {"mode": "paper_only"}, {**response(), "real_exchange_orders": True},
-            {**response(), "legacy_paper_writes_enabled": True},
-            {**response(), "requires_admin_auth": False},
-        ):
-            with self.subTest(output=output), patch.object(p, "_get", AsyncMock(return_value=output)):
-                out = await p.read_paper_v2_capabilities()
-                self.assertFalse(out["upstream_v2_present"])
-                self.assertFalse(out["ebbot_paper_execution_permitted"])
+    def test_installed_source_disabled_is_reported_as_disabled(self):
+        result = p.verify_capabilities(source())
+        self.assertEqual(result["source_state"], "SOURCE_INSTALLED_DISABLED")
+        self.assertFalse(result["paper_execution_permitted"])
 
-    async def test_connection_failure_does_not_create_fake_readiness(self):
-        with patch.object(p, "_get", AsyncMock(side_effect=p.PaperReadError("upstream_unavailable"))):
-            result = await p.read_paper_v2_capabilities()
-        self.assertFalse(result["upstream_v2_present"])
-        self.assertFalse(result["upstream_v2_opted_in"])
-        self.assertEqual(result["execution"], "disabled")
+    def test_missing_or_unsafe_source_has_no_fallback(self):
+        invalid = (
+            {"mode": "paper_only"},
+            {**source(), "real_exchange_orders": True},
+            {**source(), "legacy_paper_writes_enabled": True},
+            {**source(), "requires_admin_auth": False},
+            {**source(), "risk_check_location": "outside_sqlite"},
+        )
+        for raw in invalid:
+            with self.subTest(raw=raw), self.assertRaises(p.PaperV2StatusUnavailable):
+                p.verify_capabilities(raw)
 
 
 if __name__ == "__main__":
