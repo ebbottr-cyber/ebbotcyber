@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from api.v1.endpoints.crypto_office import require_crypto_admin
 from src.services.crypto_paper_bridge import (
     PaperReadError, read_paper_history, read_paper_summary,
+    read_paper_v2_capabilities,
 )
 
 router = APIRouter(dependencies=[Depends(require_crypto_admin)])
@@ -44,4 +45,11 @@ async def crypto_paper_history(
         value = await read_paper_history(market, limit)
     except PaperReadError as exc:
         raise _fail(exc) from exc
+    return JSONResponse(content=value, headers={"Cache-Control": "private, no-store"})
+
+
+
+@router.get("/capabilities", summary="Paper V2 source availability; never grants execution")
+async def crypto_paper_capabilities():
+    value = await read_paper_v2_capabilities()
     return JSONResponse(content=value, headers={"Cache-Control": "private, no-store"})
