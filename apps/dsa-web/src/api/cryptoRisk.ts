@@ -32,6 +32,9 @@ export type CryptoRiskReview = {
   estimated_margin: number;
   net_risk_reward: number | null;
   estimated_aggregate_risk_pct: number;
+  estimated_combined_risk_pct: number;
+  combined_daily_loss_basis_pnl: number;
+  upstream_risk_multiplier: number;
   liquidation_proxy_distance_pct: number | null;
   limits: Record<string, number>;
   assumptions: string[];
@@ -106,11 +109,13 @@ export function validateRiskReview(raw: unknown, proposal: CryptoRiskProposal): 
     'estimated_quantity', 'estimated_loss_with_costs',
     'estimated_round_trip_fee', 'estimated_round_trip_slippage',
     'estimated_one_period_funding_reserve', 'estimated_margin',
-    'estimated_aggregate_risk_pct',
+    'estimated_aggregate_risk_pct', 'estimated_combined_risk_pct',
+    'upstream_risk_multiplier',
   ]) {
     if (!nonnegative(raw[key])) throw new Error('Risk büyüklükleri geçersiz.');
   }
-  if (!number(raw.daily_realized_pnl) ||
+  if (!number(raw.daily_realized_pnl) || !number(raw.combined_daily_loss_basis_pnl) ||
+      !number(raw.upstream_risk_multiplier) || raw.upstream_risk_multiplier > 1 ||
       !(raw.net_risk_reward === null || nonnegative(raw.net_risk_reward)) ||
       !(raw.liquidation_proxy_distance_pct === null || number(raw.liquidation_proxy_distance_pct)) ||
       typeof raw.checked_at !== 'string' || !Number.isFinite(Date.parse(raw.checked_at)) ||
