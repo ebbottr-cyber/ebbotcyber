@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, LogOut, MessageSquareQuote, Newspaper, Search, Settings2 } from 'lucide-react';
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Bitcoin, Gauge, Home, LogOut, MessageSquareQuote, Newspaper, Search, Settings2 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -37,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'backtest', labelKey: 'layout.nav.backtest', to: '/backtest', icon: BarChart3 },
   { key: 'alerts', labelKey: 'layout.nav.alerts', to: '/alerts', icon: Bell },
   { key: 'news', labelKey: 'layout.nav.news', to: '/news', icon: Newspaper, badge: 'news' },
+  { key: 'crypto-trading', labelKey: 'layout.nav.cryptoTrading', to: '/crypto-trading', icon: Bitcoin },
   { key: 'data', labelKey: 'layout.nav.dataCenter', to: '/data', icon: Database },
   { key: 'usage', labelKey: 'layout.nav.usage', to: '/usage', icon: Gauge },
   { key: 'settings', labelKey: 'layout.nav.settings', to: '/settings', icon: Settings2 },
