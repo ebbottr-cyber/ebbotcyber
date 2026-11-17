@@ -70,8 +70,11 @@ export type PaperSafety = {
   execution: 'disabled';
 };
 export type PaperV2Capabilities = {
-  upstream_v2_present: boolean;
+  upstream_v2_present: true;
   upstream_v2_opted_in: boolean;
+  source_state: 'SOURCE_INSTALLED_DISABLED' | 'SOURCE_FLAG_ON_UNVERIFIED';
+  source_claims_atomic_risk_gate: true;
+  readiness_verified: false;
   ebbot_paper_execution_permitted: false;
   real_exchange_orders: false;
   execution: 'disabled';
@@ -198,9 +201,12 @@ export function validatePaperHistory(v: unknown, market: PaperMarket | null): Pa
 export function validatePaperV2Capabilities(v: unknown): PaperV2Capabilities {
   if (!obj(v) || v.ebbot_paper_execution_permitted !== false ||
       v.real_exchange_orders !== false || v.execution !== 'disabled' ||
-      typeof v.upstream_v2_present !== 'boolean' ||
+      v.upstream_v2_present !== true ||
       typeof v.upstream_v2_opted_in !== 'boolean' ||
-      (!v.upstream_v2_present && v.upstream_v2_opted_in) ||
+      v.source_claims_atomic_risk_gate !== true ||
+      v.readiness_verified !== false ||
+      !['SOURCE_INSTALLED_DISABLED', 'SOURCE_FLAG_ON_UNVERIFIED'].includes(String(v.source_state)) ||
+      (v.upstream_v2_opted_in !== (v.source_state === 'SOURCE_FLAG_ON_UNVERIFIED')) ||
       typeof v.note !== 'string' || !fresh(v.checked_at)) {
     throw new Error('Paper V2 kaynak protokol durumu güvenle doğrulanamadı.');
   }
