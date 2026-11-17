@@ -61,6 +61,7 @@ function renderDashboard() {
 
 describe('ETRE Design 02 dashboard', () => {
   beforeEach(() => {
+    window.localStorage.setItem('dsa.uiLanguage', 'tr');
     vi.mocked(dashboardApi.getWatchlist).mockReset().mockResolvedValue(['AAPL']);
     vi.mocked(dashboardApi.getQuote).mockReset().mockImplementation(async code => ({
       stock_code: code, stock_name: 'Apple',
