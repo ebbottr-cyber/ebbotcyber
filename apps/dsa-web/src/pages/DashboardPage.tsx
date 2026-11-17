@@ -1,11 +1,12 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowRight, Bell, BarChart3, CheckCheck, ChevronRight, Newspaper, RefreshCcw, Search, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
+import { Activity, ArrowRight, Bell, BarChart3, CheckCheck, ChevronRight, Newspaper, RefreshCcw, Search, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { dashboardApi, type DashboardBar, type DashboardQuote } from '../api/dashboard';
 import { coinGeckoApi, type CoinGeckoCoin } from '../api/coinGecko';
 import { newsApi, NEWS_CHANGED_EVENT, type NewsArticle, type NewsMarket } from '../api/news';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
+import { getStockDisplayName } from '../utils/stockDisplayName';
 
 type SelectedMarket = 'all' | NewsMarket;
 type MarketTile = { market: NewsMarket; label: string; code: string; short: string };
@@ -216,7 +217,8 @@ const DashboardPage: React.FC = () => {
         setChartError(true);
       }
       if (results[1].status === 'fulfilled' && isValidQuote(results[1].value)) {
-        setQuotes(previous => ({ ...previous, [selectedCode]: results[1].value }));
+        const quote = results[1].value;
+        setQuotes(previous => ({ ...previous, [selectedCode]: quote }));
       }
       setChartLoading(false);
     });
@@ -426,7 +428,7 @@ const DashboardPage: React.FC = () => {
                 </div>
                 <p className="mt-1 text-xs text-muted-text">
                   {isValidQuote(selectedQuote) ? formatNumber(selectedQuote.current_price, language) : 'Fiyat alınamadı'}
-                  {' · '}{selectedQuote?.stock_name || 'Günlük mum grafiği'}
+                  {' · '}{selectedQuote ? getStockDisplayName(selectedCode, selectedQuote.stock_name) : 'Günlük mum grafiği'}
                 </p>
               </div>
               <div className="flex gap-1">
