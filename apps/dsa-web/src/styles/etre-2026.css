@@ -108,7 +108,7 @@
   transition: background .15s, color .15s;
 }
 .etre-nav-link:hover {background: hsl(var(--hover));color:hsl(var(--foreground));}
-.etre-nav-link[data-active="true"] {
+.etre-nav-link[aria-current="page"] {
   background: hsl(var(--nav-active-bg));
   color: hsl(var(--primary));
   font-weight: 750;
