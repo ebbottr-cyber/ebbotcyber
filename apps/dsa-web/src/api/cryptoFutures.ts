@@ -122,7 +122,8 @@ export function validateFuturesFunding(raw: unknown, symbol: string): FuturesFun
   base(raw, symbol, 'Binance USD-M Futures public market data', true);
   if (!finite(raw.funding_rate) || Math.abs(raw.funding_rate) > 0.1 ||
       !positive(raw.mark_price) || !optional(raw.index_price, positive) ||
-      ![1, 2, 4, 8].includes(Number(raw.funding_interval_hours)) ||
+      !Number.isInteger(raw.funding_interval_hours) ||
+      ![1, 2, 4, 8].includes(raw.funding_interval_hours as number) ||
       raw.funding_interval_ms !== Number(raw.funding_interval_hours) * 3_600_000 ||
       !(raw.funding_timestamp === null || milliseconds(raw.funding_timestamp)) ||
       !(raw.next_funding_timestamp === null || milliseconds(raw.next_funding_timestamp))) {
