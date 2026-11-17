@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import os
 import re
 import threading
 import time
@@ -61,9 +62,14 @@ def normalize_pair(value: str) -> tuple[str, str, str]:
 
 
 def _finite(raw: Any, *, positive: bool = False, nonnegative: bool = False) -> float:
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not math.isfinite(raw):
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
         raise FuturesDataError("invalid_market_data")
-    num = float(raw)
+    try:
+        num = float(raw)
+    except (OverflowError, ValueError):
+        raise FuturesDataError("invalid_market_data") from None
+    if not math.isfinite(num):
+        raise FuturesDataError("invalid_market_data")
     if positive and num <= 0 or nonnegative and num < 0:
         raise FuturesDataError("invalid_market_data")
     return num
@@ -98,8 +104,9 @@ def validate_funding(raw: Any, contract: str, pair: str) -> dict:
     index = _optional_positive(raw.get("index_price"))
     hours = raw.get("funding_interval_hours")
     interval = raw.get("funding_interval_ms")
-    if (isinstance(hours, bool) or hours not in (1, 2, 4, 8)
-            or isinstance(interval, bool) or interval != hours * 3_600_000):
+    if (not isinstance(hours, int) or isinstance(hours, bool) or hours not in (1, 2, 4, 8)
+            or not isinstance(interval, int) or isinstance(interval, bool)
+            or interval != hours * 3_600_000):
         raise FuturesDataError("invalid_market_data")
     # CCXT fundingTimestamp can denote the prior or next settlement and must
     # not be mistaken for a feed observation time.
@@ -254,7 +261,7 @@ async def futures_data(dataset: FuturesDataset, symbol: str, timeframe: str = "1
         path, params = OPEN_INTEREST_API, {"symbol": binance_symbol}
 
     # All Futures reads follow the global live-trading hard stop.
-    if __import__("os").getenv("TRADING_ENABLED", "false").lower() not in ("", "0", "false", "no"):
+    if os.getenv("TRADING_ENABLED", "false").lower() not in ("", "0", "false", "no"):
         raise FuturesDataError("unsafe_mode")
     key = (dataset, pair, timeframe if dataset == "ohlcv" else "", limit if dataset == "orderbook" else 0)
     with _LOCK:
