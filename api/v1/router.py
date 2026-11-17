@@ -23,6 +23,7 @@ from api.v1.endpoints import (
     crypto_office,
     crypto_research,
     crypto_risk,
+    crypto_paper,
     news,
     decision_signals,
     health,
@@ -144,6 +145,12 @@ router.include_router(
     crypto_risk.router,
     prefix="/crypto-office/risk",
     tags=["Crypto Risk (review only)"],
+)
+
+router.include_router(
+    crypto_paper.router,
+    prefix="/crypto-office/paper",
+    tags=["Crypto Paper Trading (read only)"],
 )
 
 router.include_router(
