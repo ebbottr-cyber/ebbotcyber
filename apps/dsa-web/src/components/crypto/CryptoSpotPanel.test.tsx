@@ -22,7 +22,7 @@ describe('EBBot Spot panel (public data only)', () => {
       symbol: 'BTC/USDT', last: 50000, bid: 49999, ask: 50001,
       high_24h: 51000, low_24h: 49000,
       quote_volume_24h: 200000,
-      quality: 'ok',
+      quality: 'ok', checked_at: new Date().toISOString(),
     } as never);
     vi.mocked(cryptoSpotApi.ohlcv).mockReset().mockResolvedValue({
       count: candles.length, candles, timeframe: '1h', quality: 'ok',
