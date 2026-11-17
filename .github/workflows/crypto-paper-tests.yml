@@ -49,7 +49,7 @@ jobs:
           assert '"/api/v1/paper/v2/capabilities"' in v2_status
           assert 'client.post(' not in v2_status
           assert 'client.stream("POST"' not in v2_status
-          assert "paper_execution_permitted\": False" in v2_status
+          assert '"paper_execution_permitted": False' in v2_status
 
           print("PASS: EBBot Paper bridge is GET-only.")
           PY
