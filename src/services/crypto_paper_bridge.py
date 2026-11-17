@@ -25,7 +25,7 @@ _ALLOWED = {
     "history": "/api/v1/paper/history",
     "performance": "/api/v1/paper/performance",
 }
-_PAIR = re.compile(r"^[A-Z0-9]{2,20}/(?:USDT|USDC|BTC|ETH)(?::USDT)?$")
+_PAIR = re.compile(r"^[A-Z0-9]{2,20}/(?:USDT|USDC|BTC|ETH)$")
 _FUTURES_PAIR = re.compile(r"^[A-Z0-9]{2,20}/USDT(?::USDT)?$")
 _ID = re.compile(r"^[a-zA-Z0-9_.:-]{1,100}$")
 MAX_RESPONSE_BYTES = 2_000_000
