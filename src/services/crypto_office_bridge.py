@@ -5,6 +5,7 @@ The upstream /integration/dashboard schema is versioned at 1.1.
 """
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
@@ -110,12 +111,16 @@ def _connection_settings() -> tuple[str, str]:
     if not source or len(key) < 32:
         raise CryptoOfficeUnavailable("not_configured")
 
-    parsed = urlsplit(source)
+    try:
+        parsed = urlsplit(source)
+        port = parsed.port
+    except ValueError as exc:
+        raise CryptoOfficeUnavailable("invalid_url") from exc
     # Phase 1 deliberately permits only an isolated local service. Do not
     # allow an admin-supplied URL to turn the proxy into an arbitrary HTTP client.
     if (parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
             or parsed.username or parsed.password or parsed.path not in {"", "/"}
-            or parsed.query or parsed.fragment or not parsed.port):
+            or parsed.query or parsed.fragment or not port):
         raise CryptoOfficeUnavailable("invalid_url")
     return source.rstrip("/"), key
 
@@ -143,7 +148,7 @@ async def read_crypto_dashboard() -> dict:
                     if len(data) > MAX_RESPONSE_BYTES:
                         raise CryptoOfficeUnavailable("oversized_dashboard")
                 try:
-                    payload = __import__("json").loads(data)
+                    payload = json.loads(data)
                 except (TypeError, ValueError) as exc:
                     raise CryptoOfficeUnavailable("invalid_dashboard") from exc
     except CryptoOfficeUnavailable:
