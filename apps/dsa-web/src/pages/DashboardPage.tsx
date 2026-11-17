@@ -306,6 +306,17 @@ const DashboardPage: React.FC = () => {
         </div>
       </header>
 
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 md:hidden">
+        <Search className="h-4 w-4 text-muted-text" />
+        <input aria-label="Mobil hisse kodu ara" placeholder="Hisse kodu ara..."
+          value={search} onChange={event => setSearch(event.target.value)}
+          onKeyDown={event => { if (event.key === 'Enter') applySearch(); }}
+          className="min-w-0 flex-1 bg-transparent py-2.5 text-xs text-foreground outline-none" />
+        <button type="button" onClick={applySearch}
+          aria-label="Mobil hisseyi göster" className="text-primary">
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
       <div className="etre-market-filter !border-0 !p-0 !pb-3">
         {MARKETS.map(item => (
           <button type="button" key={item.code} onClick={() => setFilter(item.code)}
@@ -526,6 +537,16 @@ const DashboardPage: React.FC = () => {
                         {item.ai_status === 'complete' ? 'Türkçe AI özeti hazır' : 'Türkçe çeviri bekleniyor'}
                         {' · '}{new Date(item.published_at).toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-US')}
                       </p>
+                      {item.ai_status === 'complete' && item.impact_tr ? (
+                        <p className="mt-1 text-[11px] leading-5 text-secondary-text">
+                          <Sparkles className="mr-1 inline h-3 w-3 text-primary" />{item.impact_tr}
+                        </p>
+                      ) : null}
+                      {item.severity === 'breaking' ? (
+                        <span className="etre-tag etre-tag-down mt-2">Son dakika</span>
+                      ) : item.severity === 'important' ? (
+                        <span className="etre-tag etre-tag-muted mt-2">Önemli</span>
+                      ) : null}
                     </div>
                     {!item.is_read ? <span className="etre-tag etre-tag-muted">Yeni</span> : null}
                   </article>
