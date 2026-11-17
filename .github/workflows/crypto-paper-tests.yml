@@ -1,0 +1,68 @@
+name: EBBot Crypto Paper Read-only Checks
+
+on:
+  pull_request:
+    paths:
+      - "src/services/crypto_paper_bridge.py"
+      - "api/v1/endpoints/crypto_paper.py"
+      - "api/v1/router.py"
+      - "apps/dsa-web/src/api/cryptoPaper*"
+      - "apps/dsa-web/src/components/crypto/CryptoPaperPanel*"
+      - "apps/dsa-web/src/pages/CryptoTradingPage.tsx"
+      - "tests/test_crypto_paper_*.py"
+      - ".github/workflows/crypto-paper-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-paper-contract:
+    name: Verify Spot Futures history and fail-closed read-only API
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install offline dependencies
+        run: python -m pip install "httpx>=0.27,<1"
+      - name: Run offline paper bridge tests
+        env:
+          TRADING_ENABLED: "false"
+        run: python -m unittest discover -s tests -p "test_crypto_paper_*.py" -v
+      - name: Ensure no new Paper execution route is mounted
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          endpoints = Path("api/v1/endpoints/crypto_paper.py").read_text()
+          assert '@router.post' not in endpoints
+          assert '@router.put' not in endpoints
+          assert '@router.delete' not in endpoints
+          bridge = Path("src/services/crypto_paper_bridge.py").read_text()
+          assert 'client.post(' not in bridge
+          assert 'client.stream("POST"' not in bridge
+          print("PASS: EBBot Paper bridge is GET-only.")
+          PY
+
+  frontend-paper-contract:
+    name: Validate Paper accounts UI and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Test read-only Paper API and views
+        run: npm run test -- src/api/cryptoPaper.test.ts src/components/crypto/CryptoPaperPanel.test.tsx
+      - name: Build entire frontend to catch cross-module regressions
+        run: npm run build
