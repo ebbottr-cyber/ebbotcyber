@@ -138,7 +138,7 @@ async def _get(path: str, params: dict[str, Any] | None = None) -> dict:
         raise CryptoResearchError("upstream_unavailable") from exc
 
 
-def _report(raw: Any, market: str, identity: str, timeframe: str, last_timestamp: int) -> dict:
+def _report(raw: Any, market: str, identity: str, timeframe: str, last_timestamp: int, expected_close: float) -> dict:
     if not isinstance(raw, dict) or raw.get("market") != market or raw.get("symbol") != identity:
         raise CryptoResearchError("wrong_market_identity")
     if raw.get("timeframe") != timeframe or raw.get("execution") != "disabled" or raw.get("mode") != "research_only":
@@ -155,6 +155,8 @@ def _report(raw: Any, market: str, identity: str, timeframe: str, last_timestamp
     if stamp > time.time() * 1000 + 300_000:
         raise CryptoResearchError("future_market_data")
     last_price = _num(raw.get("last_close"), lo=0.0000001)
+    if not math.isclose(last_price, _num(expected_close, lo=0.0000001), rel_tol=1e-6, abs_tol=1e-8):
+        raise CryptoResearchError("snapshot_mismatch")
     if raw.get("action") not in ACTIONS:
         raise CryptoResearchError("invalid_research")
     confidence = _num(raw.get("confidence"), lo=0, hi=1)
@@ -240,7 +242,10 @@ async def analyze(market: str, symbol: str, timeframe: str = "1h") -> dict:
         "limit": 250,
         "include_orderbook": True,
     })
-    report = _report(raw, market, identity, frame, last_ts)
+    report = _report(
+        raw, market, identity, frame, last_ts,
+        prices["candles"][-1]["close"],
+    )
     try:
         audit_id = record_decision("ensemble", report)
     except CryptoAuditError as exc:
@@ -356,6 +361,14 @@ async def strategy_signal(market: str, symbol: str, timeframe: str, strategy: st
         raise CryptoResearchError("invalid_research")
     stamp = signal.get("candle_timestamp")
     if stamp != prices["last_candle_timestamp"]:
+        raise CryptoResearchError("snapshot_mismatch")
+    # The strategy entry is an observational reference; it must match
+    # the independently validated candle used for the preflight.
+    if signal.get("entry_reference") is not None and not math.isclose(
+        _num(signal["entry_reference"], lo=0.0000001),
+        _num(prices["candles"][-1]["close"], lo=0.0000001),
+        rel_tol=1e-6, abs_tol=1e-8,
+    ):
         raise CryptoResearchError("snapshot_mismatch")
     for item in ("entry_reference", "stop_reference", "take_profit_reference"):
         if signal.get(item) is not None:
