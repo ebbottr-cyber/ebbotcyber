@@ -69,7 +69,7 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
     setJournal(null);
     setWeights(null);
     setCatalog(null);
-    const task = view === 'signals'
+    const task: Promise<SignalFeed | AgentWeights | StrategyCatalog> = view === 'signals'
       ? cryptoResearchApi.journal(journalMarket === 'all' ? null : journalMarket)
       : view === 'agents'
         ? cryptoResearchApi.weights()
