@@ -4,7 +4,7 @@ import { Activity, BookOpen, BrainCircuit, CircleAlert, PlayCircle, RefreshCw, S
 import {
   cryptoResearchApi, type AgentReport, type AgentWeights,
   type ResearchMarket, type ResearchRequest, type ResearchStrategyId,
-  type ResearchTimeframe, type SignalFeed, type StrategyCatalog, type StrategyReport,
+  type ResearchTimeframe, type SignalFeed, type DecisionFeed, type StrategyCatalog, type StrategyReport,
 } from '../../api/cryptoResearch';
 
 type View = 'analysis' | 'signals' | 'agents';
@@ -52,6 +52,8 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
   const [agentResult, setAgentResult] = useState<AgentReport | null>(null);
   const [strategyResult, setStrategyResult] = useState<StrategyReport | null>(null);
   const [journal, setJournal] = useState<SignalFeed | null>(null);
+  const [decisions, setDecisions] = useState<DecisionFeed | null>(null);
+  const [auditError, setAuditError] = useState('');
   const [weights, setWeights] = useState<AgentWeights | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -84,6 +86,20 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
     });
     return () => { alive = false; };
   }, [view, journalMarket, refresh]);
+
+  useEffect(() => {
+    if (view !== 'signals') return undefined;
+    let alive = true;
+    setDecisions(null);
+    setAuditError('');
+    void cryptoResearchApi.decisions().then(result => {
+      if (alive) setDecisions(result);
+    }).catch(() => {
+      if (alive) setAuditError('Analiz karar günlüğüne erişilemedi.');
+    });
+    return () => { alive = false; };
+  }, [view, refresh]);
+
 
   const changeMarket = (value: ResearchMarket) => {
     setMarket(value);
@@ -248,6 +264,7 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
             Haber riski: {agentResult.news_context.risk_level}
             {' · '}Haber sayısı: {agentResult.news_context.article_count}
             {' · '}Yeni araştırma günlüğü kaydı: {agentResult.journal_recorded}
+            {' · '}EBBot karar kayıt no: {agentResult.audit_id}
             {' · '}Risk onayı: <strong>YOK</strong>
           </div>
         </section>
@@ -285,7 +302,7 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
             {' '}{number(strategyResult.take_profit_reference, 6)}
           </p>
           <p className="text-muted-text">Kaynak açıklama: {strategyResult.rationale}</p>
-          <p className="font-semibold">Risk motoru onayı verilmedi; fiyatlar yalnızca araştırma referansıdır.</p>
+          <p className="font-semibold">Risk motoru onayı verilmedi; fiyatlar yalnızca araştırma referansıdır. EBBot karar kayıt no: {strategyResult.audit_id}.</p>
         </div>}
       </section>
     </> : null}
@@ -328,6 +345,33 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
           </table>
         </div> : <div className="p-5 text-sm text-muted-text">Bu filtrede henüz kaydedilmiş araştırma sinyali yok.</div>}
       </section> : <Hint message="Yalnızca kalıcı ve doğrulanmış araştırma günlüğü kayıtları gösterilir; örnek sinyal üretilmez."/>}
+      <section className="rounded-2xl border border-border bg-card p-4">
+        <h4 className="text-sm font-bold">EBBot AI karar günlüğü · BEKLE dahil</h4>
+        <p className="mt-2 text-xs text-muted-text">
+          Bu kayıtlar her başarılı manuel analizin kararını saklar. Risk onayı ve emir yetkisi bulunmaz.
+        </p>
+        {auditError ? <p className="mt-3 text-xs text-danger">{auditError}</p> : null}
+        {decisions ? decisions.decisions.length > 0 ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[630px] text-left text-xs">
+              <thead className="text-muted-text"><tr>
+                <th className="px-2 py-2">No</th><th className="px-2 py-2">Zaman</th>
+                <th className="px-2 py-2">Motor</th><th className="px-2 py-2">Coin</th>
+                <th className="px-2 py-2">Yön</th><th className="px-2 py-2">Güven</th>
+              </tr></thead>
+              <tbody>{decisions.decisions.map(d => <tr key={d.id} className="border-t border-border/70">
+                <td className="px-2 py-2">{d.id}</td>
+                <td className="px-2 py-2">{new Date(d.created_at).toLocaleString('tr-TR')}</td>
+                <td className="px-2 py-2">{d.decision_kind === 'ensemble' ? '9 Ajan' : 'Strateji'}</td>
+                <td className="px-2 py-2">{d.symbol}</td>
+                <td className="px-2 py-2"><ActionTag action={d.action}/></td>
+                <td className="px-2 py-2">{number(d.confidence * 100, 1)}%</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        ) : <p className="mt-3 text-xs text-muted-text">Henüz manuel analiz kararı kaydedilmedi.</p>
+        : <p className="mt-3 text-xs text-muted-text">Karar denetim kayıtları yükleniyor…</p>}
+      </section>
     </> : null}
 
     {view === 'agents' ? <>
