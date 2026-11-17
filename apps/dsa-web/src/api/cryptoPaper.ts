@@ -69,6 +69,16 @@ export type PaperSafety = {
   real_exchange_orders: false;
   execution: 'disabled';
 };
+export type PaperV2Capabilities = {
+  upstream_v2_present: boolean;
+  upstream_v2_opted_in: boolean;
+  ebbot_paper_execution_permitted: false;
+  real_exchange_orders: false;
+  execution: 'disabled';
+  note: string;
+  checked_at: string;
+};
+
 export type PaperHistory = {
   mode: 'paper_only';
   source: 'Trading Office existing SQLite ledgers';
@@ -185,7 +195,23 @@ export function validatePaperHistory(v: unknown, market: PaperMarket | null): Pa
   return v as unknown as PaperHistory;
 }
 
+export function validatePaperV2Capabilities(v: unknown): PaperV2Capabilities {
+  if (!obj(v) || v.ebbot_paper_execution_permitted !== false ||
+      v.real_exchange_orders !== false || v.execution !== 'disabled' ||
+      typeof v.upstream_v2_present !== 'boolean' ||
+      typeof v.upstream_v2_opted_in !== 'boolean' ||
+      (!v.upstream_v2_present && v.upstream_v2_opted_in) ||
+      typeof v.note !== 'string' || !fresh(v.checked_at)) {
+    throw new Error('Paper V2 kaynak protokol durumu güvenle doğrulanamadı.');
+  }
+  return v as unknown as PaperV2Capabilities;
+}
+
 export const cryptoPaperApi = {
+  async capabilities(): Promise<PaperV2Capabilities> {
+    const result = await apiClient.get<unknown>('/api/v1/crypto-office/paper/capabilities');
+    return validatePaperV2Capabilities(result.data);
+  },
   async summary(): Promise<PaperSummary> {
     const res = await apiClient.get<unknown>('/api/v1/crypto-office/paper/summary', { timeout: 45_000 });
     return validatePaperSummary(res.data);
