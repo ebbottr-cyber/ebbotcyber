@@ -61,11 +61,11 @@ engellenmesi ve sunucuların ayrı yetki sınırları korunur.
 Kullanıcının yüklediği orijinal ZIP ayrı bir geçici Git deposuna
 açıldı. \`git apply --check\` ve \`git apply\` başarıyla tamamlandı.
 
-- Yeni \`tests/test_guarded_paper_v2.py\`: **10/10 geçti**.
+- Yeni \`tests/test_guarded_paper_v2.py\`: **11/11 geçti** (ek test: okuma anahtarının Paper yazma isteği için reddedilmesi).
 - Eski \`test_paper_ledger.py\` ve \`test_portfolio_guard.py\`:
   toplam **24/24 geçti**.
 - Daha geniş Futures testleriyle birlikte yamalı örnekte
-  **98 geçti, 6 başarısız**.
+  **99 geçti, 6 başarısız**.
 - Aynı Futures/Paper/portföy testleri, **hiç değiştirilmemiş
   kaynakta 88 geçti, aynı 6 başarısız**. Mevcut başarısızlıklar:
   kaynak Futures işleminde diğer açık pozisyonlar için
