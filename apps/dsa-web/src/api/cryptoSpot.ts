@@ -78,13 +78,13 @@ export function validateSpotTicker(raw: unknown, symbol: string): SpotTicker {
       !(raw.timestamp === null || timestamp(raw.timestamp))) {
     throw new Error('Binance Spot fiyatı hatalı veya eksik.');
   }
-  if (raw.bid !== null && raw.ask !== null && raw.bid > raw.ask) {
+  if (typeof raw.bid === 'number' && typeof raw.ask === 'number' && raw.bid > raw.ask) {
     throw new Error('Binance Spot fiyat alış-satış sıralaması geçersiz.');
   }
-  if (raw.timestamp !== null && Date.now() - raw.timestamp > 180_000) {
+  if (typeof raw.timestamp === 'number' && Date.now() - raw.timestamp > 180_000) {
     throw new Error('Binance Spot fiyatı güncel değil.');
   }
-  return raw as SpotTicker;
+  return raw as unknown as SpotTicker;
 }
 
 export function validateSpotOHLCV(raw: unknown, symbol: string, timeframe: SpotTimeframe): SpotOHLCV {
@@ -108,7 +108,7 @@ export function validateSpotOHLCV(raw: unknown, symbol: string, timeframe: SpotT
   if (raw.last_candle_timestamp !== previous) {
     throw new Error('Binance Spot son mum zaman damgası geçersiz.');
   }
-  return raw as SpotOHLCV;
+  return raw as unknown as SpotOHLCV;
 }
 
 export function validateSpotOrderbook(raw: unknown, symbol: string): SpotOrderbook {
@@ -134,10 +134,10 @@ export function validateSpotOrderbook(raw: unknown, symbol: string): SpotOrderbo
       raw.bids[0][0] >= raw.asks[0][0]) {
     throw new Error('Binance Spot emir defteri derinliği tutarsız.');
   }
-  if (raw.timestamp !== null && Date.now() - raw.timestamp > 60_000) {
+  if (typeof raw.timestamp === 'number' && Date.now() - raw.timestamp > 60_000) {
     throw new Error('Binance Spot emir defteri güncel değil.');
   }
-  return raw as SpotOrderbook;
+  return raw as unknown as SpotOrderbook;
 }
 
 function normalizePair(input: string): string {
