@@ -126,5 +126,38 @@ class CryptoOfficeBridgeTests(unittest.TestCase):
                 _connection_settings()
 
 
+class CryptoOfficeAdminTests(unittest.TestCase):
+    def test_closed_when_global_admin_auth_is_disabled(self):
+        from fastapi import HTTPException
+        from types import SimpleNamespace
+        from api.v1.endpoints.crypto_office import require_crypto_admin
+
+        with patch("api.v1.endpoints.crypto_office.is_auth_enabled", return_value=False):
+            with self.assertRaises(HTTPException) as context:
+                require_crypto_admin(SimpleNamespace(cookies={}))
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_requires_valid_existing_session_cookie(self):
+        from fastapi import HTTPException
+        from types import SimpleNamespace
+        from api.v1.endpoints.crypto_office import require_crypto_admin
+
+        with patch("api.v1.endpoints.crypto_office.is_auth_enabled", return_value=True), patch(
+            "api.v1.endpoints.crypto_office.verify_session", return_value=False
+        ):
+            with self.assertRaises(HTTPException) as context:
+                require_crypto_admin(SimpleNamespace(cookies={"dsa_session": "invalid"}))
+        self.assertEqual(context.exception.status_code, 401)
+
+    def test_valid_admin_session_allows_read_only_dashboard(self):
+        from types import SimpleNamespace
+        from api.v1.endpoints.crypto_office import require_crypto_admin
+        with patch("api.v1.endpoints.crypto_office.is_auth_enabled", return_value=True), patch(
+            "api.v1.endpoints.crypto_office.verify_session", return_value=True
+        ) as verify:
+            self.assertIsNone(require_crypto_admin(SimpleNamespace(cookies={"dsa_session": "signed"})))
+        verify.assert_called_once_with("signed")
+
+
 if __name__ == "__main__":
     unittest.main()
