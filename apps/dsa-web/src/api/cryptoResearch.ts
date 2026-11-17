@@ -34,6 +34,7 @@ export type AgentReport = {
   last_close: number;
   candle_timestamp: number;
   journal_recorded: number;
+  audit_id: number;
   engine: 'deterministic_ensemble';
   training: false;
   risk_approved: false;
@@ -51,6 +52,7 @@ export type StrategyReport = ResearchRequest & {
   take_profit_reference: number | null;
   risk_reward: number | null;
   candle_timestamp: number;
+  audit_id: number;
   risk_approved: false;
   execution: 'disabled';
   orders_placed: false;
@@ -76,6 +78,25 @@ export type AgentWeights = {
 export type StrategyCatalog = {
   strategies: { name: ResearchStrategyId; description: string }[];
   mode: 'research_only'; orders_placed: false;
+};
+
+export type DecisionFeed = {
+  decisions: Array<{
+    id: number;
+    created_at: string;
+    decision_kind: 'ensemble' | 'strategy';
+    market: ResearchMarket;
+    symbol: string;
+    timeframe: string;
+    action: ResearchAction;
+    confidence: number;
+    candle_timestamp: number;
+    journal_recorded: number;
+    risk_approved: false;
+    orders_placed: false;
+  }>;
+  count: number;
+  orders_placed: false;
 };
 
 const STRATEGIES = new Set<string>([
@@ -121,7 +142,7 @@ export function validateAgentReport(x: unknown, request: ResearchRequest): Agent
       !ACTIONS.includes(String(x.action)) || !score(x.confidence) ||
       !score(x.agreement) || !finite(x.last_close) || x.last_close <= 0 ||
       !nonnegativeInt(x.candle_timestamp) || x.candle_timestamp === 0 ||
-      !nonnegativeInt(x.journal_recorded) || !record(x.votes) ||
+      !nonnegativeInt(x.journal_recorded) || !nonnegativeInt(x.audit_id) || x.audit_id === 0 || !record(x.votes) ||
       !Array.isArray(x.agents) || x.agents.length !== 9) {
     throw new Error('Ajan analizinin güvenlik veya veri sözleşmesi geçersiz.');
   }
@@ -156,7 +177,8 @@ export function validateStrategyReport(x: unknown, request: ResearchRequest, str
       x.execution !== 'disabled' || x.risk_approved !== false ||
       !checked(x.checked_at) || !ACTIONS.includes(String(x.action)) ||
       !score(x.confidence) || typeof x.rationale !== 'string' ||
-      !nonnegativeInt(x.candle_timestamp) || x.candle_timestamp === 0) {
+      !nonnegativeInt(x.candle_timestamp) || x.candle_timestamp === 0 ||
+      !nonnegativeInt(x.audit_id) || x.audit_id === 0) {
     throw new Error('Strateji analizi veri kontrolünden geçemedi.');
   }
   for (const field of ['entry_reference', 'stop_reference', 'take_profit_reference']) {
@@ -220,7 +242,33 @@ export function validateStrategyCatalog(x: unknown): StrategyCatalog {
   return x as unknown as StrategyCatalog;
 }
 
+export function validateDecisionFeed(x: unknown): DecisionFeed {
+  if (!noOrders(x) || !Array.isArray(x.decisions) ||
+      x.decisions.length > 100 || x.count !== x.decisions.length) {
+    throw new Error('Kalıcı kripto AI karar günlüğü geçersiz.');
+  }
+  for (const row of x.decisions) {
+    if (!record(row) || !nonnegativeInt(row.id) || row.id === 0 ||
+        !['ensemble', 'strategy'].includes(String(row.decision_kind)) ||
+        !['spot', 'futures'].includes(String(row.market)) ||
+        !ACTIONS.includes(String(row.action)) ||
+        !score(row.confidence) || !nonnegativeInt(row.candle_timestamp) ||
+        !nonnegativeInt(row.journal_recorded) ||
+        row.orders_placed !== false || row.risk_approved !== false ||
+        typeof row.symbol !== 'string' || typeof row.timeframe !== 'string') {
+      throw new Error('Kripto AI karar günlüğünde doğrulanamayan kayıt var.');
+    }
+  }
+  return x as unknown as DecisionFeed;
+}
+
 export const cryptoResearchApi = {
+  async decisions(): Promise<DecisionFeed> {
+    const response = await apiClient.get<unknown>('/api/v1/crypto-office/research/decisions', {
+      params: { limit: 30 },
+    });
+    return validateDecisionFeed(response.data);
+  },
   async catalog(): Promise<StrategyCatalog> {
     const response = await apiClient.get<unknown>('/api/v1/crypto-office/research/strategies');
     return validateStrategyCatalog(response.data);
