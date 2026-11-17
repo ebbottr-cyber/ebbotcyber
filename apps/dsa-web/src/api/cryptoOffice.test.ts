@@ -46,7 +46,7 @@ describe('EBBot isolated crypto-office dashboard contract', () => {
     expect(() => validateCryptoOfficeDashboard({
       ...example(), portfolio: { combined: { valuation_complete: true, equity: null } },
     })).toThrow();
-    const value = example() as Record<string, unknown>;
+    const value = example() as unknown as Record<string, unknown>;
     delete value.strategies;
     expect(() => validateCryptoOfficeDashboard(value)).toThrow();
   });
