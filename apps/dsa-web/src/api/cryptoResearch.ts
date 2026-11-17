@@ -92,7 +92,8 @@ const record = (x: unknown): x is Record<string, unknown> =>
 const finite = (x: unknown): x is number =>
   typeof x === 'number' && Number.isFinite(x);
 const score = (x: unknown) => finite(x) && x >= 0 && x <= 1;
-const nonnegativeInt = (x: unknown) => typeof x === 'number' && Number.isSafeInteger(x) && x >= 0;
+const nonnegativeInt = (x: unknown): x is number =>
+  typeof x === 'number' && Number.isSafeInteger(x) && x >= 0;
 const noOrders = (x: unknown): x is Record<string, unknown> =>
   record(x) && x.orders_placed === false;
 const checked = (x: unknown) => {
