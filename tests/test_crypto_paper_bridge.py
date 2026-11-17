@@ -50,7 +50,11 @@ def futures_account():
         "wallet_balance": 9550, "used_initial_margin": 450,
         "realized_pnl": -.45, "unrealized_pnl": 20,
         "equity": 10020, "valuation_complete": True,
-        "daily_risk": {"daily_realized_pnl": -.45, "new_positions_allowed": True},
+        "daily_risk": {
+            "daily_realized_pnl": -.45, "projected_daily_pnl": 19.55,
+            "daily_loss_limit": 200, "valuation_complete": True,
+            "new_positions_allowed": True,
+        },
         "positions": [{
             "symbol": "BTC/USDT:USDT", "side": "LONG",
             "quantity": .1, "entry_price": 9000, "leverage": 2,
