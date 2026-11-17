@@ -4,7 +4,7 @@ import { Activity, BookOpen, CircleAlert, History, LockKeyhole, RefreshCw, Shiel
 import {
   cryptoPaperApi,
   type PaperAccount, type PaperEvent, type PaperHistory,
-  type PaperMarket, type PaperPosition, type PaperSummary,
+  type PaperMarket, type PaperPosition, type PaperSummary, type PaperV2Capabilities,
 } from '../../api/cryptoPaper';
 
 type PaperView = 'paper' | 'positions' | 'history';
@@ -121,6 +121,7 @@ export const CryptoPaperPanel: React.FC<{
 }> = ({ view, onOpenRisk }) => {
   const [summary, setSummary] = useState<PaperSummary | null>(null);
   const [history, setHistory] = useState<PaperHistory | null>(null);
+  const [capabilities, setCapabilities] = useState<PaperV2Capabilities | null>(null);
   const [selected, setSelected] = useState<PaperMarket>('spot');
   const [filter, setFilter] = useState<'all' | PaperMarket>('all');
   const [revision, setRevision] = useState(0);
@@ -147,6 +148,19 @@ export const CryptoPaperPanel: React.FC<{
     });
     return () => { alive = false; };
   }, [view, filter, revision]);
+
+  useEffect(() => {
+    if (view !== 'paper') return undefined;
+    let alive = true;
+    setCapabilities(null);
+    void cryptoPaperApi.capabilities().then(x => {
+      if (alive) setCapabilities(x);
+    }).catch(() => {
+      // Source may not yet have Paper V2; this must not enable orders.
+      if (alive) setCapabilities(null);
+    });
+    return () => { alive = false; };
+  }, [view, revision]);
 
   const positions = summary ? [...summary.spot.positions, ...summary.futures.positions] : [];
 
@@ -177,6 +191,15 @@ export const CryptoPaperPanel: React.FC<{
         Eski Trading Office işlem API'leri EBBot risk kontrolüne atomik bağlanana kadar
         emir butonu açılmaz. Hesap özeti tarihsel kayıtları gösterir; canlı broker bakiyesi değildir.
       </p>
+      {view === 'paper' ? <p className="mt-3 text-xs text-muted-text" data-testid="paper-v2-status">
+        Paper V2 kaynak durumu: {capabilities === null
+          ? 'Henüz doğrulanmadı / erişilemiyor'
+          : capabilities.upstream_v2_present
+            ? capabilities.upstream_v2_opted_in
+              ? 'Kaynakta deneysel protokol açık; EBBot işlemleri hâlâ kapalı'
+              : 'Protokol kurulu ancak kaynakta kapalı'
+            : 'Kaynakta henüz kurulu değil'}
+      </p> : null}
       <button type="button" onClick={onOpenRisk}
         className="mt-3 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary">
         <ShieldCheck className="mr-1 inline h-4 w-4"/> Risk Yönetimini aç
