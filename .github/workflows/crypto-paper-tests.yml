@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "src/services/crypto_paper_bridge.py"
+      - "src/services/crypto_paper_v2_status.py"
       - "api/v1/endpoints/crypto_paper.py"
       - "api/v1/router.py"
       - "apps/dsa-web/src/api/cryptoPaper*"
       - "apps/dsa-web/src/components/crypto/CryptoPaperPanel*"
       - "apps/dsa-web/src/pages/CryptoTradingPage.tsx"
       - "tests/test_crypto_paper_*.py"
+      - "docs/EBBOT_PAPER_ATOMIK_V2_ADIM10_TR.md"
       - ".github/workflows/crypto-paper-tests.yml"
   workflow_dispatch:
 
@@ -43,6 +45,12 @@ jobs:
           bridge = Path("src/services/crypto_paper_bridge.py").read_text()
           assert 'client.post(' not in bridge
           assert 'client.stream("POST"' not in bridge
+          v2_status = Path("src/services/crypto_paper_v2_status.py").read_text()
+          assert '"/api/v1/paper/v2/capabilities"' in v2_status
+          assert 'client.post(' not in v2_status
+          assert 'client.stream("POST"' not in v2_status
+          assert "paper_execution_permitted\": False" in v2_status
+
           print("PASS: EBBot Paper bridge is GET-only.")
           PY
 
