@@ -94,6 +94,19 @@ bir yetkilendirme işareti veya taşınabilir onay jetonu **değildir**.
   ayrı bir yürütme yolu bulunmaz.
 - Futures özsermaye: tek sembol %50, gross %100,
   aynı yön %70; Spot araştırma yoğunluğu %20.
+- Futures senaryosunda gerekli başlangıç marjı ve açılış ücreti,
+  kaynak Futures sanal cüzdanındaki **kullanılabilir bakiye**
+  ile karşılanmalıdır. Özsermayenin yüksek görünmesi bu kuralı
+  aşamaz.
+- Spot ve Futures riski ayrı hesaplanır; buna ek olarak **birleşik
+  portföyde %2 muhafazakâr açık risk sınırı** uygulanır.
+- İki sanal hesabın birlikte günlük zarar temeli, toplam
+  özsermayenin %2'si veya 400 USDT'lik sınırdan büyük olamaz.
+  Spot zarar temeli, yukarıdaki açıklanan muhafazakâr tahmindir.
+- Sığ emir defterinin çok küçük bir "güvenli" senaryo üretmesini
+  önlemek için EBBot'un bağımsız araştırma politikası en az
+  **10 USDT nominal senaryo** gerektirir. Bu, Binance'in dinamik
+  MIN_NOTIONAL kuralıymış gibi sunulmaz.
 - Günlük zarar üst sınırı min(200 USDT, Futures orijinal güncel
   limiti, hesabın %2'si); Spot için min(200 USDT, hesabın %2'si).
 - Trading Office \`daily_guard\` üzerindeki 0.75/0.5 risk
