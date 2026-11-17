@@ -45,7 +45,8 @@ const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFi
 const positive = (x: unknown): x is number => finite(x) && x > 0;
 const nonnegative = (x: unknown): x is number => finite(x) && x >= 0;
 const optional = (x: unknown, f: (value: unknown) => boolean) => x === null || f(x);
-const milliseconds = (x: unknown): x is number => Number.isSafeInteger(x) && (x as number) > 0;
+const milliseconds = (x: unknown): x is number =>
+  typeof x === 'number' && Number.isSafeInteger(x) && x > 0;
 
 export function normalizeFuturesSymbol(value: string): string {
   const symbol = value.trim().toUpperCase();
@@ -122,8 +123,9 @@ export function validateFuturesFunding(raw: unknown, symbol: string): FuturesFun
   base(raw, symbol, 'Binance USD-M Futures public market data', true);
   if (!finite(raw.funding_rate) || Math.abs(raw.funding_rate) > 0.1 ||
       !positive(raw.mark_price) || !optional(raw.index_price, positive) ||
+      typeof raw.funding_interval_hours !== 'number' ||
       !Number.isInteger(raw.funding_interval_hours) ||
-      ![1, 2, 4, 8].includes(raw.funding_interval_hours as number) ||
+      ![1, 2, 4, 8].includes(raw.funding_interval_hours) ||
       raw.funding_interval_ms !== Number(raw.funding_interval_hours) * 3_600_000 ||
       !(raw.funding_timestamp === null || milliseconds(raw.funding_timestamp)) ||
       !(raw.next_funding_timestamp === null || milliseconds(raw.next_funding_timestamp))) {
