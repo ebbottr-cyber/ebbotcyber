@@ -70,7 +70,9 @@ const history = () => ({
 describe('EBBot existing Trading Office Paper account UI', () => {
   beforeEach(() => {
     vi.mocked(cryptoPaperApi.capabilities).mockReset().mockResolvedValue({
-      upstream_v2_present: false, upstream_v2_opted_in: false,
+      upstream_v2_present: true, upstream_v2_opted_in: false,
+      source_state: 'SOURCE_INSTALLED_DISABLED',
+      source_claims_atomic_risk_gate: true, readiness_verified: false,
       ebbot_paper_execution_permitted: false,
       real_exchange_orders: false, execution: 'disabled',
       checked_at: new Date().toISOString(),
@@ -119,6 +121,8 @@ describe('EBBot existing Trading Office Paper account UI', () => {
   it('never enables orders even when upstream paper v2 opted in', async () => {
     vi.mocked(cryptoPaperApi.capabilities).mockResolvedValueOnce({
       upstream_v2_present: true, upstream_v2_opted_in: true,
+      source_state: 'SOURCE_FLAG_ON_UNVERIFIED',
+      source_claims_atomic_risk_gate: true, readiness_verified: false,
       ebbot_paper_execution_permitted: false, real_exchange_orders: false,
       execution: 'disabled', checked_at: new Date().toISOString(),
       note: 'No orders',
