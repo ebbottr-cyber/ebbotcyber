@@ -263,7 +263,7 @@ async def futures_data(dataset: FuturesDataset, symbol: str, timeframe: str = "1
     # All Futures reads follow the global live-trading hard stop.
     if os.getenv("TRADING_ENABLED", "false").lower() not in ("", "0", "false", "no"):
         raise FuturesDataError("unsafe_mode")
-    key = (dataset, pair, timeframe if dataset == "ohlcv" else "", limit if dataset == "orderbook" else 0)
+    key = (dataset, pair, timeframe if dataset == "ohlcv" else "", limit if dataset in ("ohlcv", "orderbook") else 0)
     with _LOCK:
         cached = _CACHE.get(key)
         if cached and time.monotonic() < cached[0] and _still_fresh(cached[1]):
