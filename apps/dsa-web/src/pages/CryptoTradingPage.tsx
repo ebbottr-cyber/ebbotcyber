@@ -4,6 +4,7 @@ import { Activity, ArrowRight, Bot, CircleAlert, Database, ExternalLink, Layers,
 import { Link } from 'react-router-dom';
 import { cryptoOfficeApi, isObject, type CryptoOfficeDashboard } from '../api/cryptoOffice';
 import { CryptoSpotPanel } from '../components/crypto/CryptoSpotPanel';
+import { CryptoFuturesPanel } from '../components/crypto/CryptoFuturesPanel';
 
 type SectionId =
   | 'overview' | 'spot' | 'futures' | 'analysis' | 'signals'
@@ -153,6 +154,7 @@ const CryptoTradingPage: React.FC = () => {
 
   const body = () => {
     if (active === 'spot') return <CryptoSpotPanel />;
+    if (active === 'futures') return <CryptoFuturesPanel paperSnapshot={field(data?.portfolio, 'futures')} />;
     if (!data) return null;
     switch (active) {
       case 'overview':
@@ -163,9 +165,7 @@ const CryptoTradingPage: React.FC = () => {
             description="Scheduler, veri akışı ve servis operasyon bilgileri." />
         </div>;
 
-      case 'futures':
-        return <ReadOnlySection title="Futures sanal hesap" value={field(data.portfolio, 'futures')}
-          description="Futures verileri Spot hesabıyla karıştırılmaz. Kaldıraçlı işlem yürütme kapalıdır." />;
+
       case 'analysis':
         return <div className="grid gap-4 xl:grid-cols-2">
           <ReadOnlySection title="Ajan değerlendirme özeti" value={data.agents} />
@@ -279,7 +279,7 @@ const CryptoTradingPage: React.FC = () => {
               <span className="text-xs text-muted-text"><Activity className="mr-1 inline h-4 w-4" />Yalnızca doğrulanmış kaynak verileri</span>
             </div>
             {body()}
-          </> : active === 'spot' ? <CryptoSpotPanel /> : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
+          </> : (active === 'spot' || active === 'futures') ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
             Kripto paneli, doğrulanmış servis yanıtı alınmadan hesap bilgisi göstermez.
           </div>}
         </section>
