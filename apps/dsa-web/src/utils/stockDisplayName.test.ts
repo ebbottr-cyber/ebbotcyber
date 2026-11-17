@@ -11,6 +11,14 @@ describe('Latin-script stock display names', () => {
     expect(getStockDisplayName('HK01810', '小米集团')).toBe('Xiaomi');
   });
 
+  it('shows Hong Kong names in Latin without changing the symbol identity', () => {
+    expect(getStockDisplayName('HK00700', '腾讯控股', { nameEn: 'Tencent Holdings' })).toBe('Tencent Holdings');
+    expect(getStockDisplayName('0700.HK', 'Tencent Holdings')).toBe('Tencent Holdings');
+    expect(getStockDisplayName('HK00700', '腾讯控股')).toBe('Tencent');
+    expect(getStockDisplayName('HK09999', '中文公司')).toBe('HK09999');
+    expect(getStockDisplayName('09999.HK', '中文公司', { pinyinFull: 'shili gongsi' })).toBe('Shili gongsi');
+  });
+
   it('keeps source-provided Latin names for other instruments', () => {
     expect(getStockDisplayName('THYAO.IS', 'Türk Hava Yolları')).toBe('Türk Hava Yolları');
     expect(getStockDisplayName('UNKNOWN', 'Alphabet Inc.')).toBe('Alphabet Inc.');

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, LogOut, MessageSquareQuote, Search, Settings2 } from 'lucide-react';
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Bitcoin, Gauge, Home, LogOut, MessageSquareQuote, Newspaper, Search, Settings2 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -15,6 +15,7 @@ type SidebarNavProps = {
   collapsed?: boolean;
   onNavigate?: () => void;
   variant?: 'default' | 'rail';
+  newsUnread?: number;
 };
 
 type NavItem = {
@@ -23,23 +24,26 @@ type NavItem = {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   exact?: boolean;
-  badge?: 'completion';
+  badge?: 'completion' | 'news';
 };
 
 const NAV_ITEMS: NavItem[] = [
   { key: 'home', labelKey: 'layout.nav.home', to: '/', icon: Home, exact: true },
+  { key: 'analysis', labelKey: 'layout.nav.analysis', to: '/analysis', icon: BarChart3 },
   { key: 'chat', labelKey: 'layout.nav.chat', to: '/chat', icon: MessageSquareQuote, badge: 'completion' },
   { key: 'screening', labelKey: 'layout.nav.screening', to: '/screening', icon: Search },
   { key: 'portfolio', labelKey: 'layout.nav.portfolio', to: '/portfolio', icon: BriefcaseBusiness },
   { key: 'decision-signals', labelKey: 'layout.nav.decisionSignals', to: '/decision-signals', icon: Activity },
   { key: 'backtest', labelKey: 'layout.nav.backtest', to: '/backtest', icon: BarChart3 },
   { key: 'alerts', labelKey: 'layout.nav.alerts', to: '/alerts', icon: Bell },
+  { key: 'news', labelKey: 'layout.nav.news', to: '/news', icon: Newspaper, badge: 'news' },
+  { key: 'crypto-trading', labelKey: 'layout.nav.cryptoTrading', to: '/crypto-trading', icon: Bitcoin },
   { key: 'data', labelKey: 'layout.nav.dataCenter', to: '/data', icon: Database },
   { key: 'usage', labelKey: 'layout.nav.usage', to: '/usage', icon: Gauge },
   { key: 'settings', labelKey: 'layout.nav.settings', to: '/settings', icon: Settings2 },
 ];
 
-export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNavigate, variant = 'default' }) => {
+export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNavigate, variant = 'default', newsUnread = 0 }) => {
   const { authEnabled, logout } = useAuth();
   const location = useLocation();
   const { t } = useUiLanguage();
@@ -47,7 +51,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isRail = variant === 'rail';
   const itemBaseClass = cn(
-    'group relative flex h-[var(--nav-item-height)] w-full items-center overflow-hidden rounded-2xl border border-transparent text-sm leading-none text-secondary-text transition-all',
+    'etre-nav-link group relative flex h-[var(--nav-item-height)] w-full items-center overflow-hidden rounded-xl border border-transparent text-sm leading-none text-secondary-text transition-all',
     isRail
       ? 'justify-center gap-2.5 px-2'
       : collapsed
@@ -59,7 +63,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
     'hover:bg-[var(--nav-hover-bg)] hover:text-foreground'
   );
   const itemActiveClass = 'border-[var(--nav-active-border)] bg-[var(--nav-active-bg)] font-medium text-[hsl(var(--primary))]';
-  const itemIconClass = cn(isRail ? 'h-[18px] w-[18px]' : 'h-5 w-5', 'shrink-0');
+  const itemIconClass = cn(isRail ? 'h-[18px] w-[18px]' : 'etre-nav-icon h-5 w-5', 'shrink-0');
   const itemLabelClass = cn('truncate', isRail ? 'text-center' : '');
 
   return (
@@ -67,7 +71,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
       <div
         className={cn(
           'flex shrink-0 items-center',
-          isRail ? 'mb-5 justify-center gap-2 pt-1' : 'mb-4 gap-2 px-1',
+          isRail ? 'mb-5 justify-center gap-2 pt-1' : 'mb-6 gap-3 px-1',
           collapsed || isRail ? 'justify-center' : ''
         )}
       >
@@ -80,7 +84,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
           <BarChart3 className={cn(isRail ? 'h-[19px] w-[19px]' : 'h-5 w-5')} />
         </div>
         {!collapsed ? (
-          <p className={cn('min-w-0 truncate font-semibold text-foreground', isRail ? 'text-[0.95rem] leading-none' : 'text-sm')}>DSA</p>
+          <div className="min-w-0">
+            <p className={cn('font-black tracking-tight text-foreground', isRail ? 'text-[0.95rem] leading-none' : 'text-xl')}>ETRE</p>
+            {!isRail ? <p className="mt-0.5 text-[10px] leading-4 text-muted-text">Hisse ve Kripto Analiz Platformu</p> : null}
+          </div>
         ) : null}
       </div>
 
@@ -106,6 +113,12 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
               <>
                 <Icon className={cn(itemIconClass, isActive ? 'text-[var(--nav-icon-active)]' : 'text-current')} />
                 {!collapsed ? <span className={itemLabelClass}>{label}</span> : null}
+                {badge === 'news' && newsUnread > 0 ? (
+                  <span aria-label={t('layout.newsUnread', { count: newsUnread })}
+                    className="etre-nav-badge absolute right-1 top-0">
+                    {newsUnread > 99 ? '99+' : newsUnread}
+                  </span>
+                ) : null}
                 {badge === 'completion' && completionBadge ? (
                   <StatusDot
                     tone="info"

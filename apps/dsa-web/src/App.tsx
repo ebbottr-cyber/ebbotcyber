@@ -19,6 +19,7 @@ import { resolveLoginRedirect } from './utils/loginRedirect';
 import './App.css';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -30,6 +31,8 @@ const AlertsPage = lazy(() => import('./pages/AlertsPage'));
 const TokenUsagePage = lazy(() => import('./pages/TokenUsagePage'));
 const StockScreeningPage = lazy(() => import('./pages/StockScreeningPage'));
 const DataCenterPage = lazy(() => import('./pages/DataCenterPage'));
+const NewsPage = lazy(() => import('./pages/NewsPage'));
+const CryptoTradingPage = lazy(() => import('./pages/CryptoTradingPage'));
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -88,7 +91,8 @@ const AppContent: React.FC = () => {
 };
 
 const routeChildren = [
-  { path: '/', element: <HomePage /> },
+  { path: '/', element: <DashboardPage /> },
+  { path: '/analysis', element: <HomePage /> },
   { path: '/chat', element: <ChatPage /> },
   { path: '/portfolio', element: <PortfolioPage /> },
   { path: '/decision-signals', element: <DecisionSignalsPage /> },
@@ -96,6 +100,8 @@ const routeChildren = [
   { path: '/data', element: <DataCenterPage /> },
   { path: '/backtest', element: <BacktestPage /> },
   { path: '/alerts', element: <AlertsPage /> },
+  { path: '/news', element: <NewsPage /> },
+  { path: '/crypto-trading', element: <CryptoTradingPage /> },
   { path: '/usage', element: <TokenUsagePage /> },
   { path: '/settings', element: <SettingsPage /> },
   { path: '*', element: <NotFoundPage /> },

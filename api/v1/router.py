@@ -19,6 +19,12 @@ from api.v1.endpoints import (
     auth,
     backtest,
     data,
+    crypto,
+    crypto_office,
+    crypto_research,
+    crypto_risk,
+    crypto_paper,
+    news,
     decision_signals,
     health,
     history,
@@ -109,6 +115,42 @@ router.include_router(
     data.router,
     prefix="/data",
     tags=["Data"]
+)
+
+router.include_router(
+    crypto.router,
+    prefix="/crypto",
+    tags=["Crypto"],
+)
+
+router.include_router(
+    news.router,
+    prefix="/news",
+    tags=["News"],
+)
+
+router.include_router(
+    crypto_office.router,
+    prefix="/crypto-office",
+    tags=["Crypto Office (read only)"],
+)
+
+router.include_router(
+    crypto_research.router,
+    prefix="/crypto-office/research",
+    tags=["Crypto Research (journal only)"],
+)
+
+router.include_router(
+    crypto_risk.router,
+    prefix="/crypto-office/risk",
+    tags=["Crypto Risk (review only)"],
+)
+
+router.include_router(
+    crypto_paper.router,
+    prefix="/crypto-office/paper",
+    tags=["Crypto Paper Trading (read only)"],
 )
 
 router.include_router(

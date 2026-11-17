@@ -125,7 +125,14 @@ class SettingsPanelErrorBoundaryImpl extends Component<
 
 export const SettingsPanelErrorBoundary = (props: SettingsPanelErrorBoundaryProps) => {
   const { language } = useUiLanguage();
-  const labels: SettingsPanelErrorBoundaryLabels = language === 'en'
+  const labels: SettingsPanelErrorBoundaryLabels = language === 'tr'
+    ? {
+        loadFailedSuffix: ' yüklenemedi',
+        runtimeErrorMessage: 'Bu ayarlar bölümünde bir arayüz hatası oluştu. Diğer ayarlar kullanılabilir.',
+        defaultDiagnosticHint: 'Uygulama sürümünü, çalışma ortamını ve hatanın oluştuğu adımı belirtin.',
+        errorSummaryPrefix: 'Hata özeti: ',
+      }
+    : language === 'en'
     ? {
         loadFailedSuffix: ' failed to load',
         runtimeErrorMessage: 'This settings area hit a frontend runtime error. Other settings remain usable.',

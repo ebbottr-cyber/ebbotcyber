@@ -220,6 +220,38 @@ def _schedule_stock_index_background_refresh(app: FastAPI, reason: str) -> None:
     )
 
 
+async def _news_hub_poll_loop() -> None:
+    """Bounded five-market RSS polling; never blocks FastAPI startup."""
+    from src.services.news_hub_service import refresh_news
+
+    while True:
+        try:
+            result = await run_in_threadpool(refresh_news)
+            if result.get("failed_markets"):
+                logger.warning("[news] Unavailable markets: %s", result["failed_markets"])
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - keep the news poll isolated.
+            logger.warning("[news] Background poll failed (%s)", type(exc).__name__)
+        await asyncio.sleep(300)
+
+
+async def _news_hub_ai_loop() -> None:
+    """Separate rate-bounded translation worker; never blocks inbox reads."""
+    from src.services.news_hub_service import enrich_pending
+
+    while True:
+        try:
+            # Reads the user's saved News AI preference on every cycle.
+            await run_in_threadpool(enrich_pending, 5)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[news] Turkish AI enrichment failed (%s)", type(exc).__name__)
+        await asyncio.sleep(60)
+
+
 def _load_runtime_scheduler_args() -> dict:
     raw_value = os.getenv(RUNTIME_SCHEDULER_ARGS_ENV)
     if not raw_value:
@@ -295,9 +327,26 @@ async def app_lifespan(app: FastAPI):
     from src.services.name_to_code_resolver import warmup_akshare_cache
 
     warmup_akshare_cache()
+    news_task = None
+    news_ai_task = None
+    if (
+        os.getenv("NEWS_POLL_ENABLED", "true").lower() not in {"0", "false", "no"}
+        and not os.getenv("PYTEST_CURRENT_TEST")
+        and not os.getenv("GITHUB_ACTIONS")
+    ):
+        news_task = asyncio.create_task(_news_hub_poll_loop())
+        news_ai_task = asyncio.create_task(_news_hub_ai_loop())
     try:
         yield
     finally:
+        if news_ai_task is not None and not news_ai_task.done():
+            news_ai_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await news_ai_task
+        if news_task is not None and not news_task.done():
+            news_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await news_task
         refresh_task = getattr(app.state, "stock_index_refresh_task", None)
         if refresh_task is not None and not refresh_task.done():
             refresh_task.cancel()

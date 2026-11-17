@@ -47,16 +47,16 @@ function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode
     <div className="space-y-2">
       <div>
         {result.message}
-        {' · 状态：'}
+        {' · Durum: '}
         {result.status}
-        {' · 触发：'}
-        {result.triggered ? '是' : '否'}
-        {' · 观察值：'}
+        {' · Tetiklendi: '}
+        {result.triggered ? 'Evet' : 'Hayır'}
+        {' · Gözlenen değer: '}
         {result.observedValue == null ? '--' : String(result.observedValue)}
       </div>
       {result.evaluatedCount != null && result.evaluatedCount > 1 ? (
         <div className="text-xs">
-          评估 {result.evaluatedCount} · 触发 {result.triggeredCount ?? 0} · 降级 {result.degradedCount ?? 0} · 跳过 {result.skippedCount ?? 0}
+          Değerlendirilen {result.evaluatedCount} · Tetiklenen {result.triggeredCount ?? 0} · Kısıtlanan {result.degradedCount ?? 0} · Atlanan {result.skippedCount ?? 0}
         </div>
       ) : null}
       {targetResults.length > 1 ? (
@@ -77,12 +77,12 @@ function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode
 }
 
 const notificationChannelLabel: Record<string, string> = {
-  __cooldown__: '业务冷却',
-  __cooldown_read_failed__: '冷却读取失败',
-  __noise_suppressed__: '通知降噪',
-  __no_channel__: '无可用渠道',
-  __dispatch__: '通知调度',
-  __context__: '会话渠道',
+  __cooldown__: 'İşlem bekleme süresi',
+  __cooldown_read_failed__: 'Bekleme süresi okunamadı',
+  __noise_suppressed__: 'Gürültü azaltıldı',
+  __no_channel__: 'Kullanılabilir kanal yok',
+  __dispatch__: 'Bildirim dağıtımı',
+  __context__: 'Oturum kanalı',
 };
 
 function formatNotificationChannel(channel: string): string {
@@ -90,17 +90,17 @@ function formatNotificationChannel(channel: string): string {
 }
 
 function formatNotificationStatus(notification: AlertNotificationItem): string {
-  if (notification.success) return '成功';
-  if (notification.errorCode === 'cooldown_active') return '冷却抑制';
-  if (notification.errorCode === 'cooldown_read_failed') return '冷却读取失败';
-  if (notification.errorCode === 'noise_suppressed') return '降噪抑制';
-  if (notification.errorCode === 'no_channel') return '无渠道';
-  return '失败';
+  if (notification.success) return 'Başarılı';
+  if (notification.errorCode === 'cooldown_active') return 'Bekleme nedeniyle engellendi';
+  if (notification.errorCode === 'cooldown_read_failed') return 'Bekleme süresi okunamadı';
+  if (notification.errorCode === 'noise_suppressed') return 'Gürültü nedeniyle engellendi';
+  if (notification.errorCode === 'no_channel') return 'Kanal yok';
+  return 'Başarısız';
 }
 
 const AlertsPage: React.FC = () => {
   useEffect(() => {
-    document.title = '告警中心 - DSA';
+    document.title = 'Uyarı Merkezi - ETRE';
   }, []);
 
   const [rules, setRules] = useState<AlertRuleItem[]>([]);
@@ -208,7 +208,7 @@ const AlertsPage: React.FC = () => {
     setCreateSuccess(null);
     try {
       const created = await alertsApi.createRule(payload);
-      setCreateSuccess(`已创建告警规则「${created.name}」`);
+      setCreateSuccess(`Uyarı kuralı oluşturuldu: ${created.name}`);
       setRulesPage(1);
       setRulesRefreshKey((value) => value + 1);
       return true;
@@ -265,19 +265,19 @@ const AlertsPage: React.FC = () => {
     <AppPage className="space-y-5">
       <PageHeader
         eyebrow="Alert Center"
-        title="告警中心"
-        description="管理事件告警、日线技术指标、自选股、持仓/账户联动和大盘红绿灯规则，执行一次性测试，并查看后台评估任务记录的触发历史。"
+        title="Uyarı Merkezi"
+        description="Olay, teknik gösterge, izleme listesi, portföy ve piyasa durumu uyarılarını yönetin; kuralları sınayın ve tetiklenme geçmişini inceleyin."
       />
 
       {createError ? <ApiErrorAlert error={createError} onDismiss={() => setCreateError(null)} /> : null}
       {createSuccess ? (
         <InlineAlert
-          title="创建成功"
+          title="Başarıyla oluşturuldu"
           message={createSuccess}
           variant="success"
           action={(
             <button type="button" className="text-sm underline" onClick={() => setCreateSuccess(null)}>
-              关闭
+              Kapat
             </button>
           )}
         />
@@ -285,9 +285,9 @@ const AlertsPage: React.FC = () => {
       {rulesError ? <ApiErrorAlert error={rulesError} onDismiss={() => setRulesError(null)} /> : null}
       {!rulesError && ruleSources && ruleSources.legacyConfigured > 0 ? (
         <InlineAlert
-          title="存在环境变量告警规则"
+          title="Ortam değişkenlerinde uyarı kuralları var"
           variant="warning"
-          message={`环境变量配置了 ${ruleSources.legacyConfigured} 条有效规则，按当前启用的页面规则去重后有 ${ruleSources.legacyEffective} 条可供后台轮询。此数量不受页面筛选影响，也不表示后台轮询已启动。页面仅管理数据库规则；删除或禁用页面规则不会停用环境规则。若需停用，请在部署配置中修改 AGENT_EVENT_ALERT_RULES_JSON 并重新加载配置。`}
+          message={`Ortam değişkenlerinde ${ruleSources.legacyConfigured} geçerli kural var. Etkin sayfa kurallarından yinelenenler çıkarıldıktan sonra ${ruleSources.legacyEffective} kural arka planda denetlenebilir. Bu sayı sayfa filtrelerinden etkilenmez ve arka plan izlemesinin başladığını göstermez. Bu sayfa yalnızca veritabanı kurallarını yönetir. Ortam kurallarını kapatmak için dağıtım ayarındaki AGENT_EVENT_ALERT_RULES_JSON değerini değiştirip yapılandırmayı yeniden yükleyin.`}
         />
       ) : null}
 
@@ -319,7 +319,7 @@ const AlertsPage: React.FC = () => {
           />
           {testResult ? (
             <InlineAlert
-              title="测试结果"
+              title="Test sonucu"
               variant={testVariant(testResult)}
               message={renderTestResultMessage(testResult)}
             />
@@ -331,13 +331,13 @@ const AlertsPage: React.FC = () => {
       <AlertTriggerHistory triggers={triggers} isLoading={triggersLoading} />
 
       {notificationsError ? <ApiErrorAlert error={notificationsError} onDismiss={() => setNotificationsError(null)} /> : null}
-      <Card title="通知尝试记录" subtitle="通知结果" variant="bordered" padding="md">
-        {notificationsLoading ? <Loading label="正在加载通知尝试记录" /> : null}
+      <Card title="Bildirim gönderim kayıtları" subtitle="Bildirim sonucu" variant="bordered" padding="md">
+        {notificationsLoading ? <Loading label="Bildirim gönderim kayıtları yükleniyor" /> : null}
         {!notificationsLoading && notifications.length === 0 ? (
           <EmptyState
             icon={<BellRing className="h-6 w-6" />}
-            title="暂无通知尝试记录"
-            description="当前没有可展示的通知尝试明细；告警触发仍会按已配置通知渠道发送。"
+            title="Henüz bildirim denemesi yok"
+            description="Gösterilecek bildirim denemesi yok. Uyarılar etkin kanallardan gönderilmeye devam eder."
           />
         ) : null}
         {!notificationsLoading && notifications.length > 0 ? (
@@ -345,12 +345,12 @@ const AlertsPage: React.FC = () => {
             <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="border-b border-border/60 text-xs uppercase text-muted-text">
                 <tr>
-                  <th className="px-3 py-2 font-medium">渠道</th>
-                  <th className="px-3 py-2 font-medium">状态</th>
-                  <th className="px-3 py-2 font-medium">错误码</th>
-                  <th className="px-3 py-2 font-medium">耗时</th>
-                  <th className="px-3 py-2 font-medium">时间</th>
-                  <th className="px-3 py-2 font-medium">诊断</th>
+                  <th className="px-3 py-2 font-medium">Kanal</th>
+                  <th className="px-3 py-2 font-medium">Durum</th>
+                  <th className="px-3 py-2 font-medium">Hata kodu</th>
+                  <th className="px-3 py-2 font-medium">Süre</th>
+                  <th className="px-3 py-2 font-medium">Zaman</th>
+                  <th className="px-3 py-2 font-medium">Tanılama</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
