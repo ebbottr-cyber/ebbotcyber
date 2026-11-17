@@ -157,6 +157,13 @@ export const CryptoSpotPanel: React.FC = () => {
       <div className="mt-3 flex items-center gap-2 text-xs text-muted-text">
         <ShieldCheck className="h-4 w-4 text-success"/> Sadece veri okuma · TRADING_ENABLED=false
       </div>
+      {quote && (
+        <p className="mt-2 text-xs text-muted-text" role="status">
+          Fiyat kaynağı: Binance · {quote.quality === 'ok' ? 'Zaman damgası güncel' :
+            'Kaynak zaman damgası yok; güncelliği doğrulanamadı'}
+          {' · '}Denetim: {new Date(quote.checked_at).toLocaleTimeString('tr-TR')}
+        </p>
+      )}
     </div>
 
     {loading ? <FeedState message={symbol + ' piyasa verileri doğrulanıyor…'} /> : null}
