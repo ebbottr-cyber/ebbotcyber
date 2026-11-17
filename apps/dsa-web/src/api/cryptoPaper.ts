@@ -165,6 +165,8 @@ export function validatePaperHistory(v: unknown, market: PaperMarket | null): Pa
     if (!obj(event) || !['spot', 'futures'].includes(String(event.market)) ||
         (market !== null && event.market !== market) ||
         !['spot_ledger', 'futures_ledger', 'trade_lifecycle'].includes(String(event.source)) ||
+        (event.source === 'spot_ledger' && event.market !== 'spot') ||
+        (event.source === 'futures_ledger' && event.market !== 'futures') ||
         typeof event.symbol !== 'string' || typeof event.id !== 'string' ||
         typeof event.action !== 'string' ||
         !Number.isFinite(Date.parse(String(event.created_at))) ||
