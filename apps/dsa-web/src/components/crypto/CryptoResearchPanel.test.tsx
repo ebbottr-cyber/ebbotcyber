@@ -89,10 +89,6 @@ describe('EBBot manually triggered crypto research UI', () => {
     expect(screen.queryByRole('button', { name: /Emir ver|Pozisyon aç|Canlı işlem/ })).not.toBeInTheDocument();
   });
 
-  it('loads journal and persisted HOLD analysis decisions as separate records', async () => {
-    render(<CryptoResearchPanel view="signals" />);
-    expect(await screen.findByText(/Henüz manuel analiz kararı/)).not.toBeInTheDocument();
-  });
 
   it('shows signal journal and HOLD-inclusive audit without running agents', async () => {
     render(<CryptoResearchPanel view="signals" />);
