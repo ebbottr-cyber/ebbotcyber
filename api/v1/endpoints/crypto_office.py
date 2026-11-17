@@ -6,11 +6,13 @@ endpoint intentionally stays closed in that case.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from typing import Literal
 from fastapi.responses import JSONResponse
 
 from src.auth import COOKIE_NAME, is_auth_enabled, verify_session
 from src.services.crypto_office_bridge import CryptoOfficeUnavailable, read_crypto_dashboard
+from src.services.crypto_spot_bridge import SpotDataError, spot_data
 
 router = APIRouter()
 
@@ -39,4 +41,53 @@ async def crypto_office_dashboard():
             status_code=code,
             detail={"error": exc.code, "message": "Kripto ofisi verileri güvenli biçimde alınamadı."},
         ) from exc
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
+def _spot_error(exc: SpotDataError) -> HTTPException:
+    status = {
+        "invalid_symbol": 422,
+        "invalid_parameters": 422,
+        "unsupported_symbol": 404,
+        "rate_limited": 503,
+        "not_configured": 503,
+        "stale_market_data": 503,
+    }.get(exc.code, 502)
+    return HTTPException(
+        status_code=status,
+        detail={"error": exc.code, "message": "Binance Spot verisi güvenli biçimde doğrulanamadı."},
+    )
+
+
+@router.get("/spot/ticker", dependencies=[Depends(require_crypto_admin)])
+async def crypto_spot_ticker(symbol: str = Query("BTC/USDT", max_length=26)):
+    try:
+        payload = await spot_data("ticker", symbol.strip().upper())
+    except SpotDataError as exc:
+        raise _spot_error(exc) from exc
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/spot/ohlcv", dependencies=[Depends(require_crypto_admin)])
+async def crypto_spot_ohlcv(
+    symbol: str = Query("BTC/USDT", max_length=26),
+    timeframe: Literal["1m", "5m", "15m", "1h", "4h", "1d"] = "1h",
+    limit: int = Query(100, ge=20, le=300),
+):
+    try:
+        payload = await spot_data("ohlcv", symbol.strip().upper(), timeframe, limit)
+    except SpotDataError as exc:
+        raise _spot_error(exc) from exc
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/spot/orderbook", dependencies=[Depends(require_crypto_admin)])
+async def crypto_spot_orderbook(
+    symbol: str = Query("BTC/USDT", max_length=26),
+    limit: Literal[5, 10, 20, 50, 100] = 20,
+):
+    try:
+        payload = await spot_data("orderbook", symbol.strip().upper(), limit=limit)
+    except SpotDataError as exc:
+        raise _spot_error(exc) from exc
     return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
