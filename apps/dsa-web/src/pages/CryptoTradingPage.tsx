@@ -7,6 +7,7 @@ import { CryptoSpotPanel } from '../components/crypto/CryptoSpotPanel';
 import { CryptoFuturesPanel } from '../components/crypto/CryptoFuturesPanel';
 import { CryptoResearchPanel } from '../components/crypto/CryptoResearchPanel';
 import { CryptoRiskPanel } from '../components/crypto/CryptoRiskPanel';
+import { CryptoPaperPanel } from '../components/crypto/CryptoPaperPanel';
 
 type SectionId =
   | 'overview' | 'spot' | 'futures' | 'analysis' | 'signals'
@@ -38,10 +39,6 @@ function formatted(value: unknown, digits = 2): string {
 
 function field(record: unknown, key: string): unknown {
   return isObject(record) ? record[key] : undefined;
-}
-
-function asRows(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value) ? value.filter(isObject) : [];
 }
 
 function Metric({ title, value, note }: { title: string; value: string; note?: string }) {
@@ -83,32 +80,6 @@ const Pending: React.FC<{ label: string }> = ({ label }) => (
   </section>
 );
 
-function PositionTable({ positions }: { positions: Record<string, unknown>[] }) {
-  if (!positions.length) {
-    return <p className="py-4 text-sm text-muted-text">Kaydedilmiş açık Paper pozisyon bulunamadı.</p>;
-  }
-  return <div className="overflow-x-auto">
-    <table className="w-full min-w-[560px] text-left text-sm">
-      <thead className="text-xs text-muted-text"><tr>
-        <th className="border-b border-border px-3 py-3">Piyasa</th>
-        <th className="border-b border-border px-3 py-3">Sembol</th>
-        <th className="border-b border-border px-3 py-3">Yön</th>
-        <th className="border-b border-border px-3 py-3">Miktar</th>
-        <th className="border-b border-border px-3 py-3">Fiyat</th>
-      </tr></thead>
-      <tbody>{positions.map((position, index) => (
-        <tr key={String(position.id ?? position.symbol ?? 'pos') + ':' + index}>
-          <td className="border-b border-border/60 px-3 py-3">{String(position.market ?? '—')}</td>
-          <td className="border-b border-border/60 px-3 py-3 font-semibold">{String(position.symbol ?? '—')}</td>
-          <td className="border-b border-border/60 px-3 py-3">{String(position.side ?? '—')}</td>
-          <td className="border-b border-border/60 px-3 py-3">{formatted(position.quantity)}</td>
-          <td className="border-b border-border/60 px-3 py-3">{formatted(position.mark_price ?? position.current_price)}</td>
-        </tr>
-      ))}</tbody>
-    </table>
-  </div>;
-}
-
 const CryptoTradingPage: React.FC = () => {
   const [active, setActive] = useState<SectionId>('overview');
   const [data, setData] = useState<CryptoOfficeDashboard | null>(null);
@@ -147,7 +118,6 @@ const CryptoTradingPage: React.FC = () => {
   const combined = field(data?.portfolio, 'combined');
   const valuationComplete = field(combined, 'valuation_complete') === true;
   const equity = field(combined, 'equity');
-  const positions = asRows(field(data?.portfolio, 'open_positions'));
   const performanceDaily = field(data?.performance, 'daily');
   const performanceWeekly = field(data?.performance, 'weekly');
   const pnl = (value: unknown): string => formatted(field(value, 'net_pnl') ?? field(value, 'pnl'));
@@ -157,6 +127,9 @@ const CryptoTradingPage: React.FC = () => {
     if (active === 'spot') return <CryptoSpotPanel />;
     if (active === 'futures') return <CryptoFuturesPanel paperSnapshot={field(data?.portfolio, 'futures')} />;
     if (active === 'risk') return <CryptoRiskPanel />;
+    if (active === 'paper' || active === 'positions' || active === 'history') {
+      return <CryptoPaperPanel view={active} onOpenRisk={() => setActive('risk')} />;
+    }
     if (active === 'analysis' || active === 'signals' || active === 'agents') {
       return <CryptoResearchPanel view={active} />;
     }
@@ -171,16 +144,6 @@ const CryptoTradingPage: React.FC = () => {
         </div>;
 
 
-      case 'positions':
-        return <section className="rounded-2xl border border-border bg-card p-4">
-          <h3 className="font-semibold">Açık sanal pozisyonlar ({positions.length})</h3>
-          <PositionTable positions={positions} />
-        </section>;
-      case 'paper':
-        return <div className="grid gap-4 xl:grid-cols-2">
-          <ReadOnlySection title="Spot Paper Trading — salt okunur" value={field(data.portfolio, 'spot')} />
-          <ReadOnlySection title="Futures Paper Trading — salt okunur" value={field(data.portfolio, 'futures')} />
-        </div>;
       case 'portfolio':
         return <ReadOnlySection title="Spot ve Futures portföy raporu" value={data.portfolio}
           description="Eksik piyasa fiyatı varsa birleşik özsermaye hesaplanmaz." />;
@@ -196,7 +159,6 @@ const CryptoTradingPage: React.FC = () => {
         </div>;
       case 'scanner':
       case 'backtest':
-      case 'history':
         return <Pending label={current} />;
     }
   };
@@ -265,14 +227,14 @@ const CryptoTradingPage: React.FC = () => {
                 note={valuationComplete ? 'Spot + Futures · Sanal' : 'Eksik piyasa fiyatı mevcut'} />
               <Metric title="Günlük Paper PnL" value={pnl(performanceDaily) + ' USDT'} />
               <Metric title="Haftalık Paper PnL" value={pnl(performanceWeekly) + ' USDT'} />
-              <Metric title="Açık Paper pozisyon" value={String(positions.length)} />
+              <Metric title="Açık Paper pozisyon" value={formatted(field(combined, 'open_position_count'), 0)} />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-foreground">{current}</h2>
               <span className="text-xs text-muted-text"><Activity className="mr-1 inline h-4 w-4" />Yalnızca doğrulanmış kaynak verileri</span>
             </div>
             {body()}
-          </> : (['spot', 'futures', 'analysis', 'signals', 'agents', 'risk'] as SectionId[]).includes(active) ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
+          </> : (['spot', 'futures', 'analysis', 'signals', 'agents', 'risk', 'paper', 'positions', 'history'] as SectionId[]).includes(active) ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
             Kripto paneli, doğrulanmış servis yanıtı alınmadan hesap bilgisi göstermez.
           </div>}
         </section>
