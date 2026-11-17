@@ -6,6 +6,7 @@ import { cryptoOfficeApi, isObject, type CryptoOfficeDashboard } from '../api/cr
 import { CryptoSpotPanel } from '../components/crypto/CryptoSpotPanel';
 import { CryptoFuturesPanel } from '../components/crypto/CryptoFuturesPanel';
 import { CryptoResearchPanel } from '../components/crypto/CryptoResearchPanel';
+import { CryptoRiskPanel } from '../components/crypto/CryptoRiskPanel';
 
 type SectionId =
   | 'overview' | 'spot' | 'futures' | 'analysis' | 'signals'
@@ -156,6 +157,7 @@ const CryptoTradingPage: React.FC = () => {
   const body = () => {
     if (active === 'spot') return <CryptoSpotPanel />;
     if (active === 'futures') return <CryptoFuturesPanel paperSnapshot={field(data?.portfolio, 'futures')} />;
+    if (active === 'risk') return <CryptoRiskPanel />;
     if (active === 'analysis' || active === 'signals' || active === 'agents') {
       return <CryptoResearchPanel view={active} />;
     }
@@ -180,9 +182,6 @@ const CryptoTradingPage: React.FC = () => {
           <ReadOnlySection title="Spot Paper Trading — salt okunur" value={field(data.portfolio, 'spot')} />
           <ReadOnlySection title="Futures Paper Trading — salt okunur" value={field(data.portfolio, 'futures')} />
         </div>;
-      case 'risk':
-        return <ReadOnlySection title="Merkezi risk göstergeleri" value={data.risk}
-          description="Bu ekrandaki risk raporu bilgi amaçlıdır. İşlem simülasyonu açılmadan önce sunucu tarafında bağlayıcı risk kontrolü uygulanacaktır." />;
       case 'portfolio':
         return <ReadOnlySection title="Spot ve Futures portföy raporu" value={data.portfolio}
           description="Eksik piyasa fiyatı varsa birleşik özsermaye hesaplanmaz." />;
@@ -274,7 +273,7 @@ const CryptoTradingPage: React.FC = () => {
               <span className="text-xs text-muted-text"><Activity className="mr-1 inline h-4 w-4" />Yalnızca doğrulanmış kaynak verileri</span>
             </div>
             {body()}
-          </> : (['spot', 'futures', 'analysis', 'signals', 'agents'] as SectionId[]).includes(active) ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
+          </> : (['spot', 'futures', 'analysis', 'signals', 'agents', 'risk'] as SectionId[]).includes(active) ? body() : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
             Kripto paneli, doğrulanmış servis yanıtı alınmadan hesap bilgisi göstermez.
           </div>}
         </section>
