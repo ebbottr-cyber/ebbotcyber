@@ -70,7 +70,7 @@ export const CryptoResearchPanel: React.FC<{ view: View }> = ({ view }) => {
     setWeights(null);
     setCatalog(null);
     const task = view === 'signals'
-      ? cryptoResearchApi.journal(journalMarket)
+      ? cryptoResearchApi.journal(journalMarket === 'all' ? null : journalMarket)
       : view === 'agents'
         ? cryptoResearchApi.weights()
         : cryptoResearchApi.catalog();
