@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from api.v1.endpoints.crypto_office import require_crypto_admin
+from src.services.crypto_research_audit import CryptoAuditError, recent_decisions
 from src.services.crypto_research_bridge import (
     CryptoResearchError,
     analyze,
@@ -100,3 +101,15 @@ async def evaluate_crypto_strategy(payload: StrategyRequest):
         ))
     except CryptoResearchError as exc:
         raise _error(exc) from exc
+
+
+
+@router.get("/decisions", summary="Durable audit of ALL manually executed crypto research decisions")
+async def decision_audit(limit: int = Query(30, ge=1, le=100)):
+    try:
+        return _response(recent_decisions(limit))
+    except CryptoAuditError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": exc.args[0], "message": "Kripto karar kayıtları güvenli biçimde okunamadı."},
+        ) from exc
