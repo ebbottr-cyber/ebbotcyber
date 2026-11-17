@@ -37,7 +37,7 @@ describe('EBBot Spot panel (public data only)', () => {
     render(<CryptoSpotPanel />);
     expect(await screen.findByRole('img', { name: /Binance Spot gerçek geçmiş OHLCV/ })).toBeInTheDocument();
     expect(screen.getAllByText('50.000').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Gerçek.*emir/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Gerçek emir|Canlı işlem/i })).not.toBeInTheDocument();
     expect(cryptoSpotApi.ticker).toHaveBeenCalledWith('BTC/USDT');
   });
 
