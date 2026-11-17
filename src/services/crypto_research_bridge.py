@@ -303,7 +303,10 @@ async def weights(min_samples: int = 10) -> dict:
 
 
 async def strategies() -> dict:
-    raw = _no_orders(await _get("/api/v1/strategies"), mode="research_only")
+    raw = await _get("/api/v1/strategies")
+    # Catalog uses orders_enabled (unlike agent journal which uses orders_placed).
+    if raw.get("mode") != "research_only" or raw.get("orders_enabled") is not False:
+        raise CryptoResearchError("unsafe_research")
     entries = raw.get("strategies")
     if not isinstance(entries, list) or len(entries) != len(STRATEGIES):
         raise CryptoResearchError("invalid_research")
