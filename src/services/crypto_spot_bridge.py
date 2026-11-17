@@ -64,8 +64,8 @@ def _freshness(stamp: int | None, *, max_age_seconds: float) -> str:
     return "ok"
 
 
-def _common(raw: Any, symbol: str, dataset: Dataset) -> dict:
-    if not isinstance(raw, dict) or raw.get("market") != "spot" or raw.get("symbol") != symbol:
+def _common(raw: Any, symbol: str, dataset: Dataset, market: Literal["spot", "futures"] = "spot") -> dict:
+    if not isinstance(raw, dict) or raw.get("market") != market or raw.get("symbol") != symbol:
         raise SpotDataError("wrong_market_identity")
     if raw.get("source") not in {"Binance public market data", "Binance public order book"}:
         raise SpotDataError("wrong_market_identity")
@@ -74,7 +74,7 @@ def _common(raw: Any, symbol: str, dataset: Dataset) -> dict:
     if dataset != "orderbook" and raw["source"] != "Binance public market data":
         raise SpotDataError("wrong_market_identity")
     return {
-        "market": "spot",
+        "market": market,
         "symbol": symbol,
         "provider": "Binance",
         "source": raw["source"],
@@ -83,8 +83,8 @@ def _common(raw: Any, symbol: str, dataset: Dataset) -> dict:
     }
 
 
-def validate_ticker(raw: Any, symbol: str) -> dict:
-    result = _common(raw, symbol, "ticker")
+def validate_ticker(raw: Any, symbol: str, *, market: Literal["spot", "futures"] = "spot") -> dict:
+    result = _common(raw, symbol, "ticker", market)
     last = _number(raw.get("last"), positive=True)
     bid = _optional(raw.get("bid"), positive=True)
     ask = _optional(raw.get("ask"), positive=True)
@@ -105,8 +105,8 @@ def validate_ticker(raw: Any, symbol: str) -> dict:
     return result
 
 
-def validate_ohlcv(raw: Any, symbol: str, timeframe: str, limit: int) -> dict:
-    result = _common(raw, symbol, "ohlcv")
+def validate_ohlcv(raw: Any, symbol: str, timeframe: str, limit: int, *, market: Literal["spot", "futures"] = "spot") -> dict:
+    result = _common(raw, symbol, "ohlcv", market)
     if raw.get("timeframe") != timeframe:
         raise SpotDataError("wrong_market_identity")
     candles = raw.get("candles")
@@ -140,8 +140,8 @@ def validate_ohlcv(raw: Any, symbol: str, timeframe: str, limit: int) -> dict:
     return result
 
 
-def validate_orderbook(raw: Any, symbol: str, limit: int) -> dict:
-    result = _common(raw, symbol, "orderbook")
+def validate_orderbook(raw: Any, symbol: str, limit: int, *, market: Literal["spot", "futures"] = "spot") -> dict:
+    result = _common(raw, symbol, "orderbook", market)
     parsed: dict[str, list[list[float]]] = {}
     for side in ("bids", "asks"):
         levels = raw.get(side)
