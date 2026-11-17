@@ -14,8 +14,9 @@ from fastapi.responses import JSONResponse
 from api.v1.endpoints.crypto_office import require_crypto_admin
 from src.services.crypto_paper_bridge import (
     PaperReadError, read_paper_history, read_paper_summary,
-    read_paper_v2_capabilities,
 )
+
+from src.services.crypto_paper_v2_status import PaperV2StatusUnavailable, read_v2_status
 
 router = APIRouter(dependencies=[Depends(require_crypto_admin)])
 
@@ -49,7 +50,28 @@ async def crypto_paper_history(
 
 
 
-@router.get("/capabilities", summary="Paper V2 source availability; never grants execution")
+@router.get("/capabilities", summary="Upstream Paper V2 capability claims; never grants execution")
 async def crypto_paper_capabilities():
-    value = await read_paper_v2_capabilities()
+    try:
+        source = await read_v2_status()
+    except PaperV2StatusUnavailable as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": exc.code,
+                "message": "Paper V2 güvenliği kaynakta doğrulanamadı. EBBot emirleri kapalı.",
+            },
+        ) from exc
+    value = {
+        "upstream_v2_present": True,
+        "upstream_v2_opted_in": source["source_flag_claimed_enabled"],
+        "source_state": source["source_state"],
+        "source_claims_atomic_risk_gate": True,
+        "readiness_verified": False,
+        "ebbot_paper_execution_permitted": False,
+        "real_exchange_orders": False,
+        "execution": "disabled",
+        "checked_at": source["checked_at"],
+        "note": "Yalnız kaynak beyanı; bağımsız test ve dağıtım olmadan Paper V2 emir izni yok.",
+    }
     return JSONResponse(content=value, headers={"Cache-Control": "private, no-store"})
