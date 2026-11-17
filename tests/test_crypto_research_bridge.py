@@ -106,6 +106,15 @@ class ResearchValidatorTests(unittest.TestCase):
 
 
 class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
+    async def test_paper_order_and_trade_plan_urls_are_never_proxy_allowed(self):
+        for path in (
+            "/api/v1/paper/orders", "/api/v1/agents/trade-plan",
+            "/api/v1/risk/check", "/api/v1/strategies/something/signal",
+        ):
+            with self.subTest(path=path), self.assertRaises(r.CryptoResearchError) as ctx:
+                await r._get(path)
+            self.assertEqual(ctx.exception.code, "invalid_parameters")
+
     async def test_invalid_candles_block_journal_before_remote_analysis(self):
         get = AsyncMock()
         with patch.object(r, "spot_data", AsyncMock(return_value={
