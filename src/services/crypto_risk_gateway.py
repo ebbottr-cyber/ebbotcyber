@@ -61,16 +61,21 @@ def _valid_time(value: Any) -> datetime:
 
 
 def spot_daily_from_ledger(account: dict, spot_view: dict) -> float:
-    """UTC realized daily PnL: opening BUY fee + SELL realized PnL.
+    """Conservative UTC daily Spot loss budget, NOT a broker PnL statement.
 
-    The ledger's SELL realized_pnl already incorporates closing fee and
-    purchase cost basis; do not deduct the SELL fee a second time.
+    BUY fee is charged immediately; SELL realized_pnl already incorporates
+    the entry cost basis (including paid BUY fees). Thus some fees can be
+    conservatively counted twice if a coin is bought and sold the same day.
+    This never understates the risk budget, and no order permission is granted.
     """
     if not isinstance(account, dict) or not isinstance(spot_view, dict):
         raise RiskInputError("spot_ledger_invalid")
     if account.get("mode") != "paper_only" or spot_view.get("mode") != "paper_only":
         raise RiskInputError("spot_ledger_invalid")
     if not isinstance(account.get("orders"), list) or len(account["orders"]) > 10_000:
+        raise RiskInputError("spot_ledger_invalid")
+    if (type(account.get("order_count")) is not int
+            or account["order_count"] != len(account["orders"])):
         raise RiskInputError("spot_ledger_invalid")
     cash = account.get("cash")
     view_cash = spot_view.get("cash")
@@ -81,7 +86,8 @@ def spot_daily_from_ledger(account: dict, spot_view: dict) -> float:
     today = datetime.now(timezone.utc).date()
     total = 0.0
     for order in account["orders"]:
-        if not isinstance(order, dict) or order.get("side") not in ("BUY", "SELL"):
+        if (not isinstance(order, dict) or order.get("side") not in ("BUY", "SELL")
+                or order.get("status") != "SIMULATED"):
             raise RiskInputError("spot_ledger_invalid")
         created = _valid_time(order.get("created_at"))
         if created > datetime.now(timezone.utc):
