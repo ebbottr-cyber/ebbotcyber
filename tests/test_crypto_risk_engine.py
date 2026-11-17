@@ -50,6 +50,7 @@ def dashboard():
         "risk": {"daily_guard": {
             "mode": "paper_only", "real_exchange_orders": False,
             "new_positions_allowed": True,
+            "level": "normal", "risk_multiplier": 1.0,
         }},
     }
 
@@ -127,6 +128,18 @@ class IndependentCryptoRiskTests(unittest.TestCase):
         d["risk"]["daily_guard"]["new_positions_allowed"] = False
         result = check("futures", d=d)
         self.assertIn("upstream_risk_guard_blocked", result["reasons"])
+
+    def test_upstream_progressive_throttle_cannot_be_bypassed(self):
+        baseline = check()
+        d = dashboard()
+        d["risk"]["daily_guard"]["level"] = "elevated"
+        d["risk"]["daily_guard"]["risk_multiplier"] = .75
+        lowered = check(d=d)
+        self.assertLess(lowered["risk_budget"], baseline["risk_budget"])
+        self.assertAlmostEqual(lowered["upstream_risk_multiplier"], .75)
+        d["risk"]["daily_guard"]["risk_multiplier"] = 0.0
+        with self.assertRaises(RiskInputError):
+            check(d=d)
 
     def test_existing_unknown_or_large_position_exposure_blocks(self):
         d = dashboard()
