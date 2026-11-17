@@ -38,7 +38,7 @@ def dashboard():
             },
             "futures": {
                 "market": "futures", "mode": "paper_only",
-                "equity": 10000.0, "positions": [],
+                "equity": 10000.0, "wallet_balance": 10000.0, "positions": [],
                 "valuation_complete": True,
                 "daily_risk": {
                     "daily_realized_pnl": 0.0, "projected_daily_pnl": 0.0,
@@ -140,6 +140,22 @@ class IndependentCryptoRiskTests(unittest.TestCase):
         d["risk"]["daily_guard"]["risk_multiplier"] = 0.0
         with self.assertRaises(RiskInputError):
             check(d=d)
+
+    def test_future_wallet_balance_and_combined_daily_risk_block(self):
+        d = dashboard()
+        d["portfolio"]["futures"]["wallet_balance"] = 0
+        self.assertIn(
+            "insufficient_futures_wallet_balance",
+            check("futures", d=d)["reasons"],
+        )
+        d = dashboard()
+        d["portfolio"]["spot"]["equity"] = 10000
+        d["portfolio"]["futures"]["equity"] = 10000
+        d["portfolio"]["futures"]["daily_risk"]["daily_realized_pnl"] = -180
+        d["portfolio"]["futures"]["daily_risk"]["projected_daily_pnl"] = -180
+        # Both account losses together breach the combined 2% daily limit.
+        result = check("futures", d=d, daily=-230)
+        self.assertIn("combined_daily_loss_limit", result["reasons"])
 
     def test_existing_unknown_or_large_position_exposure_blocks(self):
         d = dashboard()
