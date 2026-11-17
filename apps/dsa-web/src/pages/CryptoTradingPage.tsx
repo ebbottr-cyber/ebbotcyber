@@ -264,7 +264,7 @@ const CryptoTradingPage: React.FC = () => {
             </button>)}
           </div>
         </nav>
-        <main className="min-w-0 space-y-4">
+        <section className="min-w-0 space-y-4" aria-label="Kripto içerik">
           {data ? <>
             <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Metric title="Birleşik Paper özsermaye"
@@ -282,7 +282,7 @@ const CryptoTradingPage: React.FC = () => {
           </> : <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-text">
             Kripto paneli, doğrulanmış servis yanıtı alınmadan hesap bilgisi göstermez.
           </div>}
-        </main>
+        </section>
       </div>
       <footer className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 text-xs text-muted-text">
         <Database className="h-4 w-4" />
