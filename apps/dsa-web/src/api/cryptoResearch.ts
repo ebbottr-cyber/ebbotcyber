@@ -287,14 +287,14 @@ export const cryptoResearchApi = {
   },
   async analyze(input: ResearchRequest): Promise<AgentReport> {
     const request = { ...input, symbol: normalizeResearchSymbol(input.market, input.symbol) };
-    const response = await apiClient.post<unknown>('/api/v1/crypto-office/research/analyze', request);
+    const response = await apiClient.post<unknown>('/api/v1/crypto-office/research/analyze', request, { timeout: 90_000 });
     return validateAgentReport(response.data, request);
   },
   async strategy(input: ResearchRequest, strategy: ResearchStrategyId): Promise<StrategyReport> {
     const request = { ...input, symbol: normalizeResearchSymbol(input.market, input.symbol) };
     const response = await apiClient.post<unknown>('/api/v1/crypto-office/research/strategy', {
       ...request, strategy,
-    });
+    }, { timeout: 60_000 });
     return validateStrategyReport(response.data, request, strategy);
   },
 };
