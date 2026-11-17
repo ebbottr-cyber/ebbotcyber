@@ -21,6 +21,7 @@ SOURCE_LIMITS = {
     "max_leverage": 5,
     "daily_loss_ceiling_usdt": 200.0,
     "max_stop_distance_pct": 10.0,
+    "min_research_notional_usdt": 10.0,  # EBBot policy, NOT Binance MIN_NOTIONAL
     "maintenance_margin_proxy": 0.005,
     # Conservative research assumptions; NOT actual Binance fee tiers.
     "fee_rate_per_side": 0.001,
@@ -272,7 +273,7 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
         reasons.append("risk_reward_below_1_5_after_costs")
     if liquidation_buffer is not None and distance + .01 >= liquidation_buffer:
         reasons.append("stop_near_estimated_liquidation")
-    if quantity <= 0 or estimated_loss <= 0 or notional <= 0:
+    if quantity <= 0 or estimated_loss <= 0 or notional < SOURCE_LIMITS["min_research_notional_usdt"]:
         reasons.append("insufficient_risk_or_liquidity_budget")
     if not all(math.isfinite(x) for x in (budget, notional, quantity, estimated_loss, reward_net, margin_needed, total_risk_pct)):
         raise RiskInputError("numeric_overflow")
