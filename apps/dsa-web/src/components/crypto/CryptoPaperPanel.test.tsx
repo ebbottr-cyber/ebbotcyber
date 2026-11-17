@@ -4,7 +4,7 @@ import { cryptoPaperApi } from '../../api/cryptoPaper';
 import { CryptoPaperPanel } from './CryptoPaperPanel';
 
 vi.mock('../../api/cryptoPaper', () => ({
-  cryptoPaperApi: { summary: vi.fn(), history: vi.fn() },
+  cryptoPaperApi: { summary: vi.fn(), history: vi.fn(), capabilities: vi.fn() },
 }));
 
 const summary = () => ({
@@ -69,6 +69,13 @@ const history = () => ({
 
 describe('EBBot existing Trading Office Paper account UI', () => {
   beforeEach(() => {
+    vi.mocked(cryptoPaperApi.capabilities).mockReset().mockResolvedValue({
+      upstream_v2_present: false, upstream_v2_opted_in: false,
+      ebbot_paper_execution_permitted: false,
+      real_exchange_orders: false, execution: 'disabled',
+      checked_at: new Date().toISOString(),
+      note: 'Only source readiness',
+    } as never);
     vi.mocked(cryptoPaperApi.summary).mockReset().mockResolvedValue(summary() as never);
     vi.mocked(cryptoPaperApi.history).mockReset().mockResolvedValue(history() as never);
   });
@@ -107,6 +114,18 @@ describe('EBBot existing Trading Office Paper account UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Futures' }));
     await waitFor(() => expect(cryptoPaperApi.history).toHaveBeenCalledWith('futures'));
     expect(cryptoPaperApi.summary).not.toHaveBeenCalled();
+  });
+
+  it('never enables orders even when upstream paper v2 opted in', async () => {
+    vi.mocked(cryptoPaperApi.capabilities).mockResolvedValueOnce({
+      upstream_v2_present: true, upstream_v2_opted_in: true,
+      ebbot_paper_execution_permitted: false, real_exchange_orders: false,
+      execution: 'disabled', checked_at: new Date().toISOString(),
+      note: 'No orders',
+    } as never);
+    render(<CryptoPaperPanel view="paper" onOpenRisk={vi.fn()}/>);
+    expect(await screen.findByText(/Kaynakta deneysel protokol açık/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Emir gönder|Long aç|Spot al/i })).not.toBeInTheDocument();
   });
 
   it('does not reuse stale account snapshot after provider failure', async () => {
