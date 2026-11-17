@@ -58,7 +58,7 @@ describe('EBBot crypto risk research UI', () => {
 
   it('does not compute preflight or place orders merely by opening tab', async () => {
     render(<CryptoRiskPanel />);
-    await screen.findByText(/2x/);
+    await screen.findByText(/Futures kaldıraç:/);
     expect(cryptoRiskApi.review).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /Risk ön kontrolünü çalıştır/ })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /Emir gönder|Canlı işlem|Pozisyon aç/ })).not.toBeInTheDocument();
