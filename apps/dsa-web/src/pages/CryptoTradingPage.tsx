@@ -150,7 +150,6 @@ const CryptoTradingPage: React.FC = () => {
   const positions = asRows(field(data?.portfolio, 'open_positions'));
   const performanceDaily = field(data?.performance, 'daily');
   const performanceWeekly = field(data?.performance, 'weekly');
-  const performanceMonthly = field(data?.performance, 'monthly');
   const pnl = (value: unknown): string => formatted(field(value, 'net_pnl') ?? field(value, 'pnl'));
   const current = SECTIONS.find(section => section.id === active)?.label ?? SECTIONS[0].label;
 
