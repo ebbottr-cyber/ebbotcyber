@@ -121,6 +121,9 @@ describe('EBBot existing Paper Trading view safety contracts', () => {
   it('upstream V2 opt-in never grants EBBot Paper execution', () => {
     const source = {
       upstream_v2_present: true, upstream_v2_opted_in: true,
+      source_state: 'SOURCE_FLAG_ON_UNVERIFIED',
+      source_claims_atomic_risk_gate: true,
+      readiness_verified: false,
       ebbot_paper_execution_permitted: false,
       real_exchange_orders: false, execution: 'disabled',
       note: 'Source opt-in only',
