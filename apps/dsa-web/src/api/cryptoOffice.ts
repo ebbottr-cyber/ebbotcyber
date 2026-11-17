@@ -60,7 +60,7 @@ export function validateCryptoOfficeDashboard(input: unknown): CryptoOfficeDashb
   } else if (equity !== null) {
     throw new CryptoOfficeContractError('Eksik fiyatlı portföy sıfır olarak gösterilemez.');
   }
-  return input as CryptoOfficeDashboard;
+  return input as unknown as CryptoOfficeDashboard;
 }
 
 export const cryptoOfficeApi = {
