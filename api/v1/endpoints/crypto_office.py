@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from src.auth import COOKIE_NAME, is_auth_enabled, verify_session
 from src.services.crypto_office_bridge import CryptoOfficeUnavailable, read_crypto_dashboard
 from src.services.crypto_spot_bridge import SpotDataError, spot_data
+from src.services.crypto_futures_bridge import FuturesDataError, futures_data
 
 router = APIRouter()
 
@@ -91,3 +92,73 @@ async def crypto_spot_orderbook(
     except SpotDataError as exc:
         raise _spot_error(exc) from exc
     return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
+
+def _futures_error(exc: FuturesDataError) -> HTTPException:
+    status = {
+        "invalid_symbol": 422,
+        "invalid_parameters": 422,
+        "unsupported_symbol": 404,
+        "rate_limited": 503,
+        "circuit_open": 503,
+        "not_configured": 503,
+        "stale_market_data": 503,
+        "unsafe_mode": 503,
+    }.get(exc.code, 502)
+    return HTTPException(
+        status_code=status,
+        detail={"error": exc.code, "message": "Binance USD-M Futures verisi doğrulanamadı."},
+    )
+
+
+@router.get("/futures/ticker", dependencies=[Depends(require_crypto_admin)])
+async def crypto_futures_ticker(symbol: str = Query("BTC/USDT", max_length=26)):
+    try:
+        data = await futures_data("ticker", symbol)
+    except FuturesDataError as exc:
+        raise _futures_error(exc) from exc
+    return JSONResponse(content=data, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/futures/ohlcv", dependencies=[Depends(require_crypto_admin)])
+async def crypto_futures_ohlcv(
+    symbol: str = Query("BTC/USDT", max_length=26),
+    timeframe: Literal["1m", "5m", "15m", "1h", "4h", "1d"] = "1h",
+    limit: int = Query(100, ge=20, le=300),
+):
+    try:
+        data = await futures_data("ohlcv", symbol, timeframe, limit)
+    except FuturesDataError as exc:
+        raise _futures_error(exc) from exc
+    return JSONResponse(content=data, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/futures/orderbook", dependencies=[Depends(require_crypto_admin)])
+async def crypto_futures_orderbook(
+    symbol: str = Query("BTC/USDT", max_length=26),
+    limit: Literal[5, 10, 20, 50, 100] = 20,
+):
+    try:
+        data = await futures_data("orderbook", symbol, limit=limit)
+    except FuturesDataError as exc:
+        raise _futures_error(exc) from exc
+    return JSONResponse(content=data, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/futures/funding", dependencies=[Depends(require_crypto_admin)])
+async def crypto_futures_funding(symbol: str = Query("BTC/USDT", max_length=26)):
+    try:
+        data = await futures_data("funding", symbol)
+    except FuturesDataError as exc:
+        raise _futures_error(exc) from exc
+    return JSONResponse(content=data, headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/futures/open-interest", dependencies=[Depends(require_crypto_admin)])
+async def crypto_futures_open_interest(symbol: str = Query("BTC/USDT", max_length=26)):
+    try:
+        data = await futures_data("open-interest", symbol)
+    except FuturesDataError as exc:
+        raise _futures_error(exc) from exc
+    return JSONResponse(content=data, headers={"Cache-Control": "private, no-store"})
