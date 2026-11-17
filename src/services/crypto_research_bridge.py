@@ -141,6 +141,8 @@ async def _get(path: str, params: dict[str, Any] | None = None) -> dict:
 def _report(raw: Any, market: str, identity: str, timeframe: str, last_timestamp: int, expected_close: float) -> dict:
     if not isinstance(raw, dict) or raw.get("market") != market or raw.get("symbol") != identity:
         raise CryptoResearchError("wrong_market_identity")
+    if raw.get("orders_placed") is True or raw.get("risk_approved") is True:
+        raise CryptoResearchError("unsafe_research")
     if raw.get("timeframe") != timeframe or raw.get("execution") != "disabled" or raw.get("mode") != "research_only":
         raise CryptoResearchError("unsafe_research")
     if raw.get("data_source") != "Binance public market data":
@@ -318,7 +320,7 @@ async def weights(min_samples: int = 10) -> dict:
 async def strategies() -> dict:
     raw = await _get("/api/v1/strategies")
     # Catalog uses orders_enabled (unlike agent journal which uses orders_placed).
-    if raw.get("mode") != "research_only" or raw.get("orders_enabled") is not False:
+    if raw.get("orders_placed") is True or raw.get("mode") != "research_only" or raw.get("orders_enabled") is not False:
         raise CryptoResearchError("unsafe_research")
     entries = raw.get("strategies")
     if not isinstance(entries, list) or len(entries) != len(STRATEGIES):
@@ -352,7 +354,7 @@ async def strategy_signal(market: str, symbol: str, timeframe: str, strategy: st
     raw = await _get(f"/api/v1/strategies/{strategy}/signal", {
         "market": market, "symbol": identity, "timeframe": frame, "limit": 100,
     })
-    if raw.get("market") != market or raw.get("execution") != "disabled":
+    if raw.get("orders_placed") is True or raw.get("risk_approved") is True or raw.get("market") != market or raw.get("execution") != "disabled":
         raise CryptoResearchError("unsafe_research")
     if raw.get("data_source") != "Binance public market data":
         raise CryptoResearchError("wrong_market_identity")
