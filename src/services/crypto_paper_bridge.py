@@ -24,6 +24,7 @@ _ALLOWED = {
     "futures-account": "/api/v1/paper/futures/account",
     "history": "/api/v1/paper/history",
     "performance": "/api/v1/paper/performance",
+    "v2-capabilities": "/api/v1/paper/v2/capabilities",
 }
 _PAIR = re.compile(r"^[A-Z0-9]{2,20}/(?:USDT|USDC|BTC|ETH)$")
 _FUTURES_PAIR = re.compile(r"^[A-Z0-9]{2,20}/USDT(?::USDT)?$")
@@ -440,4 +441,39 @@ async def read_paper_history(market: str | None = None, limit: int = 100) -> dic
             "orders_placed": False, "paper_execution_permitted": False,
             "real_exchange_orders": False, "execution": "disabled",
         },
+    }
+
+
+
+async def read_paper_v2_capabilities() -> dict:
+    """Report source protocol without granting EBBot any execution authority.
+
+    Missing/unsupported upstream capabilities are explicitly unavailable.
+    EBBot is read-only regardless of source's opt-in setting.
+    """
+    try:
+        upstream = await _get("v2-capabilities")
+        if (upstream.get("mode") != "paper_only"
+                or upstream.get("source") != "Trading Office"
+                or upstream.get("protocol") != "paper_v2_atomic_sqlite"
+                or upstream.get("legacy_paper_writes_enabled") is not False
+                or upstream.get("real_exchange_orders") is not False
+                or upstream.get("requires_admin_auth") is not True
+                or upstream.get("risk_check_location") != "same_sqlite_transaction"
+                or type(upstream.get("paper_execution_permitted")) is not bool):
+            raise PaperReadError("invalid_paper_v2_contract")
+        present = True
+        opted_in = upstream["paper_execution_permitted"]
+    except PaperReadError:
+        # 404/not-deployed or invalid flags must not masquerade as readiness.
+        present = False
+        opted_in = False
+    return {
+        "upstream_v2_present": present,
+        "upstream_v2_opted_in": opted_in,
+        "ebbot_paper_execution_permitted": False,
+        "real_exchange_orders": False,
+        "execution": "disabled",
+        "note": "Kaynak sürüm durumu. EBBot henüz emir API'si açmaz.",
+        "checked_at": datetime.now(timezone.utc).isoformat(),
     }
