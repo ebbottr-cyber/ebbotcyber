@@ -19,6 +19,7 @@ import httpx
 from src.services.crypto_office_bridge import _connection_settings
 from src.services.crypto_spot_bridge import spot_data
 from src.services.crypto_futures_bridge import futures_data, normalize_pair
+from src.services.crypto_research_audit import CryptoAuditError, record_decision
 
 Market = Literal["spot", "futures"]
 FRAMES = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
@@ -239,7 +240,12 @@ async def analyze(market: str, symbol: str, timeframe: str = "1h") -> dict:
         "limit": 250,
         "include_orderbook": True,
     })
-    return _report(raw, market, identity, frame, last_ts)
+    report = _report(raw, market, identity, frame, last_ts)
+    try:
+        audit_id = record_decision("ensemble", report)
+    except CryptoAuditError as exc:
+        raise CryptoResearchError("audit_unavailable") from exc
+    return {**report, "audit_id": audit_id}
 
 
 async def signals(market: str | None = None, limit: int = 50) -> dict:
@@ -354,7 +360,7 @@ async def strategy_signal(market: str, symbol: str, timeframe: str, strategy: st
     for item in ("entry_reference", "stop_reference", "take_profit_reference"):
         if signal.get(item) is not None:
             _num(signal[item], lo=0.0000001)
-    return {
+    report = {
         "market": market, "symbol": identity, "timeframe": frame,
         "strategy": strategy, "action": signal["action"],
         "confidence": _num(signal.get("confidence"), lo=0, hi=1),
@@ -367,3 +373,8 @@ async def strategy_signal(market: str, symbol: str, timeframe: str, strategy: st
         "execution": "disabled", "orders_placed": False,
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
+    try:
+        audit_id = record_decision("strategy", report)
+    except CryptoAuditError as exc:
+        raise CryptoResearchError("audit_unavailable") from exc
+    return {**report, "audit_id": audit_id}
