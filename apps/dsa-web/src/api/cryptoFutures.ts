@@ -142,7 +142,8 @@ export function validateFuturesDepth(raw: unknown, symbol: string): FuturesDepth
   }
   for (const side of ['bids', 'asks'] as const) {
     let previous = side === 'bids' ? Infinity : 0;
-    for (const level of raw[side]) {
+    const levels = raw[side] as unknown[];
+    for (const level of levels) {
       if (!Array.isArray(level) || level.length !== 2 ||
           !positive(level[0]) || !nonnegative(level[1]) ||
           (side === 'bids' ? level[0] > previous : level[0] < previous)) {
