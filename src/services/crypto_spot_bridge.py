@@ -6,7 +6,7 @@ Trading Office owns Binance/CCXT, retry and per-market circuit breaker logic.
 """
 from __future__ import annotations
 
-import asyncio
+import json
 import math
 import re
 import threading
@@ -218,7 +218,7 @@ async def _request(path: str, params: dict, key: str, base: str) -> Any:
                     if len(body) > MAX_BODY_SIZE:
                         raise SpotDataError("oversized_market_data")
                 try:
-                    return __import__("json").loads(body)
+                    return json.loads(body)
                 except (TypeError, ValueError) as exc:
                     raise SpotDataError("invalid_market_data") from exc
     except SpotDataError:
