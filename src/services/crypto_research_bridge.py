@@ -155,7 +155,9 @@ def _report(raw: Any, market: str, identity: str, timeframe: str, last_timestamp
     if stamp > time.time() * 1000 + 300_000:
         raise CryptoResearchError("future_market_data")
     last_price = _num(raw.get("last_close"), lo=0.0000001)
-    if not math.isclose(last_price, _num(expected_close, lo=0.0000001), rel_tol=1e-6, abs_tol=1e-8):
+    # CCXT may include the still-forming last candle; allow at most 0.1%
+    # drift across the two read requests, but never treat this as an executable quote.
+    if not math.isclose(last_price, _num(expected_close, lo=0.0000001), rel_tol=0.001, abs_tol=1e-8):
         raise CryptoResearchError("snapshot_mismatch")
     if raw.get("action") not in ACTIONS:
         raise CryptoResearchError("invalid_research")
@@ -367,7 +369,7 @@ async def strategy_signal(market: str, symbol: str, timeframe: str, strategy: st
     if signal.get("entry_reference") is not None and not math.isclose(
         _num(signal["entry_reference"], lo=0.0000001),
         _num(prices["candles"][-1]["close"], lo=0.0000001),
-        rel_tol=1e-6, abs_tol=1e-8,
+        rel_tol=0.001, abs_tol=1e-8,
     ):
         raise CryptoResearchError("snapshot_mismatch")
     for item in ("entry_reference", "stop_reference", "take_profit_reference"):
