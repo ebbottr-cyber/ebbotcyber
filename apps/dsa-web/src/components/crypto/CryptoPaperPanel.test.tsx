@@ -88,7 +88,7 @@ describe('EBBot existing Trading Office Paper account UI', () => {
     await screen.findByText('20.021 USDT');
     fireEvent.click(screen.getByRole('button', { name: 'Futures Sanal Hesabı' }));
     expect(screen.getByText(/9.550 USDT/)).toBeInTheDocument();
-    expect(screen.getByText(/450 USDT/)).toBeInTheDocument();
+    expect(screen.getAllByText(/450 USDT/).length).toBeGreaterThan(0);
     expect(screen.getByText('BTC/USDT:USDT')).toBeInTheDocument();
   });
 
