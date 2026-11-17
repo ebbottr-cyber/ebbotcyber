@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validatePaperHistory, validatePaperSummary } from './cryptoPaper';
+import { validatePaperHistory, validatePaperSummary, validatePaperV2Capabilities } from './cryptoPaper';
 
 const safe = () => ({
   orders_placed: false, paper_execution_permitted: false,
@@ -116,6 +116,26 @@ describe('EBBot existing Paper Trading view safety contracts', () => {
     expect(() => validatePaperHistory({
       ...history(), count: 99,
     }, null)).toThrow();
+  });
+
+  it('upstream V2 opt-in never grants EBBot Paper execution', () => {
+    const source = {
+      upstream_v2_present: true, upstream_v2_opted_in: true,
+      ebbot_paper_execution_permitted: false,
+      real_exchange_orders: false, execution: 'disabled',
+      note: 'Source opt-in only',
+      checked_at: new Date().toISOString(),
+    };
+    expect(validatePaperV2Capabilities(source).ebbot_paper_execution_permitted).toBe(false);
+    expect(() => validatePaperV2Capabilities({
+      ...source, ebbot_paper_execution_permitted: true,
+    })).toThrow();
+    expect(() => validatePaperV2Capabilities({
+      ...source, real_exchange_orders: true,
+    })).toThrow();
+    expect(() => validatePaperV2Capabilities({
+      ...source, upstream_v2_present: false, upstream_v2_opted_in: true,
+    })).toThrow();
   });
 
   it('rejects stale snapshot and unsafe source', () => {
