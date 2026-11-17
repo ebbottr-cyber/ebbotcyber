@@ -181,7 +181,7 @@ class IndependentCryptoRiskTests(unittest.TestCase):
 
     def test_price_mismatch_bad_risk_reward_and_liquidity_block(self):
         with self.assertRaises(RiskInputError) as ctx:
-            check(p={**proposal(), "entry_price": 110})
+            check(p={**proposal(), "entry_price": 102})
         self.assertEqual(ctx.exception.code, "entry_price_mismatch")
         result = check(p={**proposal(), "take_profit_price": 101})
         self.assertEqual(result["status"], "BLOCKED")
