@@ -267,6 +267,18 @@ def validate_futures_account(raw: Any) -> dict:
             raise PaperReadError("invalid_paper_ledger")
     elif equity is not None or upnl is not None:
         raise PaperReadError("incomplete_valuation")
+    # Serialize only expected, verified risk fields; never forward the raw
+    # source response or possible operational/debug content to the browser.
+    risk = _obj(d.get("daily_risk"))
+    if type(risk.get("new_positions_allowed")) is not bool or type(risk.get("valuation_complete")) is not bool:
+        raise PaperReadError("invalid_paper_ledger")
+    cleaned_risk = {
+        "new_positions_allowed": risk["new_positions_allowed"],
+        "valuation_complete": risk["valuation_complete"],
+        "daily_realized_pnl": _num(risk.get("daily_realized_pnl")),
+        "projected_daily_pnl": _optional(risk.get("projected_daily_pnl")),
+        "daily_loss_limit": _num(risk.get("daily_loss_limit"), positive=True),
+    }
     trades = _array(d.get("trades"), maximum=100)
     clean_trades = []
     for row_raw in trades:
@@ -275,8 +287,11 @@ def validate_futures_account(raw: Any) -> dict:
         action = row.get("action")
         if action not in ("OPEN", "CLOSE", "LIQUIDATION", "FUNDING") or row.get("side") not in ("LONG", "SHORT"):
             raise PaperReadError("invalid_paper_ledger")
+        record_id = str(row.get("id", ""))
+        if not _ID.fullmatch(record_id):
+            raise PaperReadError("invalid_paper_ledger")
         clean_trades.append({
-            "id": str(row.get("id", ""))[:100], "symbol": sym,
+            "id": record_id, "symbol": sym,
             "market": "futures", "action": action, "side": row["side"],
             "quantity": _num(row.get("quantity"), positive=True),
             "price": _num(row.get("price"), positive=True),
@@ -292,7 +307,7 @@ def validate_futures_account(raw: Any) -> dict:
         "realized_pnl": realized, "unrealized_pnl": upnl,
         "valuation_complete": complete, "positions": clean_positions,
         "trades": clean_trades,
-        "daily_risk": d.get("daily_risk") if isinstance(d.get("daily_risk"), dict) else None,
+        "daily_risk": cleaned_risk,
     }
 
 
@@ -315,8 +330,11 @@ def validate_history(raw: Any, limit: int) -> dict:
             raise PaperReadError("invalid_paper_ledger")
         event_pnl = _num(row.get("event_pnl"))
         created_at = _timestamp(row.get("created_at"))
+        record_id = str(row.get("id", ""))
+        if not _ID.fullmatch(record_id):
+            raise PaperReadError("invalid_paper_ledger")
         rows.append({
-            "id": str(row.get("id", ""))[:100],
+            "id": record_id,
             "market": row["market"], "source": source,
             "symbol": _pair(row.get("symbol"), row["market"]),
             "action": str(row.get("action") or row.get("side") or row.get("status") or "EVENT")[:28],
