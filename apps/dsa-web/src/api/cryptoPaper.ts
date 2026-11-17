@@ -83,6 +83,11 @@ const obj = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === 'object' && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const nonnegative = (v: unknown): v is number => finite(v) && v >= 0;
+const validSymbol = (v: unknown, market: PaperMarket): boolean =>
+  typeof v === 'string' &&
+  (market === 'futures'
+    ? /^[A-Z0-9]{2,20}\/USDT(?::USDT)?$/.test(v)
+    : /^[A-Z0-9]{2,20}\/(?:USDT|USDC|BTC|ETH)$/.test(v));
 const fresh = (v: unknown) => {
   if (typeof v !== 'string') return false;
   const parsed = Date.parse(v);
@@ -106,7 +111,7 @@ function account(v: unknown, market: PaperMarket): asserts v is PaperAccount {
     throw new Error('Sanal hesap doğrulanamadı.');
   }
   for (const p of v.positions) {
-    if (!obj(p) || p.market !== market || typeof p.symbol !== 'string' ||
+    if (!obj(p) || p.market !== market || !validSymbol(p.symbol, market) ||
         !finite(p.quantity) || p.quantity <= 0 ||
         !(p.mark_price === null || (finite(p.mark_price) && p.mark_price > 0)) ||
         !(p.unrealized_pnl === null || finite(p.unrealized_pnl)) ||
@@ -167,7 +172,8 @@ export function validatePaperHistory(v: unknown, market: PaperMarket | null): Pa
         !['spot_ledger', 'futures_ledger', 'trade_lifecycle'].includes(String(event.source)) ||
         (event.source === 'spot_ledger' && event.market !== 'spot') ||
         (event.source === 'futures_ledger' && event.market !== 'futures') ||
-        typeof event.symbol !== 'string' || typeof event.id !== 'string' ||
+        !validSymbol(event.symbol, event.market as PaperMarket) ||
+        typeof event.id !== 'string' ||
         typeof event.action !== 'string' ||
         !Number.isFinite(Date.parse(String(event.created_at))) ||
         !finite(event.event_pnl) ||
