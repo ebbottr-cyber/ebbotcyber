@@ -37,7 +37,7 @@ def report(market="spot", identity="BTC/USDT", frame="1h"):
 class ResearchValidatorTests(unittest.TestCase):
     def test_carries_nine_independent_read_only_agent_votes(self):
         d = report()
-        result = r._report(d, "spot", "BTC/USDT", "1h", d["candle_timestamp"])
+        result = r._report(d, "spot", "BTC/USDT", "1h", d["candle_timestamp"], d["last_close"])
         self.assertEqual(result["engine"], "deterministic_ensemble")
         self.assertEqual(len(result["agents"]), 9)
         self.assertFalse(result["risk_approved"])
@@ -70,13 +70,20 @@ class ResearchValidatorTests(unittest.TestCase):
         )
         for change in alterations:
             with self.subTest(change=change), self.assertRaises(r.CryptoResearchError):
-                r._report({**d, **change}, "spot", "BTC/USDT", "1h", d["candle_timestamp"])
+                r._report({**d, **change}, "spot", "BTC/USDT", "1h", d["candle_timestamp"], d["last_close"])
+
+    def test_same_candle_but_different_price_is_rejected(self):
+        d = report()
+        d["last_close"] = 80100.0
+        with self.assertRaises(r.CryptoResearchError) as context:
+            r._report(d, "spot", "BTC/USDT", "1h", d["candle_timestamp"], 80000.0)
+        self.assertEqual(context.exception.code, "snapshot_mismatch")
 
     def test_rejects_missing_duplicate_agents(self):
         d = report()
         d["agents"][-1]["agent"] = d["agents"][0]["agent"]
         with self.assertRaises(r.CryptoResearchError):
-            r._report(d, "spot", "BTC/USDT", "1h", d["candle_timestamp"])
+            r._report(d, "spot", "BTC/USDT", "1h", d["candle_timestamp"], d["last_close"])
 
     def test_allowlisted_safe_endpoints_do_not_accept_order_paths(self):
         for bad in (
@@ -111,7 +118,7 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_user_initiated_analysis_journals_only_for_verified_candle(self):
         d = report()
-        price = {"quality": "ok", "candles": [{}] * 250,
+        price = {"quality": "ok", "candles": [{"close": 80000}] * 250,
                  "last_candle_timestamp": d["candle_timestamp"]}
         remote = AsyncMock(return_value=d)
         with patch.object(r, "spot_data", AsyncMock(return_value=price)), patch.object(
@@ -128,7 +135,7 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_futures_analysis_propagates_perpetual_contract_identity(self):
         d = report("futures", "BTC/USDT:USDT")
-        price = {"quality": "ok", "candles": [{}] * 250,
+        price = {"quality": "ok", "candles": [{"close": 80000}] * 250,
                  "last_candle_timestamp": d["candle_timestamp"]}
         remote = AsyncMock(return_value=d)
         with patch.object(r, "futures_data", AsyncMock(return_value=price)), patch.object(
@@ -182,7 +189,7 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
                     "take_profit_reference": None, "risk_reward": None,
                     "candle_timestamp": d["candle_timestamp"],
                 }}
-        prices = {"quality": "ok", "candles": [{}] * 100,
+        prices = {"quality": "ok", "candles": [{"close": 80000}] * 100,
                   "last_candle_timestamp": d["candle_timestamp"]}
         with patch.object(r, "spot_data", AsyncMock(return_value=prices)), patch.object(
             r, "_get", AsyncMock(return_value=data)
@@ -198,7 +205,7 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
     async def test_audit_failure_blocks_ensemble_decision_response(self):
         from src.services.crypto_research_audit import CryptoAuditError
         d = report()
-        prices = {"quality": "ok", "candles": [{}] * 250,
+        prices = {"quality": "ok", "candles": [{"close": 80000}] * 250,
                   "last_candle_timestamp": d["candle_timestamp"]}
         with patch.object(r, "spot_data", AsyncMock(return_value=prices)), patch.object(
             r, "_get", AsyncMock(return_value=d)
