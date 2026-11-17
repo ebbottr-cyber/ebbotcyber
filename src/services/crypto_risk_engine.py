@@ -193,6 +193,11 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
         raise RiskInputError("risk_guard_unavailable")
     if not isinstance(guard.get("new_positions_allowed"), bool) or not isinstance(daily.get("new_positions_allowed"), bool):
         raise RiskInputError("risk_guard_unavailable")
+    if guard.get("level") not in ("normal", "elevated", "critical", "blocked"):
+        raise RiskInputError("risk_guard_unavailable")
+    throttle = _number(guard.get("risk_multiplier"), "risk_guard_unavailable", nonnegative=True)
+    if throttle > 1 or (guard["new_positions_allowed"] is True and throttle == 0):
+        raise RiskInputError("risk_guard_unavailable")
 
     if not isinstance(quote, dict) or quote.get("quality") != "ok" or quote.get("market") != market or quote.get("symbol") != symbol:
         raise RiskInputError("price_unavailable")
@@ -220,7 +225,9 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
     fee_pct = 2 * SOURCE_LIMITS["fee_rate_per_side"]
     slippage_pct = 2 * SOURCE_LIMITS["slippage_rate_per_side"]
     friction_pct = fee_pct + slippage_pct + funding_rate
-    budget = equity * risk_pct / 100
+    # Trading Office's existing conservative portfolio throttle is binding.
+    # Never allow a caller or an AI signal to increase this multiplier.
+    budget = equity * risk_pct / 100 * throttle
     unit_risk_pct = distance + friction_pct
     max_notional = budget / unit_risk_pct
     max_market_notional = equity * (.2 if market == "spot" else .5)
@@ -245,7 +252,8 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
     total_risk_pct = (existing_market_risk + estimated_loss) / equity * 100
 
     reasons = []
-    if guard["new_positions_allowed"] is not True or daily["new_positions_allowed"] is not True:
+    if (guard["new_positions_allowed"] is not True or daily["new_positions_allowed"] is not True
+            or guard["level"] == "blocked"):
         reasons.append("upstream_risk_guard_blocked")
     if market == "spot" and spot_daily_pnl <= -min(200.0, spot_equity * .02):
         reasons.append("spot_daily_loss_limit")
@@ -277,6 +285,7 @@ def evaluate_risk(proposal: dict, dashboard: dict, spot_daily_pnl: float,
         "paper_account_equity": round(equity, 4),
         "daily_realized_pnl": round(spot_daily_pnl if market == "spot" else futures_daily_pnl, 4),
         "risk_budget": round(budget, 6),
+        "upstream_risk_multiplier": throttle,
         "estimated_position_notional": round(notional, 6),
         "estimated_quantity": quantity, "estimated_loss_with_costs": round(estimated_loss, 6),
         "estimated_round_trip_fee": round(notional * fee_pct, 6),
