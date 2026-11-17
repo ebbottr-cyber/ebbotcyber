@@ -114,8 +114,12 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
         price = {"quality": "ok", "candles": [{}] * 250,
                  "last_candle_timestamp": d["candle_timestamp"]}
         remote = AsyncMock(return_value=d)
-        with patch.object(r, "spot_data", AsyncMock(return_value=price)), patch.object(r, "_get", remote):
+        with patch.object(r, "spot_data", AsyncMock(return_value=price)), patch.object(
+            r, "_get", remote
+        ), patch.object(r, "record_decision", return_value=17) as audit:
             result = await r.analyze("spot", "BTC/USDT", "1h")
+        audit.assert_called_once()
+        self.assertEqual(result["audit_id"], 17)
         self.assertEqual(result["action"], "HOLD")
         self.assertEqual(result["journal_recorded"], 0)
         self.assertFalse(result["risk_approved"])
@@ -127,7 +131,9 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
         price = {"quality": "ok", "candles": [{}] * 250,
                  "last_candle_timestamp": d["candle_timestamp"]}
         remote = AsyncMock(return_value=d)
-        with patch.object(r, "futures_data", AsyncMock(return_value=price)), patch.object(r, "_get", remote):
+        with patch.object(r, "futures_data", AsyncMock(return_value=price)), patch.object(
+            r, "_get", remote
+        ), patch.object(r, "record_decision", return_value=18):
             result = await r.analyze("futures", "BTC/USDT", "1h")
         self.assertEqual(result["symbol"], "BTC/USDT:USDT")
         self.assertEqual(remote.await_args.args[1]["symbol"], "BTC/USDT:USDT")
@@ -180,11 +186,26 @@ class ResearchOfflineTests(unittest.IsolatedAsyncioTestCase):
                   "last_candle_timestamp": d["candle_timestamp"]}
         with patch.object(r, "spot_data", AsyncMock(return_value=prices)), patch.object(
             r, "_get", AsyncMock(return_value=data)
-        ) as remote:
+        ) as remote, patch.object(r, "record_decision", return_value=19) as audit:
             result = await r.strategy_signal("spot", "BTC/USDT", "1h", "trend_following")
+        audit.assert_called_once()
+        self.assertEqual(result["audit_id"], 19)
         self.assertFalse(result["orders_placed"])
         self.assertFalse(result["risk_approved"])
         self.assertEqual(remote.await_args.args[0], "/api/v1/strategies/trend_following/signal")
+
+
+    async def test_audit_failure_blocks_ensemble_decision_response(self):
+        from src.services.crypto_research_audit import CryptoAuditError
+        d = report()
+        prices = {"quality": "ok", "candles": [{}] * 250,
+                  "last_candle_timestamp": d["candle_timestamp"]}
+        with patch.object(r, "spot_data", AsyncMock(return_value=prices)), patch.object(
+            r, "_get", AsyncMock(return_value=d)
+        ), patch.object(r, "record_decision", side_effect=CryptoAuditError("disk error")):
+            with self.assertRaises(r.CryptoResearchError) as ctx:
+                await r.analyze("spot", "BTC/USDT", "1h")
+        self.assertEqual(ctx.exception.code, "audit_unavailable")
 
 
 if __name__ == "__main__":
