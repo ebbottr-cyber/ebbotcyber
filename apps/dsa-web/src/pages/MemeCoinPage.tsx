@@ -61,6 +61,7 @@ const CONTENT = {
     paperNotAvailable: 'Sanal test motorunun bağlantı durumu doğrulanamadı.',
     safetyTitle: 'Sanal İşlem Risk Kontrolleri (V10)',
     safetyOffline: 'Çevrimdışı geliştirme hazır, otomatik işlem çalışmıyor.',
+    safetyNotRunning: 'Arşiv ve risk modülü sunucuda çalışmıyor.', 
     safetyJournal: 'İki strateji için ayrı SQLite teklif arşivi: yalnızca yerel dosyada manuel kullanım.',
     safetyGuard: 'Veri eskimesi, düşük likidite, günlük sanal zarar ve art arda başarısızlık kontrolleri.',
     safetyLimits: 'Acil durdurma: çevrimdışı test motorunda mevcut.',
@@ -207,6 +208,7 @@ const CONTENT = {
     paperNotAvailable: 'Could not verify offline replay status.',
     safetyTitle: 'Paper Replay Safety Controls (V10)',
     safetyOffline: 'Offline safeguards available; automated trading is not running.',
+    safetyNotRunning: 'Archive and risk module are not running on the server.',
     safetyJournal: 'Independent SQLite quote archives for both strategies: manual local use only.',
     safetyGuard: 'Data freshness, low liquidity, daily modeled loss and repeated failure limits.',
     safetyLimits: 'Emergency stop available in the offline replay.',
@@ -353,6 +355,7 @@ const CONTENT = {
     paperNotAvailable: '无法确认离线回放状态。',
     safetyTitle: '模拟交易风险控制（V10）',
     safetyOffline: '离线保护模块已准备，自动交易没有运行。',
+    safetyNotRunning: '服务器未运行档案或风险模块。',
     safetyJournal: '两个独立策略的 SQLite 本地报价档案，仅手动使用。',
     safetyGuard: '数据时效、流动性、每日模拟损失和连续失败限制。',
     safetyLimits: '离线模拟支持紧急停止。',
@@ -1214,7 +1217,7 @@ export default function MemeCoinPage() {
                 {riskReadiness.strategyLedgers.map((item) => (
                   <div className="rounded-lg border border-border/50 p-3" key={item.strategy}>
                     <p className="font-semibold">{item.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
-                    <p className="text-xs text-secondary-text">{copy.paperNotRunning}</p>
+                    <p className="text-xs text-secondary-text">{copy.safetyNotRunning}</p>
                   </div>
                 ))}
               </div>
