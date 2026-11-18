@@ -31,7 +31,7 @@ export type MemeCoinOverview = {
 
 export const memeCoinApi = {
   async getOverview(): Promise<MemeCoinOverview> {
-    const { data } = await apiClient.get('/meme-coins/overview');
+    const { data } = await apiClient.get('/api/v1/meme-coins/overview');
     return toCamelCase<MemeCoinOverview>(data);
   },
 };
