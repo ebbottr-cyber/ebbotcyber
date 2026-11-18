@@ -3,15 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
   reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
-  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(),
+  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(), getPaperMtmReadiness: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness },
 }));
 
 const overview = {
@@ -65,6 +65,17 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  getPaperMtmReadiness.mockResolvedValue({
+    status: 'offline_mtm_recovery_available',
+    markSource: 'unverified_offline_assumptions',
+    databaseOnline: false,
+    paperSchedulerRunning: false,
+    liveTradingEnabled: false,
+    strategies: [
+      { strategy: 'new_launch', status: 'not_running' },
+      { strategy: 'momentum', status: 'not_running' },
+    ],
+  });
   getPaperRiskReadiness.mockResolvedValue({
     status: 'offline_safeguards_available',
     archiveMode: 'manual_local_sqlite_only',
@@ -654,6 +665,25 @@ describe('MemeCoinPage', () => {
     expect(await screen.findByText('Risk kontrolü hazırlık durumu doğrulanamadı.')).toBeInTheDocument();
     expect(screen.queryByText(/Çevrimdışı geliştirme hazır/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Gerçekleşen kar/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the V11 offline valuation and recovery states without invented market PnL', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(await screen.findByText('Açık Pozisyon Değerleme ve Kurtarma (V11)')).toBeInTheDocument();
+    expect(screen.getByText(/yerel kurtarma veritabanı sunucuya bağlı değil/)).toBeInTheDocument();
+    expect(screen.getByText(/test senaryosunda girilen satış fiyatlarını kullanır/)).toBeInTheDocument();
+    expect(screen.getByText(/kayıtlar tekrar hesaplanır ve SQLite kontrol noktasıyla karşılaştırılır/)).toBeInTheDocument();
+    expect(getPaperMtmReadiness).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /buy|satın al|sanal işlem başlat/i })).not.toBeInTheDocument();
+  });
+
+  it('fails closed if the V11 status endpoint is unavailable', async () => {
+    getPaperMtmReadiness.mockRejectedValue(new Error('unreachable'));
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(await screen.findByText('V11 modül hazırlık durumu doğrulanamadı.')).toBeInTheDocument();
+    expect(screen.queryByText(/yerel kurtarma veritabanı sunucuya bağlı değil/)).not.toBeInTheDocument();
   });
 
 });
