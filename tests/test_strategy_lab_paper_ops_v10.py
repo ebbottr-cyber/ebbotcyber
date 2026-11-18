@@ -133,3 +133,45 @@ def test_daily_wrapper_opt_in_notify_and_safeguard_health_path(monkeypatch, tmp_
     cmd.status_file = journal
     with pytest.raises(ValueError, match="status and journal|cannot replace"):
         daily.execute(cmd)
+
+
+def test_daily_wrapper_status_is_allowed_offline_and_not_confused_with_preview(monkeypatch, tmp_path):
+    journal, health = tmp_path / "paper.jsonl", tmp_path / "health.json"
+    cmd = daily.parser().parse_args([
+        "--journal", str(journal), "--status-file", str(health), "--status",
+    ])
+    paper = Mock(return_value=0)
+    notify = Mock()
+    monkeypatch.setattr(daily, "run_paper", paper)
+    monkeypatch.setattr(daily, "_send_failure_alert", notify)
+    assert daily.execute(cmd) == 0
+    assert json.loads(health.read_text())["status"] == "STATUS_ONLY"
+    assert not journal.exists()
+    assert paper.call_count == 1
+    assert paper.call_args.args[0].status is True
+    notify.assert_not_called()
+
+
+def test_daily_wrapper_cannot_overwrite_journal_with_health_on_status(monkeypatch, tmp_path):
+    journal = tmp_path / "paper.jsonl"
+    cmd = daily.parser().parse_args([
+        "--journal", str(journal), "--status-file", str(journal), "--status",
+    ])
+    fake = Mock()
+    monkeypatch.setattr(daily, "run_paper", fake)
+    with pytest.raises(ValueError, match="must be different"):
+        daily.execute(cmd)
+    fake.assert_not_called()
+    assert not journal.exists()
+
+
+def test_daily_wrapper_status_and_commit_mutually_exclusive(tmp_path):
+    journal, health = tmp_path / "paper.jsonl", tmp_path / "health.json"
+    cmd = daily.parser().parse_args([
+        "--journal", str(journal), "--status-file", str(health),
+        "--status", "--commit",
+    ])
+    with pytest.raises(ValueError, match="cannot be combined"):
+        daily.execute(cmd)
+    assert not journal.exists()
+    assert not health.exists()
