@@ -85,3 +85,10 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
   testlerine dahil edildi (yalnızca geçici sentetik SQLite dosyaları kullanır).
 - `docs/MEME_COIN_PERSISTENT_JOURNAL_V1.md` riskleri ve kullanım sınırlarını
   açıklar. Bu modül **production-grade** denetim günlüğü değildir.
+
+## 52. aşama ek CI güvenilirlik düzeltmesi — çevrimdışı regresyon
+
+- Aynı commit'in iki GitHub koşumundan birinde, `tests/test_tw_institutional_network.py` canlı TPEx endpoint'inde JSON dizi yerine nesne geldiği için hata üretmiştir; başka koşumda 7/7 iş başarılıdır. Bu dış veri akışı sorunu kaybolmuş ya da çözümlenmiş **sayılmaz**.
+- Test dosyası halihazırda `@pytest.mark.network` ile işaretlidir ve `scripts/ci_gate.sh` bu işareti hariç tutmaktadır. Entegrasyon workflow'undaki tam backend testi aynı politika ile `-m "not network"` olarak hizalandı.
+- Bu dış servis testini silmez ve zorla geçirmiş gibi raporlamaz. Gerçek veri sağlayıcı uyumluluğu testini gerektiğinde manuel olarak `python -m pytest -q -m network tests/test_tw_institutional_network.py` ile ayrıca çalıştırmak gerekir; sonucun CI'den farklı olabileceği açıkça belgelenir.
+- Tam backend hâlâ tüm çevrimdışı testleri koşar, hata durumunda başarısız olur ve JUnit raporunu her durumda yükler. Bu değişiklik gerçek veri, emir, deployment, scheduled workflow veya live trading etkinleştirmez.

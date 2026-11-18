@@ -273,3 +273,22 @@ def test_active_ebbot_ci_runs_fail_closed_regression_without_live_trading() -> N
         assert path in commands
         assert path in active["on"]["pull_request"]["paths"]
     assert "workflows_disabled/**" in active["on"]["pull_request"]["paths"]
+
+def test_active_backend_gate_excludes_live_network_smoke_without_weakening_offline_tests() -> None:
+    """Network drift is inspected separately; reproducible CI must be offline."""
+    active = _workflow(".github/workflows/ebbot-integration.yml")
+    backend = active["jobs"]["full-backend-regression"]
+    suite = next(step["run"] for step in backend["steps"]
+                 if step.get("name") == "Full Python regression suite (failure blocks integration)")
+    assert 'python -m pytest -q -m "not network"' in suite
+    assert "--junitxml=full-backend-report.xml" in suite
+    assert backend["env"]["MEME_COIN_DISCOVERY_ENABLED"] == "false"
+    assert any(step.get("if") == "always()" and
+               step.get("with", {}).get("path") == "full-backend-report.xml"
+               for step in backend["steps"])
+    # The real provider smoke tests remain in source for an explicitly invoked
+    # separate check; their legitimate drift alerts must not disappear.
+    network_smoke = _read("tests/test_tw_institutional_network.py")
+    assert "@pytest.mark.network" in network_smoke
+    assert "TestTwInstitutionalLiveNetwork" in network_smoke
+    assert '-m "not network"' in _read("scripts/ci_gate.sh")
