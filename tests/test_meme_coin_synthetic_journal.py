@@ -88,7 +88,7 @@ def test_shared_daily_loss_halts_both_strategies_but_new_day_restarts():
         event("l1", synthetic_exit_price_usd="0.01",
               requested_notional_usd="20"),
         event("l2", strategy="momentum", synthetic_exit_price_usd="0.01",
-              requested_notional_usd="20"),
+              requested_notional_usd="19"),
         event("l3", synthetic_exit_price_usd="2"),
         event("l4", strategy="momentum", synthetic_exit_price_usd="2"),
         event("next", day="2026-11-19", synthetic_exit_price_usd="1.1"),
