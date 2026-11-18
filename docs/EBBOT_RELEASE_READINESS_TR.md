@@ -107,3 +107,7 @@ Tarayıcıdaki yerel rapor görüntüleyici, toplam işlem sayıları yanında k
 ## V15 — Sentetik zaman serisi ve risk karşılaştırması
 
 İçe aktarılan açıkça işaretli yerel JSON raporundan iki stratejinin senaryo günü bazında net PnL/birikimli PnL ve günlük kapanış noktasındaki varsayımsal zirveden düşüşü hesaplayan karşılaştırma tablosu eklendi. Önceden kullanılan tam sent mutabakatı korunur. Rapor gerçek piyasa verisi, emri, fiyat akışı veya kazanç iddiası değildir; güvenilir kaynaktan imzalı performans kaydı sayılmaz. Panel sadece seçilen tarayıcı oturumunda raporu görüntüler.
+
+## V16 — Sentetik örneklem yeterliliği (56. aşama)
+
+Yalnızca geçmişe dönük yerel sentetik dosya üzerinde, kullanıcı seçimiyle tarih sınırı kurulur; iki strateji için 30/15 sentetik senaryo, 10/5 örnek günü ve 2/1 zarar günü asgari koşulları kontrol edilir. Eksik koşullar gerekçeleriyle raporlanır. Şartları sağlayan dosya dahi bağımsız out-of-sample test ya da canlı işleme hazır sayılmaz; rapor kaynağı doğrulanmamıştır, eşikler geçmiş sonuçlara bakılarak seçilebilir. Ağ, işlem, scheduler, API ve emir yetkisi açılmaz.

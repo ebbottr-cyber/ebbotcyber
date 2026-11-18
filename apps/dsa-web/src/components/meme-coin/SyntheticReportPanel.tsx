@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { Card } from '../common';
 import type { UiLanguage } from '../../i18n/uiText';
 import { MAX_SYNTHETIC_REPORT_BYTES, parseSyntheticReport, type SyntheticReport } from './syntheticReport';
+import { assessSyntheticEvidence, SYNTHETIC_SAMPLE_RULES } from './syntheticEvidence';
 
 const COPY = {
   tr: {
@@ -16,6 +17,20 @@ const COPY = {
     rate: 'Varsayımsal kazanma oranı',
     drawdown: 'Varsayımsal en yüksek günlük kapanış düşüşü (USD)',
     timeline: 'Sentetik günlük sonuç karşılaştırması',
+    evidenceTitle: 'Retrospektif örneklem kontrolü (sentetik)',
+    cutoffLabel: 'Geçmiş / sonraki dönem için tarih sınırı',
+    evidenceNote: 'Tarih ayrımı geçmiş dosyadan, sonradan yapılır. Yeterli sayıya ulaşılsa bile bağımsız ileriye dönük doğrulama veya alım sinyali değildir.',
+    cutoffRequired: 'Dönemleri ayırmak için tarih seçin.',
+    invalidCutoff: 'Geçerli bir tarih seçilmeli.',
+    trainLabel: 'Ön dönem',
+    laterLabel: 'Sonraki dönem',
+    recordsLabel: 'senaryo',
+    daysLabel: 'gün',
+    negativeLabel: 'zararlı gün',
+    sampleMet: 'Sentetik asgari sayı koşulları karşılandı; bağımsız doğrulama YOK',
+    sampleLow: 'Yetersiz sentetik örnek',
+    missingLabel: 'Eksikler',
+    noValidation: 'Bağımsız doğrulama: yapılmadı. Canlı işlem yetkisi: yok.',
     day: 'Test günü',
     totalDaily: 'Ortak günlük PnL (USD)',
     cumulative: 'Birikimli varsayımsal PnL (USD)',
@@ -41,6 +56,20 @@ const COPY = {
     rate: 'Hypothetical win rate',
     drawdown: 'Hypothetical max daily-close drawdown (USD)',
     timeline: 'Synthetic daily outcome comparison',
+    evidenceTitle: 'Retrospective sample check (synthetic)',
+    cutoffLabel: 'Date boundary for early / later periods',
+    evidenceNote: 'The split is chosen after viewing an existing file. Even sufficient counts do not establish independent forward validation or trading signals.',
+    cutoffRequired: 'Choose a date to split the periods.',
+    invalidCutoff: 'Choose a valid date.',
+    trainLabel: 'Earlier period',
+    laterLabel: 'Later period',
+    recordsLabel: 'scenarios',
+    daysLabel: 'days',
+    negativeLabel: 'negative days',
+    sampleMet: 'Synthetic sample minimums met; NOT independently validated',
+    sampleLow: 'Insufficient synthetic sample',
+    missingLabel: 'Missing',
+    noValidation: 'Independent validation: not done. Live-trading authorization: none.',
     day: 'Research day',
     totalDaily: 'Combined daily PnL (USD)',
     cumulative: 'Cumulative hypothetical PnL (USD)',
@@ -66,6 +95,20 @@ const COPY = {
     rate: '假设胜率',
     drawdown: '假设日终最大回撤 (USD)',
     timeline: '合成每日结果对比',
+    evidenceTitle: '回顾性样本检查（合成）',
+    cutoffLabel: '前后时段的日期分界',
+    evidenceNote: '这是事后选择的历史数据划分。即使样本充足，也不是独立前向验证或交易信号。',
+    cutoffRequired: '请选择分界日期。',
+    invalidCutoff: '请选择有效日期。',
+    trainLabel: '前期',
+    laterLabel: '后期',
+    recordsLabel: '场景',
+    daysLabel: '天',
+    negativeLabel: '亏损日',
+    sampleMet: '合成样本数达标；未经独立验证',
+    sampleLow: '合成样本不足',
+    missingLabel: '缺少',
+    noValidation: '独立验证：未执行。实盘交易许可：无。',
     day: '测试日期',
     totalDaily: '合计每日盈亏 (USD)',
     cumulative: '累计假设盈亏 (USD)',
@@ -85,7 +128,9 @@ export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
   const c = COPY[language];
   const [report, setReport] = useState<SyntheticReport | null>(null);
   const [invalid, setInvalid] = useState(false);
+  const [cutoffDay, setCutoffDay] = useState('');
   const serial = useRef(0);
+  const evidence = report ? assessSyntheticEvidence(report, cutoffDay) : null;
 
   const load = async (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
@@ -93,6 +138,7 @@ export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
     const request = ++serial.current;
     setReport(null);
     setInvalid(false);
+    setCutoffDay('');
     input.value = '';
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.json') || file.size > MAX_SYNTHETIC_REPORT_BYTES) {
@@ -195,10 +241,58 @@ export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
               </div>
             )}
           </section>
+          <section aria-label={c.evidenceTitle} className="space-y-3 rounded-xl border border-border/60 p-4">
+            <h3 className="font-semibold">{c.evidenceTitle}</h3>
+            <p className="text-xs text-warning">{c.evidenceNote}</p>
+            <p className="text-xs text-secondary-text">
+              {SYNTHETIC_SAMPLE_RULES.minTrainingRecords} / {SYNTHETIC_SAMPLE_RULES.minLaterRecords} {c.recordsLabel},
+              {' '}{SYNTHETIC_SAMPLE_RULES.minTrainingDays} / {SYNTHETIC_SAMPLE_RULES.minLaterDays} {c.daysLabel},
+              {' '}{SYNTHETIC_SAMPLE_RULES.minTrainingNegativeDays} / {SYNTHETIC_SAMPLE_RULES.minLaterNegativeDays} {c.negativeLabel}
+            </p>
+            <label className="block text-sm text-secondary-text">
+              <span className="mb-1 block">{c.cutoffLabel}</span>
+              <input
+                type="date"
+                value={cutoffDay}
+                aria-label={c.cutoffLabel}
+                onChange={(event) => setCutoffDay(event.target.value)}
+                className="rounded-lg border border-border/60 bg-elevated p-2 text-foreground"
+              />
+            </label>
+            {evidence?.status === 'cutoff_required' && (
+              <p className="text-sm text-secondary-text">{c.cutoffRequired}</p>
+            )}
+            {evidence?.status === 'invalid_cutoff' && (
+              <p className="text-sm text-warning">{c.invalidCutoff}</p>
+            )}
+            {evidence?.status === 'retrospective_only' && (
+              <div className="grid gap-3 md:grid-cols-2">
+                {(['new_launch', 'momentum'] as const).map((id) => {
+                  const s = evidence.strategies[id];
+                  return (
+                    <div key={id} className="rounded-xl bg-elevated/60 p-3">
+                      <h4 className="font-medium">{id === 'new_launch' ? c.newLaunch : c.momentum}</h4>
+                      <p className="mt-1 text-xs text-secondary-text">{c.trainLabel}: {s.training.records} {c.recordsLabel},
+                        {' '}{s.training.distinctDays} {c.daysLabel}, {s.training.negativeDays} {c.negativeLabel}</p>
+                      <p className="mt-1 text-xs text-secondary-text">{c.laterLabel}: {s.later.records} {c.recordsLabel},
+                        {' '}{s.later.distinctDays} {c.daysLabel}, {s.later.negativeDays} {c.negativeLabel}</p>
+                      <p className="mt-2 text-sm text-warning">
+                        {s.status === 'retrospective_sample_rules_met' ? c.sampleMet : c.sampleLow}
+                      </p>
+                      {s.reasons.length > 0 && (
+                        <p className="mt-1 text-xs text-secondary-text">{c.missingLabel}: {s.reasons.join(', ')}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-xs text-warning">{c.noValidation}</p>
+          </section>
           <button
             type="button"
             className="btn-secondary"
-            onClick={() => { serial.current += 1; setReport(null); setInvalid(false); }}
+            onClick={() => { serial.current += 1; setReport(null); setInvalid(false); setCutoffDay(''); }}
           >
             {c.forget}
           </button>

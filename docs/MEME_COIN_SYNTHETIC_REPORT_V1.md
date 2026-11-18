@@ -68,3 +68,12 @@ servisleri, finansal hareket veya yayına alma halen bloke.
 - Günlük kapanış bazlı **varsayımsal maksimum düşüş** (önceki birikimli PnL zirvesi ile sonradan gelen en düşük PnL arasındaki USD farkı) Yeni Coin Avcısı, Momentum Avcısı ve ortak görünüm için ayrı hesaplanır. Bu rakam *gerçek drawdown, risk/sermaye yeterliliği ölçümü veya geleceğe dönük tahmin değildir*.
 - Bütün tutarlar `BigInt` ile kuruş hassasiyetinde hesaplanır. Ham işlem kaydı, coin adresi, cüzdan adresi veya API verisi arayüze taşınmaz. Varsayımsal bir stratejinin üstünlüğünü veya kazanç garantisini çıkarmaz.
 - Örnek sayısı sıfırsa çizelge boş, sentetik kazanma oranı belirsiz kalır. Tüm veri tarayıcı oturumunda yalnızca açık dosya seçiminden sonra görünür; API, canlı emir, otomatik sorgu ve tarayıcı deposuna yazma eklenmez.
+
+## 56. aşama: Sentetik örneklem ve retrospektif tarih ayrımı
+
+- İnceleme yalnızca 53–55. aşamalarca **zaten doğrulanmış, tamamen sentetik** yerel rapordan yapılır. Her iki strateji birbirinden bağımsız değerlendirilir.
+- Tarih sınırı panelde açıkça kullanıcı tarafından seçilir. Aynı gün içindeki bütün senaryolar **erken döneme** aittir; daha sonraki takvim günleri yalnızca sonraki dönemdedir. Rastgele karıştırma yapılmaz, ham senaryo API'ye gönderilmez.
+- Araştırma için varsayılan asgari örnekler: **erken dönem 30 kapatılmış sentetik senaryo / 10 farklı kayıt günü / en az 2 net zararlı gün; sonraki dönem 15 senaryo / 5 gün / en az 1 net zararlı gün**. Bu sayılar risk modelinin güvenilirliğini kanıtlayan bilimsel eşikler değildir; örneklem çok küçükken aşırı güvenli sonuç çıkarılmasını önleyen, değiştirilebilir asgari inceleme kurallarıdır.
+- Sayılar yeterli olsa bile sonuç yalnızca `retrospective_sample_rules_met` olarak işaretlenir. `independentValidationPassed=false`, `readyForTrading=false` **her zaman korunur**. Çünkü tarih sınırı eski veri incelendikten sonra seçildi; veri ve eşikler önceden mühürlenmedi, veri kaynağı kriptografik olarak doğrulanmadı, bağımsız forward test yapılmadı.
+- Boş veri, geçmiş ve sonraki dönem örneği olmaması, tek yönde seçilmiş kârlı senaryolar veya negatif gün eksikliği `insufficient_synthetic_sample` olarak gösterilir. Bu karşılaştırma stratejileri seçmek, optimize etmek veya emir göndermek için kullanılmaz.
+- Test komutu: `cd apps/dsa-web && npm test -- syntheticEvidence.test.ts syntheticReport.test.ts MemeCoinPage.test.tsx && npm run build`.
