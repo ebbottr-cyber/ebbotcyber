@@ -1,18 +1,20 @@
 import apiClient from './index';
 import { toCamelCase } from './utils';
 
-export type MemeCoinStrategyId = 'new_launch' | 'momentum';
+export type MemeCoinStrategyId = 'new_launch' | 'momentum' | 'robinhood_chain';
+export type SolanaMemeCoinStrategyId = Exclude<MemeCoinStrategyId, 'robinhood_chain'>;
 
 export type MemeCoinStrategy = {
   id: MemeCoinStrategyId;
   name: string;
-  market: 'solana';
+  market: 'solana' | 'robinhood_chain';
   dataSources: string[];
   status: 'not_connected';
   engineConnected: boolean;
   paperTradingEnabled: boolean;
   liveTradingEnabled: boolean;
   riskChecks: string[];
+  agentModules?: Array<{ id: string; name: string; status: 'not_connected' }>;
   metrics: {
     trades: number | null;
     netPnlUsd: number | null;
@@ -21,7 +23,7 @@ export type MemeCoinStrategy = {
 };
 
 export type MemeCoinOverview = {
-  market: 'solana';
+  market: 'multi_chain';
   mode: 'paper_planned';
   liveTradingEnabled: boolean;
   sharedRiskEngineConnected: boolean;
@@ -29,8 +31,19 @@ export type MemeCoinOverview = {
   strategies: MemeCoinStrategy[];
 };
 
+export type RobinhoodRpcStatus = {
+  network: 'testnet' | 'mainnet' | 'unknown';
+  chainIdExpected: number | null;
+  chainIdSeen: number | null;
+  blockNumber: number | null;
+  status: 'disabled' | 'ok' | 'unavailable' | 'mismatch';
+  checkedAt: string | null;
+  error: string | null;
+  tradingEnabled: false;
+};
+
 export type MemeCoinCandidate = {
-  strategy: MemeCoinStrategyId;
+  strategy: SolanaMemeCoinStrategyId;
   symbol: string;
   tokenAddress: string;
   poolAddress: string;
@@ -47,7 +60,7 @@ export type MemeCoinCandidate = {
 };
 
 export type MemeCoinDiscoveryResponse = {
-  strategy: MemeCoinStrategyId;
+  strategy: SolanaMemeCoinStrategyId;
   status: 'disabled' | 'ok' | 'unavailable';
   source: 'geckoterminal';
   observedAt: string | null;
@@ -56,7 +69,11 @@ export type MemeCoinDiscoveryResponse = {
 };
 
 export const memeCoinApi = {
-  async scanCandidates(strategy: MemeCoinStrategyId): Promise<MemeCoinDiscoveryResponse> {
+  async getRobinhoodStatus(): Promise<RobinhoodRpcStatus> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/robinhood/status');
+    return toCamelCase<RobinhoodRpcStatus>(data);
+  },
+  async scanCandidates(strategy: SolanaMemeCoinStrategyId): Promise<MemeCoinDiscoveryResponse> {
     const { data } = await apiClient.get('/api/v1/meme-coins/candidates', { params: { strategy } });
     return toCamelCase<MemeCoinDiscoveryResponse>(data);
   },

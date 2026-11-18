@@ -11,7 +11,9 @@ def test_strategies_are_distinct_and_disconnected():
     assert first["mode"] == "paper_planned"
     assert first["live_trading_enabled"] is False
     assert first["shared_risk_engine_connected"] is False
-    assert [item["id"] for item in first["strategies"]] == ["new_launch", "momentum"]
+    assert first["market"] == "multi_chain"
+    assert [item["id"] for item in first["strategies"]] == ["new_launch", "momentum", "robinhood_chain"]
+    assert [item["market"] for item in first["strategies"]] == ["solana", "solana", "robinhood_chain"]
     for strategy in first["strategies"]:
         assert strategy["status"] == "not_connected"
         assert strategy["engine_connected"] is False
@@ -34,7 +36,7 @@ def test_api_exposes_status_without_trading_mutations():
     assert response.status_code == 200
     payload = response.json()
     assert payload["mode"] == "paper_planned"
-    assert len(payload["strategies"]) == 2
+    assert len(payload["strategies"]) == 3
     assert payload["strategies"][0]["metrics"]["win_rate_pct"] is None
     assert client.post("/api/v1/meme-coins/overview", json={}).status_code == 405
 

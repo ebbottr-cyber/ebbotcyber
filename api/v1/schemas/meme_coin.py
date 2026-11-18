@@ -12,25 +12,33 @@ class MemeCoinMetrics(BaseModel):
     win_rate_pct: Optional[float] = None
 
 
+class RobinhoodAgentModule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: Literal["dex_scout", "liquidity_scout", "risk_sentinel", "sentiment_scout"]
+    name: str
+    status: Literal["not_connected"]
+
+
 class MemeCoinStrategy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    id: Literal["new_launch", "momentum"]
+    id: Literal["new_launch", "momentum", "robinhood_chain"]
     name: str
-    market: Literal["solana"]
+    market: Literal["solana", "robinhood_chain"]
     data_sources: list[str]
     status: Literal["not_connected"]
     engine_connected: bool
     paper_trading_enabled: bool
     live_trading_enabled: bool
     risk_checks: list[str]
+    agent_modules: list[RobinhoodAgentModule] = []
     metrics: MemeCoinMetrics
 
 
 class MemeCoinOverview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    market: Literal["solana"]
+    market: Literal["multi_chain"]
     mode: Literal["paper_planned"]
     live_trading_enabled: bool
     shared_risk_engine_connected: bool
@@ -66,3 +74,16 @@ class MemeCoinDiscoveryResponse(BaseModel):
     observed_at: Optional[str] = None
     candidates: list[MemeCoinCandidate]
     error: Optional[str] = None
+
+
+class RobinhoodRpcStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    network: Literal["testnet", "mainnet", "unknown"]
+    chain_id_expected: Optional[int] = None
+    chain_id_seen: Optional[int] = None
+    block_number: Optional[int] = None
+    status: Literal["disabled", "ok", "unavailable", "mismatch"]
+    checked_at: Optional[str] = None
+    error: Optional[str] = None
+    trading_enabled: Literal[False]
