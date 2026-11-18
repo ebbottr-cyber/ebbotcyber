@@ -24,6 +24,7 @@ from api.v1.endpoints import (
     health,
     history,
     intelligence,
+    meme_coin,
     portfolio,
     stocks,
     system_config,
@@ -104,6 +105,12 @@ router.include_router(
     decision_signals.router,
     prefix="/decision-signals",
     tags=["DecisionSignals"]
+)
+
+router.include_router(
+    meme_coin.router,
+    prefix="/meme-coins",
+    tags=["MemeCoin"]
 )
 
 router.include_router(
