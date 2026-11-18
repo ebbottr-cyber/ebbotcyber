@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import json
 import sys
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from src.core.etf_rotation import RotationParams
 from src.core.prospective_paper import observe_completed_close
@@ -66,6 +67,14 @@ def run(args: argparse.Namespace) -> int:
 
     now = datetime.now(timezone.utc)
     as_of = get_effective_trading_date("cn", current_time=now)
+    # The shared calendar deliberately returns the PREVIOUS session on holidays
+    # and before today's close. This is useful for historical reports, but an
+    # opt-in *prospective* record must never be backdated on such a day.
+    if args.commit and as_of != now.astimezone(ZoneInfo("Asia/Shanghai")).date():
+        raise ValueError(
+            "prospective paper commit requires today's completed Shanghai "
+            "trading session; holiday, pre-close and historical catch-up forbidden"
+        )
     sessions = get_trading_dates("cn", as_of, as_of)
     if sessions is None or len(sessions) != 1 or sessions[0].date() != as_of:
         raise ValueError("exchange calendar cannot independently verify a completed ETF session")
