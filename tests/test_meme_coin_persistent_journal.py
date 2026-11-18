@@ -159,3 +159,25 @@ def test_opt_in_must_be_exact_boolean_true(tmp_path, value):
         event=e(), enabled=value,
     )["reason"] == "offline_storage_disabled"
     assert not path.exists()
+
+
+def test_missing_metadata_is_not_silently_rebuilt(tmp_path):
+    path = tmp_path / "offline.sqlite3"
+    assert add(path, e())["append_result"] == "synthetic_recorded"
+    with sqlite3.connect(path) as db:
+        db.execute("DELETE FROM research_meta WHERE key='kill_latched'")
+    assert get(path)["reason"] == "invalid_metadata"
+    assert add(path, e("other"))["reason"] == "invalid_metadata"
+
+
+def test_unrelated_database_is_not_adopted(tmp_path):
+    path = tmp_path / "offline.sqlite3"
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE unrelated (item TEXT)")
+        db.execute("INSERT INTO unrelated VALUES ('untouched')")
+    assert add(path, e())["reason"] == "unexpected_database_schema"
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT item FROM unrelated").fetchone()[0] == "untouched"
+        assert not db.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='synthetic_scenarios'"
+        ).fetchone()

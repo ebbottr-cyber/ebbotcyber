@@ -55,6 +55,16 @@ def _equity(value: Any) -> str:
 
 
 def _schema(db: sqlite3.Connection, equity: str) -> None:
+    prior_tables = {
+        row[0] for row in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+    # Never adopt an unrelated DB or rebuild a partly deleted journal.
+    expected_tables = {"research_meta", "synthetic_scenarios"}
+    if prior_tables and prior_tables != expected_tables:
+        raise ValueError("unexpected_database_schema")
     db.execute(
         "CREATE TABLE IF NOT EXISTS research_meta "
         "(key TEXT PRIMARY KEY, value TEXT NOT NULL)"
@@ -66,10 +76,11 @@ def _schema(db: sqlite3.Connection, equity: str) -> None:
         "trading_day TEXT NOT NULL, payload TEXT NOT NULL, "
         "previous_sha256 TEXT NOT NULL, entry_sha256 TEXT NOT NULL)"
     )
-    db.executemany(
-        "INSERT OR IGNORE INTO research_meta(key, value) VALUES (?, ?)",
-        [("version", _VERSION), ("equity", equity), ("kill_latched", "0")],
-    )
+    if not prior_tables:
+        db.executemany(
+            "INSERT INTO research_meta(key, value) VALUES (?, ?)",
+            [("version", _VERSION), ("equity", equity), ("kill_latched", "0")],
+        )
 
 
 def _load(db: sqlite3.Connection, equity: str) -> tuple[list[dict[str, Any]], str, bool]:
