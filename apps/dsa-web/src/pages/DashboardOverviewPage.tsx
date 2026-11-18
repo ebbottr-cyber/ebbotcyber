@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertTriangle, ArrowRight, BarChart3, Bell, BrainCircuit,
+  AlertTriangle, ArrowRight, BarChart3, Bell, BrainCircuit,
   Clock3, Database, Layers3, LineChart, RefreshCcw, ShieldCheck,
   Wallet,
 } from 'lucide-react';
@@ -14,6 +14,8 @@ import { trMarketApi, type TrMarketItem } from '../api/trMarketOverview';
 import { TurkeyMarketCards } from '../components/dashboard/TurkeyMarketCards';
 import { useWatchlist } from '../hooks/useWatchlist';
 import { StockCandlestickChart } from '../components/dashboard/StockCandlestickChart';
+import { PortfolioSummaryContent, RiskSummaryContent } from '../components/dashboard/PortfolioRiskSummaryCards';
+import { WatchlistOverviewContent, TaskFeedContent } from '../components/dashboard/WatchlistTaskCards';
 import type { HistoryItem, TaskInfo } from '../types/analysis';
 import type { AlertTriggerItem } from '../types/alerts';
 import type { PortfolioRiskResponse, PortfolioSnapshotResponse } from '../types/portfolio';
@@ -106,6 +108,14 @@ const DashboardOverviewPage: React.FC = () => {
     let active = true;
     setLoading(true);
     setFailed([]);
+    // Do not present stale portfolio, history or task values as current after refresh.
+    setHistory([]);
+    setPortfolio(null);
+    setRisk(null);
+    setAlerts([]);
+    setTasks([]);
+    setMarketItems([]);
+    setMarketLoadFailed(false);
     async function load() {
       const [historyResult, portfolioResult, riskResult, alertsResult, tasksResult, reviewResult] = await Promise.allSettled([
         historyApi.getList({ limit: 60 }),
@@ -118,15 +128,15 @@ const DashboardOverviewPage: React.FC = () => {
       if (!active) return;
       const errors: string[] = [];
       if (historyResult.status === 'fulfilled') setHistory(historyResult.value.items.filter((item) => item.reportType !== 'market_review'));
-      else errors.push('Analiz geçmişi');
+      else { setHistory([]); errors.push('Analiz geçmişi'); }
       if (portfolioResult.status === 'fulfilled') setPortfolio(portfolioResult.value);
-      else errors.push('Portföy');
+      else { setPortfolio(null); errors.push('Portföy'); }
       if (riskResult.status === 'fulfilled') setRisk(riskResult.value);
-      else errors.push('Risk');
+      else { setRisk(null); errors.push('Risk'); }
       if (alertsResult.status === 'fulfilled') setAlerts(alertsResult.value.items);
-      else errors.push('Uyarılar');
+      else { setAlerts([]); errors.push('Uyarılar'); }
       if (tasksResult.status === 'fulfilled') setTasks(tasksResult.value.tasks);
-      else errors.push('Görevler');
+      else { setTasks([]); errors.push('Görevler'); }
       if (reviewResult.status === 'fulfilled') {
         setMarketItems(reviewResult.value.items);
         setMarketLoadFailed(false);
@@ -197,18 +207,20 @@ const DashboardOverviewPage: React.FC = () => {
             <Block title="Hisse Analizi" icon={<BarChart3 className="h-4 w-4 text-[#2580dc]" />} action={
               <button type="button" onClick={() => openAnalysis(currentCode || undefined)} className="text-xs font-semibold text-[#2675d8] hover:underline">Ayrıntılı analiz →</button>
             }>
-              {latest ? (
+              {currentCode ? (
                 <>
                   <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#e9eff8] pb-4">
                     <div className="min-w-0 flex-1">
-                      <p className="text-lg font-extrabold text-[#19365f]">{latest.stockCode} <span className="font-medium text-[#7185a1]"> {latest.stockName ?? ''}</span></p>
-                      <p className="text-[11px] text-[#8496ac]">Son analiz: {new Date(latest.createdAt).toLocaleString('tr-TR')}</p>
+                      <p className="text-lg font-extrabold text-[#19365f]">{currentCode} <span className="font-medium text-[#7185a1]"> {latest?.stockName ?? ''}</span></p>
+                      <p className="text-[11px] text-[#8496ac]">{latest ? 'Son analiz: ' + new Date(latest.createdAt).toLocaleString('tr-TR') : 'Bu sembol için kayıtlı analiz raporu yok.'}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-medium text-[#8295b0]">Analiz kaydındaki fiyat</p>
-                      <p className="text-xl font-extrabold tabular-nums text-[#19365f]">{formatAmount(latest.currentPrice)}</p>
-                      <p className={'text-xs font-semibold ' + (typeof latest.changePct === 'number' && latest.changePct >= 0 ? 'text-[#15a372]' : 'text-[#d65c62]')}>{formatChange(latest.changePct)}</p>
-                    </div>
+                    {latest && (
+                      <div className="text-right">
+                        <p className="text-[10px] font-medium text-[#8295b0]">Analiz kaydındaki fiyat</p>
+                        <p className="text-xl font-extrabold tabular-nums text-[#19365f]">{formatAmount(latest.currentPrice)}</p>
+                        <p className={'text-xs font-semibold ' + (typeof latest.changePct === 'number' && latest.changePct >= 0 ? 'text-[#15a372]' : 'text-[#d65c62]')}>{formatChange(latest.changePct)}</p>
+                      </div>
+                    )}
                   </div>
                   <StockCandlestickChart stockCode={currentCode} refreshKey={refreshNumber} fallback={<ReportPriceHistory points={matching} />} />
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -220,7 +232,7 @@ const DashboardOverviewPage: React.FC = () => {
                       </button>
                     ))}
                   </div>
-                  {latest.analysisSummary ? <p className="mt-4 line-clamp-3 rounded-xl bg-[#f3f8ff] p-3 text-xs leading-5 text-[#3e5a7b]">{latest.analysisSummary}</p> : null}
+                  {latest?.analysisSummary ? <p className="mt-4 line-clamp-3 rounded-xl bg-[#f3f8ff] p-3 text-xs leading-5 text-[#3e5a7b]">{latest.analysisSummary}</p> : null}
                 </>
               ) : (
                 <div className="flex min-h-[265px] flex-col items-center justify-center gap-3 text-center">
@@ -236,48 +248,29 @@ const DashboardOverviewPage: React.FC = () => {
               <Block title="Portföy Özeti" icon={<Wallet className="h-4 w-4 text-[#2781dc]" />} action={
                 <button type="button" onClick={() => navigate('/portfolio')} className="text-xs font-semibold text-[#2675d8] hover:underline">Detaylar →</button>
               }>
-                <p className="text-xs text-[#7c8ba2]">Toplam özsermaye</p>
-                <p className="mt-1 text-2xl font-extrabold tabular-nums text-[#1e375f]">{portfolio ? formatAmount(portfolio.totalEquity) : '—'} <span className="text-sm font-semibold text-[#7084a1]">{portfolio?.currency ?? ''}</span></p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-[#f5f9ff] p-3"><p className="text-[11px] text-[#7d91ac]">Nakit</p><p className="mt-1 text-sm font-bold tabular-nums">{portfolio ? formatAmount(portfolio.totalCash) : '—'}</p></div>
-                  <div className="rounded-xl bg-[#f5f9ff] p-3"><p className="text-[11px] text-[#7d91ac]">Pozisyon değeri</p><p className="mt-1 text-sm font-bold tabular-nums">{portfolio ? formatAmount(portfolio.totalMarketValue) : '—'}</p></div>
-                </div>
-                <p className="mt-3 text-[11px] text-[#8a9db4]">{portfolio?.fxStale ? 'Kur verilerinin bir bölümü güncel olmayabilir.' : portfolio ? (portfolio.accountCount + ' hesap • ' + portfolio.asOf) : 'Portföy verisi bekleniyor'}</p>
+                <PortfolioSummaryContent snapshot={portfolio} loading={loading} failed={failed.includes('Portföy')} />
               </Block>
-              <Block title="Risk Paneli" icon={<ShieldCheck className="h-4 w-4 text-[#2781dc]" />} action={
+              <Block title="Risk Yönetimi" icon={<ShieldCheck className="h-4 w-4 text-[#2781dc]" />} action={
                 <button type="button" onClick={() => navigate('/portfolio')} className="text-xs font-semibold text-[#2675d8] hover:underline">Risk detayları →</button>
               }>
-                <div className="space-y-4">
-                  {[
-                    { label: 'En büyük pozisyon ağırlığı', val: risk?.concentration.topWeightPct, alert: risk?.concentration.alert },
-                    { label: 'Güncel düşüş', val: risk?.drawdown.currentDrawdownPct, alert: risk?.drawdown.alert },
-                  ].map(({ label, val, alert }) => (
-                    <div key={label}>
-                      <div className="mb-1 flex justify-between gap-2 text-xs"><span className="text-[#66809b]">{label}</span><span className="font-bold tabular-nums">{formatChange(val)}</span></div>
-                      <div className="h-2 overflow-hidden rounded-full bg-[#e7eef8]"><div className={'h-full rounded-full ' + (alert ? 'bg-[#eab044]' : 'bg-[#36bd8a]')} style={{ width: (typeof val === 'number' ? Math.min(Math.abs(val), 100) : 0) + '%' }} /></div>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between rounded-xl bg-[#f5f9ff] p-3 text-xs"><span className="text-[#617a99]">Tetiklenen zarar-kes uyarıları</span><strong>{risk ? risk.stopLoss.triggeredCount : '—'}</strong></div>
-                </div>
+                <RiskSummaryContent risk={risk} loading={loading} failed={failed.includes('Risk')} />
               </Block>
             </div>
           </div>
 
           <div className="min-w-0 space-y-4">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
-              <Block title="Takip Listem" icon={<Layers3 className="h-4 w-4 text-[#2781dc]" />} action={<span className="text-xs text-[#8296b0]">{watchlist.isLoading ? 'Yükleniyor' : watchlist.watchlistCodes.length + ' sembol'}</span>}>
-                {watchlist.watchlistCodes.length ? (
-                  <div className="divide-y divide-[#edf1f7]">
-                    {watchlist.watchlistCodes.slice(0, 6).map((code) => {
-                      const item = history.find((entry) => entry.stockCode === code);
-                      return <button type="button" onClick={() => openAnalysis(code)} key={code} className="flex w-full items-center justify-between gap-3 py-2 text-left text-xs hover:text-[#2473cd]">
-                        <span className="font-semibold text-[#254366]">{code}</span>
-                        <span className="text-[#7991ae]">{item?.currentPrice != null ? formatAmount(item.currentPrice) : 'Analiz verisi yok'}</span>
-                      </button>;
-                    })}
-                  </div>
-                ) : <p className="text-xs text-[#8296af]">{watchlist.isLoading ? 'Takip listesi yükleniyor...' : 'Takip listenize henüz sembol eklenmedi.'}</p>}
-                <button type="button" onClick={() => openAnalysis()} className="mt-3 text-xs font-semibold text-[#2675d8]">Takip listesini düzenle →</button>
+              <Block title="Takip Listem" icon={<Layers3 className="h-4 w-4 text-[#2781dc]" />} action={
+                <span className="text-xs text-[#8296b0]">{watchlist.isLoading ? 'Yükleniyor' : watchlist.watchlistCodes.length + ' sembol'}</span>
+              }>
+                <WatchlistOverviewContent
+                  codes={watchlist.watchlistCodes}
+                  history={history}
+                  loading={watchlist.isLoading || loading}
+                  currentCode={currentCode}
+                  onSelect={setSelectedCode}
+                  onManage={() => openAnalysis()}
+                />
               </Block>
 
               <Block title="Finans Haberleri" icon={<Database className="h-4 w-4 text-[#2781dc]" />}>
@@ -289,15 +282,8 @@ const DashboardOverviewPage: React.FC = () => {
                 ))}</div> : <p className="text-xs text-[#8296af]">{newsUnavailable ? 'Haber kaynağına erişilemedi.' : latest ? 'Bu analize ait haber kaydı yok.' : 'Haberler için bir analiz raporu seçin.'}</p>}
               </Block>
 
-              <Block title="AI Analiz Akışı" icon={<BrainCircuit className="h-4 w-4 text-[#2781dc]" />} action={
-                <button type="button" onClick={() => openAnalysis()} className="text-xs font-semibold text-[#2675d8]">Görevler →</button>
-              }>
-                {tasks.length ? <div className="space-y-2">{tasks.slice(0, 4).map((task) => (
-                  <div className="flex items-start gap-2 rounded-lg bg-[#f5f9ff] p-2.5 text-xs" key={task.taskId}>
-                    <Activity className="mt-0.5 h-4 w-4 shrink-0 text-[#3182d9]" />
-                    <div className="min-w-0 flex-1"><p className="truncate font-semibold text-[#315077]">{task.stockCode || 'Genel analiz'}</p><p className="text-[#8799b1]">{task.status} • %{task.progress ?? 0}</p></div>
-                  </div>
-                ))}</div> : <p className="text-xs text-[#8296af]">Gösterilecek son analiz görevi yok.</p>}
+              <Block title="AI Analiz Akışı" icon={<BrainCircuit className="h-4 w-4 text-[#2781dc]" />}>
+                <TaskFeedContent tasks={tasks} loading={loading} failed={failed.includes('Görevler')} onOpen={() => openAnalysis()} />
               </Block>
             </div>
 

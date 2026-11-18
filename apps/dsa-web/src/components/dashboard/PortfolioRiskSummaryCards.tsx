@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, Database, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Clock3, Database, ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { PortfolioRiskResponse, PortfolioSnapshotResponse } from '../../types/portfolio';
 
 const number = (value: number | undefined | null): string =>
