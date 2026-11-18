@@ -1,0 +1,85 @@
+name: EBBot White Dashboard + Meme Coin integration
+
+on:
+  push:
+    branches: [integration/ebbot-white-meme-discovery]
+  pull_request:
+    branches: [feat/ebbot-white-dashboard-v1]
+    paths:
+      - 'apps/dsa-web/**'
+      - 'api/v1/router.py'
+      - 'api/v1/endpoints/meme_coin.py'
+      - 'api/v1/schemas/meme_coin.py'
+      - 'src/services/meme_coin_*.py'
+      - 'tests/test_meme_coin_*.py'
+      - '.github/workflows/ebbot-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-and-pwa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: Existing PWA safety tests
+        run: npm run test:pwa
+      - name: Isolated meme strategies frontend tests
+        run: npm test -- MemeCoinPage.test.tsx
+      - name: Existing white panel frontend tests
+        run: npm test -- src/components/dashboard/__tests__/DashboardSummaryCards.test.tsx src/components/dashboard/__tests__/StockCandlestickChart.test.tsx src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx src/utils/__tests__/technicalIndicators.test.ts
+      - name: Production TypeScript and Vite build
+        run: npm run build
+      - name: Installable asset verification
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  read-only-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI Python dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Offline Solana and Turkey data tests
+        run: python -m pytest -q tests/test_meme_coin_strategy_panel.py tests/test_meme_coin_discovery.py tests/test_tr_market_overview_service.py
+
+  integrated-mobile-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Mobile route and read-only scan integration
+        run: npx playwright test --config=playwright.fixture.config.ts ebbot-white-overview.spec.ts
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-white-meme-integration-debug
+          path: apps/dsa-web/test-results/fixtures/**
+          retention-days: 3
