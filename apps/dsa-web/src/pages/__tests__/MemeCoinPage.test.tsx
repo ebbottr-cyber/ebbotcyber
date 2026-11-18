@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus } = vi.hoisted(() => ({ getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn() }));
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact } = vi.hoisted(() => ({
+  getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
+  reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(),
+}));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact },
 }));
 
 const overview = {
@@ -62,6 +65,23 @@ beforeEach(() => {
   getOverview.mockResolvedValue(overview);
   scanCandidates.mockResolvedValue({strategy: 'new_launch', status: 'disabled', source: 'geckoterminal', observedAt: null, candidates: [], error: null});
   getRobinhoodStatus.mockResolvedValue({network:'testnet',chainIdExpected:46630,chainIdSeen:null,blockNumber:null,status:'disabled',checkedAt:null,error:null,tradingEnabled:false});
+  reviewSolanaMint.mockResolvedValue({
+    mint: 'So11111111111111111111111111111111111111112',
+    network: 'solana-mainnet', status: 'disabled', verdict: 'unknown',
+    slot: null, checkedAt: null, tokenProgram: null, mintAuthorityRevoked: null,
+    freezeAuthorityRevoked: null, decimals: null, supplyBaseUnits: null,
+    blockingReasons: [], remainingUnverified: ['sellability'],
+    fullSafetyVerified: false, tradable: false,
+  });
+  estimateSolanaImpact.mockResolvedValue({
+    model: 'hypothetical_cpmm_50_50', liquidityUsd: 60000,
+    orderUsd: 25, feeBps: 30, adverseSlippageBps: 100,
+    modeledFeeUsd: 0.075, modeledOutputValueUsd: 24.90,
+    modeledMinOutputValueUsd: 24.65,
+    modeledPriceImpactPct: 0.08, modeledTotalCostPct: 0.4,
+    orderVsLiquidityPct: 0.0417, flags: [], paperReviewStatus: 'research_only',
+    realQuoteAvailable: false, tradable: false,
+  });
 });
 
 describe('MemeCoinPage', () => {
@@ -164,6 +184,69 @@ describe('MemeCoinPage', () => {
     expect(await screen.findByText(/Ağ kimliği doğrulandı/)).toBeInTheDocument();
     expect(screen.getByText('46630')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /buy|satın al/i })).not.toBeInTheDocument();
+  });
+
+  it('only reviews a discovered Solana mint after click and keeps all orders disabled', async () => {
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        poolAddress: '11111111111111111111111111111111',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(reviewSolanaMint).not.toHaveBeenCalled();
+    expect(estimateSolanaImpact).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    const reviewButton = await screen.findByRole('button', { name: 'Mint ve maliyeti incele' });
+    fireEvent.click(reviewButton);
+
+    expect(await screen.findByText(/MEME_COIN_SOLANA_MINT_AUDIT_ENABLED=true/)).toBeInTheDocument();
+    expect(screen.getByText(/Varsayımsal havuz maliyet modeli/)).toBeInTheDocument();
+    expect(reviewSolanaMint).toHaveBeenCalledWith('So11111111111111111111111111111111111111112');
+    expect(estimateSolanaImpact).toHaveBeenCalledWith(60000, 25);
+    expect(screen.getByText(/gerçek DEX teklifi/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /buy|satın al/i })).not.toBeInTheDocument();
+  });
+
+  it('does not re-interpret a mint with revoked authorities as fully safe', async () => {
+    reviewSolanaMint.mockResolvedValue({
+      mint: 'So11111111111111111111111111111111111111112',
+      network: 'solana-mainnet', status: 'screened', verdict: 'review_only',
+      slot: 123, checkedAt: '2026-11-18T12:00:00Z',
+      tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      mintAuthorityRevoked: true, freezeAuthorityRevoked: true, decimals: 9,
+      supplyBaseUnits: '100000000', blockingReasons: [],
+      remainingUnverified: ['sellability'], fullSafetyVerified: false, tradable: false,
+    });
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        poolAddress: '11111111111111111111111111111111',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+
+    expect(await screen.findByText(/bu tokenin güvenli olduğu anlamına GELMEZ/)).toBeInTheDocument();
+    expect(screen.getByText(/İşlem engeli devam ediyor/)).toBeInTheDocument();
   });
 
 });
