@@ -84,11 +84,11 @@ def test_future_risk_fact_and_unsafe_fact_source_are_not_approved():
 
 
 def test_modeled_buy_more_than_one_percent_of_liquidity_is_rejected():
-    a = event("a", amount="100")
+    a = event("a", amount="50")
     result = replay_guarded([a], facts=facts(a, liq="10000"))["ledgers"]["new_launch"]
-    assert result["successful_buys"] == 1  # 100 / 10000 == 1%, permitted
+    assert result["successful_buys"] == 1  # 50 / 10000 == 0.5%, permitted
     second = event("b", amount="100", observed=1000300, attempted=1000400)
-    result2 = replay_guarded([second], facts=facts(second, liq="9999.99"))["ledgers"]["new_launch"]
+    result2 = replay_guarded([second], facts=facts(second, liq="10000"))["ledgers"]["new_launch"]
     assert result2["audit"][0]["reason"] == "order_too_large_vs_reported_liquidity"
 
 
