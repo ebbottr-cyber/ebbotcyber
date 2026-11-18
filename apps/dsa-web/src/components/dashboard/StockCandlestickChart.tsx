@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LineChart } from 'lucide-react';
 import { stocksApi, type StockHistoryCandle } from '../../api/stocks';
+import { TechnicalIndicatorPanel } from './TechnicalIndicatorPanel';
 
 type Days = 30 | 90 | 180 | 365;
 type LoadState = 'loading' | 'ready' | 'empty' | 'error';
@@ -189,17 +190,20 @@ export function StockCandlestickChart({ stockCode, refreshKey = 0, fallback }: P
         <div role="status" className="flex min-h-[230px] items-center justify-center rounded-xl bg-[#f7faff] text-sm text-[#7389a6]">Gerçek mum verileri yükleniyor…</div>
       )}
       {status === 'ready' && candles.length > 0 && (
-        <>
-          <div ref={scroll} data-testid="candle-scroll" tabIndex={0}
-            aria-label="Mum grafiği, yatay kaydırılabilir"
-            className="w-full overflow-x-auto rounded-xl border border-[#e3ebf7] bg-[#fbfdff] p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2977d5]">
-            <CandlesSvg candles={candles} stockCode={stockCode} />
+        <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_190px]">
+          <div className="min-w-0">
+            <div ref={scroll} data-testid="candle-scroll" tabIndex={0}
+              aria-label="Mum grafiği, yatay kaydırılabilir"
+              className="w-full overflow-x-auto rounded-xl border border-[#e3ebf7] bg-[#fbfdff] p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2977d5]">
+              <CandlesSvg candles={candles} stockCode={stockCode} />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#7c91aa]">
+              <span>Son kayıtlı mum: {last.date} • Kapanış: {priceFormat.format(last.close)}</span>
+              <span>{candles.length} mum • Mobilde grafiği yana kaydırın</span>
+            </div>
           </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#7c91aa]">
-            <span>Son kayıtlı mum: {last.date} • Kapanış: {priceFormat.format(last.close)}</span>
-            <span>{candles.length} mum • Mobilde grafiği yana kaydırın</span>
-          </div>
-        </>
+          <TechnicalIndicatorPanel candles={candles} />
+        </div>
       )}
       {(status === 'error' || status === 'empty') && (
         <div role="status">

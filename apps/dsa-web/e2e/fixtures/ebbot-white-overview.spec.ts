@@ -87,6 +87,8 @@ test('white EBBot screen fits small phones, tablets and desktop with functioning
   await expect(screen.getByRole('heading', { name: 'Piyasa Özeti' })).toBeVisible();
   await expect(page.getByTestId('turkey-market-cards').getByRole('article', { name: 'BIST 100' })).toContainText('11.010,50');
   await expect(page.getByTestId('candle-scroll')).toBeVisible();
+  await expect(page.getByTestId('technical-indicator-panel')).toBeVisible();
+  await expect(page.getByText('En az 15 kapanış gerekli.')).toBeVisible();
 
   for (const [name, width, height] of [
     ['small-iphone', 320, 720],

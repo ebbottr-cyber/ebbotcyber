@@ -31,6 +31,8 @@ describe('EBBot gerçek mum grafiği', () => {
     }));
     expect(screen.getByRole('img', { name: /THYAO.IS günlük mum grafiği/i })).toBeInTheDocument();
     expect(screen.getAllByTestId('ebbot-candle')).toHaveLength(2);
+    expect(screen.getByTestId('technical-indicator-panel')).toBeInTheDocument();
+    expect(screen.getByText('En az 15 kapanış gerekli.')).toBeInTheDocument();
     expect(screen.getByText(/Son kayıtlı mum: 2026-11-17/)).toBeInTheDocument();
     expect(screen.getByTestId('candle-scroll').className).toContain('overflow-x-auto');
   });
@@ -49,6 +51,7 @@ describe('EBBot gerçek mum grafiği', () => {
     expect(await screen.findByText(/Günlük mum verisi alınamadı/)).toBeInTheDocument();
     expect(screen.getByText('Rapor fiyatları')).toBeInTheDocument();
     expect(screen.queryByTestId('ebbot-candle')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('technical-indicator-panel')).not.toBeInTheDocument();
   });
 
   it('aborts an outdated request when the stock changes', async () => {

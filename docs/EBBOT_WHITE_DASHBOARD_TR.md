@@ -44,3 +44,10 @@ Gerçek cihazda iPhone Safari ve Android Chrome üzerinden PWA ve responsive kon
 - Chromium mobil emülasyonunda 320, 390, 430, 768, 1440 px ekran genişliği kontrol edilir; sayfa yatay taşma, üst/alt gezinme, eksik veri, API hatası ve salt-okunur erişim doğrulanır.
 - Uygulama içinde kaydedilmiş veriler yenileme sırasında güncelmiş gibi gösterilmez.
 - Bu testler **gerçek iPhone Safari veya Android cihaz testi değildir**. Gerçek cihazlarda PWA kurulumu, ekran klavyesi, safe-area ve gezinme ayrıca denetlenmelidir.
+
+## Teknik gösterge panosu — V5
+- Kullanıcının referans görselindeki teknik analiz paneline benzer, mum grafiğinin yanındaki RSI(14), MACD(12/26/9), EMA(20) ve EMA(50) kartı hazırlandı.
+- Göstergeler yalnızca **ekranda çizilen aynı günlük kapanış serisinden** hesaplanır; yeni veri isteği ve ek API ücreti yoktur.
+- RSI için 15, MACD sinyali için 34, EMA20 için 20, EMA50 için 50 kapanış gerekir. Daha az veri varsa `—` gösterilir.
+- Alım/satım kararı veya risk puanı uydurulmaz. Grafik hata verdiğinde teknik panel kapatılır.
+- Testler düz fiyat, tek yönde fiyat, eksik/NaN fiyat ve kısa serileri kapsar. Mobil görünümde teknik panel grafik altına yerleşir.

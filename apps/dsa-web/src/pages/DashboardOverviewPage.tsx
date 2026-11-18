@@ -202,9 +202,10 @@ const DashboardOverviewPage: React.FC = () => {
                   <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#e9eff8] pb-4">
                     <div className="min-w-0 flex-1">
                       <p className="text-lg font-extrabold text-[#19365f]">{latest.stockCode} <span className="font-medium text-[#7185a1]"> {latest.stockName ?? ''}</span></p>
-                      <p className="text-[11px] text-[#8496ac]">Son kayıt: {new Date(latest.createdAt).toLocaleString('tr-TR')}</p>
+                      <p className="text-[11px] text-[#8496ac]">Son analiz: {new Date(latest.createdAt).toLocaleString('tr-TR')}</p>
                     </div>
                     <div className="text-right">
+                      <p className="text-[10px] font-medium text-[#8295b0]">Analiz kaydındaki fiyat</p>
                       <p className="text-xl font-extrabold tabular-nums text-[#19365f]">{formatAmount(latest.currentPrice)}</p>
                       <p className={'text-xs font-semibold ' + (typeof latest.changePct === 'number' && latest.changePct >= 0 ? 'text-[#15a372]' : 'text-[#d65c62]')}>{formatChange(latest.changePct)}</p>
                     </div>

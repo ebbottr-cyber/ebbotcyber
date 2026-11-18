@@ -36,6 +36,8 @@ jobs:
         run: npm run test:pwa
       - name: Real candlestick chart component tests
         run: npm test -- src/components/dashboard/__tests__/StockCandlestickChart.test.tsx
+      - name: Pure RSI EMA MACD numerical tests
+        run: npm test -- src/utils/__tests__/technicalIndicators.test.ts
       - name: Turkish market cards and mobile layout tests
         run: npm test -- src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx
       - name: Build frontend
