@@ -100,5 +100,6 @@ class GermanyPanelApiTests(TestCase):
     def test_route_mount(self):
         from api.v1.router import router
         routes = {r.path: r.methods for r in router.routes if hasattr(r, "methods")}
+        self.assertIn("/xetra/inventory", routes, repr(sorted(routes)))
         self.assertIn("GET", routes["/xetra/inventory"])
         self.assertIn("POST", routes["/xetra/quote-check"])
