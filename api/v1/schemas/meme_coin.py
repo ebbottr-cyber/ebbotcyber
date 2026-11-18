@@ -30,7 +30,7 @@ class MemeCoinStrategy(BaseModel):
 class MemeCoinOverview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    market: Literal["solana"]
+    market: Literal["multi_chain"]
     mode: Literal["paper_planned"]
     live_trading_enabled: bool
     shared_risk_engine_connected: bool
