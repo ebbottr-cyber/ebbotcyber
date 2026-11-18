@@ -43,6 +43,34 @@ jobs:
       - name: Built PWA asset tests
         run: PWA_REQUIRE_BUILD=1 npm run test:pwa
 
+  white-dashboard-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium for emulated mobile tests
+        run: npx playwright install --with-deps chromium
+      - name: Test white panel at mobile, tablet and desktop widths
+        run: npx playwright test --config=playwright.fixture.config.ts ebbot-white-overview.spec.ts
+      - name: Attach screenshots on test failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-white-mobile-debug
+          path: |
+            apps/dsa-web/test-results/fixtures/**
+          retention-days: 3
+
   market-overview-safety:
     runs-on: ubuntu-latest
     timeout-minutes: 5

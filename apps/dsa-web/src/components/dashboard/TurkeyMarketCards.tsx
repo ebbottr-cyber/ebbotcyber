@@ -44,7 +44,7 @@ export function TurkeyMarketCards({ items, loading, failed }: Props) {
         className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2977d5]">
         {MARKET_CARDS.map(({ key, label }) => {
           const item = items.find((row) => row.key === key);
-          const ready = item?.status === 'ready' &&
+          const ready = !loading && !failed && item?.status === 'ready' &&
             typeof item.price === 'number' && Number.isFinite(item.price) && item.price > 0;
           const change = ready && typeof item?.changePct === 'number' && Number.isFinite(item.changePct)
             ? item.changePct : null;

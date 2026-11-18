@@ -61,6 +61,17 @@ describe('Türkiye piyasaları — kaynaklı, mobil kartlar', () => {
     expect(section.querySelectorAll('article')).toHaveLength(5);
   });
 
+  it('hides previous prices during refresh and after a network error', () => {
+    const view = render(<TurkeyMarketCards items={data} loading={false} failed={false} />);
+    expect(screen.getByText('11.010,50')).toBeInTheDocument();
+    view.rerender(<TurkeyMarketCards items={data} loading failed={false} />);
+    expect(screen.queryByText('11.010,50')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Yükleniyor…')).toHaveLength(5);
+    view.rerender(<TurkeyMarketCards items={data} loading={false} failed />);
+    expect(screen.queryByText('43,1254')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Kaynağa erişilemedi')).toHaveLength(5);
+  });
+
   it('clearly labels Yahoo values as delayed and non-executable', () => {
     render(<TurkeyMarketCards items={data} loading={false} failed={false} />);
     expect(screen.getByText(/Anlık veya işlem yapılabilir fiyat değildir/)).toBeInTheDocument();

@@ -37,3 +37,10 @@ Gerçek cihazda iPhone Safari ve Android Chrome üzerinden PWA ve responsive kon
 - Üretimde finansal verinin yeniden yayımlanması için Yahoo Finance ve/veya seçilen lisanslı veri sağlayıcısının kullanım koşulları ayrıca doğrulanmalıdır.
 - API tarafı ek paket yüklemeden koşan izole Python offline güvenlik testlerine sahiptir.
 - PR henüz **taslaktır** ve `main` dalına birleştirilmedi; gerçek veri sağlayıcı ve gerçek iPhone/Android kontrolleri henüz yapılmadı.
+
+
+## Mobil tarayıcı kontrolleri — V4
+- Tarayıcı otomasyonu için sahte/izole API yanıtları kullanılır; portföy, piyasa ve analiz test fiyatları kesinlikle canlı veriler değildir.
+- Chromium mobil emülasyonunda 320, 390, 430, 768, 1440 px ekran genişliği kontrol edilir; sayfa yatay taşma, üst/alt gezinme, eksik veri, API hatası ve salt-okunur erişim doğrulanır.
+- Uygulama içinde kaydedilmiş veriler yenileme sırasında güncelmiş gibi gösterilmez.
+- Bu testler **gerçek iPhone Safari veya Android cihaz testi değildir**. Gerçek cihazlarda PWA kurulumu, ekran klavyesi, safe-area ve gezinme ayrıca denetlenmelidir.
