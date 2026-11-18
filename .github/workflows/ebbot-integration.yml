@@ -13,6 +13,9 @@ on:
       - 'src/services/meme_coin_*.py'
       - 'tests/test_meme_coin_*.py'
       - '.github/workflows/ebbot-integration.yml'
+      - 'scripts/audit_ebbot_release.py'
+      - 'tests/test_ebbot_release_audit.py'
+      - 'docs/EBBOT_RELEASE_READINESS_TR.md'
 
 permissions:
   contents: read
@@ -63,6 +66,28 @@ jobs:
             tests/test_tr_market_overview_service.py \
             tests/test_analyzer_prompt_language.py \
             tests/test_notification_empty_news_disclosure.py
+
+  release-readiness-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test that unsafe deployments remain blocked
+        run: python -m unittest discover -s tests -p test_ebbot_release_audit.py -v
+      - name: Generate source audit (informational, NOT deploy approval)
+        run: |
+          python scripts/audit_ebbot_release.py --json > release-audit.json
+          python -c "import json; d=json.load(open('release-audit.json')); print('Status:', d['status'], 'review:', len(d['legacy_contract_reviews']), 'manual:', len(d['manual_release_gates']))"
+          python -c "import json; d=json.load(open('release-audit.json')); print('### EBBot release: '+d['status'].upper()); [print('- '+x) for x in d['technical_blockers']+d['legacy_contract_reviews']+d['manual_release_gates']]" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish offline release audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-release-readiness
+          path: release-audit.json
+          retention-days: 14
 
   integrated-mobile-browser:
     runs-on: ubuntu-24.04
