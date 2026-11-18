@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness, type MemeCoinMtmReadiness } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -67,6 +67,13 @@ const CONTENT = {
     safetyLimits: 'Acil durdurma: çevrimdışı test motorunda mevcut.',
     safetyDisclaimer: 'Bu kontroller gerçek piyasa güvenliği veya kazanç anlamına gelmez. Gerçek piyasa risk verileriyle doğrulanmadı.',
     safetyUnavailable: 'Risk kontrolü hazırlık durumu doğrulanamadı.',
+    mtmTitle: 'Açık Pozisyon Değerleme ve Kurtarma (V11)',
+    mtmReady: 'Çevrimdışı MTM simülasyonu ve yeniden başlatma kontrolü hazır.',
+    mtmNotRunning: 'Simülasyon başlatılmadı, yerel kurtarma veritabanı sunucuya bağlı değil.',
+    mtmAssumptions: 'Değerleme, test senaryosunda girilen satış fiyatlarını kullanır. Gerçek fiyat ya da gerçekleşebilir satış teklifi değildir.',
+    mtmRisk: 'Açık pozisyonların varsayımsal kaybı $50 günlük ve $100 toplam sınırları aşarsa yeni test alımları durur.',
+    mtmRecovery: 'Yeniden açılışta kayıtlar tekrar hesaplanır ve SQLite kontrol noktasıyla karşılaştırılır.',
+    mtmUnavailable: 'V11 modül hazırlık durumu doğrulanamadı.',
     paperLedgerNew: 'Yeni Coin Avcısı',
     paperLedgerMomentum: 'Momentum Avcısı',
     next: 'Sonraki geliştirme',
@@ -214,6 +221,13 @@ const CONTENT = {
     safetyLimits: 'Emergency stop available in the offline replay.',
     safetyDisclaimer: 'These do not prove market safety or profitability and have not been validated against real market risk data.',
     safetyUnavailable: 'Could not verify risk control readiness.',
+    mtmTitle: 'Open Position Valuation & Recovery (V11)',
+    mtmReady: 'Offline MTM scenario and restart verification available.',
+    mtmNotRunning: 'The simulator is not running; local recovery database is not attached to the server.',
+    mtmAssumptions: 'Valuation uses assumed sell prices from offline fixtures, not real or executable quotes.',
+    mtmRisk: 'Modeled open losses of $50/day per strategy or $100 globally block new simulated buys.',
+    mtmRecovery: 'Restart reconstructs history and compares the result with the SQLite checkpoint.',
+    mtmUnavailable: 'V11 module readiness could not be verified.',
     paperLedgerNew: 'New Launch Hunter',
     paperLedgerMomentum: 'Momentum Hunter',
     next: 'Next development',
@@ -361,6 +375,13 @@ const CONTENT = {
     safetyLimits: '离线模拟支持紧急停止。',
     safetyDisclaimer: '不代表真实市场安全或盈利，尚未验证实时市场风险数据。',
     safetyUnavailable: '无法确认风险控制就绪状态。',
+    mtmTitle: '持仓估值及故障恢复（V11）',
+    mtmReady: '离线持仓估值及重启校验模块已准备。',
+    mtmNotRunning: '模拟器未运行，恢复数据库没有接入服务器。',
+    mtmAssumptions: '估值使用离线情景的假设卖出价格，不是真实可成交报价。',
+    mtmRisk: '单策略每日模拟损失 50 美元或总损失 100 美元会停止新的模拟买单。',
+    mtmRecovery: '重启时重放交易历史，并与 SQLite 检查点核对。',
+    mtmUnavailable: '无法确认 V11 模块状态。',
     paperLedgerNew: '新币发现',
     paperLedgerMomentum: '动量发现',
     next: '下一阶段',
@@ -501,6 +522,8 @@ export default function MemeCoinPage() {
   const [paperStatusError, setPaperStatusError] = useState(false);
   const [riskReadiness, setRiskReadiness] = useState<MemeCoinOfflineRiskReadiness | null>(null);
   const [riskReadinessError, setRiskReadinessError] = useState(false);
+  const [mtmReadiness, setMtmReadiness] = useState<MemeCoinMtmReadiness | null>(null);
+  const [mtmReadinessError, setMtmReadinessError] = useState(false);
   const [selected, setSelected] = useState<MemeCoinStrategyId>('new_launch');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -544,10 +567,11 @@ export default function MemeCoinPage() {
     setLoading(true);
     setError(false);
     try {
-      const [overviewResult, paperResult, riskResult] = await Promise.allSettled([
+      const [overviewResult, paperResult, riskResult, mtmResult] = await Promise.allSettled([
         memeCoinApi.getOverview(),
         memeCoinApi.getPaperReplayStatus(),
         memeCoinApi.getPaperRiskReadiness(),
+        memeCoinApi.getPaperMtmReadiness(),
       ]);
       if (seq === requestSeq.current) {
         if (overviewResult.status === 'fulfilled') {
@@ -570,15 +594,24 @@ export default function MemeCoinPage() {
           setRiskReadiness(null);
           setRiskReadinessError(true);
         }
+        if (mtmResult.status === 'fulfilled') {
+          setMtmReadiness(mtmResult.value);
+          setMtmReadinessError(false);
+        } else {
+          setMtmReadiness(null);
+          setMtmReadinessError(true);
+        }
       }
     } catch {
       if (seq === requestSeq.current) {
         setOverview(null);
         setPaperStatus(null);
         setRiskReadiness(null);
+        setMtmReadiness(null);
         setError(true);
         setPaperStatusError(true);
         setRiskReadinessError(true);
+        setMtmReadinessError(true);
       }
     } finally {
       if (seq === requestSeq.current) setLoading(false);
@@ -1222,6 +1255,27 @@ export default function MemeCoinPage() {
                 ))}
               </div>
               <p className="text-xs text-warning">{copy.safetyDisclaimer}</p>
+            </>
+          )}
+        </Card>
+
+        <Card title={copy.mtmTitle} className="space-y-3">
+          {mtmReadinessError && <p role="alert" className="text-sm text-danger">{copy.mtmUnavailable}</p>}
+          {mtmReadiness && (
+            <>
+              <Badge variant="warning">{copy.mtmReady}</Badge>
+              <p className="text-sm text-secondary-text">{copy.mtmNotRunning}</p>
+              <p className="text-xs text-secondary-text">{copy.mtmAssumptions}</p>
+              <p className="text-xs text-secondary-text">{copy.mtmRisk}</p>
+              <p className="text-xs text-secondary-text">{copy.mtmRecovery}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {mtmReadiness.strategies.map((entry) => (
+                  <div className="rounded-lg border border-border/50 p-3" key={entry.strategy}>
+                    <p className="font-semibold">{entry.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
+                    <p className="text-xs text-secondary-text">{copy.paperNotRunning}</p>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </Card>
