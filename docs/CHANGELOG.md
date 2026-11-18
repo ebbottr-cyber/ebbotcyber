@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] Add a read-only Strategy Success Lab web panel, configured single-ETF history evaluation API, and Turkish/English/Chinese navigation; research results never affect trading decisions.
+
 - [新功能] Add an opt-in research-only adapter from historical single-asset ETF rotation trades to the random-timing benchmark; reject unsupported allocations and preserve existing live/report behavior.
 
 - [新功能] Add an opt-in read-only random timing benchmark with deterministic seeded Monte Carlo comparisons, per-side transaction costs, and unit tests; no execution or decision-signal integration.
