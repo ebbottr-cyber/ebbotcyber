@@ -11,7 +11,7 @@ bağlanmaz.
 Aynı sanal başlangıç sermayesini kullanın:
 
 ```bash
-python scripts/export_meme_coin_synthetic_report.py --database ./local/research.sqlite3 --equity 1000 --output ./local/report.json --confirm-synthetic-only
+python -m scripts.export_meme_coin_synthetic_report --database ./local/research.sqlite3 --equity 1000 --output ./local/report.json --confirm-synthetic-only
 ```
 
 - Komut varsayılan olarak kapalıdır; `--confirm-synthetic-only` gerekir.

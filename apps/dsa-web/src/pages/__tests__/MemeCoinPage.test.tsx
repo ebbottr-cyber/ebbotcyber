@@ -121,4 +121,78 @@ describe('MemeCoinPage', () => {
     expect(screen.getByText(/Veri kaynağına ulaşılamıyor/)).toBeInTheDocument();
   });
 
+  it('shows local synthetic summaries only after explicit import, with no trading action', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+
+    const data = {
+      format: 'ebbot-synthetic-report-v1',
+      snapshot: {
+        mode: 'offline_synthetic_storage_only',
+        status: 'synthetic_storage_snapshot',
+        event_count: 1,
+        audit_tip_sha256: 'a'.repeat(64),
+        kill_switch_latched: false,
+        trade_executed: false,
+        paper_trading_enabled: false,
+        live_trading_enabled: false,
+        realized_performance: false,
+        summary: {
+          synthetic_round_trips: 1,
+          starting_synthetic_equity_usd: '1000.00',
+          ending_synthetic_equity_usd: '999.74',
+          synthetic_net_pnl_usd: '-0.26',
+        },
+        strategies: {
+          new_launch: {
+            synthetic_round_trips: 1, synthetic_wins: 0,
+            synthetic_losses: 1, synthetic_net_pnl_usd: '-0.26',
+            records: [{}],
+          },
+          momentum: {
+            synthetic_round_trips: 0, synthetic_wins: 0,
+            synthetic_losses: 0, synthetic_net_pnl_usd: '0.00',
+            records: [],
+          },
+        },
+      },
+    };
+    const file = new File([JSON.stringify(data)], 'synthetic.json', { type: 'application/json' });
+    Object.defineProperty(file, 'text', { value: async () => JSON.stringify(data) });
+    fireEvent.change(screen.getByLabelText('Yerel .json raporunu seç'), {
+      target: { files: [file] },
+    });
+    expect(await screen.findByText(/Dosya kullanıcı tarafından seçilmiş/)).toBeInTheDocument();
+    expect(screen.getAllByText(/-0.26/).length).toBeGreaterThan(0);
+    expect(scanCandidates).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Raporu kaldır' }));
+    expect(screen.getByText(/Henüz yerel rapor seçilmedi/)).toBeInTheDocument();
+    expect(screen.queryByText(/Dosya kullanıcı tarafından seçilmiş/)).not.toBeInTheDocument();
+  });
+
+  it('rejects local reports with live trading enabled', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    const file = new File(
+      [JSON.stringify({ format: 'ebbot-synthetic-report-v1', snapshot: {
+        mode: 'offline_synthetic_storage_only', status: 'synthetic_storage_snapshot',
+        trade_executed: false, paper_trading_enabled: false, live_trading_enabled: true,
+      } })], 'unsafe.json', { type: 'application/json' },
+    );
+    Object.defineProperty(file, 'text', {
+      value: async () => JSON.stringify({ format: 'ebbot-synthetic-report-v1', snapshot: {
+        mode: 'offline_synthetic_storage_only', status: 'synthetic_storage_snapshot',
+        trade_executed: false, paper_trading_enabled: false, live_trading_enabled: true,
+      } }),
+    });
+    fireEvent.change(screen.getByLabelText('Yerel .json raporunu seç'), {
+      target: { files: [file] },
+    });
+    expect(await screen.findByText(/Rapor okunamadı veya sentetik rapor/)).toBeInTheDocument();
+    expect(screen.queryByText(/Dosya kullanıcı tarafından seçilmiş/)).not.toBeInTheDocument();
+  });
+
+
 });

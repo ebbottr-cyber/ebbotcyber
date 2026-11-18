@@ -95,3 +95,16 @@ def test_tampered_journal_and_wrong_equity_do_not_export(tmp_path):
     )
     assert corrupted["reason"] == "journal_integrity_failed"
     assert not destination.exists()
+
+def test_cli_requires_explicit_synthetic_acknowledgement(tmp_path, capsys):
+    from scripts.export_meme_coin_synthetic_report import main
+
+    database = _init(tmp_path)
+    destination = tmp_path / "report.json"
+    flags = ["--database", str(database), "--equity", "1000",
+             "--output", str(destination)]
+    assert main(flags) == 1
+    assert not destination.exists()
+    assert main(flags + ["--confirm-synthetic-only"]) == 0
+    assert destination.exists()
+    assert json.loads(destination.read_text("utf-8"))["format"] == FORMAT
