@@ -16,6 +16,7 @@ from src.services.four_market_equity import (
 from src.services.paper_universe_inventory import read_input
 
 INDEX = Path(__file__).resolve().parents[1] / "apps/dsa-web/public/stocks.index.json"
+STORED_XETRA = Path(__file__).resolve().parents[1] / "data/market_snapshots/de/xetra-candidates.csv"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -33,6 +34,13 @@ def parser() -> argparse.ArgumentParser:
 def run(args: argparse.Namespace) -> int:
     try:
         stock_files = list(args.stocks)
+        # Optional dated, read-only source snapshot. Never follow symlinks.
+        stored_xetra = STORED_XETRA
+        if stored_xetra.is_symlink():
+            raise ValueError("stored_xetra_symlink_not_allowed")
+        stored_snapshot_loaded = stored_xetra.is_file()
+        if stored_snapshot_loaded and stored_xetra not in stock_files:
+            stock_files.append(stored_xetra)
         xetra = None
         if (args.xetra_input is None) != (args.xetra_output is None):
             raise ValueError("xetra_input_and_output_must_be_given_together")
@@ -49,6 +57,11 @@ def run(args: argparse.Namespace) -> int:
         report = audit_four_market_equities(args.index, stock_manifests=stock_files)
         if xetra is not None:
             report["xetra_source_audit"] = xetra
+        report["stored_xetra_manifest_loaded"] = stored_snapshot_loaded
+        if stored_snapshot_loaded:
+            report["stored_xetra_manifest_path"] = str(stored_xetra)
+            # Reference-list snapshots are not evidence of fresh quotes.
+            report["source_freshness_verified"] = False
         status = 0
     except (ValueError, OSError, UnicodeError, json.JSONDecodeError) as exc:
         report = {
