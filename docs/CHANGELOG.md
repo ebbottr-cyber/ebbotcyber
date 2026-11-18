@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Resolve Turkish report prompt market-context language selection and restore explicit Turkish empty-news disclosure test coverage without enabling automated analysis or altering trading logic.
+
+- [修复] Redirect historical CI and daily-analysis contract tests to intentionally disabled workflow archives, and restore a non-secret environment template; no automation activated.
+
+
 - [测试] Add V11 read-only Strategy Lab PR-stack conflict audit and cumulative backend/frontend/full-regression release CI, with no trading or scheduling changes.
 
 - [新功能] Add opt-in V10 prospective paper journal import panel, admin-session-gated read-only inspection API, local daily health status and optional failure alerts without order or scheduler activation.
