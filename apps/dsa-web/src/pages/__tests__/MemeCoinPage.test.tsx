@@ -142,17 +142,24 @@ describe('MemeCoinPage', () => {
           starting_synthetic_equity_usd: '1000.00',
           ending_synthetic_equity_usd: '999.74',
           synthetic_net_pnl_usd: '-0.26',
+          daily_gross_synthetic_losses_usd: { '2026-11-18': '0.26' },
         },
         strategies: {
           new_launch: {
             synthetic_round_trips: 1, synthetic_wins: 0,
             synthetic_losses: 1, synthetic_net_pnl_usd: '-0.26',
-            records: [{}],
+            daily_gross_synthetic_losses_usd: { '2026-11-18': '0.26' },
+            records: [{
+              event_id: 'syn-one', trading_day: '2026-11-18',
+              strategy: 'new_launch', synthetic_net_pnl_usd: '-0.26',
+              assumed_fee_bps_per_side: 30, assumed_slippage_bps_per_side: 100,
+              realized_performance: false, trade_executed: false,
+            }],
           },
           momentum: {
             synthetic_round_trips: 0, synthetic_wins: 0,
             synthetic_losses: 0, synthetic_net_pnl_usd: '0.00',
-            records: [],
+            daily_gross_synthetic_losses_usd: {}, records: [],
           },
         },
       },
@@ -165,6 +172,7 @@ describe('MemeCoinPage', () => {
     expect(await screen.findByText(/Dosya kullanıcı tarafından seçilmiş/)).toBeInTheDocument();
     expect(screen.getAllByText(/-0.26/).length).toBeGreaterThan(0);
     expect(scanCandidates).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Varsayımsal kazanma oranı/)).toHaveLength(2);
     expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Raporu kaldır' }));

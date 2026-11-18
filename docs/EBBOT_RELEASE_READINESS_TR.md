@@ -99,3 +99,7 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 - SQLite prototipindeki bütünlük kontrolünden sonra dosya üretmek için ayrı, açık opt-in gerektiren yerel dışa aktarım komutu eklendi; varsayılan kapalı, mevcut raporun üzerine yazmaz.
 - Tarayıcı, JSON alanlarını fail-closed doğrular, 256 KiB sınırı uygular ve yalnızca strateji başına sanal özetleri gösterir; haricî ağ yüklemesi veya kalıcı tarayıcı depolaması kullanmaz.
 - Rakamlar gerçek performans değildir. Testler otomatik CI'a dahil edilir. Ayrıntılar: `docs/MEME_COIN_SYNTHETIC_REPORT_V1.md`.
+
+## 54. aşama: Sentetik rapor mutabakatı
+
+Tarayıcıdaki yerel rapor görüntüleyici, toplam işlem sayıları yanında kayıt bazında sentetik PnL, strateji toplamları, günlük brüt zarar ve hesap bakiyesi tutarlılığını tam sent aritmetiğiyle doğrular. Uyumsuz dosyalar fail-closed reddedilir. Yeni arayüz oranları **yalnızca sentetik test oranıdır**; JSON dosyası kendi başına kriptografik olarak doğrulanmış performans kaydı değildir. Gerçek emir, API ve cüzdan bağlantısı kapalıdır.

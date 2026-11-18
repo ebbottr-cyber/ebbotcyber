@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { parseSyntheticReport } from '../syntheticReport';
 
+function record(id: string, strategy: string, pnl: string, day = '2026-11-18') {
+  return {
+    event_id: id, strategy, trading_day: day, synthetic_net_pnl_usd: pnl,
+    assumed_fee_bps_per_side: 30, assumed_slippage_bps_per_side: 100,
+    trade_executed: false, realized_performance: false,
+  };
+}
+
 function valid() {
   return {
     format: 'ebbot-synthetic-report-v1',
@@ -19,15 +27,20 @@ function valid() {
         starting_synthetic_equity_usd: '1000.00',
         ending_synthetic_equity_usd: '995.00',
         synthetic_net_pnl_usd: '-5.00',
+        daily_gross_synthetic_losses_usd: { '2026-11-18': '10.00' },
       },
       strategies: {
         new_launch: {
           synthetic_round_trips: 1, synthetic_wins: 1, synthetic_losses: 0,
-          synthetic_net_pnl_usd: '5.00', records: [{}],
+          synthetic_net_pnl_usd: '5.00',
+          daily_gross_synthetic_losses_usd: {},
+          records: [record('a', 'new_launch', '5.00')],
         },
         momentum: {
           synthetic_round_trips: 1, synthetic_wins: 0, synthetic_losses: 1,
-          synthetic_net_pnl_usd: '-10.00', records: [{}],
+          synthetic_net_pnl_usd: '-10.00',
+          daily_gross_synthetic_losses_usd: { '2026-11-18': '10.00' },
+          records: [record('b', 'momentum', '-10.00')],
         },
       },
     },
@@ -35,11 +48,13 @@ function valid() {
 }
 
 describe('offline synthetic research report parser', () => {
-  it('keeps only separated aggregates, not event records', () => {
+  it('reconciles both journals, audit counts, and produces labelled synthetic win rates', () => {
     const r = parseSyntheticReport(valid());
     expect(r.eventCount).toBe(2);
     expect(r.strategies.new_launch.syntheticNetPnlUsd).toBe('5.00');
     expect(r.strategies.momentum.syntheticNetPnlUsd).toBe('-10.00');
+    expect(r.strategies.new_launch.syntheticWinRatePct).toBe('100.00');
+    expect(r.strategies.momentum.syntheticWinRatePct).toBe('0.00');
     expect(r.killSwitchLatched).toBe(true);
     expect('records' in r.strategies.new_launch).toBe(false);
   });
@@ -52,12 +67,73 @@ describe('offline synthetic research report parser', () => {
     expect(() => parseSyntheticReport([])).toThrow();
   });
 
-  it('rejects unmatched per-strategy counts and malformed money strings', () => {
+  it('rejects mismatching record count and injected markup', () => {
     const payload = valid();
     payload.snapshot.strategies.momentum.synthetic_round_trips = 2;
     expect(() => parseSyntheticReport(payload)).toThrow();
     payload.snapshot.strategies.momentum.synthetic_round_trips = 1;
     payload.snapshot.summary.synthetic_net_pnl_usd = '<img src=x>';
     expect(() => parseSyntheticReport(payload)).toThrow();
+  });
+
+  it('rejects mathematically inconsistent PnL, balances and daily loss budgets', () => {
+    const cases: Array<(p: ReturnType<typeof valid>) => void> = [
+      p => { p.snapshot.summary.synthetic_net_pnl_usd = '-4.00'; },
+      p => { p.snapshot.summary.ending_synthetic_equity_usd = '996.00'; },
+      p => { p.snapshot.strategies.momentum.synthetic_net_pnl_usd = '-9.00'; },
+      p => { p.snapshot.summary.daily_gross_synthetic_losses_usd['2026-11-18'] = '9.00'; },
+      p => { p.snapshot.strategies.momentum.daily_gross_synthetic_losses_usd['2026-11-18'] = '9.00'; },
+      p => { p.snapshot.strategies.new_launch.synthetic_wins = 0; },
+      p => { p.snapshot.strategies.momentum.records[0].synthetic_net_pnl_usd = '-9.00'; },
+    ];
+    for (const mutate of cases) {
+      const payload = valid();
+      mutate(payload);
+      expect(() => parseSyntheticReport(payload)).toThrow();
+    }
+  });
+
+  it('rejects duplicate event identifiers, foreign strategy records and unsafe flags', () => {
+    const payload = valid();
+    payload.snapshot.strategies.momentum.records[0].event_id = 'a';
+    expect(() => parseSyntheticReport(payload)).toThrow();
+    payload.snapshot.strategies.momentum.records[0].event_id = 'b';
+    payload.snapshot.strategies.momentum.records[0].strategy = 'new_launch';
+    expect(() => parseSyntheticReport(payload)).toThrow();
+    payload.snapshot.strategies.momentum.records[0].strategy = 'momentum';
+    payload.snapshot.strategies.momentum.records[0].trade_executed = true;
+    expect(() => parseSyntheticReport(payload)).toThrow();
+  });
+
+  it('rejects invented empty-journal hash and nonexistent trading date', () => {
+    const payload = valid();
+    payload.snapshot.strategies.momentum.records[0].trading_day = '2026-02-30';
+    expect(() => parseSyntheticReport(payload)).toThrow();
+    const empty = valid();
+    empty.snapshot.event_count = 0;
+    empty.snapshot.summary.synthetic_round_trips = 0;
+    empty.snapshot.summary.synthetic_net_pnl_usd = '0.00';
+    empty.snapshot.summary.ending_synthetic_equity_usd = '1000.00';
+    empty.snapshot.summary.daily_gross_synthetic_losses_usd = {};
+    empty.snapshot.strategies.new_launch = {
+      synthetic_round_trips: 0, synthetic_wins: 0, synthetic_losses: 0,
+      synthetic_net_pnl_usd: '0.00', daily_gross_synthetic_losses_usd: {}, records: [],
+    };
+    empty.snapshot.strategies.momentum = {
+      synthetic_round_trips: 0, synthetic_wins: 0, synthetic_losses: 0,
+      synthetic_net_pnl_usd: '0.00', daily_gross_synthetic_losses_usd: {}, records: [],
+    };
+    expect(() => parseSyntheticReport(empty)).toThrow();
+    empty.snapshot.audit_tip_sha256 = '0'.repeat(64);
+    expect(parseSyntheticReport(empty).strategies.momentum.syntheticWinRatePct).toBe(null);
+  });
+
+  it('checks exact cents, not floating-point sums', () => {
+    const payload = valid();
+    payload.snapshot.strategies.new_launch.records[0].synthetic_net_pnl_usd = '5.01';
+    payload.snapshot.strategies.new_launch.synthetic_net_pnl_usd = '5.01';
+    payload.snapshot.summary.synthetic_net_pnl_usd = '-4.99';
+    payload.snapshot.summary.ending_synthetic_equity_usd = '995.01';
+    expect(parseSyntheticReport(payload).syntheticNetPnlUsd).toBe('-4.99');
   });
 });

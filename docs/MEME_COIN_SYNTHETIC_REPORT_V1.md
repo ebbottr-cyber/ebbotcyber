@@ -52,3 +52,11 @@ npm run build
 
 Bu iş kalıcı paper broker başlatmaz; gerçek piyasa kaynakları, saklama
 servisleri, finansal hareket veya yayına alma halen bloke.
+
+## 54. aşama: Görüntüleyici veri mutabakatı
+
+- İçe aktarılan her sentetik işlem kaydı beklenen şemaya ve `trade_executed=false`, `realized_performance=false` işaretlerine uymalıdır.
+- Tekil olay ID'leri, tarih geçerliliği, strateji izolasyonu, kayıt/başarı/kayıp sayıları ve günlük brüt kayıp toplamları birbirleriyle tutarlı olmalıdır.
+- Parasal tutarlar JavaScript kayan noktalı aritmetiği yerine tam sent değerinde `BigInt` ile karşılaştırılır. İki stratejinin PnL toplamı hesap PnL'sine; başlangıç bakiyesi + PnL bitiş bakiyesine eşit değilse dosya reddedilir.
+- Panelde iki ayrı stratejinin sentetik kazanma oranı, yalnızca doğrulanmış yerel dosyadaki işaretli senaryolar üzerinden hesaplanır. Gerçek başarı oranı, gerçek işlem kalitesi veya tahmini fiyat başarısı değildir.
+- Raporun kaynak kimliği ve değiştirilmezliği yine **kanıtlanmaz**: kullanıcı kontrolündeki bir JSON dosyası bilinçli olarak sahte, kendi içinde tutarlı sayılarla hazırlanabilir. Zincir/özetin doğruluğu için güvenilir, bağımsız imzalı provenance gerekir.

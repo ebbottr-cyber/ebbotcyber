@@ -13,6 +13,7 @@ const COPY = {
     count: 'Sentetik senaryo',
     pnl: 'Varsayımsal net kâr/zarar (USD)',
     wins: 'Varsayımsal kazançlı / kayıplı',
+    rate: 'Varsayımsal kazanma oranı',
     kill: 'Kalıcı durdurma',
     on: 'Etkin',
     off: 'Devre dışı',
@@ -30,6 +31,7 @@ const COPY = {
     count: 'Synthetic scenarios',
     pnl: 'Hypothetical net P&L (USD)',
     wins: 'Hypothetical wins / losses',
+    rate: 'Hypothetical win rate',
     kill: 'Persistent kill switch',
     on: 'On',
     off: 'Off',
@@ -47,6 +49,7 @@ const COPY = {
     count: '合成场景',
     pnl: '假设净损益 (USD)',
     wins: '假设盈利 / 亏损',
+    rate: '假设胜率',
     kill: '持久停止开关',
     on: '已启用',
     off: '已关闭',
@@ -126,6 +129,7 @@ export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
                   <p className="mt-2 text-xs text-secondary-text">{c.count}: {s.syntheticRoundTrips}</p>
                   <p className="mt-1 text-sm">{c.pnl}: <strong>{s.syntheticNetPnlUsd}</strong></p>
                   <p className="mt-1 text-xs text-secondary-text">{c.wins}: {s.syntheticWins} / {s.syntheticLosses}</p>
+                  <p className="mt-1 text-xs text-secondary-text">{c.rate}: {s.syntheticWinRatePct === null ? "—" : `${s.syntheticWinRatePct}%`}</p>
                 </div>
               );
             })}
