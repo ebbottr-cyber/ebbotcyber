@@ -38,5 +38,5 @@ def test_api_exposes_status_without_trading_mutations():
     assert payload["strategies"][0]["metrics"]["win_rate_pct"] is None
     assert client.post("/api/v1/meme-coins/overview", json={}).status_code == 405
 
-    routes = [route.path for route in app.routes]
+    routes = [getattr(route, "path", "") for route in app.routes]
     assert not any("order" in path or "wallet" in path for path in routes)
