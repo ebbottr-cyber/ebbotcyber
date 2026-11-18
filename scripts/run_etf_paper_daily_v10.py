@@ -61,8 +61,8 @@ def _send_failure_alert(kind: str) -> bool:
 
 
 def execute(args: argparse.Namespace) -> int:
-    if args.status or args.commit and args.status_file == args.journal:
-        raise ValueError("cannot replace journal with status JSON")
+    if args.status and args.commit:
+        raise ValueError("--status and --commit cannot be combined")
     if args.status_file.resolve(strict=False) == args.journal.resolve(strict=False):
         raise ValueError("status and journal paths must be different")
     now = datetime.now(timezone.utc)
@@ -95,7 +95,7 @@ def execute(args: argparse.Namespace) -> int:
         return 1
 
     result = {
-        "status": "RECORDED" if args.commit else "PREVIEW_ONLY",
+        "status": "STATUS_ONLY" if args.status else ("RECORDED" if args.commit else "PREVIEW_ONLY"),
         "at_utc": now.isoformat(),
         "record_mode": bool(args.commit),
         "trading_enabled": False,
