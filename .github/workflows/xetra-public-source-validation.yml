@@ -40,6 +40,14 @@ jobs:
             --proto '=https' --proto-redir '=https' \
             'https://www.cashmarket.deutsche-boerse.com/resource/blob/1528/b52ea43a2edac92e8283d40645d1c076/data/t7-xetr-allTradableInstruments.csv' \
             --output "$workdir/xetra-source.csv"
+          python - "$workdir/xetra-source.csv" <<'PY'
+          from pathlib import Path
+          import sys
+          data = Path(sys.argv[1]).read_bytes()
+          print("Official Xetra CSV bytes:", len(data))
+          head = data[:4096].decode("utf-8-sig", errors="replace").splitlines()[:5]
+          print("Official Xetra CSV first lines (schema diagnostic):", [repr(line[:240]) for line in head])
+          PY
           python -m scripts.audit_four_market_equities \
             --xetra-input "$workdir/xetra-source.csv" \
             --xetra-output "$workdir/xetra-candidates.csv" \
