@@ -163,9 +163,9 @@ export default function MemeCoinPage() {
           <p className="flex gap-2 text-sm text-secondary-text"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />{copy.safety}</p>
         </Card>
 
-        {error && <Card className="flex gap-2 border border-danger/30 text-danger" role="alert">
+        {error && <div role="alert"><Card className="flex gap-2 border border-danger/30 text-danger">
           <AlertTriangle className="h-5 w-5 shrink-0" />{copy.unavailable}
-        </Card>}
+        </Card></div>}
 
         {!error && (
           <div className="grid gap-4 md:grid-cols-2">
