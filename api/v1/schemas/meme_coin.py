@@ -127,3 +127,26 @@ class SolanaImpactEstimate(BaseModel):
     paper_review_status: Literal["blocked", "research_only"]
     real_quote_available: Literal[False]
     tradable: Literal[False]
+
+
+class SolanaConcentrationReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mint: str
+    network: Literal["solana-mainnet"]
+    status: Literal["disabled", "screened", "unavailable"]
+    verdict: Literal["unknown", "review_only", "concentration_signal"]
+    checked_at: Optional[str] = None
+    supply_slot: Optional[int] = None
+    accounts_slot: Optional[int] = None
+    supply_base_units: Optional[str] = None
+    observed_accounts: int
+    top_account_pct: Optional[float] = None
+    top_ten_accounts_pct: Optional[float] = None
+    observed_top_twenty_pct: Optional[float] = None
+    warning_flags: list[str]
+    interpretation: Literal["token_accounts_not_wallets"]
+    owner_identity_verified: Literal[False]
+    pool_vaults_classified: Literal[False]
+    full_safety_verified: Literal[False]
+    tradable: Literal[False]
