@@ -7,12 +7,13 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
 from src.services.meme_coin_robinhood import get_robinhood_rpc_status
 from src.services.meme_coin_solana_risk import review_mint, estimate_cpmm_impact
+from src.services.meme_coin_solana_holders import review_concentration
 
 admin_session_cookie = APIKeyCookie(
     name=COOKIE_NAME, scheme_name="AdminSessionCookie", auto_error=False
@@ -89,3 +90,18 @@ def solana_impact(
         ))
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid_impact_parameters")
+
+
+@router.get(
+    "/solana/concentration",
+    response_model=SolanaConcentrationReview,
+    operation_id="getSolanaTokenAccountConcentration",
+    summary="Read-only, opt-in top-token-account concentration signals",
+)
+def solana_concentration(
+    mint: str = Query(..., min_length=32, max_length=44),
+) -> SolanaConcentrationReview:
+    try:
+        return SolanaConcentrationReview(**review_concentration(mint))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_mint_address")
