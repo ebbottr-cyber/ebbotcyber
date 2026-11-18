@@ -1,0 +1,40 @@
+name: EBBot Turkish UI translation checks
+
+on:
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
+    paths:
+      - 'apps/dsa-web/**'
+      - '.github/workflows/ebbot-turkish-ui.yml'
+  push:
+    branches:
+      - fix/turkish-ui-chat-20261118
+    paths:
+      - 'apps/dsa-web/**'
+      - '.github/workflows/ebbot-turkish-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: TypeScript and Vite production build
+        run: npm run build
+      - name: Frontend lint
+        run: npm run lint
+      - name: Turkish UI localized tests
+        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx
