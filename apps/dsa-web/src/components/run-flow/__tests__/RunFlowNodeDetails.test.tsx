@@ -1,7 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import type { RunFlowNode } from '../../../types/runFlow';
 import { RunFlowNodeDetails } from '../RunFlowNodeDetails';
+
+// The expected labels in this regression suite are intentionally Chinese.
+// Supply the same locale as production rather than relying on fallbackContext.
+const render: typeof rtlRender = (ui, options) => {
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return rtlRender(<UiLanguageProvider>{ui}</UiLanguageProvider>, options);
+};
 
 describe('RunFlowNodeDetails', () => {
   it('hides provider metrics that do not apply to queue nodes', () => {
