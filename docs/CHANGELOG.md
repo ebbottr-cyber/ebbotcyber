@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] Add opt-in V10 prospective paper journal import panel, admin-session-gated read-only inspection API, local daily health status and optional failure alerts without order or scheduler activation.
+
 - [新功能] Add manual, opt-in V9 prospective single-ETF paper observation with next-session-close simulated fills, immutable local JSONL journal and strict no-backfill/data-revision checks; no live trading or scheduling.
 
 - [新功能] Add research-only V8 fixed-parameter chronological walk-forward and reserved holdout validation for single ETF/cash timing, with explicit noninformative fold reporting and no execution wiring.
