@@ -37,9 +37,11 @@ def xetra_equities_to_manifest(raw: str, *, today: date | None = None) -> tuple[
     if not isinstance(raw, str) or not raw or len(raw.encode("utf-8")) > 64 * 1024 * 1024:
         raise ValueError("invalid_or_oversized_xetra_csv")
     lines = raw.lstrip("\ufeff").splitlines()
-    if len(lines) < 4 or lines[0].strip() != "Market: XETR":
+    # Current Deutsche Boerse CSV uses "Market:;XETR" and
+    # "Date Last Update:;18.11.2026". Also accept the older space form.
+    if len(lines) < 4 or not re.fullmatch(r"Market:\s*;?\s*XETR", lines[0].strip()):
         raise ValueError("wrong_xetra_market_or_format")
-    date_match = re.fullmatch(r"Date Last Update:\s*(\d{2}\.\d{2}\.\d{4})", lines[1].strip())
+    date_match = re.fullmatch(r"Date Last Update:\s*;?\s*(\d{2}\.\d{2}\.\d{4})", lines[1].strip())
     if not date_match:
         raise ValueError("missing_xetra_source_date")
     try:
