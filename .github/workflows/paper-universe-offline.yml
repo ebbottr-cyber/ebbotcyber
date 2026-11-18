@@ -26,5 +26,7 @@ jobs:
           python-version: '3.11'
       - name: Test full-index and manifest inventory
         run: python -m unittest discover -s tests -p 'test_paper_universe_inventory.py' -v
+      - name: Offline source importer tests (no network requests)
+        run: python -m unittest discover -s tests -p 'test_paper_universe_sources.py' -v
       - name: Print all-market offline audit counts
         run: python -m scripts.audit_paper_universe
