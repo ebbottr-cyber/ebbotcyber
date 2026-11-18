@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview } = vi.hoisted(() => ({ getOverview: vi.fn() }));
+const { getOverview, scanCandidates } = vi.hoisted(() => ({ getOverview: vi.fn(), scanCandidates: vi.fn() }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview },
+  memeCoinApi: { getOverview, scanCandidates },
 }));
 
 const overview = {
@@ -48,6 +48,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  scanCandidates.mockResolvedValue({strategy: 'new_launch', status: 'disabled', source: 'geckoterminal', observedAt: null, candidates: [], error: null});
 });
 
 describe('MemeCoinPage', () => {
@@ -76,4 +77,48 @@ describe('MemeCoinPage', () => {
     expect(screen.queryByText('GMGN')).not.toBeInTheDocument();
     expect(screen.queryByText('Pump.fun')).not.toBeInTheDocument();
   });
+  it('only requests a scan on an explicit click and shows disabled state without fake candidates', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(scanCandidates).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    expect(await screen.findByText(/MEME_COIN_DISCOVERY_ENABLED=true/)).toBeInTheDocument();
+    expect(scanCandidates).toHaveBeenCalledWith('new_launch');
+    expect(screen.queryByText('MEME')).not.toBeInTheDocument();
+  });
+
+  it('renders unverified candidates and does not offer buy controls', async () => {
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        poolAddress: '11111111111111111111111111111111',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+
+    expect(await screen.findByText('MEME')).toBeInTheDocument();
+    expect(screen.getByText('Güvenlik doğrulanmadı')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
+  });
+
+  it('shows provider failure rather than pretending that an empty scan succeeded', async () => {
+    scanCandidates.mockRejectedValue(new Error('API offline'));
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/Veri kaynağına ulaşılamıyor/)).toBeInTheDocument();
+  });
+
 });
