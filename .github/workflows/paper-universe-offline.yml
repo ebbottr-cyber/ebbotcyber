@@ -7,6 +7,10 @@ on:
     branches: [main]
     paths:
       - 'src/services/paper_universe_inventory.py'
+      - 'src/services/paper_universe_sources.py'
+      - 'scripts/refresh_paper_universe_sources.py'
+      - 'tests/test_paper_universe_sources.py'
+      - 'docs/EBBOT_ALL_MARKETS_PAPER_UNIVERSE_V1.md'
       - 'scripts/audit_paper_universe.py'
       - 'tests/test_paper_universe_inventory.py'
       - '.github/workflows/paper-universe-offline.yml'

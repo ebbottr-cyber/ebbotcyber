@@ -1,4 +1,4 @@
-"""Allowlisted, manual-only BIST KAP and CoinPaprika catalogue ingestion.
+"""Allowlisted, manual-only BIST KAP and Binance Spot catalogue ingestion.
 
 The resulting records are *inventory candidates*, never verified tradable
 instruments, current quotes, blockchain mint addresses, or trade instructions.
@@ -7,6 +7,7 @@ No refresh is scheduled. Network access requires the CLI's explicit --fetch.
 from __future__ import annotations
 
 import csv
+import hashlib
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from io import StringIO
@@ -17,10 +18,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 KAP_URL = "https://www.kap.org.tr/tr/bist-sirketler"
-COINPAPRIKA_URL = "https://api.coinpaprika.com/v1/coins"
+BINANCE_SPOT_URL = "https://data-api.binance.vision/api/v3/exchangeInfo"
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 _KAP_CODE = re.compile(r"^[A-Z0-9]{3,8}$")
-_PAPRIKA_ID = re.compile(r"^[A-Za-z0-9:._+-]{1,128}$")
+
 
 
 class _KapTables(HTMLParser):
@@ -92,43 +93,81 @@ def kap_bist_to_csv(raw_html: str, observed_at: str) -> tuple[str, int]:
     return output.getvalue(), len(candidates)
 
 
-def coinpaprika_to_json(raw: str, observed_at: str) -> tuple[str, int, int]:
-    """Preserve every catalogue ID and active flag; never invent chain addresses."""
+def _exchange_asset_name(value: Any) -> str:
+    """Binance asset symbols are exchange identifiers, not wallet addresses."""
+    if (not isinstance(value, str) or not 1 <= len(value) <= 64
+            or value != value.strip() or not value.isprintable()):
+        raise ValueError("invalid_binance_asset_symbol")
+    return value
+
+
+def binance_spot_to_json(raw: str, observed_at: str) -> tuple[str, int, int, int, int]:
+    """Return all unique Spot assets and all active/halted Spot pair counts.
+
+    Includes both baseAsset and quoteAsset so quote-only assets are not silently
+    omitted. Neither an exchange ticker nor hash-ID establishes a chain address.
+    """
     try:
         payload = json.loads(raw)
     except (TypeError, json.JSONDecodeError) as exc:
-        raise ValueError("invalid_coinpaprika_json") from exc
-    if not isinstance(payload, list):
-        raise ValueError("coinpaprika_expected_array")
-    records: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    active_count = 0
-    for item in payload:
-        if not isinstance(item, dict):
-            raise ValueError("invalid_coinpaprika_record")
-        id_value, symbol, active = item.get("id"), item.get("symbol"), item.get("is_active")
-        if not isinstance(id_value, str) or not _PAPRIKA_ID.fullmatch(id_value):
-            raise ValueError("invalid_coinpaprika_id")
-        if not isinstance(symbol, str) or not 1 <= len(symbol.strip()) <= 64:
-            raise ValueError("invalid_coinpaprika_symbol")
-        if type(active) is not bool:
-            raise ValueError("invalid_coinpaprika_active_flag")
-        if id_value in seen:
-            raise ValueError("duplicate_coinpaprika_id")
-        seen.add(id_value)
-        if active:
-            active_count += 1
-        records.append({
-            "network": "coinpaprika_catalog",
-            "asset_id": id_value,
-            "symbol": symbol.strip(),
-            "source": "coinpaprika_coins",
-            "active": active,
-            "observed_at_utc": observed_at,
-        })
-    if not records:
-        raise ValueError("empty_coinpaprika_catalog")
-    return json.dumps({"assets": records}, ensure_ascii=False, separators=(",", ":")) + "\n", len(records), active_count
+        raise ValueError("invalid_binance_exchange_info_json") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("symbols"), list):
+        raise ValueError("binance_exchange_info_missing_symbols")
+    if not payload["symbols"]:
+        raise ValueError("empty_binance_exchange_info")
+    assets: dict[str, dict[str, Any]] = {}
+    seen_pairs: set[str] = set()
+    spot_pair_count = 0
+    trading_spot_pair_count = 0
+
+    for index, pair in enumerate(payload["symbols"]):
+        if not isinstance(pair, dict):
+            raise ValueError(f"invalid_binance_pair_at_index_{index}")
+        pair_name = _exchange_asset_name(pair.get("symbol"))
+        base = _exchange_asset_name(pair.get("baseAsset"))
+        quote = _exchange_asset_name(pair.get("quoteAsset"))
+        status = pair.get("status")
+        allowed = pair.get("isSpotTradingAllowed")
+        if not isinstance(status, str) or type(allowed) is not bool:
+            raise ValueError(f"invalid_binance_spot_status_at_index_{index}")
+        if pair_name in seen_pairs:
+            raise ValueError(f"duplicate_binance_pair_at_index_{index}")
+        seen_pairs.add(pair_name)
+        if not allowed:
+            continue
+        spot_pair_count += 1
+        trading = status == "TRADING"
+        if trading:
+            trading_spot_pair_count += 1
+        for asset in (base, quote):
+            if asset not in assets:
+                # Stable opaque exchange-scoped identity; NEVER a token contract.
+                digest = hashlib.sha256(asset.encode("utf-8")).hexdigest()
+                assets[asset] = {
+                    "network": "binance_spot_catalog",
+                    "asset_id": "binance:asset:" + digest,
+                    "symbol": asset,
+                    "source": "binance_spot_exchange_info",
+                    "active": False,
+                    "observed_at_utc": observed_at,
+                    "spot_pair_count": 0,
+                    "trading_spot_pair_count": 0,
+                }
+            assets[asset]["spot_pair_count"] += 1
+            if trading:
+                assets[asset]["trading_spot_pair_count"] += 1
+                assets[asset]["active"] = True
+    if not assets or not spot_pair_count:
+        raise ValueError("empty_binance_spot_catalog")
+    records = [assets[name] for name in sorted(assets)]
+    active_count = sum(record["active"] for record in records)
+    return (
+        json.dumps({"assets": records}, ensure_ascii=False, separators=(",", ":")) + "\n",
+        len(records),
+        active_count,
+        spot_pair_count,
+        trading_spot_pair_count,
+    )
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -139,7 +178,7 @@ class _NoRedirect(HTTPRedirectHandler):
 
 def fetch_source(url: str) -> str:
     """Exactly two constant HTTPS endpoints, no arbitrary user-controlled URLs."""
-    if url not in (KAP_URL, COINPAPRIKA_URL):
+    if url not in (KAP_URL, BINANCE_SPOT_URL):
         raise ValueError("unapproved_inventory_source")
     request = Request(url, headers={
         "User-Agent": "EBBot-Paper-Universe-Manual-Inventory/1.0",

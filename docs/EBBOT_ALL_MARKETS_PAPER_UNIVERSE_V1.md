@@ -1,61 +1,54 @@
-# EBBot all-market stock and crypto inventory
+# EBBot — Tüm hisse ve Binance Spot coin envanterleri
 
-Bu geliştirme 3 hisse, 100 hisse veya 10 coin sınırı kullanmaz.
-Repo stock index'indeki bütün etkin hisseleri sayar. Mevcut indeks snapshot'ı:
-31.677 hisse ve 33 endeks; BIST, Almanya ve Tayvan TAM listesi bu dosyada yoktur.
+Bu hazırlık 3 hisse veya sabit 100 coin sınırı kullanmaz.
+Mevcut depoda 31.677 etkin hisse kaydı ve ayrı 33 endeks var.
+BIST'in tam şirket listesi KAP kaynağından; Binance Spot coin listesi,
+Binance'in resmi salt-okunur exchangeInfo API'sinden *elle* indirilebilir.
 
-Diğer borsaların tüm hisse listesi için CSV envanteri eklenebilir.
-CSV alanları: market,symbol,source (isteğe bağlı kind ve active).
-Coinlerin tamamını eklemek için her sağlayıcının eksiksiz anlık
-envanterinin JSON veya JSONL dosyası gerekir. Coin alanları:
-network,asset_id,symbol,source (isteğe bağlı active).
-Aynı ağdaki aynı coin adresi veya aynı piyasadaki aynı hisse
-tekilleştirilir; listedeki tüm benzersiz kayıtlar sayılır.
+## Hangi borsa, hangi kapsam?
 
-## V2: Kaynaklardan elle güncelleme, asla otomatik işlem değil
+- **BIST:** KAP şirket dizini. Şirket kodu bir borsa sembol adayıdır;
+  işlem izni, kotasyonun güncelliği veya lisans kanıtı değildir.
+- **Kripto:** Binance GLOBAL **Spot** kataloğu.
+  API: https://data-api.binance.vision/api/v3/exchangeInfo
+  Binance TR, Binance Futures veya dünyadaki bütün tokenların listesi DEĞİLDİR.
+  Coinlerin işlem çiftleri (baseAsset + quoteAsset) tekilleştirilip
+  benzersiz Binance varlık listesi oluşturulur.
+- Yalnızca isSpotTradingAllowed=true olan çiftlerden varlıklar alınır.
+  status=TRADING olmayan çiftler envanterde pasif kalabilir; para ile
+  işlem yapılabileceği, kullanıcı ülkesinde erişim olduğu iddia edilmez.
+- Ticker'lar zincir kontrat adresleri değildir.
+  Ağ etiketi "binance_spot_catalog" olduğundan Solana ve Robinhood
+  Chain kontratlarıyla otomatik birleştirilmez.
+- Solana yeni tokenlar, DEX coinleri ve Binance'de listeli olmayanlar
+  için ayrıca güvenilir zincir kimliği ve keşif adaptörü gerekir.
+- Almanya, Tayvan ve diğer tam olmayan borsalar da CSV kaynaklarıyla
+  eklenebilir; var olmayan kaynağa "tam kapsama" denmez.
 
-KAP'ın resmi BIST şirket dizininden hisse kodlarını, CoinPaprika'nın anahtarsız
-GET /v1/coins kataloğundan kayıtları alacak sağlayıcılar eklendi. **Manuel**
---fetch parametresi olmadan ağ erişimi ve dosya yazımı yoktur.
+## Nasıl kullanılır? (PowerShell, isteğe bağlı)
 
-    mkdir C:\EBBotPaperData
-    python -m scripts.refresh_paper_universe_sources --output-dir C:\EBBotPaperData
-    python -m scripts.refresh_paper_universe_sources --fetch --output-dir C:\EBBotPaperData
-    python -m scripts.audit_paper_universe --stocks C:\EBBotPaperData\kap-bist-all.csv --coins C:\EBBotPaperData\coinpaprika-all.json
-    python -m scripts.refresh_paper_universe_sources --fetch --replace --output-dir C:\EBBotPaperData
+  New-Item -ItemType Directory -Force "$HOME\EBBotPaperData"
+  python -m scripts.refresh_paper_universe_sources --fetch --output-dir "$HOME\EBBotPaperData"
+  python -m scripts.audit_paper_universe --stocks "$HOME\EBBotPaperData\kap-bist-all.csv" --coins "$HOME\EBBotPaperData\binance-spot-all.json"
 
-- --source kap veya --source coinpaprika ile her kaynak tek başına alınabilir.
-- KAP'ın dizinindeki şirket kodları .IS biçimine dönüştürülmüş **adaylardır**:
-  her şirket kodunun o tarihte borsada işleme açık olduğu veya hisse senedi
-  olduğu bağımsız olarak doğrulanmış sayılmaz.
-- CoinPaprika'nın listesi aktif ve pasif tüm **katalog kimliklerini** saklar.
-  Pasifler envanterin aktif sayımından dışlanır. Bu liste Solana mint adresleri
-  veya bütün DEX tokenlarının kaydı DEĞİLDİR! CoinPaprika kimlikleri bilinçli
-  olarak "coinpaprika_catalog" ağ etiketiyle izole edilir.
-- Her iki kaynak sunucusunun servis/hız/erişim ve ticari veri lisansı şartları
-  gerçek ortamda ayrıca kontrol edilmelidir. KAP web sayfası yapısı değişirse
-  alma işlemi bloklanır; sessizce 3-5 hisselik sonuç kaydedilmez.
-- Dışa aktarımlar sadece belirtilen yerel dizine yazılır; her dosyanın SHA-256
-  özeti kaydedilir, yeni çıktının eskisini değiştirmesi için --replace gerekir.
-  Kaynak tarihi, fiyat verisi tarihi veya güvenilir kontrat kimliği değildir.
-- Hiçbir otomatik scheduler, tarama/işlem görevi, fiyat sorgusu veya gerçek
-  emir bağlanmamıştır. GitHub CI ağ gerektirmeyen sahte yanıtlarla test edilir.
+Sadece Binance'i denemek için:
+  python -m scripts.refresh_paper_universe_sources --fetch --source binance --output-dir "$HOME\EBBotPaperData"
 
-## Salt-okunur kontrol
+Komut mevcut envanter dosyalarını varsayılan olarak ezmez.
+Manuel güncellemek için --replace eklenir.
+--fetch verilmezse **hiç ağ isteği / dosya yazımı yapılmaz**.
 
-    python -m scripts.audit_paper_universe
-    python -m unittest discover -s tests -p test_paper_universe_inventory.py -v
-    python -m unittest discover -s tests -p test_paper_universe_sources.py -v
+## Teknik doğrulama ve sonraki aşama
 
-Çıktı INVENTORY_ONLY (yalnızca envanter) düzeyindedir, fiyat/performans
-veya sanal işlem hazır demek değildir. Bir kaynağın tam veya güncel
-olduğu henüz ispatlanmamıştır. BIST ve coin kaynakları eksikse
-missing_source_inventories içinde görünür. Bu adım sadece desteklenen
-tüm listelerin birleşik ve ölçeklenebilir kayıtlarını hazırlar.
+  python -m unittest discover -s tests -p test_paper_universe_inventory.py -v
+  python -m unittest discover -s tests -p test_paper_universe_sources.py -v
 
-Bir sonraki aşama: Tüm piyasalarda güncel/listeden kaldırılmış varlıkları
-doğrulayan kaynak envanterleri, sembol/kontrat tekilliği, saat/kur,
-fiyat tazeliği, token riskleri, rate-limit korumalı sayfalı read-only
-kotasyon ve tarihli sanal defter adaptörleri. Bunlar ayrı onay olmadan
-açılmayacak. Otomatik tarama, zamanlayıcı, gerçek emir ve paper fill kapalı.
-PR #57 ile main dalı bu hazırlıktan etkilenmez.
+GitHub CI sadece sahte/çevrimdışı yanıtlarla envanter kaynaklarını test eder;
+gerçek Binance erişimi veya Binance'deki coin sayısı ayrıca kanıtlanmalıdır.
+Cihaz/bölge engeli, veri sözleşmesi, delist, fiyat gecikmesi, API hız limiti ve
+veri lisansı canlı kullanım öncesi incelenmelidir.
+
+**INVENTORY_ONLY** modunda kalır: fiyat yüklemez, emir üretmez, otomatik
+tarama başlatmaz, sanal fill veya PnL yazmaz, cüzdan kullanmaz.
+İkinci adım güncel fiyat, risk ve zaman damgası denetimleri;
+paper trading için ayrıca manuel izin gerekir.
