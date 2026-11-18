@@ -203,3 +203,35 @@ class SolanaOwnerGroupReview(BaseModel):
     beneficial_ownership_verified: Literal[False]
     full_safety_verified: Literal[False]
     tradable: Literal[False]
+
+
+class SolanaOrcaVaultReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mint: str
+    pool: str
+    network: Literal["solana-mainnet"]
+    protocol: Literal["orca_whirlpool"]
+    status: Literal["disabled", "unsupported", "unavailable", "screened"]
+    verdict: Literal["unknown", "blocked", "review_only"]
+    checked_at: Optional[str] = None
+    pool_slot: Optional[int] = None
+    vault_slot: Optional[int] = None
+    pool_program: Optional[str] = None
+    mint_a: Optional[str] = None
+    mint_b: Optional[str] = None
+    vault_a: Optional[str] = None
+    vault_b: Optional[str] = None
+    vault_a_raw_amount: Optional[str] = None
+    vault_b_raw_amount: Optional[str] = None
+    vault_a_decimals: Optional[int] = None
+    vault_b_decimals: Optional[int] = None
+    clmm_liquidity_raw: Optional[str] = None
+    vault_authority_matches_pool: bool
+    warnings: list[str]
+    vault_reserves_observed: bool
+    active_swap_depth_verified: Literal[False]
+    liquidity_lock_verified: Literal[False]
+    lp_withdrawal_authority_verified: Literal[False]
+    sellability_verified: Literal[False]
+    tradable: Literal[False]
