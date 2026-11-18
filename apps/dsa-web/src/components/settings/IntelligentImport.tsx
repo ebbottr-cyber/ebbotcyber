@@ -29,7 +29,7 @@ function getConfidenceMeta(confidence: 'high' | 'medium' | 'low', language: UiLa
     medium: { tr: 'Orta', en: 'Medium', zh: '中' },
     low: { tr: 'Düşük', en: 'Low', zh: '低' },
   } as const;
-  const badge = confidence === 'high' ? 'success' : confidence === 'low' ? 'warning' : 'default';
+  const badge: 'success' | 'warning' | 'default' = confidence === 'high' ? 'success' : confidence === 'low' ? 'warning' : 'default';
   return { label: labels[confidence][language], badge };
 }
 
