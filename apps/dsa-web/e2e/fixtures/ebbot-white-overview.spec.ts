@@ -59,10 +59,16 @@ async function stubOverview(page: Page, options: { marketError?: boolean; empty?
       json = { items: options.empty ? [] : reports, total: options.empty ? 0 : 2, page: 1, limit: 60 };
     } else if (path.endsWith('/stocks/THYAO.IS/history')) {
       json = stockHistory;
+    } else if (path.endsWith('/stocks/ASELS.IS/history')) {
+      // Fixture data only: lets us test a watchlisted symbol without an analysis report.
+      json = { ...stockHistory, stock_code: 'ASELS.IS' };
     } else if (path.endsWith('/stocks/watchlist')) {
       json = { stock_codes: options.empty ? [] : ['THYAO.IS', 'ASELS.IS'] };
     } else if (path === '/api/v1/analysis/tasks') {
-      json = { tasks: [], total: 0 };
+      json = { tasks: options.empty ? [] : [{
+        task_id: 'task-1', stock_code: 'THYAO.IS', status: 'processing',
+        progress: 58, report_type: 'detailed', created_at: '2026-11-18T10:00:00Z',
+      }], total: options.empty ? 0 : 1 };
     } else if (path === '/api/v1/portfolio/snapshot') {
       json = { currency: 'TRY', as_of: '2026-11-17',
         account_count: 1, total_equity: 12000, total_cash: 2000,
@@ -88,6 +94,11 @@ test('white EBBot screen fits small phones, tablets and desktop with functioning
   await expect(page.getByTestId('turkey-market-cards').getByRole('article', { name: 'BIST 100' })).toContainText('11.010,50');
   await expect(page.getByTestId('candle-scroll')).toBeVisible();
   await expect(page.getByTestId('technical-indicator-panel')).toBeVisible();
+  await expect(page.getByTestId('portfolio-summary-content')).toBeVisible();
+  await expect(page.getByTestId('risk-summary-content')).toBeVisible();
+  await expect(page.getByTestId('watchlist-overview-content')).toBeVisible();
+  await expect(page.getByTestId('ai-task-feed')).toBeVisible();
+  await expect(page.getByText('58% tamamlandı')).toBeVisible();
   await expect(page.getByText('En az 15 kapanış gerekli.')).toBeVisible();
 
   for (const [name, width, height] of [
@@ -156,4 +167,17 @@ test('mobile bottom menu navigates to existing portfolio panel', async ({ page }
   await expect(nav).toBeVisible();
   await nav.getByRole('button', { name: 'Portföy' }).click();
   await expect(page).toHaveURL(/\/portfolio$/);
+});
+
+test('watchlist clicks change the selected chart even without a saved analysis report', async ({ page }) => {
+  const mock = await stubOverview(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/overview');
+  await expect(page.getByTestId('candle-scroll')).toBeVisible();
+  await page.getByRole('button', { name: 'ASELS.IS grafiğini göster' }).click();
+  await expect(page.getByText('Bu sembol için kayıtlı analiz raporu yok.')).toBeVisible();
+  await expect(page.getByRole('img', { name: /ASELS.IS günlük mum grafiği/ })).toBeVisible();
+  await expect(page.getByTestId('candle-scroll')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(mock.writes).toEqual([]);
 });

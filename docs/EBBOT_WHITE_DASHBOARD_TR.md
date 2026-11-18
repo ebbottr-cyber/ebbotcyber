@@ -51,3 +51,11 @@ Gerçek cihazda iPhone Safari ve Android Chrome üzerinden PWA ve responsive kon
 - RSI için 15, MACD sinyali için 34, EMA20 için 20, EMA50 için 50 kapanış gerekir. Daha az veri varsa `—` gösterilir.
 - Alım/satım kararı veya risk puanı uydurulmaz. Grafik hata verdiğinde teknik panel kapatılır.
 - Testler düz fiyat, tek yönde fiyat, eksik/NaN fiyat ve kısa serileri kapsar. Mobil görünümde teknik panel grafik altına yerleşir.
+
+## Beyaz panel özet kartları — V6
+- Portföyde özsermaye, nakit, pozisyon değeri ve mümkün olduğunda nakit yüzdesi ayrı gösterilir; `fxStale` veya kısmi değerleme durumunda uyarı korunur.
+- Risk özeti yalnızca API ölçümlerini gösterir. Eksik/NaN değerler sıfır risk gibi çizilmez ve genel güvenlik puanı icat edilmez.
+- Takip listesinden seçilen sembol beyaz paneldeki grafiği değiştirir; analiz raporu yoksa hisse geçmişi API'si kullanılabilir, fiyat yoksa açık boş durum korunur. Takip listesi fiyatları yalnızca kayıtlı analiz değerleridir, canlı değildir.
+- AI analiz görevleri durumu Türkçeye çevrilir; yüzde yalnızca çalışan görevlerde, 0–100 aralığında görüntülenir. Başarısız görevlere başarılı etiketi verilmez.
+- Veri yenilenirken ve API başarısızlığında önceki portföy, risk veya görev bilgileri güncelmiş gibi gösterilmez.
+- 9 birim testi ve mobil Chromium senaryosu eklendi. API tabanında yeni işlem/emir endpoint'i yoktur.

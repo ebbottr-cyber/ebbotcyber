@@ -40,6 +40,8 @@ jobs:
         run: npm test -- src/utils/__tests__/technicalIndicators.test.ts
       - name: Turkish market cards and mobile layout tests
         run: npm test -- src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx
+      - name: Dashboard portfolio, risk, watchlist and AI task card tests
+        run: npm test -- src/components/dashboard/__tests__/DashboardSummaryCards.test.tsx
       - name: Build frontend
         run: npm run build
       - name: Built PWA asset tests
