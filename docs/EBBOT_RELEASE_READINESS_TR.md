@@ -92,3 +92,10 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 - Test dosyası halihazırda `@pytest.mark.network` ile işaretlidir ve `scripts/ci_gate.sh` bu işareti hariç tutmaktadır. Entegrasyon workflow'undaki tam backend testi aynı politika ile `-m "not network"` olarak hizalandı.
 - Bu dış servis testini silmez ve zorla geçirmiş gibi raporlamaz. Gerçek veri sağlayıcı uyumluluğu testini gerektiğinde manuel olarak `python -m pytest -q -m network tests/test_tw_institutional_network.py` ile ayrıca çalıştırmak gerekir; sonucun CI'den farklı olabileceği açıkça belgelenir.
 - Tam backend hâlâ tüm çevrimdışı testleri koşar, hata durumunda başarısız olur ve JUnit raporunu her durumda yükler. Bu değişiklik gerçek veri, emir, deployment, scheduled workflow veya live trading etkinleştirmez.
+
+## Yerel rapor görselleştirmesi — V13
+
+- Salt-okunur Meme Coin paneline yalnızca kullanıcının açıkça seçtiği, sürümlü JSON dosyasındaki **sentetik araştırma özetlerini** gösteren bileşen eklendi. Sunucu API'si veya mevcut performans verileri değiştirilmedi.
+- SQLite prototipindeki bütünlük kontrolünden sonra dosya üretmek için ayrı, açık opt-in gerektiren yerel dışa aktarım komutu eklendi; varsayılan kapalı, mevcut raporun üzerine yazmaz.
+- Tarayıcı, JSON alanlarını fail-closed doğrular, 256 KiB sınırı uygular ve yalnızca strateji başına sanal özetleri gösterir; haricî ağ yüklemesi veya kalıcı tarayıcı depolaması kullanmaz.
+- Rakamlar gerçek performans değildir. Testler otomatik CI'a dahil edilir. Ayrıntılar: `docs/MEME_COIN_SYNTHETIC_REPORT_V1.md`.

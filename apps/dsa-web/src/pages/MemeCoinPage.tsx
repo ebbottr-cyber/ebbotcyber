@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
 import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
+import { SyntheticReportPanel } from '../components/meme-coin/SyntheticReportPanel';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
 
@@ -353,6 +354,8 @@ export default function MemeCoinPage() {
             )}
           </Card>
         )}
+
+        <SyntheticReportPanel language={language} />
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card title={copy.performance}>
