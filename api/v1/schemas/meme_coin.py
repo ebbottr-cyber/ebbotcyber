@@ -297,3 +297,23 @@ class SolanaJupiterQuotePreview(BaseModel):
     transaction_requested: Literal[False]
     transaction_submitted: Literal[False]
     tradable: Literal[False]
+
+
+class MemeCoinOfflineGuardLedger(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    mode: Literal["offline_only"]
+    live_orders_enabled: Literal[False]
+
+
+class MemeCoinOfflineRiskReadiness(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["offline_safeguards_available"]
+    archive_mode: Literal["manual_local_sqlite_only"]
+    journal_online: Literal[False]
+    paper_engine_running: Literal[False]
+    live_trading_enabled: Literal[False]
+    risk_facts_verified_from_market: Literal[False]
+    strategy_ledgers: list[MemeCoinOfflineGuardLedger]

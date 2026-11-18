@@ -3,15 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
   reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
-  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(),
+  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness },
 }));
 
 const overview = {
@@ -65,6 +65,18 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  getPaperRiskReadiness.mockResolvedValue({
+    status: 'offline_safeguards_available',
+    archiveMode: 'manual_local_sqlite_only',
+    journalOnline: false,
+    paperEngineRunning: false,
+    liveTradingEnabled: false,
+    riskFactsVerifiedFromMarket: false,
+    strategyLedgers: [
+      { strategy: 'new_launch', mode: 'offline_only', liveOrdersEnabled: false },
+      { strategy: 'momentum', mode: 'offline_only', liveOrdersEnabled: false },
+    ],
+  });
   getSolanaQuotePreview.mockResolvedValue({
     strategy: 'new_launch', mint: '11111111111111111111111111111111',
     side: 'buy', source: 'jupiter_swap_v2_order_quote_only',
@@ -621,6 +633,27 @@ describe('MemeCoinPage', () => {
     expect(getSolanaQuotePreview).toHaveBeenCalledWith(
       'new_launch', '11111111111111111111111111111111', 'sell', 1000000,
     );
+  });
+
+  it('shows both V10 offline safety modules as not running, with no profit figures', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+
+    expect(await screen.findByText('Sanal İşlem Risk Kontrolleri (V10)')).toBeInTheDocument();
+    expect(screen.getAllByText('Arşiv ve risk modülü sunucuda çalışmıyor.')).toHaveLength(2);
+    expect(screen.getByText(/İki strateji için ayrı SQLite teklif arşivi/)).toBeInTheDocument();
+    expect(screen.getByText(/gerçek piyasa güvenliği veya kazanç anlamına gelmez/)).toBeInTheDocument();
+    expect(getPaperRiskReadiness).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /alım yap|satın al|start|execute|buy/i })).not.toBeInTheDocument();
+  });
+
+  it('shows V10 readiness endpoint failures without fabricated archive counts', async () => {
+    getPaperRiskReadiness.mockRejectedValue(new Error('offline'));
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(await screen.findByText('Risk kontrolü hazırlık durumu doğrulanamadı.')).toBeInTheDocument();
+    expect(screen.queryByText(/Çevrimdışı geliştirme hazır/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Gerçekleşen kar/i)).not.toBeInTheDocument();
   });
 
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -59,6 +59,14 @@ const CONTENT = {
     paperNotRunning: 'Henüz çalışmıyor',
     paperUnlinked: 'Gerçek kotasyon bağlantısı yok. İki stratejinin sanal işlem defterleri yalnızca çevrimdışı test dosyalarıyla çalışabilir; panelde gerçek performans gösterilmez.',
     paperNotAvailable: 'Sanal test motorunun bağlantı durumu doğrulanamadı.',
+    safetyTitle: 'Sanal İşlem Risk Kontrolleri (V10)',
+    safetyOffline: 'Çevrimdışı geliştirme hazır, otomatik işlem çalışmıyor.',
+    safetyNotRunning: 'Arşiv ve risk modülü sunucuda çalışmıyor.', 
+    safetyJournal: 'İki strateji için ayrı SQLite teklif arşivi: yalnızca yerel dosyada manuel kullanım.',
+    safetyGuard: 'Veri eskimesi, düşük likidite, günlük sanal zarar ve art arda başarısızlık kontrolleri.',
+    safetyLimits: 'Acil durdurma: çevrimdışı test motorunda mevcut.',
+    safetyDisclaimer: 'Bu kontroller gerçek piyasa güvenliği veya kazanç anlamına gelmez. Gerçek piyasa risk verileriyle doğrulanmadı.',
+    safetyUnavailable: 'Risk kontrolü hazırlık durumu doğrulanamadı.',
     paperLedgerNew: 'Yeni Coin Avcısı',
     paperLedgerMomentum: 'Momentum Avcısı',
     next: 'Sonraki geliştirme',
@@ -198,6 +206,14 @@ const CONTENT = {
     paperNotRunning: 'Not running',
     paperUnlinked: 'No live quote feed is connected. Both strategy ledgers only run with local offline fixture files; this panel does not show verified performance.',
     paperNotAvailable: 'Could not verify offline replay status.',
+    safetyTitle: 'Paper Replay Safety Controls (V10)',
+    safetyOffline: 'Offline safeguards available; automated trading is not running.',
+    safetyNotRunning: 'Archive and risk module are not running on the server.',
+    safetyJournal: 'Independent SQLite quote archives for both strategies: manual local use only.',
+    safetyGuard: 'Data freshness, low liquidity, daily modeled loss and repeated failure limits.',
+    safetyLimits: 'Emergency stop available in the offline replay.',
+    safetyDisclaimer: 'These do not prove market safety or profitability and have not been validated against real market risk data.',
+    safetyUnavailable: 'Could not verify risk control readiness.',
     paperLedgerNew: 'New Launch Hunter',
     paperLedgerMomentum: 'Momentum Hunter',
     next: 'Next development',
@@ -337,6 +353,14 @@ const CONTENT = {
     paperNotRunning: '未运行',
     paperUnlinked: '尚未连接真实报价。两个策略账本只处理本地离线数据，不展示未经验证的收益。',
     paperNotAvailable: '无法确认离线回放状态。',
+    safetyTitle: '模拟交易风险控制（V10）',
+    safetyOffline: '离线保护模块已准备，自动交易没有运行。',
+    safetyNotRunning: '服务器未运行档案或风险模块。',
+    safetyJournal: '两个独立策略的 SQLite 本地报价档案，仅手动使用。',
+    safetyGuard: '数据时效、流动性、每日模拟损失和连续失败限制。',
+    safetyLimits: '离线模拟支持紧急停止。',
+    safetyDisclaimer: '不代表真实市场安全或盈利，尚未验证实时市场风险数据。',
+    safetyUnavailable: '无法确认风险控制就绪状态。',
     paperLedgerNew: '新币发现',
     paperLedgerMomentum: '动量发现',
     next: '下一阶段',
@@ -475,6 +499,8 @@ export default function MemeCoinPage() {
   const [overview, setOverview] = useState<MemeCoinOverview | null>(null);
   const [paperStatus, setPaperStatus] = useState<MemeCoinPaperReplayStatus | null>(null);
   const [paperStatusError, setPaperStatusError] = useState(false);
+  const [riskReadiness, setRiskReadiness] = useState<MemeCoinOfflineRiskReadiness | null>(null);
+  const [riskReadinessError, setRiskReadinessError] = useState(false);
   const [selected, setSelected] = useState<MemeCoinStrategyId>('new_launch');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -518,9 +544,10 @@ export default function MemeCoinPage() {
     setLoading(true);
     setError(false);
     try {
-      const [overviewResult, paperResult] = await Promise.allSettled([
+      const [overviewResult, paperResult, riskResult] = await Promise.allSettled([
         memeCoinApi.getOverview(),
         memeCoinApi.getPaperReplayStatus(),
+        memeCoinApi.getPaperRiskReadiness(),
       ]);
       if (seq === requestSeq.current) {
         if (overviewResult.status === 'fulfilled') {
@@ -536,13 +563,22 @@ export default function MemeCoinPage() {
           setPaperStatus(null);
           setPaperStatusError(true);
         }
+        if (riskResult.status === 'fulfilled') {
+          setRiskReadiness(riskResult.value);
+          setRiskReadinessError(false);
+        } else {
+          setRiskReadiness(null);
+          setRiskReadinessError(true);
+        }
       }
     } catch {
       if (seq === requestSeq.current) {
         setOverview(null);
         setPaperStatus(null);
+        setRiskReadiness(null);
         setError(true);
         setPaperStatusError(true);
+        setRiskReadinessError(true);
       }
     } finally {
       if (seq === requestSeq.current) setLoading(false);
@@ -1165,6 +1201,27 @@ export default function MemeCoinPage() {
                   </div>
                 ))}
               </div>
+            </>
+          )}
+        </Card>
+
+        <Card title={copy.safetyTitle} className="space-y-3">
+          {riskReadinessError && <p role="alert" className="text-sm text-danger">{copy.safetyUnavailable}</p>}
+          {riskReadiness && (
+            <>
+              <p className="text-sm font-medium text-warning">{copy.safetyOffline}</p>
+              <p className="text-xs text-secondary-text">{copy.safetyJournal}</p>
+              <p className="text-xs text-secondary-text">{copy.safetyGuard}</p>
+              <p className="text-xs text-secondary-text">{copy.safetyLimits}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {riskReadiness.strategyLedgers.map((item) => (
+                  <div className="rounded-lg border border-border/50 p-3" key={item.strategy}>
+                    <p className="font-semibold">{item.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
+                    <p className="text-xs text-secondary-text">{copy.safetyNotRunning}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-warning">{copy.safetyDisclaimer}</p>
             </>
           )}
         </Card>
