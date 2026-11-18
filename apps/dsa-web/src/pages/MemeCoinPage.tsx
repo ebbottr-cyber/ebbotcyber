@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -117,6 +117,25 @@ const CONTENT = {
     orcaVaultA: 'Kasa A (ham birim)',
     orcaVaultB: 'Kasa B (ham birim)',
     orcaNotes: 'Yalnızca Orca Whirlpool ve klasik SPL token kasaları desteklenir. Ham bakiyeler, yürütülebilir alım/satım miktarı değildir.',
+    jupTitle: 'Jupiter V2 — Gerçek fiyat teklifi önizlemesi',
+    jupDescription: 'Cüzdan bağlamadan yalnızca teklif alınır. Bu teklif işlem, garanti edilmiş fiyat veya güvenlik onayı değildir.',
+    jupBuy: 'Alım (USDC)',
+    jupSell: 'Satım (ham token)',
+    jupSellRaw: 'Satılacak token miktarı (en küçük ham birim)',
+    jupPreview: 'Fiyat teklifini sorgula',
+    jupLoading: 'Teklif alınıyor...',
+    jupDisabled: 'Jupiter bağlantısı kapalı. MEME_COIN_JUPITER_QUOTES_ENABLED=true ile açılır.',
+    jupUnavailable: 'Jupiter fiyat teklifi alınamadı veya yanıt doğrulanamadı.',
+    jupCooldown: 'API hız sınırı: kısa bir aradan sonra yeniden dene.',
+    jupInvalidInput: 'Satım için pozitif tam sayı olarak ham token miktarı gir.',
+    jupOutput: 'Beklenen çıktı (ham birimler)',
+    jupInput: 'Giriş (ham birimler)',
+    jupRouter: 'Rota',
+    jupFee: 'Jupiter platform ücreti (bps)',
+    jupCaptured: 'Teklif kayıt zamanı (UTC)',
+    jupCopy: 'JSON kaydını kopyalayarak daha sonra çevrimdışı testte kullanabilirsin.',
+    jupRaw: 'Teklifin JSON kaydı',
+    jupNoExecution: 'Cüzdan yok, işlem yapılmadı. Ağ ücretleri bu teklifte hesaplanmıyor. Satılabilirlik garanti değil.',
     impactTitle: 'Varsayımsal havuz maliyet modeli',
     impactWarning: '50/50 sabit çarpım AMM varsayımıdır; gerçek DEX teklifi, gerçek kayma veya gerçekleşecek fiyat değildir.',
     impactPct: 'Model fiyat etkisi',
@@ -237,6 +256,25 @@ const CONTENT = {
     orcaVaultA: 'Vault A (raw units)',
     orcaVaultB: 'Vault B (raw units)',
     orcaNotes: 'Only Orca Whirlpool + classic SPL token vaults are supported. Raw vault balances are NOT executable buy/sell liquidity.',
+    jupTitle: 'Jupiter V2 — Live quote preview',
+    jupDescription: 'Walletless quote only. It does not prove execution, guaranteed price or token safety.',
+    jupBuy: 'Buy (USDC)',
+    jupSell: 'Sell (raw token)',
+    jupSellRaw: 'Sell amount (smallest raw token units)',
+    jupPreview: 'Request quote preview',
+    jupLoading: 'Loading quote...',
+    jupDisabled: 'Jupiter preview disabled. Set MEME_COIN_JUPITER_QUOTES_ENABLED=true.',
+    jupUnavailable: 'Jupiter quote unavailable or failed validation.',
+    jupCooldown: 'Rate limited: retry after a short cooldown.',
+    jupInvalidInput: 'Enter a positive integer amount in raw token base units.',
+    jupOutput: 'Expected output (raw units)',
+    jupInput: 'Input (raw units)',
+    jupRouter: 'Router',
+    jupFee: 'Jupiter platform fee (bps)',
+    jupCaptured: 'Captured at (UTC)',
+    jupCopy: 'Copy the JSON snapshot for future local offline replay.',
+    jupRaw: 'Quote JSON snapshot',
+    jupNoExecution: 'No wallet or transaction. Network fees are not in this quote. Sellability and actual fills are not guaranteed.',
     impactTitle: 'Hypothetical pool cost model',
     impactWarning: 'Assumes 50/50 constant-product AMM; NOT an executable quote, actual slippage or real fill price.',
     impactPct: 'Modeled price impact',
@@ -357,6 +395,25 @@ const CONTENT = {
     orcaVaultA: '资金库 A（原始单位）',
     orcaVaultB: '资金库 B（原始单位）',
     orcaNotes: '仅支持 Orca Whirlpool 和经典 SPL Token。账户余额不代表可成交交易深度。',
+    jupTitle: 'Jupiter V2 — 实时报价预览',
+    jupDescription: '无需钱包，仅获取报价；不代表成交、安全或保证价格。',
+    jupBuy: '买入 (USDC)',
+    jupSell: '卖出 (原始单位)',
+    jupSellRaw: '卖出代币的最小原始单位',
+    jupPreview: '获取报价',
+    jupLoading: '获取报价中...',
+    jupDisabled: 'Jupiter 报价关闭。设置 MEME_COIN_JUPITER_QUOTES_ENABLED=true。',
+    jupUnavailable: '无法获取或核验 Jupiter 报价。',
+    jupCooldown: '请求限速，请稍后重试。',
+    jupInvalidInput: '请输入正整数的代币原始单位。',
+    jupOutput: '预计输出（原始单位）',
+    jupInput: '输入（原始单位）',
+    jupRouter: '路由',
+    jupFee: 'Jupiter 平台费用 (bps)',
+    jupCaptured: '报价记录时间 (UTC)',
+    jupCopy: '可复制 JSON 快照用于离线回放。',
+    jupRaw: '报价 JSON 快照',
+    jupNoExecution: '无钱包和交易；报价未包含网络费用，也不保证可卖出或成交。',
     impactTitle: '假设的资金池成本模型',
     impactWarning: '采用 50/50 恒定乘积模型，不是真实 DEX 报价、真实滑点或成交价格。',
     impactPct: '模型价格影响',
@@ -414,6 +471,13 @@ export default function MemeCoinPage() {
   const [orcaReview, setOrcaReview] = useState<SolanaOrcaVaultReview | null>(null);
   const [orcaLoading, setOrcaLoading] = useState(false);
   const [orcaError, setOrcaError] = useState(false);
+  const [quoteSide, setQuoteSide] = useState<'buy' | 'sell'>('buy');
+  const [sellRawAmount, setSellRawAmount] = useState('1000000');
+  const [quotePreview, setQuotePreview] = useState<SolanaJupiterQuotePreview | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState(false);
+  const [quoteInputError, setQuoteInputError] = useState(false);
+  const quoteRequestSeq = useRef(0);
   const orcaRequestSeq = useRef(0);
   const researchRequestSeq = useRef(0);
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodRpcStatus | null>(null);
@@ -472,7 +536,12 @@ export default function MemeCoinPage() {
     setScanResult(null);
     researchRequestSeq.current += 1;
     orcaRequestSeq.current += 1;
+    quoteRequestSeq.current += 1;
     setOrcaReview(null);
+    setQuotePreview(null);
+    setQuoteLoading(false);
+    setQuoteError(false);
+    setQuoteInputError(false);
     setOrcaError(false);
     setOrcaLoading(false);
     setResearchTarget(null);
@@ -501,7 +570,12 @@ export default function MemeCoinPage() {
     const seq = ++researchRequestSeq.current;
     setResearchTarget({ mint, symbol, pool });
     orcaRequestSeq.current += 1;
+    quoteRequestSeq.current += 1;
     setOrcaReview(null);
+    setQuotePreview(null);
+    setQuoteLoading(false);
+    setQuoteError(false);
+    setQuoteInputError(false);
     setOrcaLoading(false);
     setOrcaError(false);
     setMintResearch(null);
@@ -554,6 +628,10 @@ export default function MemeCoinPage() {
   const inspectOrcaVaults = useCallback(async (mint: string, pool: string) => {
     const seq = ++orcaRequestSeq.current;
     setOrcaReview(null);
+    setQuotePreview(null);
+    setQuoteLoading(false);
+    setQuoteError(false);
+    setQuoteInputError(false);
     setOrcaError(false);
     setOrcaLoading(true);
     try {
@@ -565,6 +643,33 @@ export default function MemeCoinPage() {
       if (seq === orcaRequestSeq.current) setOrcaLoading(false);
     }
   }, []);
+
+  const inspectJupiterQuote = useCallback(async () => {
+    const strategy = selected;
+    if (strategy === 'robinhood_chain' || !researchTarget) return;
+    const rawAmount = quoteSide === 'buy' ? researchAmount * 1_000_000 : Number(sellRawAmount);
+    if (!Number.isSafeInteger(rawAmount) || rawAmount < 1 || rawAmount > 1_000_000_000_000_000
+        || (quoteSide === 'sell' && !/^[0-9]+$/.test(sellRawAmount))) {
+      setQuoteInputError(true);
+      setQuotePreview(null);
+      return;
+    }
+    setQuoteInputError(false);
+    setQuoteError(false);
+    setQuotePreview(null);
+    setQuoteLoading(true);
+    const seq = ++quoteRequestSeq.current;
+    try {
+      const result = await memeCoinApi.getSolanaQuotePreview(
+        strategy, researchTarget.mint, quoteSide, rawAmount,
+      );
+      if (seq === quoteRequestSeq.current) setQuotePreview(result);
+    } catch {
+      if (seq === quoteRequestSeq.current) setQuoteError(true);
+    } finally {
+      if (seq === quoteRequestSeq.current) setQuoteLoading(false);
+    }
+  }, [quoteSide, researchAmount, researchTarget, selected, sellRawAmount]);
 
   const checkRobinhood = useCallback(async () => {
     const seq = ++robinhoodRequestSeq.current;
@@ -589,6 +694,7 @@ export default function MemeCoinPage() {
     robinhoodRequestSeq.current += 1;
     researchRequestSeq.current += 1;
     orcaRequestSeq.current += 1;
+    quoteRequestSeq.current += 1;
   }, []);
 
   const current = overview?.strategies.find((item) => item.id === selected) ?? overview?.strategies[0];
@@ -639,7 +745,12 @@ export default function MemeCoinPage() {
                     robinhoodRequestSeq.current += 1;
                     researchRequestSeq.current += 1;
                     orcaRequestSeq.current += 1;
+                    quoteRequestSeq.current += 1;
                     setOrcaReview(null);
+                    setQuotePreview(null);
+                    setQuoteLoading(false);
+                    setQuoteError(false);
+                    setQuoteInputError(false);
                     setOrcaError(false);
                     setOrcaLoading(false);
                     setResearchTarget(null);
@@ -743,7 +854,12 @@ export default function MemeCoinPage() {
                 onChange={(event) => {
                   researchRequestSeq.current += 1;
                   orcaRequestSeq.current += 1;
+                  quoteRequestSeq.current += 1;
                   setOrcaReview(null);
+                  setQuotePreview(null);
+                  setQuoteLoading(false);
+                  setQuoteError(false);
+                  setQuoteInputError(false);
                   setOrcaLoading(false);
                   setOrcaError(false);
                   setResearchAmount(Number(event.target.value));
@@ -915,6 +1031,65 @@ export default function MemeCoinPage() {
                       </div>
                       {orcaReview.warnings.length > 0 && <p className="text-xs text-danger">{orcaReview.warnings.join(', ')}</p>}
                     </>
+                  )}
+                </div>
+                <div className="space-y-3 rounded-xl bg-elevated/60 p-3">
+                  <h5 className="font-semibold">{copy.jupTitle}</h5>
+                  <p className="text-xs text-secondary-text">{copy.jupDescription}</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label htmlFor="jupiter-quote-side" className="text-xs">{copy.jupTitle}</label>
+                    <select id="jupiter-quote-side" className="rounded-lg border border-border bg-card px-2 py-1.5 text-sm"
+                      value={quoteSide}
+                      onChange={(e) => {
+                        quoteRequestSeq.current += 1;
+                        setQuoteSide(e.target.value as 'buy' | 'sell');
+                        setQuotePreview(null);
+                        setQuoteError(false);
+                        setQuoteInputError(false);
+                        setQuoteLoading(false);
+                      }}>
+                      <option value="buy">{copy.jupBuy}</option>
+                      <option value="sell">{copy.jupSell}</option>
+                    </select>
+                    {quoteSide === 'sell' ? (
+                      <label className="text-xs">{copy.jupSellRaw}
+                        <input type="text" inputMode="numeric" className="ml-2 rounded-lg border border-border bg-card px-2 py-1.5 text-sm"
+                          value={sellRawAmount}
+                          onChange={(e) => {
+                            quoteRequestSeq.current += 1;
+                            setSellRawAmount(e.target.value);
+                            setQuotePreview(null);
+                            setQuoteLoading(false);
+                            setQuoteError(false);
+                            setQuoteInputError(false);
+                          }}/>
+                      </label>
+                    ) : <span className="text-xs text-secondary-text">{researchAmount} USDC</span>}
+                    <button type="button" className="btn-secondary" disabled={quoteLoading} onClick={() => void inspectJupiterQuote()}>
+                      {quoteLoading ? copy.jupLoading : copy.jupPreview}
+                    </button>
+                  </div>
+                  {quoteInputError && <p role="alert" className="text-sm text-danger">{copy.jupInvalidInput}</p>}
+                  {quoteError && <p role="alert" className="text-sm text-danger">{copy.jupUnavailable}</p>}
+                  {quotePreview?.status === 'disabled' && <p className="text-sm text-warning">{copy.jupDisabled}</p>}
+                  {quotePreview?.status === 'unavailable' && <p role="alert" className="text-sm text-danger">{copy.jupUnavailable}</p>}
+                  {quotePreview?.status === 'rate_limited' && <p className="text-sm text-warning">{copy.jupCooldown}</p>}
+                  {quotePreview?.status === 'ok' && quotePreview.quote && (
+                    <div className="space-y-2">
+                      <div className="grid gap-2 text-sm sm:grid-cols-2">
+                        <p className="break-all">{copy.jupInput}: {quotePreview.quote.amountInRaw}</p>
+                        <p className="break-all">{copy.jupOutput}: {quotePreview.quote.amountOutRaw}</p>
+                        <p>{copy.jupRouter}: {quotePreview.quote.router}</p>
+                        <p>{copy.jupFee}: {quotePreview.quote.feeBps}</p>
+                      </div>
+                      <p className="text-xs text-secondary-text">{copy.jupCaptured}: {quotePreview.quote.capturedAt}</p>
+                      <p className="text-xs text-warning">{copy.jupNoExecution}</p>
+                      <details>
+                        <summary className="cursor-pointer text-xs font-semibold">{copy.jupRaw}</summary>
+                        <p className="my-2 text-xs text-secondary-text">{copy.jupCopy}</p>
+                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card p-2 text-xs">{JSON.stringify(quotePreview.quote, null, 2)}</pre>
+                      </details>
+                    </div>
                   )}
                 </div>
                 <p className="text-xs text-warning">{copy.unknownSafety}</p>
