@@ -36,3 +36,7 @@ Normal mod JSON raporu üretir, teknik/manuel engelleri açıkça belirtir. Stri
 5. Paralel Meme Coin dalını yeniden karşılaştırma; yazma/emir endpointleri için bağımsız onay.
 
 Bu audit hiçbir zaman live trade, deploy veya GitHub PR merge işlemi başlatmaz.
+
+## Devre dışı günlük analiz testlerinin göçü
+
+Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.disabled` içeriğindeki eski veri sağlayıcısı, model, bildirim ve SearXNG yapılandırmalarını okur. Amaç, eski örnek yapılandırmanın tutarlılığını korumaktır; bu testler **üretimde çalışacak zamanlanmış bir işin varlığını doğrulamaz**. Aktif `.github/workflows/00-daily-analysis.yml` bilinçli olarak oluşturulmadı. `audit_ebbot_release.py` eski workflow'un yanlışlıkla yeniden etkinleştirilmesini ayrıca engeller. Eksik `.env.example` ve eski `ci.yml` testleri çözülmediği sürece tam regresyon yayına izin vermez.
