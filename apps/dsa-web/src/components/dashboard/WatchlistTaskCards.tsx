@@ -62,6 +62,7 @@ export type TaskFeedProps = {
   onOpen: () => void;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- Pure label helper is used in unit tests.
 export function taskStatus(status: TaskInfo['status']): { label: string; style: string } {
   switch (status) {
     case 'processing': return { label: 'Çalışıyor', style: 'bg-[#e7f2ff] text-[#246fc2]' };

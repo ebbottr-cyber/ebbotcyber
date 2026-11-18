@@ -100,22 +100,15 @@ const DashboardOverviewPage: React.FC = () => {
   const [marketItems, setMarketItems] = useState<TrMarketItem[]>([]);
   const [marketLoadFailed, setMarketLoadFailed] = useState(false);
   const [selectedCode, setSelectedCode] = useState('');
-  const [news, setNews] = useState<Array<{ title: string; snippet: string; url: string }>>([]);
-  const [newsUnavailable, setNewsUnavailable] = useState(false);
+  const [newsState, setNewsState] = useState<{
+    key: string;
+    items: Array<{ title: string; snippet: string; url: string }>;
+    unavailable: boolean;
+  } | null>(null);
 
   useEffect(() => {
     document.title = 'EBBot | Piyasa Özeti';
     let active = true;
-    setLoading(true);
-    setFailed([]);
-    // Do not present stale portfolio, history or task values as current after refresh.
-    setHistory([]);
-    setPortfolio(null);
-    setRisk(null);
-    setAlerts([]);
-    setTasks([]);
-    setMarketItems([]);
-    setMarketLoadFailed(false);
     async function load() {
       const [historyResult, portfolioResult, riskResult, alertsResult, tasksResult, reviewResult] = await Promise.allSettled([
         historyApi.getList({ limit: 60 }),
@@ -155,17 +148,23 @@ const DashboardOverviewPage: React.FC = () => {
   const currentCode = selectedCode || history[0]?.stockCode || '';
   const matching = useMemo(() => history.filter((item) => item.stockCode === currentCode), [history, currentCode]);
   const latest = matching[0] ?? null;
+  // A report or refresh change must never reuse stale news from a prior snapshot.
+  const newsKey = JSON.stringify([refreshNumber, latest?.id ?? null]);
+  const news = newsState?.key === newsKey ? newsState.items : [];
+  const newsUnavailable = newsState?.key === newsKey ? newsState.unavailable : false;
 
   useEffect(() => {
     let active = true;
-    setNews([]);
-    setNewsUnavailable(false);
     if (!latest?.id) return () => { active = false; };
     historyApi.getNews(latest.id, 4)
-      .then((response) => { if (active) setNews(response.items); })
-      .catch(() => { if (active) setNewsUnavailable(true); });
+      .then((response) => {
+        if (active) setNewsState({ key: newsKey, items: response.items, unavailable: false });
+      })
+      .catch(() => {
+        if (active) setNewsState({ key: newsKey, items: [], unavailable: true });
+      });
     return () => { active = false; };
-  }, [latest?.id]);
+  }, [latest?.id, newsKey]);
 
   const uniqueStocks = useMemo(() =>
     Array.from(new Map(history.map((item) => [item.stockCode, item])).values()).slice(0, 7),
@@ -174,6 +173,21 @@ const DashboardOverviewPage: React.FC = () => {
 
   const openAnalysis = (stockCode?: string) =>
     navigate('/', { state: stockCode ? { stockCode, autoAnalyze: false } : undefined });
+
+  const refreshDashboard = () => {
+    // Clear potentially stale financial data synchronously in the user's event handler.
+    setLoading(true);
+    setFailed([]);
+    setHistory([]);
+    setPortfolio(null);
+    setRisk(null);
+    setAlerts([]);
+    setTasks([]);
+    setMarketItems([]);
+    setMarketLoadFailed(false);
+    setRefreshNumber((n) => n + 1);
+    void watchlist.refresh();
+  };
 
   return (
     <div data-testid="ebbot-white-overview" className="min-h-[calc(100vh-3rem)] rounded-[24px] bg-[#f5f8fe] px-3 pb-20 pt-4 text-[#233758] sm:px-5 sm:pb-8 sm:pt-6 xl:px-7">
@@ -185,7 +199,7 @@ const DashboardOverviewPage: React.FC = () => {
             <p className="mt-1 text-xs text-[#778da8]">Gerçek veri kaynakları • Eksik veriler tahmin edilmez</p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" disabled={loading} onClick={() => { setRefreshNumber((n) => n + 1); void watchlist.refresh(); }} className="flex h-10 items-center gap-2 rounded-xl border border-[#d6e2f2] bg-white px-3 text-xs font-semibold text-[#255187] hover:bg-[#f2f7ff] disabled:opacity-50">
+            <button type="button" disabled={loading} onClick={refreshDashboard} className="flex h-10 items-center gap-2 rounded-xl border border-[#d6e2f2] bg-white px-3 text-xs font-semibold text-[#255187] hover:bg-[#f2f7ff] disabled:opacity-50">
               <RefreshCcw className="h-4 w-4" /> {loading ? 'Yükleniyor' : 'Yenile'}
             </button>
             <button type="button" onClick={() => openAnalysis()} className="flex h-10 items-center gap-2 rounded-xl bg-[#2676da] px-3 text-xs font-semibold text-white hover:bg-[#135fc3]">

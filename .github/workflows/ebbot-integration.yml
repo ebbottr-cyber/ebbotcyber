@@ -42,6 +42,8 @@ jobs:
           cache: npm
           cache-dependency-path: apps/dsa-web/package-lock.json
       - run: npm ci
+      - name: Frontend ESLint (matches PR quality gate)
+        run: npm run lint
       - name: Existing PWA safety tests
         run: npm run test:pwa
       - name: Isolated meme strategies frontend tests

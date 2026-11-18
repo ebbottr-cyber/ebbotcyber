@@ -31,6 +31,7 @@ const validCandle = (c: StockHistoryCandle): boolean => (
   c.low <= c.high
 );
 
+// eslint-disable-next-line react-refresh/only-export-components -- Pure OHLC utility is shared with unit tests.
 export function normalizeCandles(rows: StockHistoryCandle[]): StockHistoryCandle[] {
   // Keep only coherent OHLC bars, then deduplicate by trading date.
   const dates = new Map<string, StockHistoryCandle>();
@@ -132,31 +133,34 @@ function CandlesSvg({ candles, stockCode }: { candles: StockHistoryCandle[]; sto
 
 export function StockCandlestickChart({ stockCode, refreshKey = 0, fallback }: Props) {
   const [days, setDays] = useState<Days>(90);
-  const [candles, setCandles] = useState<StockHistoryCandle[]>([]);
-  const [status, setStatus] = useState<LoadState>('loading');
+  const [loaded, setLoaded] = useState<{
+    key: string;
+    candles: StockHistoryCandle[];
+    status: Exclude<LoadState, 'loading'>;
+  } | null>(null);
+  const requestKey = JSON.stringify([stockCode, days, refreshKey]);
+  // Old data must not appear as the current symbol or current refresh's quote.
+  const candles = loaded?.key === requestKey ? loaded.candles : [];
+  const status: LoadState = loaded?.key === requestKey ? loaded.status : 'loading';
   const scroll = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     if (!stockCode.trim()) return () => controller.abort();
 
-    setStatus('loading');
-    setCandles([]);
     stocksApi.getHistory(stockCode, { days, period: 'daily', signal: controller.signal })
       .then((response) => {
         if (controller.signal.aborted) return;
         const valid = normalizeCandles(response.data ?? []);
-        setCandles(valid);
-        setStatus(valid.length ? 'ready' : 'empty');
+        setLoaded({ key: requestKey, candles: valid, status: valid.length ? 'ready' : 'empty' });
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          setCandles([]);
-          setStatus('error');
+          setLoaded({ key: requestKey, candles: [], status: 'error' });
         }
       });
     return () => controller.abort();
-  }, [stockCode, days, refreshKey]);
+  }, [stockCode, days, refreshKey, requestKey]);
 
   useEffect(() => {
     if (status === 'ready' && scroll.current) {
