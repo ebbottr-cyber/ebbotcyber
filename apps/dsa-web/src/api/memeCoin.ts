@@ -266,7 +266,23 @@ export type MemeCoinOfflineRiskReadiness = {
   }>;
 };
 
+export type MemeCoinMtmReadiness = {
+  status: 'offline_mtm_recovery_available';
+  markSource: 'unverified_offline_assumptions';
+  databaseOnline: false;
+  paperSchedulerRunning: false;
+  liveTradingEnabled: false;
+  strategies: Array<{
+    strategy: SolanaMemeCoinStrategyId;
+    status: 'not_running';
+  }>;
+};
+
 export const memeCoinApi = {
+  async getPaperMtmReadiness(): Promise<MemeCoinMtmReadiness> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/paper/mtm-readiness');
+    return toCamelCase<MemeCoinMtmReadiness>(data);
+  },
   async getPaperRiskReadiness(): Promise<MemeCoinOfflineRiskReadiness> {
     const { data } = await apiClient.get('/api/v1/meme-coins/paper/risk-readiness');
     return toCamelCase<MemeCoinOfflineRiskReadiness>(data);
