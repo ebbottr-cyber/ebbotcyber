@@ -13,9 +13,10 @@ def _series(values, days=None):
 
 
 def _compare(a, b, **kwargs):
+    kwargs.setdefault("min_aligned_sessions", 3)
     return compare_adjusted_close_sources(
         a, b, asset_code="510300", left_source="EfinanceFetcher",
-        right_source="BaostockFetcher", min_aligned_sessions=3, **kwargs
+        right_source="BaostockFetcher", **kwargs
     )
 
 
