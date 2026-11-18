@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { useUiLanguage, UiLanguageProvider } from '../../../contexts/UiLanguageContext';
@@ -12,6 +12,12 @@ vi.mock('../../../api/systemConfig', () => ({
     testNotificationChannel,
   },
 }));
+
+// Existing behavioral assertions deliberately exercise the original Chinese strings.
+const renderChinese = (ui: ReactNode) => {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return rtlRender(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+};
 
 describe('NotificationTestPanel', () => {
   beforeEach(() => {
@@ -40,7 +46,7 @@ describe('NotificationTestPanel', () => {
   });
 
   it('submits draft notification items and renders attempt details', async () => {
-    render(
+    renderChinese(
       <NotificationTestPanel
         items={[{ key: 'CUSTOM_WEBHOOK_URLS', value: 'https://example.com/hook?token=secret' }]}
         maskToken="******"
@@ -64,6 +70,18 @@ describe('NotificationTestPanel', () => {
     expect(screen.getByText('https://example.com/hook?token=***')).toBeInTheDocument();
   });
 
+  it('uses readable channel names in Turkish rather than the Chinese fallback', () => {
+    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    rtlRender(
+      <UiLanguageProvider>
+        <NotificationTestPanel items={[]} maskToken="******" />
+      </UiLanguageProvider>,
+    );
+    expect(screen.getByRole('option', { name: 'DingTalk' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Email' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '钉钉' })).not.toBeInTheDocument();
+  });
+
   it('uses translated defaults when UI language changes and user has not edited fields', async () => {
     localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
 
@@ -79,7 +97,7 @@ describe('NotificationTestPanel', () => {
       );
     };
 
-    render(
+    rtlRender(
       <UiLanguageProvider>
         <SwitchHarness>
           <NotificationTestPanel
@@ -126,7 +144,7 @@ describe('NotificationTestPanel', () => {
       );
     };
 
-    render(
+    rtlRender(
       <UiLanguageProvider>
         <SwitchHarness>
           <NotificationTestPanel
@@ -182,7 +200,7 @@ describe('NotificationTestPanel', () => {
       ],
     });
 
-    render(
+    renderChinese(
       <NotificationTestPanel
         items={[{ key: 'CUSTOM_WEBHOOK_URLS', value: 'https://example.com/hook?token=secret' }]}
         maskToken="******"
@@ -223,7 +241,7 @@ describe('NotificationTestPanel', () => {
       ],
     });
 
-    render(
+    renderChinese(
       <NotificationTestPanel
         items={[{ key: 'WECHAT_WEBHOOK_URL', value: 'https://qyapi.example.com/cgi-bin/webhook/send?key=secret' }]}
         maskToken="******"
