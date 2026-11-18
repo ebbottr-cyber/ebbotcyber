@@ -560,7 +560,7 @@ function renderDesktopUpdateEntries(lateMount = false) {
       { path: '/settings', element: <SettingsPage /> },
     ],
   }], { initialEntries: [lateMount ? '/header' : '/settings'] });
-  return { ...render(<RouterProvider router={router} />), router };
+  return { ...render(<UiLanguageProvider><RouterProvider router={router} /></UiLanguageProvider>), router };
 }
 
 function hangDesktopUpdateCheck() {
