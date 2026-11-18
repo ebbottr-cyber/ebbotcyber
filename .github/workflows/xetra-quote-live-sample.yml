@@ -6,6 +6,11 @@ on:
       - feat/xetra-quote-guard-v1
     paths:
       - '.github/workflows/xetra-quote-live-sample.yml'
+  pull_request:
+    branches:
+      - feat/four-market-equity-audit-v1
+    paths:
+      - '.github/workflows/xetra-quote-live-sample.yml'
   workflow_dispatch:
 
 permissions:
