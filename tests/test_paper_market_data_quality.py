@@ -60,6 +60,8 @@ class QuoteQualityTests(unittest.TestCase):
                           s["invalid_price_pairs"]), (2, 1, 1))
         self.assertEqual(s["verified_trade_event_times"], 0)
         self.assertEqual(s["executable_prices"], 0)
+        self.assertEqual(s["invalid_price_symbols"], ["ETHUSDT"])
+        self.assertEqual(s["missing_price_symbols"], [])
         self.assertFalse(s["paper_ready"])
 
     def test_spot_provider_drift_and_missing_ticker_visible(self):
@@ -67,6 +69,8 @@ class QuoteQualityTests(unittest.TestCase):
             {"symbol": "BTCUSDT", "lastPrice": "1.01"}
         ]), {"BTC", "USDT", "OLD"})
         self.assertEqual(ex["missing_pairs"], 1)
+        self.assertEqual(ex["missing_price_symbols"], ["ETHUSDT"])
+        self.assertEqual(ex["invalid_price_symbols"], [])
         self.assertEqual(ex["saved_assets_not_current"], 1)
         self.assertEqual(ex["current_assets_not_saved"], 1)
 

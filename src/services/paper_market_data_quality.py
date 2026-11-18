@@ -88,21 +88,28 @@ def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
                 raise ValueError("invalid_spot_assets")
             expected.add(symbol)
             current_assets.update((base, quote))
-    positive = invalid = 0
-    for symbol in expected:
+    positive = 0
+    invalid_symbols: list[str] = []
+    missing_symbols: list[str] = []
+    for symbol in sorted(expected):
         row = prices.get(symbol)
-        if row is not None:
-            if _positive(row.get("lastPrice")):
-                positive += 1
-            else:
-                invalid += 1
+        if row is None:
+            missing_symbols.append(symbol)
+        elif _positive(row.get("lastPrice")):
+            positive += 1
+        else:
+            # Source symbol only, no raw provider payload or wallet details.
+            # Keep all failures, never silently remove pairs to hit 100%.
+            invalid_symbols.append(symbol)
     return {
         "price_kind": "spot_24h_last_price_indicative",
         "timestamp_kind": "rolling_window_end_not_last_trade",
         "expected_active_pairs": len(expected),
         "positive_price_pairs": positive,
-        "missing_pairs": len(expected) - positive - invalid,
-        "invalid_price_pairs": invalid,
+        "missing_pairs": len(missing_symbols),
+        "missing_price_symbols": missing_symbols,
+        "invalid_price_pairs": len(invalid_symbols),
+        "invalid_price_symbols": invalid_symbols,
         "saved_active_assets": len(assets),
         "current_active_assets": len(current_assets),
         "saved_assets_not_current": len(assets - current_assets),
