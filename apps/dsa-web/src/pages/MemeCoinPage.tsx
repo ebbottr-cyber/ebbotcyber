@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -8,7 +8,7 @@ import type { UiLanguage } from '../i18n/uiText';
 const CONTENT = {
   tr: {
     title: 'Meme Coin Stratejileri',
-    intro: 'Solana için bağımsız iki strateji. Bu panelin ilk sürümü yalnızca hazırlık ve bağlantı durumunu gösterir.',
+    intro: 'Solana için iki bağımsız strateji ve Robinhood Chain için ayrı EVM modülü. Gerçek işlem yapılmaz.',
     refresh: 'Durumu yenile',
     unavailable: 'Strateji durumuna ulaşılamadı. Canlı veri veya işlem varmış gibi gösterilmiyor.',
     notConnected: 'Bağlı değil',
@@ -47,10 +47,23 @@ const CONTENT = {
     scanTrades: 'Alış / Satış',
     scanUnverified: 'Güvenlik doğrulanmadı',
     scanTimestamp: 'Veri zamanı',
+    robinhood: 'Robinhood Chain AI',
+    robinhoodInfo: 'OpenCatz mimarisinden yararlanan, Solana sisteminden bağımsız EVM analiz modülü. DEX taraması ve ajanlar henüz bağlı değil.',
+    robinhoodRpc: 'Robinhood Chain ağ durumu (yalnızca okuma)',
+    robinhoodProbe: 'RPC bağlantısını kontrol et',
+    robinhoodChecking: 'Kontrol ediliyor...',
+    robinhoodDisabled: 'RPC kontrolü kapalı. MEME_COIN_ROBINHOOD_RPC_ENABLED=true ile açılabilir.',
+    robinhoodUnavailable: 'Robinhood Chain RPC durumuna ulaşılamadı.',
+    robinhoodMismatch: 'Ağ kimliği uyuşmuyor. Bu ağ güvenilir değil.',
+    robinhoodHealthy: 'Ağ kimliği doğrulandı; bu sonuç token güvenliğini kanıtlamaz.',
+    robinhoodNetwork: 'Ağ',
+    robinhoodChainId: 'Chain ID',
+    robinhoodBlock: 'Son blok',
+    robinhoodWarning: 'OpenCatz, DEX taraması ve gerçek alım satım bağlı değil. Bu yalnızca RPC sağlık kontrolüdür.',
   },
   en: {
     title: 'Meme Coin Strategies',
-    intro: 'Two isolated strategies for Solana. V1 shows preparation and connectivity only.',
+    intro: 'Two independent Solana strategies plus a separate Robinhood Chain EVM module. Live trading is disabled.',
     refresh: 'Refresh status',
     unavailable: 'Strategy status is unavailable. Live data and trades are not fabricated.',
     notConnected: 'Not connected',
@@ -89,10 +102,23 @@ const CONTENT = {
     scanTrades: 'Buys / sells',
     scanUnverified: 'Risk unverified',
     scanTimestamp: 'Snapshot at',
+    robinhood: 'Robinhood Chain AI',
+    robinhoodInfo: 'Independent EVM analysis module inspired by OpenCatz architecture. DEX scans and AI agents are not connected yet.',
+    robinhoodRpc: 'Robinhood Chain network status (read-only)',
+    robinhoodProbe: 'Check RPC connectivity',
+    robinhoodChecking: 'Checking...',
+    robinhoodDisabled: 'RPC probe is disabled. Set MEME_COIN_ROBINHOOD_RPC_ENABLED=true to opt in.',
+    robinhoodUnavailable: 'Robinhood Chain RPC status is unavailable.',
+    robinhoodMismatch: 'Chain ID mismatch. The endpoint cannot be trusted.',
+    robinhoodHealthy: 'Network chain ID verified; this does not verify token safety.',
+    robinhoodNetwork: 'Network',
+    robinhoodChainId: 'Chain ID',
+    robinhoodBlock: 'Latest block',
+    robinhoodWarning: 'OpenCatz, DEX scanning and live trading are not connected. This is only an RPC health check.',
   },
   zh: {
     title: 'Meme Coin 策略',
-    intro: '两个独立的 Solana 策略。V1 仅展示准备和连接状态。',
+    intro: 'Solana 双策略和独立的 Robinhood Chain EVM 模块。实盘交易关闭。',
     refresh: '刷新状态',
     unavailable: '无法获取策略状态。不展示虚构的实时数据或交易。',
     notConnected: '未连接',
@@ -131,12 +157,26 @@ const CONTENT = {
     scanTrades: '买入 / 卖出',
     scanUnverified: '风险未验证',
     scanTimestamp: '快照时间',
+    robinhood: 'Robinhood Chain AI',
+    robinhoodInfo: '独立的 EVM 分析模块，借鉴 OpenCatz 架构；DEX 扫描和智能代理尚未连接。',
+    robinhoodRpc: 'Robinhood Chain 网络状态（只读）',
+    robinhoodProbe: '检测 RPC 连接',
+    robinhoodChecking: '检测中...',
+    robinhoodDisabled: 'RPC 检测未启用。设置 MEME_COIN_ROBINHOOD_RPC_ENABLED=true 后开启。',
+    robinhoodUnavailable: 'Robinhood Chain RPC 状态不可用。',
+    robinhoodMismatch: '链 ID 不匹配，网络不可信。',
+    robinhoodHealthy: '网络 ID 已验证；不代表代币安全。',
+    robinhoodNetwork: '网络',
+    robinhoodChainId: 'Chain ID',
+    robinhoodBlock: '最新区块',
+    robinhoodWarning: '尚未连接 OpenCatz、DEX 扫描或实盘。这里只检测 RPC 健康状态。',
   },
 } satisfies Record<UiLanguage, Record<string, string>>;
 
 const STRATEGY_DETAILS: Record<MemeCoinStrategyId, { icon: typeof Radar; accent: string }> = {
   new_launch: { icon: Radar, accent: 'text-cyan' },
   momentum: { icon: TrendingUp, accent: 'text-success' },
+  robinhood_chain: { icon: Radar, accent: 'text-purple' },
 };
 
 const RISK_LABELS: Record<string, Record<UiLanguage, string>> = {
@@ -147,6 +187,8 @@ const RISK_LABELS: Record<string, Record<UiLanguage, string>> = {
   volume_quality: { tr: 'Hacim kalitesi', en: 'Volume integrity', zh: '成交量质量' },
   wallet_concentration: { tr: 'Cüzdan yoğunlaşması', en: 'Wallet concentration', zh: '钱包集中度' },
   price_impact: { tr: 'Fiyat etkisi', en: 'Price impact', zh: '价格冲击' },
+  evm_contract_permissions: { tr: 'Akıllı sözleşme yetkileri', en: 'Smart contract permissions', zh: '智能合约权限' },
+  pool_liquidity: { tr: 'Havuz likiditesi', en: 'Pool liquidity', zh: '资金池流动性' },
 };
 
 export default function MemeCoinPage() {
@@ -159,6 +201,10 @@ export default function MemeCoinPage() {
   const [scanResult, setScanResult] = useState<MemeCoinDiscoveryResponse | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [scanError, setScanError] = useState(false);
+  const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodRpcStatus | null>(null);
+  const [robinhoodLoading, setRobinhoodLoading] = useState(false);
+  const [robinhoodError, setRobinhoodError] = useState(false);
+  const robinhoodRequestSeq = useRef(0);
   const scanRequestSeq = useRef(0);
   const requestSeq = useRef(0);
 
@@ -185,6 +231,7 @@ export default function MemeCoinPage() {
   }, [refresh]);
 
   const scanCandidates = useCallback(async () => {
+    if (selected === 'robinhood_chain') return;
     const seq = ++scanRequestSeq.current;
     setScanLoading(true);
     setScanError(false);
@@ -202,17 +249,39 @@ export default function MemeCoinPage() {
     }
   }, [selected]);
 
-  useEffect(() => () => { scanRequestSeq.current += 1; }, []);
+  const checkRobinhood = useCallback(async () => {
+    const seq = ++robinhoodRequestSeq.current;
+    setRobinhoodLoading(true);
+    setRobinhoodError(false);
+    setRobinhoodStatus(null);
+    try {
+      const data = await memeCoinApi.getRobinhoodStatus();
+      if (seq === robinhoodRequestSeq.current) setRobinhoodStatus(data);
+    } catch {
+      if (seq === robinhoodRequestSeq.current) {
+        setRobinhoodStatus(null);
+        setRobinhoodError(true);
+      }
+    } finally {
+      if (seq === robinhoodRequestSeq.current) setRobinhoodLoading(false);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    scanRequestSeq.current += 1;
+    robinhoodRequestSeq.current += 1;
+  }, []);
 
   const current = overview?.strategies.find((item) => item.id === selected) ?? overview?.strategies[0];
   const currentDetails = current ? STRATEGY_DETAILS[current.id] : undefined;
-  const name = (id: MemeCoinStrategyId) => id === 'new_launch' ? copy.newLaunch : copy.momentum;
+  const name = (id: MemeCoinStrategyId) => id === 'new_launch' ? copy.newLaunch : id === 'momentum' ? copy.momentum : copy.robinhood;
+  const description = (id: MemeCoinStrategyId) => id === 'new_launch' ? copy.newLaunchInfo : id === 'momentum' ? copy.momentumInfo : copy.robinhoodInfo;
 
   return (
     <AppPage>
       <div className="space-y-5">
         <PageHeader
-          eyebrow="SOLANA / EBBOT"
+          eyebrow="SOLANA + ROBINHOOD CHAIN / EBBOT"
           title={copy.title}
           description={copy.intro}
           actions={
@@ -237,7 +306,7 @@ export default function MemeCoinPage() {
         </Card></div>}
 
         {!error && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             {overview?.strategies.map((item) => {
               const details = STRATEGY_DETAILS[item.id];
               const Icon = details.icon;
@@ -248,7 +317,11 @@ export default function MemeCoinPage() {
                   aria-pressed={selected === item.id}
                   onClick={() => {
                     scanRequestSeq.current += 1;
+                    robinhoodRequestSeq.current += 1;
                     setSelected(item.id);
+                    setRobinhoodStatus(null);
+                    setRobinhoodError(false);
+                    setRobinhoodLoading(false);
                     setScanResult(null);
                     setScanError(false);
                     setScanLoading(false);
@@ -260,7 +333,7 @@ export default function MemeCoinPage() {
                     <Badge>{copy.notConnected}</Badge>
                   </div>
                   <h2 className="mt-3 text-lg font-semibold text-foreground">{name(item.id)}</h2>
-                  <p className="mt-1 text-sm text-secondary-text">{item.id === 'new_launch' ? copy.newLaunchInfo : copy.momentumInfo}</p>
+                  <p className="mt-1 text-sm text-secondary-text">{description(item.id)}</p>
                   <p className="mt-3 text-xs text-secondary-text">{copy.data}: {item.engineConnected ? copy.ready : copy.pending}</p>
                 </button>
               );
@@ -306,7 +379,7 @@ export default function MemeCoinPage() {
           </Card>
         )}
 
-        {current && !error && (
+        {current && current.market === 'solana' && !error && (
           <Card className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold">{copy.scanResults}</h3>
@@ -349,6 +422,33 @@ export default function MemeCoinPage() {
                     </table>
                   </div>
                 )}
+              </>
+            )}
+          </Card>
+        )}
+
+        {current?.id === 'robinhood_chain' && !error && (
+          <Card className="space-y-4" title={copy.robinhoodRpc}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-secondary-text">{copy.robinhoodWarning}</p>
+              <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={() => void checkRobinhood()} disabled={robinhoodLoading}>
+                <RefreshCw className={`h-4 w-4 ${robinhoodLoading ? 'animate-spin' : ''}`} />
+                {robinhoodLoading ? copy.robinhoodChecking : copy.robinhoodProbe}
+              </button>
+            </div>
+            {robinhoodError && <p role="alert" className="text-sm text-danger">{copy.robinhoodUnavailable}</p>}
+            {robinhoodStatus?.status === 'disabled' && <p className="text-sm text-warning">{copy.robinhoodDisabled}</p>}
+            {robinhoodStatus?.status === 'unavailable' && <p role="alert" className="text-sm text-danger">{copy.robinhoodUnavailable}</p>}
+            {robinhoodStatus?.status === 'mismatch' && <p role="alert" className="text-sm text-danger">{copy.robinhoodMismatch}</p>}
+            {robinhoodStatus?.status === 'ok' && (
+              <>
+                <Badge variant="success">{copy.robinhoodHealthy}</Badge>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div><p className="text-secondary-text">{copy.robinhoodNetwork}</p><p>{robinhoodStatus.network}</p></div>
+                  <div><p className="text-secondary-text">{copy.robinhoodChainId}</p><p>{robinhoodStatus.chainIdSeen}</p></div>
+                  <div><p className="text-secondary-text">{copy.robinhoodBlock}</p><p>{robinhoodStatus.blockNumber?.toLocaleString() ?? '—'}</p></div>
+                </div>
+                <p className="text-xs text-secondary-text">{robinhoodStatus.checkedAt}</p>
               </>
             )}
           </Card>
