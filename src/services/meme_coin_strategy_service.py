@@ -54,6 +54,12 @@ _STRATEGIES = (
         "id": "robinhood_chain",
         "name": "Robinhood Chain Agent Research",
         "market": "robinhood_chain",
+        "agent_modules": [
+            {"id": "dex_scout", "name": "DEX Scout", "status": "not_connected"},
+            {"id": "liquidity_scout", "name": "Liquidity Scout", "status": "not_connected"},
+            {"id": "risk_sentinel", "name": "Risk Sentinel", "status": "not_connected"},
+            {"id": "sentiment_scout", "name": "Sentiment Scout", "status": "not_connected"},
+        ],
         "data_sources": [
             "Robinhood Chain RPC (optional health check)",
             "EVM DEX discovery (planned)",
