@@ -53,6 +53,15 @@ npx vitest run src/pages/__tests__/StrategyLabPage.test.tsx
 npm run build
 ```
 
+## Stacked-branch targeted CI
+
+PR #34 targets the PR #32 feature branch. For that reason, the main-only
+`pr1-verify.yml` workflow does not run automatically here. The base branch
+now also contains `.github/workflows/strategy-lab-targeted.yml`, which
+checks only the related Python unit/integration tests, the new React page
+tests, and TypeScript typecheck. This workflow is **not a substitute** for
+the complete repository CI once rebased to `main`.
+
 ## Known dependencies and limits
 - PR #30 is not merged and the full pipeline has pre-existing unrelated
   failures involving missing workflow/.env files and Turkish localization;
