@@ -62,3 +62,26 @@ def test_provider_failure_is_sanitized(client, monkeypatch):
     response = client.post("/scan", json={"limit": 4})
     assert response.status_code == 502
     assert "private details" not in response.text
+
+
+def test_get_status_never_starts_a_scan(client, monkeypatch):
+    def should_not_scan(*, live=False, limit=8):
+        raise AssertionError("GET status must not contact market data providers")
+
+    monkeypatch.setattr(meme_coins, "scan", should_not_scan)
+    response = client.get("/status")
+    assert response.status_code == 200
+    assert response.json()["live_enabled"] is False
+
+
+def test_concurrent_scan_is_rejected_without_provider_calls(client, monkeypatch):
+    monkeypatch.setenv("MEME_RADAR_LIVE_ENABLED", "true")
+    called = []
+    monkeypatch.setattr(meme_coins, "scan", lambda **kwargs: called.append(kwargs))
+    assert meme_coins._LOCK.acquire(blocking=False)
+    try:
+        response = client.post("/scan", json={"limit": 5})
+    finally:
+        meme_coins._LOCK.release()
+    assert response.status_code == 429
+    assert called == []
