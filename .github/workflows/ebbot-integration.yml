@@ -70,6 +70,7 @@ jobs:
           python -m pytest -q \
             tests/test_meme_coin_strategy_panel.py \
             tests/test_meme_coin_discovery.py \
+            tests/test_meme_coin_paper_preview.py \
             tests/test_tr_market_overview_service.py \
             tests/test_analyzer_prompt_language.py \
             tests/test_notification_empty_news_disclosure.py

@@ -57,3 +57,10 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 - `ci-and-packaging-contracts` adlı hedefli CI işi iki sözleşme grubunu koşar. Tam regresyon işi hâlâ bağımsız olarak **zorunlu** kalır.
 - Futu masaüstü paketleme, Docker yayınlama, günlük analiz ve gerçek alım-satım bu PR'da etkinleştirilmez. Arşivdeki testlerin yeşile dönmesi bu işlerin güncel CI ile doğrulandığı veya yayına hazır olduğu anlamına gelmez.
 - Tam backend sonucunun PR #35'in en son commit'i üzerinden doğrulanması beklenir; kaynak testleri gerçek cihaz/sunucu testlerinin yerini tutmaz.
+
+## Sentetik paper preview — V10
+
+- Yalnızca statik sayılarla çalışan `src/services/meme_coin_paper_preview.py` matematiksel senaryo modülü eklendi; dış servis, alım-satım, cüzdan, API, veritabanı veya zamanlayıcı içermez.
+- Varsayımsal pozisyon büyüklüğü, havuz likiditesi, veri yaşı ve günlük zarar bütçesi sınırları `tests/test_meme_coin_paper_preview.py` ile doğrulanır; test aktif salt-okunur CI işinde çalışır.
+- Modülün sunduğu hipotetik PnL **gerçek bir işlem sonucu değildir**; paneldeki performans metrikleri `null`, paper trading ve live trading kapalı kalır.
+- Sınırlamalar ve gerçek paper trading için sonraki gereksinimler `docs/MEME_COIN_PAPER_PREVIEW_V1.md` içinde belgelenmiştir.
