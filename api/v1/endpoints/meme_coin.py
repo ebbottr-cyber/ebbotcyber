@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
@@ -18,6 +18,7 @@ from src.services.meme_coin_solana_pool import review_pool
 from src.services.meme_coin_solana_owner_groups import review_owner_groups
 from src.services.meme_coin_solana_orca import review_orca_vaults
 from src.services.meme_coin_paper_replay import status as get_paper_replay_status
+from src.services.meme_coin_jupiter_quotes import quote_preview
 
 admin_session_cookie = APIKeyCookie(
     name=COOKIE_NAME, scheme_name="AdminSessionCookie", auto_error=False
@@ -168,3 +169,23 @@ def paper_replay_status() -> MemeCoinPaperReplayStatus:
     # Historical offline fixtures are never represented as live performance.
     # There are NO paper order-creation endpoints in the online service.
     return MemeCoinPaperReplayStatus(**get_paper_replay_status())
+
+
+@router.get(
+    "/solana/quote-preview",
+    response_model=SolanaJupiterQuotePreview,
+    operation_id="previewJupiterSwapV2QuoteOnly",
+    summary="Opt-in Jupiter V2 no-taker quote preview; no order execution",
+)
+def solana_quote_preview(
+    strategy: Literal["new_launch", "momentum"] = Query(...),
+    mint: str = Query(..., min_length=32, max_length=44),
+    side: Literal["buy", "sell"] = Query(...),
+    amount_raw: int = Query(..., ge=1, le=10**15),
+) -> SolanaJupiterQuotePreview:
+    try:
+        return SolanaJupiterQuotePreview(
+            **quote_preview(strategy, mint, side, amount_raw)
+        )
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_quote_preview_input")

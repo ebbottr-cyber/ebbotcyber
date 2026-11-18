@@ -254,3 +254,46 @@ class MemeCoinPaperReplayStatus(BaseModel):
     paper_automated: Literal[False]
     live_trading_enabled: Literal[False]
     strategy_ledgers: list[MemeCoinPaperLedgerStatus]
+
+
+class SolanaJupiterQuoteCapture(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    capture_id: str
+    source: Literal["jupiter_swap_v2_order_quote_only"]
+    strategy: Literal["new_launch", "momentum"]
+    mint: str
+    side: Literal["buy", "sell"]
+    input_mint: str
+    output_mint: str
+    amount_in_raw: str
+    amount_out_raw: str
+    fee_bps: int
+    router: str
+    captured_at_ms: int
+    captured_at: str
+    transaction_returned: Literal[False]
+    execution_is_real: Literal[False]
+    token_safety_verified: Literal[False]
+    estimated_network_fee_available: Literal[False]
+    tradable: Literal[False]
+
+
+class SolanaJupiterQuotePreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    mint: str
+    side: Literal["buy", "sell"]
+    source: Literal["jupiter_swap_v2_order_quote_only"]
+    input_mint: str
+    output_mint: str
+    amount_in_raw: str
+    status: Literal["disabled", "ok", "unavailable", "rate_limited"]
+    quote: Optional[SolanaJupiterQuoteCapture] = None
+    error: Optional[str] = None
+    live_quote_preview: bool
+    wallet_connected: Literal[False]
+    transaction_requested: Literal[False]
+    transaction_submitted: Literal[False]
+    tradable: Literal[False]

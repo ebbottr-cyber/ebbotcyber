@@ -213,7 +213,57 @@ export type MemeCoinPaperReplayStatus = {
   }>;
 };
 
+export type SolanaJupiterQuoteCapture = {
+  captureId: string;
+  source: 'jupiter_swap_v2_order_quote_only';
+  strategy: SolanaMemeCoinStrategyId;
+  mint: string;
+  side: 'buy' | 'sell';
+  inputMint: string;
+  outputMint: string;
+  amountInRaw: string;
+  amountOutRaw: string;
+  feeBps: number;
+  router: string;
+  capturedAtMs: number;
+  capturedAt: string;
+  transactionReturned: false;
+  executionIsReal: false;
+  tokenSafetyVerified: false;
+  estimatedNetworkFeeAvailable: false;
+  tradable: false;
+};
+
+export type SolanaJupiterQuotePreview = {
+  strategy: SolanaMemeCoinStrategyId;
+  mint: string;
+  side: 'buy' | 'sell';
+  source: 'jupiter_swap_v2_order_quote_only';
+  inputMint: string;
+  outputMint: string;
+  amountInRaw: string;
+  status: 'disabled' | 'ok' | 'unavailable' | 'rate_limited';
+  quote: SolanaJupiterQuoteCapture | null;
+  error: string | null;
+  liveQuotePreview: boolean;
+  walletConnected: false;
+  transactionRequested: false;
+  transactionSubmitted: false;
+  tradable: false;
+};
+
 export const memeCoinApi = {
+  async getSolanaQuotePreview(
+    strategy: SolanaMemeCoinStrategyId,
+    mint: string,
+    side: 'buy' | 'sell',
+    amountRaw: number,
+  ): Promise<SolanaJupiterQuotePreview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/quote-preview', {
+      params: { strategy, mint, side, amount_raw: amountRaw },
+    });
+    return toCamelCase<SolanaJupiterQuotePreview>(data);
+  },
   async getPaperReplayStatus(): Promise<MemeCoinPaperReplayStatus> {
     const { data } = await apiClient.get('/api/v1/meme-coins/paper/status');
     return toCamelCase<MemeCoinPaperReplayStatus>(data);

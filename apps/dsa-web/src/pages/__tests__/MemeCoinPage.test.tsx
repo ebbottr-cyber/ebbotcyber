@@ -3,15 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
   reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
-  getPaperReplayStatus: vi.fn(),
+  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview },
 }));
 
 const overview = {
@@ -65,6 +65,15 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  getSolanaQuotePreview.mockResolvedValue({
+    strategy: 'new_launch', mint: '11111111111111111111111111111111',
+    side: 'buy', source: 'jupiter_swap_v2_order_quote_only',
+    inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    outputMint: '11111111111111111111111111111111',
+    amountInRaw: '25000000', status: 'disabled', quote: null,
+    error: null, liveQuotePreview: false, walletConnected: false,
+    transactionRequested: false, transactionSubmitted: false, tradable: false,
+  });
   getPaperReplayStatus.mockResolvedValue({
     status: 'offline_replay_available',
     dataSource: 'operator_supplied_offline_fixture',
@@ -496,6 +505,122 @@ describe('MemeCoinPage', () => {
     expect(await screen.findByText('Sanal test motorunun bağlantı durumu doğrulanamadı.')).toBeInTheDocument();
     expect(screen.queryByText('Çevrimdışı test motoru hazır')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
+  });
+
+  it('only requests a Jupiter quote on user click, never an order', async () => {
+    const testCandidate = {
+    strategy: 'new_launch', symbol: 'MEME',
+    tokenAddress: '11111111111111111111111111111111',
+    poolAddress: 'So11111111111111111111111111111111111111112',
+    liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+    ageMinutes: 15, buys5m: 20, sells5m: 12,
+    researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+    source: 'geckoterminal',
+  };
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [testCandidate],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+    expect(getSolanaQuotePreview).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fiyat teklifini sorgula' }));
+    expect(await screen.findByText(/MEME_COIN_JUPITER_QUOTES_ENABLED=true/)).toBeInTheDocument();
+    expect(getSolanaQuotePreview).toHaveBeenCalledWith(
+      'new_launch', '11111111111111111111111111111111', 'buy', 25000000,
+    );
+    expect(screen.queryByRole('button', { name: /satın al|buy|execute|imzala/i })).not.toBeInTheDocument();
+  });
+
+  it('displays recorded raw Jupiter amounts and no actual execution claims', async () => {
+    const testCandidate = {
+    strategy: 'new_launch', symbol: 'MEME',
+    tokenAddress: '11111111111111111111111111111111',
+    poolAddress: 'So11111111111111111111111111111111111111112',
+    liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+    ageMinutes: 15, buys5m: 20, sells5m: 12,
+    researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+    source: 'geckoterminal',
+  };
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [testCandidate],
+    });
+    getSolanaQuotePreview.mockResolvedValue({
+      strategy: 'new_launch', mint: testCandidate.tokenAddress, side: 'buy',
+      source: 'jupiter_swap_v2_order_quote_only',
+      inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      outputMint: testCandidate.tokenAddress, amountInRaw: '25000000',
+      status: 'ok', error: null, liveQuotePreview: true,
+      walletConnected: false, transactionRequested: false,
+      transactionSubmitted: false, tradable: false,
+      quote: {
+        captureId: 'ab'.repeat(32), source: 'jupiter_swap_v2_order_quote_only',
+        strategy: 'new_launch', mint: testCandidate.tokenAddress, side: 'buy',
+        inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        outputMint: testCandidate.tokenAddress,
+        amountInRaw: '25000000', amountOutRaw: '100000000',
+        feeBps: 2, router: 'metis',
+        capturedAtMs: 1000000, capturedAt: '1970-01-01T00:16:40+00:00',
+        transactionReturned: false, executionIsReal: false,
+        tokenSafetyVerified: false, estimatedNetworkFeeAvailable: false,
+        tradable: false,
+      },
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fiyat teklifini sorgula' }));
+    expect((await screen.findAllByText(/100000000/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/25000000/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Cüzdan yok, işlem yapılmadı/)).toBeInTheDocument();
+    expect(screen.getByText(/\"capture_id\":/)).toBeInTheDocument();
+    expect(screen.queryByText(/\"captureId\":/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /satın al|buy|execute/i })).not.toBeInTheDocument();
+  });
+
+  it('supports explicit sell base-unit amounts and rejects invalid input', async () => {
+    const testCandidate = {
+    strategy: 'new_launch', symbol: 'MEME',
+    tokenAddress: '11111111111111111111111111111111',
+    poolAddress: 'So11111111111111111111111111111111111111112',
+    liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+    ageMinutes: 15, buys5m: 20, sells5m: 12,
+    researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+    source: 'geckoterminal',
+  };
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [testCandidate],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+    fireEvent.change(screen.getByLabelText(/Jupiter V2 — Gerçek fiyat teklifi önizlemesi/), {
+      target: { value: 'sell' },
+    });
+    fireEvent.change(screen.getByLabelText(/Satılacak token miktarı/), {
+      target: { value: '-5' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fiyat teklifini sorgula' }));
+    expect(await screen.findByText(/pozitif tam sayı/)).toBeInTheDocument();
+    expect(getSolanaQuotePreview).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/Satılacak token miktarı/), {
+      target: { value: '1000000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fiyat teklifini sorgula' }));
+    expect(getSolanaQuotePreview).toHaveBeenCalledWith(
+      'new_launch', '11111111111111111111111111111111', 'sell', 1000000,
+    );
   });
 
 });
