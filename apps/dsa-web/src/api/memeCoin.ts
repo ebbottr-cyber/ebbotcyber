@@ -200,7 +200,24 @@ export type SolanaOrcaVaultReview = {
   tradable: false;
 };
 
+export type MemeCoinPaperReplayStatus = {
+  status: 'offline_replay_available';
+  dataSource: 'operator_supplied_offline_fixture';
+  liveQuotesConnected: false;
+  paperAutomated: false;
+  liveTradingEnabled: false;
+  strategyLedgers: Array<{
+    strategy: SolanaMemeCoinStrategyId;
+    state: 'not_running';
+    realizedPnlUsd: null;
+  }>;
+};
+
 export const memeCoinApi = {
+  async getPaperReplayStatus(): Promise<MemeCoinPaperReplayStatus> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/paper/status');
+    return toCamelCase<MemeCoinPaperReplayStatus>(data);
+  },
   async reviewSolanaOrcaVaults(mint: string, pool: string): Promise<SolanaOrcaVaultReview> {
     const { data } = await apiClient.get('/api/v1/meme-coins/solana/orca-vaults', {
       params: { mint, pool },
