@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { UI_TEXT } from '../src/i18n/uiText';
 import { getSettingsHelpContent } from '../src/locales/settingsHelp';
-import { getFieldDescriptionZh, getFieldOptionLabelZh, getFieldTitleZh } from '../src/utils/systemConfigI18n';
+import {
+  getCategoryDescription,
+  getCategoryTitle,
+  getFieldDescriptionZh,
+  getFieldOptionLabel,
+  getFieldOptionLabelZh,
+  getFieldTitleZh,
+} from '../src/utils/systemConfigI18n';
 
 const requiredLocalizedKeys = [
   'TICKFLOW_API_KEY',
@@ -377,5 +384,18 @@ describe('decision signal settings guard', () => {
       expect(getFieldTitleZh(key, key)).toBe(key);
       expect(getFieldDescriptionZh(key, 'schema fallback description')).toBe('schema fallback description');
     });
+  });
+});
+
+
+describe('Turkish settings locale', () => {
+  it('shows Turkish categories and descriptions', () => {
+    expect(getCategoryTitle('data_source', undefined, 'tr')).toBe('Veri kaynakları');
+    expect(getCategoryDescription('notification', undefined, 'tr')).toContain('bildirim');
+  });
+
+  it('does not use Chinese option labels for Turkish screens', () => {
+    expect(getFieldOptionLabel('REPORT_LANGUAGE', 'en', undefined, 'tr')).toBe('English');
+    expect(getFieldOptionLabel('LOG_LEVEL', 'WARNING', undefined, 'tr')).toBe('Warning');
   });
 });
