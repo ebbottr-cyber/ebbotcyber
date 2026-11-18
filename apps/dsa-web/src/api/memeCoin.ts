@@ -278,7 +278,49 @@ export type MemeCoinMtmReadiness = {
   }>;
 };
 
+export type SolanaDualSourceMarkPreview = {
+  strategy: SolanaMemeCoinStrategyId;
+  mint: string;
+  pool: string;
+  network: 'solana-mainnet';
+  status: 'disabled' | 'prerequisite_disabled' | 'rate_limited' | 'unavailable' | 'screened';
+  verdict: 'unknown' | 'flagged' | 'comparison_only';
+  sampleSellRaw: string;
+  tokenDecimals: number | null;
+  mintSlot: number | null;
+  jupiterPriceUsd: string | null;
+  dexscreenerPriceUsd: string | null;
+  dexLiquidityUsd: string | null;
+  priceDivergencePct: string | null;
+  sampleQuotedUsd: string | null;
+  jupiterCapturedAtMs: number | null;
+  dexRetrievedAtMs: number | null;
+  checkedAt: string | null;
+  quoteCaptureId: string | null;
+  dexId: string | null;
+  warningFlags: string[];
+  sourceIndependenceVerified: false;
+  dexMarketObservationTimestampVerified: false;
+  tokenSafetyVerified: false;
+  sellFillVerified: false;
+  markToMarketExecutionVerified: false;
+  automatedPaperMarksEnabled: false;
+  liveTradingEnabled: false;
+  tradable: false;
+};
+
 export const memeCoinApi = {
+  async getSolanaMarkCrosscheck(
+    strategy: SolanaMemeCoinStrategyId,
+    mint: string,
+    pool: string,
+    amountRaw: number,
+  ): Promise<SolanaDualSourceMarkPreview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/mark-crosscheck', {
+      params: { strategy, mint, pool, amount_raw: amountRaw },
+    });
+    return toCamelCase<SolanaDualSourceMarkPreview>(data);
+  },
   async getPaperMtmReadiness(): Promise<MemeCoinMtmReadiness> {
     const { data } = await apiClient.get('/api/v1/meme-coins/paper/mtm-readiness');
     return toCamelCase<MemeCoinMtmReadiness>(data);
