@@ -2,9 +2,9 @@ name: EBBot PWA validation
 
 on:
   push:
-    branches: [feat/ebbot-pwa-installable]
+    branches: [feat/ebbot-pwa-installable, feat/ebbot-white-dashboard-v1]
   pull_request:
-    branches: [main]
+    branches: [main, feat/ebbot-pwa-installable]
     paths:
       - 'apps/dsa-web/**'
       - '.github/workflows/ebbot-pwa.yml'
