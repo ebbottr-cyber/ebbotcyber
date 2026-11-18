@@ -7,7 +7,7 @@ vi.mock('../../../api/stocks', () => ({ stocksApi: { getHistory: vi.fn() } }));
 
 const first = { date: '2026-11-16', open: 100, high: 105, low: 98, close: 103, volume: 1200 };
 const second = { date: '2026-11-17', open: 103, high: 106, low: 101, close: 102, volume: 1000 };
-const response = { stockCode: 'THYAO.IS', period: 'daily', data: [first, second] };
+const response = { stockCode: 'THYAO.IS', period: 'daily' as const, data: [first, second] };
 
 describe('EBBot gerçek mum grafiği', () => {
   beforeEach(() => vi.resetAllMocks());
@@ -55,7 +55,7 @@ describe('EBBot gerçek mum grafiği', () => {
     vi.mocked(stocksApi.getHistory).mockResolvedValue(response);
     const view = render(<StockCandlestickChart stockCode="THYAO.IS" />);
     await waitFor(() => expect(stocksApi.getHistory).toHaveBeenCalledTimes(1));
-    const initialSignal = vi.mocked(stocksApi.getHistory).mock.calls[0][1].signal;
+    const initialSignal = vi.mocked(stocksApi.getHistory).mock.calls[0]?.[1]?.signal;
     view.rerender(<StockCandlestickChart stockCode="ASELS.IS" />);
     await waitFor(() => expect(stocksApi.getHistory).toHaveBeenCalledWith('ASELS.IS', expect.any(Object)));
     expect(initialSignal?.aborted).toBe(true);
