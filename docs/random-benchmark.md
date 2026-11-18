@@ -33,4 +33,4 @@ Random schedules preserve the original **number of long spells**, the **duration
 - Validate the source data and corporate actions first; run walk-forward and holdout tests, then paper trading, before considering any signal or strategy weight integration.
 - Do not conclude a model is good from one favorable benchmark: compare with buy-and-hold, suitable risk-controlled baselines, and alternate market regimes. Extend to portfolio/multi-asset and more realistic execution costs in a later version.
 
-Local check: `python -m unittest tests.test_random_benchmark` (or `python -m pytest tests/test_random_benchmark.py`).
+Local check: `python -m unittest discover -s tests -p test_random_benchmark.py` (or `python -m pytest tests/test_random_benchmark.py`).
