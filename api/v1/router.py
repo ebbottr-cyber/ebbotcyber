@@ -29,6 +29,7 @@ from api.v1.endpoints import (
     stocks,
     system_config,
     usage,
+    xetra,
 )
 
 # 创建 v1 版本主路由。
@@ -124,6 +125,13 @@ router.include_router(
     prefix="/data",
     tags=["Data"]
 )
+
+router.include_router(
+    xetra.router,
+    prefix="/xetra",
+    tags=["XetraResearch"],
+)
+
 
 router.include_router(
     intelligence.router,
