@@ -91,7 +91,7 @@ def test_bridge_preserves_quote_only_and_does_not_double_charge_provider_fee():
     assert event["expected_out"] == "100"
     assert event["source"] == "offline_fixture"
     assert event["network_fee_usd"] == "0.01"
-    assert event["priority_fee_usd"] == "0"
+    assert event["priority_fee_usd"] == "0.00"
     assert event["modeled_adverse_slippage_bps"] == 0
     output = replay([event])["ledgers"]["new_launch"]
     assert output["cash_usd"] == "974.99"
