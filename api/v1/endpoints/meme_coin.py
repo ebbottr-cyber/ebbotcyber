@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness, MemeCoinMtmReadiness)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness, MemeCoinMtmReadiness, SolanaDualSourceMarkPreview)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
@@ -21,6 +21,7 @@ from src.services.meme_coin_paper_replay import status as get_paper_replay_statu
 from src.services.meme_coin_paper_guard import readiness as get_paper_guard_readiness
 from src.services.meme_coin_paper_mtm import readiness as get_mtm_readiness
 from src.services.meme_coin_jupiter_quotes import quote_preview
+from src.services.meme_coin_price_crosscheck import preview_crosscheck
 
 admin_session_cookie = APIKeyCookie(
     name=COOKIE_NAME, scheme_name="AdminSessionCookie", auto_error=False
@@ -213,3 +214,23 @@ def paper_risk_readiness() -> MemeCoinOfflineRiskReadiness:
 def paper_mtm_readiness() -> MemeCoinMtmReadiness:
     # Never accesses local checkpoint files or enables a scheduler/order route.
     return MemeCoinMtmReadiness(**get_mtm_readiness())
+
+
+@router.get(
+    "/solana/mark-crosscheck",
+    response_model=SolanaDualSourceMarkPreview,
+    operation_id="getSolanaManualDualSourcePriceCrosscheck",
+    summary="Opt-in manual Jupiter sell quote vs exact DEX pool price; no fills",
+)
+def solana_mark_crosscheck(
+    strategy: Literal["new_launch", "momentum"] = Query(...),
+    mint: str = Query(..., min_length=32, max_length=44),
+    pool: str = Query(..., min_length=32, max_length=44),
+    amount_raw: int = Query(..., ge=1, le=10**15),
+) -> SolanaDualSourceMarkPreview:
+    try:
+        return SolanaDualSourceMarkPreview(
+            **preview_crosscheck(strategy, mint, pool, amount_raw)
+        )
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_mark_crosscheck_input")
