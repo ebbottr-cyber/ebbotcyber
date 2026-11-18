@@ -8,6 +8,13 @@ on:
       - '.github/workflows/xetra-public-source-validation.yml'
       - 'src/services/four_market_equity.py'
       - 'scripts/audit_four_market_equities.py'
+  pull_request:
+    branches:
+      - feat/all-markets-paper-universe-v1
+    paths:
+      - '.github/workflows/xetra-public-source-validation.yml'
+      - 'src/services/four_market_equity.py'
+      - 'scripts/audit_four_market_equities.py'
   workflow_dispatch:
 
 permissions:
