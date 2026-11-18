@@ -50,6 +50,31 @@ _STRATEGIES = (
             "win_rate_pct": None,
         },
     },
+    {
+        "id": "robinhood_chain",
+        "name": "Robinhood Chain Agent Research",
+        "market": "robinhood_chain",
+        "data_sources": [
+            "Robinhood Chain RPC (optional health check)",
+            "EVM DEX discovery (planned)",
+            "OpenCatz AI integration (planned)",
+        ],
+        "status": "not_connected",
+        "engine_connected": False,
+        "paper_trading_enabled": False,
+        "live_trading_enabled": False,
+        "risk_checks": [
+            "evm_contract_permissions",
+            "pool_liquidity",
+            "wallet_concentration",
+            "sell_simulation",
+        ],
+        "metrics": {
+            "trades": None,
+            "net_pnl_usd": None,
+            "win_rate_pct": None,
+        },
+    },
 )
 
 
