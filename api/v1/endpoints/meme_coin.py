@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness, MemeCoinMtmReadiness)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
@@ -19,6 +19,7 @@ from src.services.meme_coin_solana_owner_groups import review_owner_groups
 from src.services.meme_coin_solana_orca import review_orca_vaults
 from src.services.meme_coin_paper_replay import status as get_paper_replay_status
 from src.services.meme_coin_paper_guard import readiness as get_paper_guard_readiness
+from src.services.meme_coin_paper_mtm import readiness as get_mtm_readiness
 from src.services.meme_coin_jupiter_quotes import quote_preview
 
 admin_session_cookie = APIKeyCookie(
@@ -201,3 +202,14 @@ def solana_quote_preview(
 def paper_risk_readiness() -> MemeCoinOfflineRiskReadiness:
     # No archive paths, captured quotes, DB writes or strategy orders.
     return MemeCoinOfflineRiskReadiness(**get_paper_guard_readiness())
+
+
+@router.get(
+    "/paper/mtm-readiness",
+    response_model=MemeCoinMtmReadiness,
+    operation_id="getMemeCoinOfflineMtmReadiness",
+    summary="Read-only status of offline MTM and crash recovery (not running)",
+)
+def paper_mtm_readiness() -> MemeCoinMtmReadiness:
+    # Never accesses local checkpoint files or enables a scheduler/order route.
+    return MemeCoinMtmReadiness(**get_mtm_readiness())
