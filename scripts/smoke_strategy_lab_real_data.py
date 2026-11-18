@@ -31,7 +31,7 @@ def main() -> int:
     try:
         report = analyze_configured_etf(
             asset_code=asset,
-            simulations=100,
+            simulations=4000,
             config=config,
         )
         r = report["result"]
@@ -40,6 +40,10 @@ def main() -> int:
         assert r["entry_count"] >= 1
         assert r["distinct_random_schedules"] >= 2 and r["informative"]
         assert r["total_bars"] >= 60
+        assert r["simulations"] == 4000
+        assert r["random_p05_return_pct"] <= r["random_median_return_pct"] <= r["random_p95_return_pct"]
+        assert r["observed_max_drawdown_pct"] >= 0.0
+        assert r["random_median_max_drawdown_pct"] >= 0.0
         assert 0.0 <= r["fraction_random_at_least_observed"] <= 1.0
         for key in ("observed_return_pct", "observed_max_drawdown_pct",
                     "random_median_return_pct", "buy_and_hold_return_pct"):
@@ -54,6 +58,11 @@ def main() -> int:
             "entries": r["entry_count"],
             "observed_return_pct": r["observed_return_pct"],
             "random_median_return_pct": r["random_median_return_pct"],
+            "random_p05_return_pct": r["random_p05_return_pct"],
+            "random_p95_return_pct": r["random_p95_return_pct"],
+            "observed_max_drawdown_pct": r["observed_max_drawdown_pct"],
+            "random_median_max_drawdown_pct": r["random_median_max_drawdown_pct"],
+            "distinct_random_schedules": r["distinct_random_schedules"],
             "random_fraction_at_least_observed": r["fraction_random_at_least_observed"],
             "samples": r["simulations"],
             "research_only": True,
