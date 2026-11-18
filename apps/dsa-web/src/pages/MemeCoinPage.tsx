@@ -70,6 +70,7 @@ const CONTENT = {
     mtmTitle: 'Açık Pozisyon Değerleme ve Kurtarma (V11)',
     mtmReady: 'Çevrimdışı MTM simülasyonu ve yeniden başlatma kontrolü hazır.',
     mtmNotRunning: 'Simülasyon başlatılmadı, yerel kurtarma veritabanı sunucuya bağlı değil.',
+    mtmLedgerInactive: 'V11 simülasyon defteri çevrimdışı.',
     mtmAssumptions: 'Değerleme, test senaryosunda girilen satış fiyatlarını kullanır. Gerçek fiyat ya da gerçekleşebilir satış teklifi değildir.',
     mtmRisk: 'Açık pozisyonların varsayımsal kaybı $50 günlük ve $100 toplam sınırları aşarsa yeni test alımları durur.',
     mtmRecovery: 'Yeniden açılışta kayıtlar tekrar hesaplanır ve SQLite kontrol noktasıyla karşılaştırılır.',
@@ -224,6 +225,7 @@ const CONTENT = {
     mtmTitle: 'Open Position Valuation & Recovery (V11)',
     mtmReady: 'Offline MTM scenario and restart verification available.',
     mtmNotRunning: 'The simulator is not running; local recovery database is not attached to the server.',
+    mtmLedgerInactive: 'V11 paper ledger is offline.',
     mtmAssumptions: 'Valuation uses assumed sell prices from offline fixtures, not real or executable quotes.',
     mtmRisk: 'Modeled open losses of $50/day per strategy or $100 globally block new simulated buys.',
     mtmRecovery: 'Restart reconstructs history and compares the result with the SQLite checkpoint.',
@@ -378,6 +380,7 @@ const CONTENT = {
     mtmTitle: '持仓估值及故障恢复（V11）',
     mtmReady: '离线持仓估值及重启校验模块已准备。',
     mtmNotRunning: '模拟器未运行，恢复数据库没有接入服务器。',
+    mtmLedgerInactive: 'V11 模拟账本离线。',
     mtmAssumptions: '估值使用离线情景的假设卖出价格，不是真实可成交报价。',
     mtmRisk: '单策略每日模拟损失 50 美元或总损失 100 美元会停止新的模拟买单。',
     mtmRecovery: '重启时重放交易历史，并与 SQLite 检查点核对。',
@@ -1272,7 +1275,7 @@ export default function MemeCoinPage() {
                 {mtmReadiness.strategies.map((entry) => (
                   <div className="rounded-lg border border-border/50 p-3" key={entry.strategy}>
                     <p className="font-semibold">{entry.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
-                    <p className="text-xs text-secondary-text">{copy.safetyNotRunning}</p>
+                    <p className="text-xs text-secondary-text">{copy.mtmLedgerInactive}</p>
                   </div>
                 ))}
               </div>
