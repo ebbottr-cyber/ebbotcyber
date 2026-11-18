@@ -508,7 +508,7 @@ describe('MemeCoinPage', () => {
   });
 
   it('only requests a Jupiter quote on user click, never an order', async () => {
-    const const testCandidate = {
+    const testCandidate = {
     strategy: 'new_launch', symbol: 'MEME',
     tokenAddress: '11111111111111111111111111111111',
     poolAddress: 'So11111111111111111111111111111111111111112',
@@ -537,7 +537,7 @@ describe('MemeCoinPage', () => {
   });
 
   it('displays recorded raw Jupiter amounts and no actual execution claims', async () => {
-    const const testCandidate = {
+    const testCandidate = {
     strategy: 'new_launch', symbol: 'MEME',
     tokenAddress: '11111111111111111111111111111111',
     poolAddress: 'So11111111111111111111111111111111111111112',
@@ -584,7 +584,7 @@ describe('MemeCoinPage', () => {
   });
 
   it('supports explicit sell base-unit amounts and rejects invalid input', async () => {
-    const const testCandidate = {
+    const testCandidate = {
     strategy: 'new_launch', symbol: 'MEME',
     tokenAddress: '11111111111111111111111111111111',
     poolAddress: 'So11111111111111111111111111111111111111112',
