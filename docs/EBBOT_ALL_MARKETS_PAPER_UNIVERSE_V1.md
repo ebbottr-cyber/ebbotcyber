@@ -81,3 +81,14 @@ farklı kontratlar olarak tutulur; delist/settled kontratlar ayrı statüde kal�
 Aktiflik sadece API'deki TRADING durumudur; ülkenizde Futures işlem hakkı,
 marjin, likidasyon, funding, risk ve PnL hesabı doğrulanmış sayılmaz.
 Henüz bu kaynaktan gerçek sayılar indirilmedi; GitHub testleri sentetiktir.
+
+## V4.1 — Futures sembol doğrulaması
+
+Binance Futures sözleşme sembolleri dar ASCII hisse/sembol kalıbı
+ile sınırlandırılmaz: kaynakta bulunan **görünür UTF-8 karakterler**
+ve noktalama korunur. En fazla 128 karakter, boş olmayan,
+kenarları boşluksuz ve kontrol karakteri içermeyen semboller kabul
+edilir. Hatalı kayıt atlanıp eksik pazar oluşturulmaz; kaynak satır
+numarası ve kısaltılmış hatalı değerle işlem BLOKLANIR.
+Stok envanter kontrolü aynı kuralla uyumlu kalır.
+Gerçek emir, sanal fill, cüzdan veya kaldıraç açılmaz.
