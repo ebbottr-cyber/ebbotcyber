@@ -56,6 +56,31 @@ class PaperUniverseTests(unittest.TestCase):
             self.assertEqual(result["coin_count"], 3)
             self.assertEqual(result["duplicates_deduplicated"], 1)
 
+    def test_spot_coins_and_futures_contracts_are_never_combined(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            spot = root / "spot.json"
+            future = root / "future.json"
+            spot.write_text(json.dumps({"assets": [
+                {"network": "binance_spot_catalog", "asset_id": "binance:asset:abc",
+                 "symbol": "BTC", "source": "binance_spot_exchange_info"}
+            ]}), encoding="utf-8")
+            future.write_text(json.dumps({"contracts": [
+                {"market": "binance_usdm_futures", "asset_id": "futures:123",
+                 "instrument_kind": "derivative_contract", "symbol": "BTCUSDT",
+                 "contract_symbol": "BTCUSDT", "contract_type": "PERPETUAL",
+                 "base_asset": "BTC", "quote_asset": "USDT", "margin_asset": "USDT",
+                 "source": "binance_usdm_exchange_info", "contract_status": "TRADING",
+                 "active": True}
+            ]}), encoding="utf-8")
+            result = audit_universe(INDEX, coin_manifests=[spot], contract_manifests=[future])
+            self.assertEqual(result["coin_count"], 1)
+            self.assertEqual(result["futures_contract_count"], 1)
+            self.assertEqual(result["futures_contracts_by_market"]["binance_usdm_futures"], 1)
+            self.assertEqual(result["instrument_count"], result["stock_count"] + 2)
+            self.assertFalse(result["leverage_enabled"])
+            self.assertFalse(result["paper_trading_enabled"])
+
     def test_invalid_coin_record_blocks_entire_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "bad.jsonl"

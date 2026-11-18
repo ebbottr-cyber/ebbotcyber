@@ -18,12 +18,17 @@ def parser() -> argparse.ArgumentParser:
                    help="Repeat for every external full-market CSV list")
     p.add_argument("--coins", type=Path, action="append", default=[],
                    help="Repeat for each coin provider JSON / JSONL snapshot")
+    p.add_argument("--contracts", type=Path, action="append", default=[],
+                   help="Separate futures contract JSON files (never Spot coins)")
     return p
 
 
 def run(args: argparse.Namespace) -> int:
     try:
-        report = audit_universe(args.index, stock_manifests=args.stocks, coin_manifests=args.coins)
+        report = audit_universe(
+            args.index, stock_manifests=args.stocks,
+            coin_manifests=args.coins, contract_manifests=args.contracts,
+        )
         result = 0
     except (ValueError, OSError, UnicodeError, json.JSONDecodeError) as error:
         report = {

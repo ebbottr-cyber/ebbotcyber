@@ -52,3 +52,32 @@ veri lisansı canlı kullanım öncesi incelenmelidir.
 tarama başlatmaz, sanal fill veya PnL yazmaz, cüzdan kullanmaz.
 İkinci adım güncel fiyat, risk ve zaman damgası denetimleri;
 paper trading için ayrıca manuel izin gerekir.
+
+
+## V4 — Binance Futures sözleşme envanteri
+
+Spot'a ek olarak Binance Global'in iki ayrı Futures kataloğu:
+- USDⓈ-M: https://fapi.binance.com/fapi/v1/exchangeInfo
+- COIN-M: https://dapi.binance.com/dapi/v1/exchangeInfo
+
+Yalnızca kamuya açık GET market data çağrısı yapılır. API anahtarı, cüzdan,
+hesap, kaldıraç, emir, açığa satış veya sanal fill yoktur.
+
+Mevcut Spot dosyasını koruyarak yalnızca Futures sözleşmelerini alma:
+
+    python -m scripts.refresh_paper_universe_sources --fetch --source futures --output-dir C:\EBBotPaperData
+
+Sadece tek tür: --source usdm veya --source coinm.
+Hepsi: --source all (KAP + Spot + USDⓈ-M + COIN-M).
+Mevcut --source both seçeneği eskisi gibi yalnızca KAP + Spot'tur.
+
+Birleştirilmiş envanter raporu:
+
+    python -m scripts.audit_paper_universe --coins C:\EBBotPaperData\binance-spot-all.json --contracts C:\EBBotPaperData\binance-usdm-futures.json --contracts C:\EBBotPaperData\binance-coinm-futures.json
+
+Raporun coin_count ve futures_contract_count sayıları birbirinden ayrıdır.
+Futures sözleşmeleri coin olarak sayılmaz. PERPETUAL ve vadeli teslim türleri
+farklı kontratlar olarak tutulur; delist/settled kontratlar ayrı statüde kalır.
+Aktiflik sadece API'deki TRADING durumudur; ülkenizde Futures işlem hakkı,
+marjin, likidasyon, funding, risk ve PnL hesabı doğrulanmış sayılmaz.
+Henüz bu kaynaktan gerçek sayılar indirilmedi; GitHub testleri sentetiktir.

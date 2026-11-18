@@ -58,14 +58,30 @@ def coins_in_file(path: Path) -> Iterable[dict[str, Any]]:
     yield from items
 
 
+def contracts_in_file(path: Path) -> list[dict[str, Any]]:
+    path = Path(path)
+    if path.suffix.lower() != ".json":
+        raise ValueError("futures_manifest_requires_json")
+    payload = json.loads(read_input(path))
+    if not isinstance(payload, dict) or set(payload) != {"contracts"}:
+        raise ValueError("invalid_futures_manifest")
+    contracts = payload["contracts"]
+    if not isinstance(contracts, list) or any(not isinstance(x, dict) for x in contracts):
+        raise ValueError("invalid_futures_manifest_records")
+    return contracts
+
+
 def audit_universe(stock_index: Path, *, stock_manifests: Iterable[Path] = (),
-                   coin_manifests: Iterable[Path] = ()) -> dict[str, Any]:
+                   coin_manifests: Iterable[Path] = (),
+                   contract_manifests: Iterable[Path] = ()) -> dict[str, Any]:
     """Register EVERY listed active instrument, never a selected top-N sample."""
     items = json.loads(read_input(Path(stock_index)))
     if not isinstance(items, list):
         raise ValueError("invalid_stock_index")
     stocks: set[tuple[str, str]] = set()
     coins: set[tuple[str, str]] = set()
+    futures: set[tuple[str, str]] = set()
+    futures_markets: Counter[str] = Counter()
     markets: Counter[str] = Counter()
     kinds: Counter[str] = Counter()
     networks: Counter[str] = Counter()
@@ -125,6 +141,46 @@ def audit_universe(stock_index: Path, *, stock_manifests: Iterable[Path] = (),
             coins.add(key)
             networks[network] += 1
 
+    # Futures are derivative contracts, NEVER interchangeable with a Spot coin.
+    allowed_futures = {
+        "binance_usdm_futures": "binance_usdm_exchange_info",
+        "binance_coinm_futures": "binance_coinm_exchange_info",
+    }
+    for path in contract_manifests:
+        for row in contracts_in_file(Path(path)):
+            market = market_name(row.get("market"))
+            if market not in allowed_futures:
+                raise ValueError("unsupported_futures_market")
+            if row.get("instrument_kind") != "derivative_contract":
+                raise ValueError("futures_not_derivative_contract")
+            if row.get("source") != allowed_futures[market]:
+                raise ValueError("invalid_futures_source")
+            symbol = row.get("symbol")
+            if not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol):
+                raise ValueError("invalid_futures_symbol")
+            if row.get("contract_symbol") != symbol:
+                raise ValueError("futures_symbol_mismatch")
+            if not isinstance(row.get("contract_status"), str) or not row["contract_status"]:
+                raise ValueError("invalid_contract_status")
+            if not isinstance(row.get("contract_type"), str) or not row["contract_type"]:
+                raise ValueError("invalid_contract_type")
+            if type(row.get("active")) is not bool:
+                raise ValueError("invalid_futures_active_flag")
+            if row["active"] != (row["contract_status"] == "TRADING"):
+                raise ValueError("inconsistent_futures_status")
+            for field in ("base_asset", "quote_asset", "margin_asset"):
+                if not isinstance(row.get(field), str) or not row[field].strip():
+                    raise ValueError("missing_" + field)
+            if not row["active"]:
+                inactive += 1
+                continue
+            key = (market, symbol)
+            if key in futures:
+                duplicates += 1
+                continue
+            futures.add(key)
+            futures_markets[market] += 1
+
     missing = []
     if "tr" not in markets and "bist" not in markets:
         missing.append("bist_inventory_missing")
@@ -134,18 +190,27 @@ def audit_universe(stock_index: Path, *, stock_manifests: Iterable[Path] = (),
         missing.append("germany_inventory_missing")
     if not coins:
         missing.append("coin_inventory_missing")
+    if not futures_markets.get("binance_usdm_futures"):
+        missing.append("usdm_futures_inventory_missing")
+    if not futures_markets.get("binance_coinm_futures"):
+        missing.append("coinm_futures_inventory_missing")
 
     return {
         "status": "INVENTORY_ONLY",
         "stock_count": len(stocks),
         "coin_count": len(coins),
-        "instrument_count": len(stocks) + len(coins),
+        "futures_contract_count": len(futures),
+        "instrument_count": len(stocks) + len(coins) + len(futures),
         "index_records_excluded_from_stocks": indices,
         "inactive_records_excluded": inactive,
         "duplicates_deduplicated": duplicates,
         "stocks_by_market": dict(sorted(markets.items())),
         "stocks_by_kind": dict(sorted(kinds.items())),
         "coins_by_network": dict(sorted(networks.items())),
+        "futures_contracts_by_market": dict(sorted(futures_markets.items())),
+        "futures_are_separate_from_spot": True,
+        "futures_pnl_model_validated": False,
+        "leverage_enabled": False,
         "missing_source_inventories": missing,
         "fixed_top_n_cap": False,
         "full_exchange_coverage_verified": False,
