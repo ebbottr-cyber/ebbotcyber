@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness, type MemeCoinMtmReadiness } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness, type MemeCoinMtmReadiness, type SolanaDualSourceMarkPreview } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -178,6 +178,21 @@ const CONTENT = {
     jupCopy: 'JSON kaydını kopyalayarak daha sonra çevrimdışı testte kullanabilirsin.',
     jupRaw: 'Teklifin JSON kaydı',
     jupNoExecution: 'Cüzdan yok, işlem yapılmadı. Ağ ücretleri bu teklifte hesaplanmıyor. Satılabilirlik garanti değil.',
+    markTitle: 'İki Kaynaktan Fiyat Karşılaştırması (V12)',
+    markDesc: 'Jupiter satış teklifi ile seçilen havuzun DEX Screener USD fiyatını karşılaştırır. Cüzdan bağlanmaz.',
+    markButton: 'Satış fiyatlarını karşılaştır',
+    markLoading: 'Fiyatlar karşılaştırılıyor...',
+    markDisabled: 'MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true ile açılır.',
+    markNeedsJupiter: 'MEME_COIN_JUPITER_QUOTES_ENABLED=true da etkin olmalı.',
+    markRateLimited: 'Jupiter hız sınırı; daha sonra yeniden dene.',
+    markUnavailable: 'Fiyat karşılaştırması doğrulanamadı.',
+    markBadAmount: 'Pozitif tam sayı ham token miktarı gir.',
+    markFlagged: 'Fiyat farkı, likidite veya mint riski var; güvenli değil.',
+    markCompared: 'Fiyatlar yakın görünüyor; bağımsız güvenlik ya da satış garantisi değildir.',
+    markJupPrice: 'Jupiter USD/token',
+    markDexPrice: 'DEX Screener USD/token',
+    markSpread: 'Fark',
+    markRiskNote: 'DEX fiyatının kaynak gözlem zamanı doğrulanmıyor. Otomatik sanal değerlemeye bağlanmadı.',
     impactTitle: 'Varsayımsal havuz maliyet modeli',
     impactWarning: '50/50 sabit çarpım AMM varsayımıdır; gerçek DEX teklifi, gerçek kayma veya gerçekleşecek fiyat değildir.',
     impactPct: 'Model fiyat etkisi',
@@ -333,6 +348,21 @@ const CONTENT = {
     jupCopy: 'Copy the JSON snapshot for future local offline replay.',
     jupRaw: 'Quote JSON snapshot',
     jupNoExecution: 'No wallet or transaction. Network fees are not in this quote. Sellability and actual fills are not guaranteed.',
+    markTitle: 'Two-source price comparison (V12)',
+    markDesc: 'Compares a Jupiter sell quote with the USD price of the exact DEX Screener pool, without wallets.',
+    markButton: 'Compare sell prices',
+    markLoading: 'Comparing prices...',
+    markDisabled: 'Set MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true.',
+    markNeedsJupiter: 'Also enable MEME_COIN_JUPITER_QUOTES_ENABLED=true.',
+    markRateLimited: 'Jupiter rate limit: retry later.',
+    markUnavailable: 'Price comparison could not be verified.',
+    markBadAmount: 'Enter a positive integer token amount in raw units.',
+    markFlagged: 'Price discrepancy, liquidity or mint warning; not safe.',
+    markCompared: 'Prices appear close, but no independent safety or sellability confirmation.',
+    markJupPrice: 'Jupiter USD/token',
+    markDexPrice: 'DEX Screener USD/token',
+    markSpread: 'Difference',
+    markRiskNote: 'DEX market observation timestamp is unverified. Not connected to automated paper valuation.',
     impactTitle: 'Hypothetical pool cost model',
     impactWarning: 'Assumes 50/50 constant-product AMM; NOT an executable quote, actual slippage or real fill price.',
     impactPct: 'Modeled price impact',
@@ -488,6 +518,21 @@ const CONTENT = {
     jupCopy: '可复制 JSON 快照用于离线回放。',
     jupRaw: '报价 JSON 快照',
     jupNoExecution: '无钱包和交易；报价未包含网络费用，也不保证可卖出或成交。',
+    markTitle: '双数据源价格比对（V12）',
+    markDesc: '比较 Jupiter 卖出报价与指定 DEX Screener 池的美元报价，不连接钱包。',
+    markButton: '对比卖出报价',
+    markLoading: '正在比对...',
+    markDisabled: '请启用 MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true。',
+    markNeedsJupiter: '还需要 MEME_COIN_JUPITER_QUOTES_ENABLED=true。',
+    markRateLimited: 'Jupiter 限速，请稍后重试。',
+    markUnavailable: '无法核验价格对比。',
+    markBadAmount: '请输入正整数代币原始单位。',
+    markFlagged: '价格、流动性或代币存在警告，不能确认安全。',
+    markCompared: '价格接近不证明独立来源、可卖出性或安全。',
+    markJupPrice: 'Jupiter 美元/代币',
+    markDexPrice: 'DEX Screener 美元/代币',
+    markSpread: '差异',
+    markRiskNote: 'DEX 来源观察时间未证实，未连接自动模拟估值。',
     impactTitle: '假设的资金池成本模型',
     impactWarning: '采用 50/50 恒定乘积模型，不是真实 DEX 报价、真实滑点或成交价格。',
     impactPct: '模型价格影响',
@@ -556,6 +601,11 @@ export default function MemeCoinPage() {
   const [quoteError, setQuoteError] = useState(false);
   const [quoteInputError, setQuoteInputError] = useState(false);
   const quoteRequestSeq = useRef(0);
+  const markRequestSeq = useRef(0);
+  const [markPreview, setMarkPreview] = useState<SolanaDualSourceMarkPreview | null>(null);
+  const [markLoading, setMarkLoading] = useState(false);
+  const [markError, setMarkError] = useState(false);
+  const [markInputError, setMarkInputError] = useState(false);
   const orcaRequestSeq = useRef(0);
   const researchRequestSeq = useRef(0);
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodRpcStatus | null>(null);
@@ -635,8 +685,10 @@ export default function MemeCoinPage() {
     researchRequestSeq.current += 1;
     orcaRequestSeq.current += 1;
     quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
     setOrcaReview(null);
     setQuotePreview(null);
+    setMarkPreview(null);
     setQuoteLoading(false);
     setQuoteError(false);
     setQuoteInputError(false);
@@ -669,8 +721,10 @@ export default function MemeCoinPage() {
     setResearchTarget({ mint, symbol, pool });
     orcaRequestSeq.current += 1;
     quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
     setOrcaReview(null);
     setQuotePreview(null);
+    setMarkPreview(null);
     setQuoteLoading(false);
     setQuoteError(false);
     setQuoteInputError(false);
@@ -727,6 +781,7 @@ export default function MemeCoinPage() {
     const seq = ++orcaRequestSeq.current;
     setOrcaReview(null);
     setQuotePreview(null);
+    setMarkPreview(null);
     setQuoteLoading(false);
     setQuoteError(false);
     setQuoteInputError(false);
@@ -750,11 +805,13 @@ export default function MemeCoinPage() {
         || (quoteSide === 'sell' && !/^[0-9]+$/.test(sellRawAmount))) {
       setQuoteInputError(true);
       setQuotePreview(null);
+    setMarkPreview(null);
       return;
     }
     setQuoteInputError(false);
     setQuoteError(false);
     setQuotePreview(null);
+    setMarkPreview(null);
     setQuoteLoading(true);
     const seq = ++quoteRequestSeq.current;
     try {
@@ -768,6 +825,32 @@ export default function MemeCoinPage() {
       if (seq === quoteRequestSeq.current) setQuoteLoading(false);
     }
   }, [quoteSide, researchAmount, researchTarget, selected, sellRawAmount]);
+
+  const inspectDualSourceMark = useCallback(async () => {
+    if (selected === 'robinhood_chain' || !researchTarget) return;
+    const amount = Number(sellRawAmount);
+    if (!/^[0-9]+$/.test(sellRawAmount)
+      || !Number.isSafeInteger(amount) || amount < 1 || amount > 1_000_000_000_000_000) {
+      setMarkInputError(true);
+      setMarkPreview(null);
+      return;
+    }
+    setMarkInputError(false);
+    setMarkError(false);
+    setMarkPreview(null);
+    setMarkLoading(true);
+    const sequence = ++markRequestSeq.current;
+    try {
+      const result = await memeCoinApi.getSolanaMarkCrosscheck(
+        selected, researchTarget.mint, researchTarget.pool, amount,
+      );
+      if (sequence === markRequestSeq.current) setMarkPreview(result);
+    } catch {
+      if (sequence === markRequestSeq.current) setMarkError(true);
+    } finally {
+      if (sequence === markRequestSeq.current) setMarkLoading(false);
+    }
+  }, [selected, researchTarget, sellRawAmount]);
 
   const checkRobinhood = useCallback(async () => {
     const seq = ++robinhoodRequestSeq.current;
@@ -793,6 +876,7 @@ export default function MemeCoinPage() {
     researchRequestSeq.current += 1;
     orcaRequestSeq.current += 1;
     quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
   }, []);
 
   const current = overview?.strategies.find((item) => item.id === selected) ?? overview?.strategies[0];
@@ -844,8 +928,10 @@ export default function MemeCoinPage() {
                     researchRequestSeq.current += 1;
                     orcaRequestSeq.current += 1;
                     quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
                     setOrcaReview(null);
                     setQuotePreview(null);
+    setMarkPreview(null);
                     setQuoteLoading(false);
                     setQuoteError(false);
                     setQuoteInputError(false);
@@ -953,8 +1039,10 @@ export default function MemeCoinPage() {
                   researchRequestSeq.current += 1;
                   orcaRequestSeq.current += 1;
                   quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
                   setOrcaReview(null);
                   setQuotePreview(null);
+    setMarkPreview(null);
                   setQuoteLoading(false);
                   setQuoteError(false);
                   setQuoteInputError(false);
@@ -1140,8 +1228,10 @@ export default function MemeCoinPage() {
                       value={quoteSide}
                       onChange={(e) => {
                         quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
                         setQuoteSide(e.target.value as 'buy' | 'sell');
                         setQuotePreview(null);
+    setMarkPreview(null);
                         setQuoteError(false);
                         setQuoteInputError(false);
                         setQuoteLoading(false);
@@ -1155,8 +1245,10 @@ export default function MemeCoinPage() {
                           value={sellRawAmount}
                           onChange={(e) => {
                             quoteRequestSeq.current += 1;
+    markRequestSeq.current += 1;
                             setSellRawAmount(e.target.value);
                             setQuotePreview(null);
+    setMarkPreview(null);
                             setQuoteLoading(false);
                             setQuoteError(false);
                             setQuoteInputError(false);
@@ -1187,6 +1279,45 @@ export default function MemeCoinPage() {
                         <p className="my-2 text-xs text-secondary-text">{copy.jupCopy}</p>
                         <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card p-2 text-xs">{JSON.stringify(toOfflineQuoteCapture(quotePreview.quote), null, 2)}</pre>
                       </details>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-3 rounded-xl bg-elevated/60 p-3">
+                  <h5 className="font-semibold">{copy.markTitle}</h5>
+                  <p className="text-xs text-secondary-text">{copy.markDesc}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label htmlFor="dual-source-sell-raw" className="text-xs">{copy.jupSellRaw}</label>
+                    <input id="dual-source-sell-raw" type="text" inputMode="numeric"
+                      className="w-40 rounded-lg border border-border bg-card px-2 py-1.5 text-sm"
+                      value={sellRawAmount}
+                      onChange={(event) => {
+                        markRequestSeq.current += 1;
+                        setSellRawAmount(event.target.value);
+                        setMarkPreview(null);
+                        setMarkError(false);
+                        setMarkInputError(false);
+                      }} />
+                    <button type="button" className="btn-secondary" disabled={markLoading}
+                      onClick={() => void inspectDualSourceMark()}>
+                      {markLoading ? copy.markLoading : copy.markButton}
+                    </button>
+                  </div>
+                  {markInputError && <p role="alert" className="text-sm text-danger">{copy.markBadAmount}</p>}
+                  {markError && <p role="alert" className="text-sm text-danger">{copy.markUnavailable}</p>}
+                  {markPreview?.status === 'disabled' && <p className="text-sm text-warning">{copy.markDisabled}</p>}
+                  {markPreview?.status === 'prerequisite_disabled' && <p className="text-sm text-warning">{copy.markNeedsJupiter}</p>}
+                  {markPreview?.status === 'rate_limited' && <p className="text-sm text-warning">{copy.markRateLimited}</p>}
+                  {markPreview?.status === 'unavailable' && <p role="alert" className="text-sm text-danger">{copy.markUnavailable}</p>}
+                  {markPreview?.status === 'screened' && (
+                    <div className="space-y-2 text-sm">
+                      <p>{copy.markJupPrice}: {markPreview.jupiterPriceUsd}</p>
+                      <p>{copy.markDexPrice}: {markPreview.dexscreenerPriceUsd}</p>
+                      <p>{copy.markSpread}: {markPreview.priceDivergencePct}%</p>
+                      <p className="text-xs text-warning">
+                        {markPreview.verdict === 'flagged' ? copy.markFlagged : copy.markCompared}
+                      </p>
+                      {markPreview.warningFlags.length > 0 && <p className="break-all text-xs text-danger">{markPreview.warningFlags.join(', ')}</p>}
+                      <p className="text-xs text-secondary-text">{copy.markRiskNote}</p>
                     </div>
                   )}
                 </div>
