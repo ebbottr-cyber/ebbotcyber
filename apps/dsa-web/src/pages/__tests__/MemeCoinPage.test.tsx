@@ -580,6 +580,8 @@ describe('MemeCoinPage', () => {
     expect((await screen.findAllByText(/100000000/)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/25000000/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Cüzdan yok, işlem yapılmadı/)).toBeInTheDocument();
+    expect(screen.getByText(/\"capture_id\":/)).toBeInTheDocument();
+    expect(screen.queryByText(/\"captureId\":/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /satın al|buy|execute/i })).not.toBeInTheDocument();
   });
 
