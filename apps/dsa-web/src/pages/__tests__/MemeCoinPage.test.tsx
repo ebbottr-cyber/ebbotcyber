@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
-  reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(),
+  reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults },
 }));
 
 const overview = {
@@ -104,6 +104,19 @@ beforeEach(() => {
     interpretation: 'observed_token_account_owner_not_beneficial_owner',
     vaultClassificationVerified: false, beneficialOwnershipVerified: false,
     fullSafetyVerified: false, tradable: false,
+  });
+  reviewSolanaOrcaVaults.mockResolvedValue({
+    mint: 'So11111111111111111111111111111111111111112',
+    pool: '11111111111111111111111111111111',
+    network: 'solana-mainnet', protocol: 'orca_whirlpool',
+    status: 'disabled', verdict: 'unknown', checkedAt: null,
+    poolSlot: null, vaultSlot: null, poolProgram: null, mintA: null, mintB: null,
+    vaultA: null, vaultB: null, vaultARawAmount: null, vaultBRawAmount: null,
+    vaultADecimals: null, vaultBDecimals: null, clmmLiquidityRaw: null,
+    vaultAuthorityMatchesPool: false, warnings: [],
+    vaultReservesObserved: false, activeSwapDepthVerified: false,
+    liquidityLockVerified: false, lpWithdrawalAuthorityVerified: false,
+    sellabilityVerified: false, tradable: false,
   });
   estimateSolanaImpact.mockResolvedValue({
     model: 'hypothetical_cpmm_50_50', liquidityUsd: 60000,
@@ -373,6 +386,81 @@ describe('MemeCoinPage', () => {
     expect(screen.getByText(/likidite kilidi henüz doğrulanmış DEĞİL/)).toBeInTheDocument();
     expect(screen.getByText(/en büyük 10 token hesabı örneklendi/i)).toBeInTheDocument();
     expect(screen.getAllByText(/35.00%/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps Orca pool audit opt-in and exposes no buy control', async () => {
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        poolAddress: '11111111111111111111111111111111',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+
+    expect(await screen.findByText(/Orca Whirlpool zincir üstü kasa kontrolü/)).toBeInTheDocument();
+    expect(reviewSolanaOrcaVaults).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Orca kasalarını incele' }));
+
+    expect(await screen.findByText(/MEME_COIN_ORCA_VAULT_AUDIT_ENABLED=true/)).toBeInTheDocument();
+    expect(reviewSolanaOrcaVaults).toHaveBeenCalledWith(
+      'So11111111111111111111111111111111111111112',
+      '11111111111111111111111111111111',
+    );
+    expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
+  });
+
+  it('shows observed on-chain Orca balances without promising executable liquidity', async () => {
+    reviewSolanaOrcaVaults.mockResolvedValue({
+      mint: 'So11111111111111111111111111111111111111112',
+      pool: '11111111111111111111111111111111',
+      network: 'solana-mainnet', protocol: 'orca_whirlpool',
+      status: 'screened', verdict: 'review_only', checkedAt: '2026-11-18T12:00:00Z',
+      poolSlot: 1000, vaultSlot: 1004,
+      poolProgram: 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc',
+      mintA: 'So11111111111111111111111111111111111111112',
+      mintB: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      vaultA: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      vaultB: 'whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc',
+      vaultARawAmount: '420000', vaultBRawAmount: '120000',
+      vaultADecimals: 6, vaultBDecimals: 6, clmmLiquidityRaw: '123456',
+      vaultAuthorityMatchesPool: true, warnings: [],
+      vaultReservesObserved: true, activeSwapDepthVerified: false,
+      liquidityLockVerified: false, lpWithdrawalAuthorityVerified: false,
+      sellabilityVerified: false, tradable: false,
+    });
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        poolAddress: '11111111111111111111111111111111',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Orca kasalarını incele' }));
+
+    expect(await screen.findByText(/420000/)).toBeInTheDocument();
+    expect(screen.getByText(/120000/)).toBeInTheDocument();
+    expect(screen.getByText(/işlem derinliği veya likidite kilidi hâlâ doğrulanmadı/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
   });
 

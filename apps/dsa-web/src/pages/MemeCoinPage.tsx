@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -99,6 +99,17 @@ const CONTENT = {
     groupReviewOnly: 'Örneklenmiş hesaplarda eşik aşılmadı; güvenli anlamına gelmez.',
     groupDisclaimer: 'Yalnızca en büyük 10 token hesabı örneklendi. Kontrol adresi yatırımcının gerçek kimliğini, LP kilidini veya nihai sahipliği kanıtlamaz.',
     topGroup: 'En büyük gözlenen sahip grubu',
+    orcaTitle: 'Orca Whirlpool zincir üstü kasa kontrolü',
+    orcaButton: 'Orca kasalarını incele',
+    orcaLoading: 'Orca kasaları sorgulanıyor...',
+    orcaDisabled: 'Kontrol kapalı. MEME_COIN_ORCA_VAULT_AUDIT_ENABLED=true ile açılır.',
+    orcaUnsupported: 'Seçilen havuz Orca Whirlpool programına ait değil; bu denetim desteklemiyor.',
+    orcaUnavailable: 'Orca havuz ya da kasa verileri doğrulanamadı.',
+    orcaScreened: 'Havuz ve iki kasanın token adresleri eşleşti. Gerçek bakiyeler okundu; işlem derinliği veya likidite kilidi hâlâ doğrulanmadı.',
+    orcaBlocked: 'Orca havuzunda sıfır bakiye veya sıfır güncel CLMM likiditesi uyarısı var.',
+    orcaVaultA: 'Kasa A (ham birim)',
+    orcaVaultB: 'Kasa B (ham birim)',
+    orcaNotes: 'Yalnızca Orca Whirlpool ve klasik SPL token kasaları desteklenir. Ham bakiyeler, yürütülebilir alım/satım miktarı değildir.',
     impactTitle: 'Varsayımsal havuz maliyet modeli',
     impactWarning: '50/50 sabit çarpım AMM varsayımıdır; gerçek DEX teklifi, gerçek kayma veya gerçekleşecek fiyat değildir.',
     impactPct: 'Model fiyat etkisi',
@@ -201,6 +212,17 @@ const CONTENT = {
     groupReviewOnly: 'No threshold crossed in sampled accounts; this is not a safety clearance.',
     groupDisclaimer: 'Only the ten largest token accounts are sampled. A control address does not establish ultimate ownership or LP locks.',
     topGroup: 'Largest sampled control-address group',
+    orcaTitle: 'Orca Whirlpool on-chain vault review',
+    orcaButton: 'Inspect Orca vaults',
+    orcaLoading: 'Inspecting Orca vaults...',
+    orcaDisabled: 'Audit disabled. Set MEME_COIN_ORCA_VAULT_AUDIT_ENABLED=true.',
+    orcaUnsupported: 'This pool is not owned by the Orca Whirlpool program; unsupported here.',
+    orcaUnavailable: 'Orca pool or vault data could not be verified.',
+    orcaScreened: 'Pool and vault mints match, balances observed. Tradable depth and liquidity locks remain unverified.',
+    orcaBlocked: 'An empty vault or zero current CLMM liquidity was detected.',
+    orcaVaultA: 'Vault A (raw units)',
+    orcaVaultB: 'Vault B (raw units)',
+    orcaNotes: 'Only Orca Whirlpool + classic SPL token vaults are supported. Raw vault balances are NOT executable buy/sell liquidity.',
     impactTitle: 'Hypothetical pool cost model',
     impactWarning: 'Assumes 50/50 constant-product AMM; NOT an executable quote, actual slippage or real fill price.',
     impactPct: 'Modeled price impact',
@@ -303,6 +325,17 @@ const CONTENT = {
     groupReviewOnly: '样本未超阈值，但不证明安全。',
     groupDisclaimer: '仅抽样前十个代币账户；控制地址不代表最终受益人或 LP 锁定。',
     topGroup: '最大样本控制组',
+    orcaTitle: 'Orca Whirlpool 链上资金库核查',
+    orcaButton: '检查 Orca 资金库',
+    orcaLoading: '正在读取 Orca 资金库...',
+    orcaDisabled: '检查未开启。设置 MEME_COIN_ORCA_VAULT_AUDIT_ENABLED=true。',
+    orcaUnsupported: '该资金池不是 Orca Whirlpool 程序账户，不支持此检查。',
+    orcaUnavailable: '无法核实 Orca 资金池或资金库。',
+    orcaScreened: '资金池及代币地址匹配；已读取余额，但交易深度及锁定状态仍未知。',
+    orcaBlocked: '检测到资金库余额为零或 CLMM 流动性为零。',
+    orcaVaultA: '资金库 A（原始单位）',
+    orcaVaultB: '资金库 B（原始单位）',
+    orcaNotes: '仅支持 Orca Whirlpool 和经典 SPL Token。账户余额不代表可成交交易深度。',
     impactTitle: '假设的资金池成本模型',
     impactWarning: '采用 50/50 恒定乘积模型，不是真实 DEX 报价、真实滑点或成交价格。',
     impactPct: '模型价格影响',
@@ -355,6 +388,10 @@ export default function MemeCoinPage() {
   const [mintResearchError, setMintResearchError] = useState(false);
   const [impactResearchError, setImpactResearchError] = useState(false);
   const [researchLoading, setResearchLoading] = useState(false);
+  const [orcaReview, setOrcaReview] = useState<SolanaOrcaVaultReview | null>(null);
+  const [orcaLoading, setOrcaLoading] = useState(false);
+  const [orcaError, setOrcaError] = useState(false);
+  const orcaRequestSeq = useRef(0);
   const researchRequestSeq = useRef(0);
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodRpcStatus | null>(null);
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
@@ -392,6 +429,10 @@ export default function MemeCoinPage() {
     setScanError(false);
     setScanResult(null);
     researchRequestSeq.current += 1;
+    orcaRequestSeq.current += 1;
+    setOrcaReview(null);
+    setOrcaError(false);
+    setOrcaLoading(false);
     setResearchTarget(null);
     setMintResearch(null);
     setImpactResearch(null);
@@ -417,6 +458,10 @@ export default function MemeCoinPage() {
   const inspectSolanaCandidate = useCallback(async (mint: string, symbol: string, pool: string, liquidityUsd: number) => {
     const seq = ++researchRequestSeq.current;
     setResearchTarget({ mint, symbol, pool });
+    orcaRequestSeq.current += 1;
+    setOrcaReview(null);
+    setOrcaLoading(false);
+    setOrcaError(false);
     setMintResearch(null);
     setImpactResearch(null);
     setConcentrationResearch(null);
@@ -464,6 +509,21 @@ export default function MemeCoinPage() {
     setResearchLoading(false);
   }, [researchAmount]);
 
+  const inspectOrcaVaults = useCallback(async (mint: string, pool: string) => {
+    const seq = ++orcaRequestSeq.current;
+    setOrcaReview(null);
+    setOrcaError(false);
+    setOrcaLoading(true);
+    try {
+      const data = await memeCoinApi.reviewSolanaOrcaVaults(mint, pool);
+      if (seq === orcaRequestSeq.current) setOrcaReview(data);
+    } catch {
+      if (seq === orcaRequestSeq.current) setOrcaError(true);
+    } finally {
+      if (seq === orcaRequestSeq.current) setOrcaLoading(false);
+    }
+  }, []);
+
   const checkRobinhood = useCallback(async () => {
     const seq = ++robinhoodRequestSeq.current;
     setRobinhoodLoading(true);
@@ -486,6 +546,7 @@ export default function MemeCoinPage() {
     scanRequestSeq.current += 1;
     robinhoodRequestSeq.current += 1;
     researchRequestSeq.current += 1;
+    orcaRequestSeq.current += 1;
   }, []);
 
   const current = overview?.strategies.find((item) => item.id === selected) ?? overview?.strategies[0];
@@ -535,6 +596,10 @@ export default function MemeCoinPage() {
                     scanRequestSeq.current += 1;
                     robinhoodRequestSeq.current += 1;
                     researchRequestSeq.current += 1;
+                    orcaRequestSeq.current += 1;
+                    setOrcaReview(null);
+                    setOrcaError(false);
+                    setOrcaLoading(false);
                     setResearchTarget(null);
                     setMintResearch(null);
                     setImpactResearch(null);
@@ -635,6 +700,10 @@ export default function MemeCoinPage() {
                 value={researchAmount}
                 onChange={(event) => {
                   researchRequestSeq.current += 1;
+                  orcaRequestSeq.current += 1;
+                  setOrcaReview(null);
+                  setOrcaLoading(false);
+                  setOrcaError(false);
                   setResearchAmount(Number(event.target.value));
                   setResearchTarget(null);
                   setMintResearch(null);
@@ -781,6 +850,31 @@ export default function MemeCoinPage() {
                     )}
                   </div>
                 )}
+                <div className="space-y-3 rounded-xl bg-elevated/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h5 className="font-semibold">{copy.orcaTitle}</h5>
+                    <button type="button" className="btn-secondary" disabled={orcaLoading} onClick={() => void inspectOrcaVaults(researchTarget.mint, researchTarget.pool)}>
+                      {orcaLoading ? copy.orcaLoading : copy.orcaButton}
+                    </button>
+                  </div>
+                  <p className="text-xs text-secondary-text">{copy.orcaNotes}</p>
+                  {orcaError && <p role="alert" className="text-sm text-danger">{copy.orcaUnavailable}</p>}
+                  {orcaReview?.status === 'disabled' && <p className="text-sm text-warning">{copy.orcaDisabled}</p>}
+                  {orcaReview?.status === 'unsupported' && <p className="text-sm text-warning">{copy.orcaUnsupported}</p>}
+                  {orcaReview?.status === 'unavailable' && <p className="text-sm text-danger">{copy.orcaUnavailable}</p>}
+                  {orcaReview?.status === 'screened' && (
+                    <>
+                      <p className={`text-sm ${orcaReview.verdict === 'blocked' ? 'text-danger' : 'text-warning'}`}>
+                        {orcaReview.verdict === 'blocked' ? copy.orcaBlocked : copy.orcaScreened}
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <p className="break-all font-mono text-xs">{copy.orcaVaultA}: {orcaReview.vaultARawAmount ?? '—'}</p>
+                        <p className="break-all font-mono text-xs">{copy.orcaVaultB}: {orcaReview.vaultBRawAmount ?? '—'}</p>
+                      </div>
+                      {orcaReview.warnings.length > 0 && <p className="text-xs text-danger">{orcaReview.warnings.join(', ')}</p>}
+                    </>
+                  )}
+                </div>
                 <p className="text-xs text-warning">{copy.unknownSafety}</p>
               </div>
             )}

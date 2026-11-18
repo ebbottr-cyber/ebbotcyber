@@ -170,7 +170,43 @@ export type SolanaOwnerGroupReview = {
   tradable: false;
 };
 
+export type SolanaOrcaVaultReview = {
+  mint: string;
+  pool: string;
+  network: 'solana-mainnet';
+  protocol: 'orca_whirlpool';
+  status: 'disabled' | 'unsupported' | 'unavailable' | 'screened';
+  verdict: 'unknown' | 'blocked' | 'review_only';
+  checkedAt: string | null;
+  poolSlot: number | null;
+  vaultSlot: number | null;
+  poolProgram: string | null;
+  mintA: string | null;
+  mintB: string | null;
+  vaultA: string | null;
+  vaultB: string | null;
+  vaultARawAmount: string | null;
+  vaultBRawAmount: string | null;
+  vaultADecimals: number | null;
+  vaultBDecimals: number | null;
+  clmmLiquidityRaw: string | null;
+  vaultAuthorityMatchesPool: boolean;
+  warnings: string[];
+  vaultReservesObserved: boolean;
+  activeSwapDepthVerified: false;
+  liquidityLockVerified: false;
+  lpWithdrawalAuthorityVerified: false;
+  sellabilityVerified: false;
+  tradable: false;
+};
+
 export const memeCoinApi = {
+  async reviewSolanaOrcaVaults(mint: string, pool: string): Promise<SolanaOrcaVaultReview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/orca-vaults', {
+      params: { mint, pool },
+    });
+    return toCamelCase<SolanaOrcaVaultReview>(data);
+  },
   async reviewSolanaPool(mint: string, pool: string): Promise<SolanaPoolReview> {
     const { data } = await apiClient.get('/api/v1/meme-coins/solana/pool-review', { params: { mint, pool } });
     return toCamelCase<SolanaPoolReview>(data);

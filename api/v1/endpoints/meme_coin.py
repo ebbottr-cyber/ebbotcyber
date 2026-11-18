@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
@@ -16,6 +16,7 @@ from src.services.meme_coin_solana_risk import review_mint, estimate_cpmm_impact
 from src.services.meme_coin_solana_holders import review_concentration
 from src.services.meme_coin_solana_pool import review_pool
 from src.services.meme_coin_solana_owner_groups import review_owner_groups
+from src.services.meme_coin_solana_orca import review_orca_vaults
 
 admin_session_cookie = APIKeyCookie(
     name=COOKIE_NAME, scheme_name="AdminSessionCookie", auto_error=False
@@ -138,3 +139,19 @@ def solana_owner_groups(
         return SolanaOwnerGroupReview(**review_owner_groups(mint))
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid_mint_address")
+
+
+@router.get(
+    "/solana/orca-vaults",
+    response_model=SolanaOrcaVaultReview,
+    operation_id="reviewSolanaOrcaVaultReserves",
+    summary="Opt-in onchain Orca Whirlpool vault snapshot (read-only)",
+)
+def solana_orca_vaults(
+    mint: str = Query(..., min_length=32, max_length=44),
+    pool: str = Query(..., min_length=32, max_length=44),
+) -> SolanaOrcaVaultReview:
+    try:
+        return SolanaOrcaVaultReview(**review_orca_vaults(mint, pool))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_mint_or_pool")
