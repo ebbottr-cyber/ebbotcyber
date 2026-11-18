@@ -40,6 +40,9 @@ KO_NO_CHANNEL_DISCLOSURE = (
     "뉴스 근거를 반영하지 않았습니다."
 )
 
+TR_ZERO_HIT_DISCLOSURE = "⚠️ Bu analiz için kullanılabilir haber verisi alınamadı; sonuçlarda haber kaynaklı kanıt kullanılmadı."
+TR_NO_CHANNEL_DISCLOSURE = "⚠️ Haber arama kaynağı yapılandırılmadı; bu analizde haber kaynaklı kanıt kullanılmadı."
+
 
 def _make_result(
     *,
@@ -314,6 +317,7 @@ class SupportedLanguageDisclosureTestCase(unittest.TestCase):
         "zh": (NO_CHANNEL_DISCLOSURE, ZERO_HIT_DISCLOSURE),
         "en": (EN_NO_CHANNEL_DISCLOSURE, EN_ZERO_HIT_DISCLOSURE),
         "ko": (KO_NO_CHANNEL_DISCLOSURE, KO_ZERO_HIT_DISCLOSURE),
+        "tr": (TR_NO_CHANNEL_DISCLOSURE, TR_ZERO_HIT_DISCLOSURE),
     }
 
     def setUp(self):
