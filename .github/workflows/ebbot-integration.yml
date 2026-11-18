@@ -2,7 +2,7 @@ name: EBBot White Dashboard + Meme Coin integration
 
 on:
   push:
-    branches: [integration/ebbot-white-meme-discovery]
+    branches: [integration/ebbot-white-meme-discovery, review/ebbot-3lu-entegrasyon-20261118]
   pull_request:
     branches: [feat/ebbot-white-dashboard-v1]
     paths:
