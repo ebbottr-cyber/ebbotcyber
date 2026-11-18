@@ -27,7 +27,7 @@ function valid() {
         starting_synthetic_equity_usd: '1000.00',
         ending_synthetic_equity_usd: '995.00',
         synthetic_net_pnl_usd: '-5.00',
-        daily_gross_synthetic_losses_usd: { '2026-11-18': '10.00' },
+        daily_gross_synthetic_losses_usd: { '2026-11-18': '10.00' } as Record<string, string>,
       },
       strategies: {
         new_launch: {
@@ -39,7 +39,7 @@ function valid() {
         momentum: {
           synthetic_round_trips: 1, synthetic_wins: 0, synthetic_losses: 1,
           synthetic_net_pnl_usd: '-10.00',
-          daily_gross_synthetic_losses_usd: { '2026-11-18': '10.00' },
+          daily_gross_synthetic_losses_usd: { '2026-11-18': '10.00' } as Record<string, string>,
           records: [record('b', 'momentum', '-10.00')],
         },
       },
