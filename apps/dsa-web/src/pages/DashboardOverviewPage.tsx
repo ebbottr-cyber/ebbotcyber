@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowRight, BarChart3, Bell, BrainCircuit,
   Clock3, Database, Layers3, LineChart, RefreshCcw, ShieldCheck,
-  TrendingDown, TrendingUp, Wallet,
+  Wallet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { alertsApi } from '../api/alerts';
