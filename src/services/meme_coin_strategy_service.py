@@ -1,4 +1,4 @@
-"""Independent Solana meme-coin strategy registry (read-only bootstrap).
+"""Independent multi-chain meme-coin strategy registry (read-only bootstrap).
 
 This module deliberately does not import stock signal engines, custodial wallet
 code, live order routers, or third-party APIs. Live trading is not implemented.
@@ -85,7 +85,7 @@ def get_meme_coin_overview() -> dict:
     simulation has already run. Explicit None metrics mean unavailable data.
     """
     return {
-        "market": "solana",
+        "market": "multi_chain",
         "mode": "paper_planned",
         "live_trading_enabled": False,
         "shared_risk_engine_connected": False,
