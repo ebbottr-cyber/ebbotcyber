@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Solana 新池扫描从 GeckoTerminal 的 base_token 关联对象读取代币符号，避免将池名称误报为代币名；兼顾不同数据源的候选覆盖。
 - [新功能] 为 Solana Meme Radar 添加显式启用的手动只读 HTTP API 和 Web 入口，不含交易。
 - [修复] 修正土耳其语界面的时间格式化、通知渠道及系统配置分类，避免 UI 语言类型检查失败。
 - [新功能] 新增默认关闭、只读的 Solana Meme Radar 预览：DEX Screener、GeckoTerminal、GoPlus 数据适配及两种观察策略和离线测试。

@@ -27,7 +27,7 @@ const COPY: Record<UiLanguage, Record<string, string>> = {
     warning: 'Veri sağlayıcı uyarıları',
     loadError: 'Meme Radar durumu alınamadı.',
     scanError: 'Tarama tamamlanamadı. Sunucu ve veri kaynaklarını kontrol edin.',
-    caution: 'Puanlar yatırım tavsiyesi veya alım-satım izni değildir.',
+    caution: 'Yeni havuzlar mutlaka meme coin değildir. Puanlar yatırım tavsiyesi veya alım-satım izni değildir.',
     cached: 'Önbellek',
   },
   en: {
@@ -51,7 +51,7 @@ const COPY: Record<UiLanguage, Record<string, string>> = {
     warning: 'Data provider warnings',
     loadError: 'Could not load Meme Radar status.',
     scanError: 'Scan failed. Check server and providers.',
-    caution: 'Scores are not investment advice or trade permissions.',
+    caution: 'New pools are not necessarily meme coins. Scores are not investment advice or trade permissions.',
     cached: 'Cached',
   },
   zh: {
@@ -75,7 +75,7 @@ const COPY: Record<UiLanguage, Record<string, string>> = {
     warning: '数据提供方警告',
     loadError: '无法获取 Meme Radar 状态。',
     scanError: '扫描失败，请检查服务器和数据源。',
-    caution: '评分不是投资建议或交易许可。',
+    caution: '新资金池不一定是迷因币。评分不是投资建议或交易许可。',
     cached: '缓存',
   },
 };

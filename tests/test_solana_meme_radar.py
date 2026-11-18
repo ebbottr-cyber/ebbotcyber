@@ -14,7 +14,7 @@ from data_provider.solana_meme import (
     _gecko_quotes,
     get_json,
 )
-from scripts.scan_solana_meme import scan
+from scripts.scan_solana_meme import scan, _select_quotes
 from src.services.solana_meme_radar import evaluate, security_reasons
 
 MINT = "So11111111111111111111111111111111111111112"
@@ -132,3 +132,64 @@ def test_payload_nan_and_invalid_address_rejected():
 def test_limit_capped():
     with pytest.raises(ValueError):
         SolanaMemeFeed().latest_profiles(NOW, limit=31)
+
+
+
+def test_gecko_symbol_comes_from_included_base_token_not_pool_name():
+    pool = {
+        "id": "solana_pool123",
+        "attributes": {"name": "FAKE / SOL", "base_token_price_usd": "0.125"},
+        "relationships": {"base_token": {"data": {"id": "solana_" + MINT}}},
+    }
+    doc = {
+        "data": [pool],
+        "included": [{
+            "id": "solana_" + MINT,
+            "type": "token",
+            "attributes": {"symbol": "REAL"},
+        }],
+    }
+    quote = _gecko_quotes(doc, NOW)[0]
+    assert quote.symbol == "REAL"
+    # If the included token is missing, unknown is safer than a pool pair label.
+    assert _gecko_quotes({"data": [pool]}, NOW)[0].symbol == "?"
+
+
+def test_gecko_feed_explicitly_requests_token_identity():
+    calls = []
+    feed = SolanaMemeFeed(lambda url: calls.append(url) or {"data": []})
+    assert feed.new_pools(NOW) == []
+    assert calls == [
+        "https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=1&include=base_token"
+    ]
+
+
+def test_scan_selection_includes_both_viable_sources():
+    gecko = new_quote(mint=MINT, source="geckoterminal", liquidity_usd=20_000)
+    dex = new_quote(
+        mint="So11111111111111111111111111111111111111113",
+        source="dexscreener",
+        liquidity_usd=12_000,
+    )
+    another_gecko = new_quote(
+        mint="So11111111111111111111111111111111111111114",
+        source="geckoterminal",
+        liquidity_usd=100_000,
+    )
+    result = _select_quotes([gecko, another_gecko, dex], limit=2)
+    assert set(result) == {another_gecko.mint, dex.mint}
+    assert {quote.source for quote in result.values()} == {"geckoterminal", "dexscreener"}
+    # With one slot, highest liquidity still wins; duplicate mint has one entry.
+    assert list(_select_quotes([gecko, another_gecko, dex], limit=1)) == [another_gecko.mint]
+    assert len(_select_quotes([gecko, gecko], limit=8)) == 1
+
+
+def test_scan_selection_does_not_reserve_illiquid_source():
+    gecko = new_quote(mint=MINT, source="geckoterminal", liquidity_usd=7_000)
+    dex = new_quote(
+        mint="So11111111111111111111111111111111111111113",
+        source="dexscreener",
+        liquidity_usd=60_000,
+    )
+    assert list(_select_quotes([gecko, dex], limit=1)) == [dex.mint]
+    assert len(_select_quotes([gecko, dex], limit=2)) == 2
