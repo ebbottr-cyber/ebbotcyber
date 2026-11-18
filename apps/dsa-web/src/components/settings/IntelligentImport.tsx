@@ -24,13 +24,13 @@ interface IntelligentImportProps {
 type ItemWithChecked = ExtractItem & { id: string; checked: boolean };
 
 function getConfidenceMeta(confidence: 'high' | 'medium' | 'low', language: UiLanguage) {
-  if (confidence === 'high') {
-    return { label: language === 'en' ? 'High' : '高', badge: 'success' as const };
-  }
-  if (confidence === 'low') {
-    return { label: language === 'en' ? 'Low' : '低', badge: 'warning' as const };
-  }
-  return { label: language === 'en' ? 'Medium' : '中', badge: 'default' as const };
+  const labels = {
+    high: { tr: 'Yüksek', en: 'High', zh: '高' },
+    medium: { tr: 'Orta', en: 'Medium', zh: '中' },
+    low: { tr: 'Düşük', en: 'Low', zh: '低' },
+  } as const;
+  const badge = confidence === 'high' ? 'success' : confidence === 'low' ? 'warning' : 'default';
+  return { label: labels[confidence][language], badge };
 }
 
 function normalizeConfidence(confidence?: string | null): 'high' | 'medium' | 'low' {
