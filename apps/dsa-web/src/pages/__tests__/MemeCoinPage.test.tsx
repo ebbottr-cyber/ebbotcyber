@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates } = vi.hoisted(() => ({ getOverview: vi.fn(), scanCandidates: vi.fn() }));
+const { getOverview, scanCandidates, getRobinhoodStatus } = vi.hoisted(() => ({ getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn() }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus },
 }));
 
 const overview = {
-  market: 'solana',
+  market: 'multi_chain',
   mode: 'paper_planned',
   liveTradingEnabled: false,
   sharedRiskEngineConnected: false,
@@ -40,6 +40,18 @@ const overview = {
       riskChecks: ['volume_quality'],
       metrics: { trades: null, netPnlUsd: null, winRatePct: null },
     },
+    {
+      id: 'robinhood_chain',
+      name: 'Robinhood Chain Agent Research',
+      market: 'robinhood_chain',
+      dataSources: ['Robinhood Chain RPC (optional health check)', 'OpenCatz AI integration (planned)'],
+      status: 'not_connected',
+      engineConnected: false,
+      paperTradingEnabled: false,
+      liveTradingEnabled: false,
+      riskChecks: ['evm_contract_permissions'],
+      metrics: { trades: null, netPnlUsd: null, winRatePct: null },
+    },
   ],
 };
 
@@ -49,6 +61,7 @@ beforeEach(() => {
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
   scanCandidates.mockResolvedValue({strategy: 'new_launch', status: 'disabled', source: 'geckoterminal', observedAt: null, candidates: [], error: null});
+  getRobinhoodStatus.mockResolvedValue({network:'testnet',chainIdExpected:46630,chainIdSeen:null,blockNumber:null,status:'disabled',checkedAt:null,error:null,tradingEnabled:false});
 });
 
 describe('MemeCoinPage', () => {
@@ -119,6 +132,38 @@ describe('MemeCoinPage', () => {
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByText(/Veri kaynağına ulaşılamıyor/)).toBeInTheDocument();
+  });
+
+  it('shows Robinhood as a third isolated network with read-only RPC status', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Robinhood Chain AI/ }));
+    expect(screen.getByText('OpenCatz AI integration (planned)')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aday coinleri tara' })).not.toBeInTheDocument();
+    expect(getRobinhoodStatus).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'RPC bağlantısını kontrol et' }));
+    expect(await screen.findByText(/MEME_COIN_ROBINHOOD_RPC_ENABLED=true/)).toBeInTheDocument();
+    expect(getRobinhoodStatus).toHaveBeenCalledTimes(1);
+    expect(scanCandidates).not.toHaveBeenCalled();
+  });
+
+  it('displays actual RPC status but never implies Robinhood token safety', async () => {
+    getRobinhoodStatus.mockResolvedValue({
+      network: 'testnet', chainIdExpected: 46630, chainIdSeen: 46630,
+      blockNumber: 123456, status: 'ok', checkedAt: '2026-11-18T12:00:00Z',
+      error: null, tradingEnabled: false,
+    });
+
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: /Robinhood Chain AI/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'RPC bağlantısını kontrol et' }));
+
+    expect(await screen.findByText(/Ağ kimliği doğrulandı/)).toBeInTheDocument();
+    expect(screen.getByText('46630')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /buy|satın al/i })).not.toBeInTheDocument();
   });
 
 });
