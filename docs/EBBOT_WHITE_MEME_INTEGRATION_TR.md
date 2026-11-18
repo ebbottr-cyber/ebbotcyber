@@ -27,3 +27,6 @@ Bu dal `feat/ebbot-white-dashboard-v1` üzerine `feat/meme-coin-discovery-v2` ko
 3. Tam backend test takımındaki önceki başarısızlıklar değerlendirilmeden üretim dağıtımı yapılmamalı.
 4. Gerçek iPhone ve Android üzerinde HTTPS PWA kurulum testi.
 5. Ayrı Meme Coin dalındaki yeni commit'ler gelirse güncel dosya farkı ve güvenlik incelemesi.
+
+## PWA kurulumundan açılan ilk sayfa
+PWA manifest `id` ve `scope` alanları `/` olarak korunur. `start_url`, yalnızca entegrasyon test dalında `/overview` olacak biçimde ayarlanmıştır; bu nedenle uygulama simgesi beyaz Piyasa Özeti'ni açar. Tarayıcıdaki `/` ayrıntılı hisse analiz ekranı aynı kalır. iOS/Android gerçek cihaz davranışı ayrıca doğrulanmalıdır.
