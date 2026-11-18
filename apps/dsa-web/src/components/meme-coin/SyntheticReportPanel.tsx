@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { Card } from '../common';
 import type { UiLanguage } from '../../i18n/uiText';
 import { MAX_SYNTHETIC_REPORT_BYTES, parseSyntheticReport, type SyntheticReport } from './syntheticReport';
-import { assessSyntheticEvidence, SYNTHETIC_SAMPLE_RULES } from './syntheticEvidence';
+import { assessSyntheticEvidence, SYNTHETIC_SAMPLE_RULES, type EvidenceReason } from './syntheticEvidence';
 
 const COPY = {
   tr: {
@@ -123,6 +123,27 @@ const COPY = {
     untrusted: '该文件由用户选择，来源未通过加密认证。',
   },
 } satisfies Record<UiLanguage, Record<string, string>>;
+
+const EVIDENCE_REASON_LABELS: Record<EvidenceReason, Record<UiLanguage, string>> = {
+  training_records_below_minimum: {
+    tr: 'Ön dönem senaryo sayısı', en: 'Earlier scenario count', zh: '前期场景数',
+  },
+  training_days_below_minimum: {
+    tr: 'Ön dönem test günü sayısı', en: 'Earlier distinct days', zh: '前期测试天数',
+  },
+  training_negative_days_below_minimum: {
+    tr: 'Ön dönem zararlı gün sayısı', en: 'Earlier negative days', zh: '前期亏损天数',
+  },
+  later_records_below_minimum: {
+    tr: 'Sonraki dönem senaryo sayısı', en: 'Later scenario count', zh: '后期场景数',
+  },
+  later_days_below_minimum: {
+    tr: 'Sonraki dönem test günü sayısı', en: 'Later distinct days', zh: '后期测试天数',
+  },
+  later_negative_days_below_minimum: {
+    tr: 'Sonraki dönem zararlı gün sayısı', en: 'Later negative days', zh: '后期亏损天数',
+  },
+};
 
 export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
   const c = COPY[language];
@@ -280,7 +301,7 @@ export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
                         {s.status === 'retrospective_sample_rules_met' ? c.sampleMet : c.sampleLow}
                       </p>
                       {s.reasons.length > 0 && (
-                        <p className="mt-1 text-xs text-secondary-text">{c.missingLabel}: {s.reasons.join(', ')}</p>
+                        <p className="mt-1 text-xs text-secondary-text">{c.missingLabel}: {s.reasons.map(reason => EVIDENCE_REASON_LABELS[reason][language]).join(', ')}</p>
                       )}
                     </div>
                   );
