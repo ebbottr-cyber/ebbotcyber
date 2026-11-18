@@ -11,6 +11,7 @@ import { analysisApi } from '../api/analysis';
 import { historyApi } from '../api/history';
 import { portfolioApi } from '../api/portfolio';
 import { useWatchlist } from '../hooks/useWatchlist';
+import { StockCandlestickChart } from '../components/dashboard/StockCandlestickChart';
 import type { HistoryItem, MarketReviewIndex, MarketReviewPayload, TaskInfo } from '../types/analysis';
 import type { AlertTriggerItem } from '../types/alerts';
 import type { PortfolioRiskResponse, PortfolioSnapshotResponse } from '../types/portfolio';
@@ -239,7 +240,7 @@ const DashboardOverviewPage: React.FC = () => {
                       <p className={'text-xs font-semibold ' + (typeof latest.changePct === 'number' && latest.changePct >= 0 ? 'text-[#15a372]' : 'text-[#d65c62]')}>{formatChange(latest.changePct)}</p>
                     </div>
                   </div>
-                  <ReportPriceHistory points={matching} />
+                  <StockCandlestickChart stockCode={currentCode} refreshKey={refreshNumber} fallback={<ReportPriceHistory points={matching} />} />
                   <div className="mt-3 flex flex-wrap gap-2">
                     {uniqueStocks.map((item) => (
                       <button type="button" key={item.stockCode} onClick={() => setSelectedCode(item.stockCode)}
