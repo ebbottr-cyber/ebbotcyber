@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { inspectPaperJournal, type PaperJournalSummary } from '../api/strategyLab';
-import { useUiLanguage } from '../contexts/UiLanguageContext';
-import type { UiLanguage } from '../i18n/uiText';
+import { inspectPaperJournal, type PaperJournalSummary } from '../../api/strategyLab';
+import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import type { UiLanguage } from '../../i18n/uiText';
 
 const WORDS: Record<UiLanguage, {
   title: string; intro: string; select: string; empty: string; pending: string;
