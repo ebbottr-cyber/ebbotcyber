@@ -1,3 +1,4 @@
+# Historical documentation contract checks read the intentionally disabled daily workflow.
 from pathlib import Path
 
 

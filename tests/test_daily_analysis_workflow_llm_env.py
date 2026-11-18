@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Static checks for LLM provider channel mappings in 00-daily-analysis.yml."""
+"""Review LLM mappings in the archived daily workflow, NOT a live scheduled job."""
 
 from __future__ import annotations
 

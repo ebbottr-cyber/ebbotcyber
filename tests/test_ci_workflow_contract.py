@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Contracts for selective CI gates and their cross-layer inputs."""
+"""Archived selective-CI contracts and current read-only EBBot CI safeguards."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ARCHIVED_CI = "workflows_disabled/ci.yml.disabled"
 
 
 def _read(relative_path: str) -> str:
@@ -57,8 +58,8 @@ def _filter_output(changed_paths: list[str], rules: list[str]) -> bool:
     return any(_matches_every_rule(path, rules) for path in changed_paths)
 
 
-def test_heavy_ci_jobs_are_path_filtered_and_backend_tests_are_sharded() -> None:
-    ci = _workflow("workflows_disabled/ci.yml.disabled")
+def test_archived_ci_jobs_are_path_filtered_and_backend_tests_are_sharded() -> None:
+    ci = _workflow(ARCHIVED_CI)
     changes_job, filter_step, backend_filter_step = _change_filters(ci)
     filters = str(filter_step["with"]["filters"])
     parsed_filters = yaml.load(filters, Loader=yaml.BaseLoader)
@@ -161,9 +162,9 @@ def test_heavy_ci_jobs_are_path_filtered_and_backend_tests_are_sharded() -> None
     assert '--durations=30' in ci_gate
 
 
-def test_backend_filter_covers_mixed_changes_and_shared_web_assets() -> None:
+def test_archived_backend_filter_covers_mixed_changes_and_shared_web_assets() -> None:
     """Model heavy-job outputs for docs-only, code, and mixed changes."""
-    ci = _workflow("workflows_disabled/ci.yml.disabled")
+    ci = _workflow(ARCHIVED_CI)
     changes_job, filter_step, backend_filter_step = _change_filters(ci)
     filters = yaml.load(
         str(filter_step["with"]["filters"]),
@@ -224,13 +225,70 @@ def test_backend_filter_covers_mixed_changes_and_shared_web_assets() -> None:
     assert outputs(["apps/dsa-web/public/runtime/new-asset.json"])[0] is True
 
 
-def test_browser_fixture_and_default_smoke_entrypoints_stay_separate() -> None:
+def test_archived_browser_fixture_and_default_smoke_entrypoints_stay_separate() -> None:
     smoke = _read("apps/dsa-web/playwright.config.ts")
     fixture = _read("apps/dsa-web/playwright.fixture.config.ts")
     assert "testIgnore: '**/fixtures/**'" in smoke
     assert "testDir: './e2e/fixtures'" in fixture
     assert "webServer:" in fixture
-    steps = _workflow("workflows_disabled/ci.yml.disabled")["jobs"]["web-gate"]["steps"]
+    steps = _workflow(ARCHIVED_CI)["jobs"]["web-gate"]["steps"]
     default = next(step for step in steps if step.get("run") == "npm run test:smoke")
     assert default["env"]["DSA_WEB_SMOKE_PASSWORD"] == ""
     assert any(step.get("run") == "npx playwright test --config playwright.fixture.config.ts" for step in steps)
+
+
+def test_active_ebbot_ci_runs_fail_closed_regression_without_live_trading() -> None:
+    """The currently runnable workflow, not the archive, controls release readiness."""
+    active = _workflow(".github/workflows/ebbot-integration.yml")
+    jobs = active["jobs"]
+
+    assert active["permissions"] == {"contents": "read"}
+    assert active["on"]["push"]["branches"] == ["integration/ebbot-white-meme-discovery"]
+    assert active["on"]["pull_request"]["branches"] == ["feat/ebbot-white-dashboard-v1"]
+    assert "schedule" not in active["on"]
+    assert "workflow_dispatch" not in active["on"]
+
+    required = {
+        "frontend-and-pwa", "read-only-backend", "legacy-env-contracts",
+        "release-readiness-audit", "full-backend-regression",
+        "integrated-mobile-browser", "ci-and-packaging-contracts",
+    }
+    assert required <= set(jobs)
+    assert not {"docker-build", "deploy", "release", "trade", "desktop-futu-package-macos",
+                "desktop-futu-package-windows"} & set(jobs)
+
+    backend = jobs["full-backend-regression"]
+    assert backend["env"]["MEME_COIN_DISCOVERY_ENABLED"] == "false"
+    assert any("python -m pytest -q" in step.get("run", "") for step in backend["steps"])
+    assert any(step.get("if") == "always()" and
+               step.get("with", {}).get("path") == "full-backend-report.xml"
+               for step in backend["steps"])
+
+    assert jobs["read-only-backend"]["env"]["MEME_COIN_DISCOVERY_ENABLED"] == "false"
+    targeted = jobs["ci-and-packaging-contracts"]
+    commands = "\\n".join(str(step.get("run", "")) for step in targeted["steps"])
+    for path in ("tests/test_ci_workflow_contract.py",
+                 "tests/test_futu_distribution_contract.py",
+                 "tests/test_packaging_build_scripts.py"):
+        assert path in commands
+        assert path in active["on"]["pull_request"]["paths"]
+    assert "workflows_disabled/**" in active["on"]["pull_request"]["paths"]
+
+def test_active_backend_gate_excludes_live_network_smoke_without_weakening_offline_tests() -> None:
+    """Network drift is inspected separately; reproducible CI must be offline."""
+    active = _workflow(".github/workflows/ebbot-integration.yml")
+    backend = active["jobs"]["full-backend-regression"]
+    suite = next(step["run"] for step in backend["steps"]
+                 if step.get("name") == "Full Python regression suite (failure blocks integration)")
+    assert 'python -m pytest -q -m "not network"' in suite
+    assert "--junitxml=full-backend-report.xml" in suite
+    assert backend["env"]["MEME_COIN_DISCOVERY_ENABLED"] == "false"
+    assert any(step.get("if") == "always()" and
+               step.get("with", {}).get("path") == "full-backend-report.xml"
+               for step in backend["steps"])
+    # The real provider smoke tests remain in source for an explicitly invoked
+    # separate check; their legitimate drift alerts must not disappear.
+    network_smoke = _read("tests/test_tw_institutional_network.py")
+    assert "@pytest.mark.network" in network_smoke
+    assert "TestTwInstitutionalLiveNetwork" in network_smoke
+    assert '-m "not network"' in _read("scripts/ci_gate.sh")

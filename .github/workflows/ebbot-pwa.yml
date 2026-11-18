@@ -1,0 +1,88 @@
+name: EBBot PWA validation
+
+on:
+  push:
+    branches: [feat/ebbot-pwa-installable, feat/ebbot-white-dashboard-v1]
+  pull_request:
+    branches: [main, feat/ebbot-pwa-installable]
+    paths:
+      - 'apps/dsa-web/**'
+      - 'src/services/tr_market_overview_service.py'
+      - 'api/v1/endpoints/data.py'
+      - 'api/v1/schemas/tr_market_overview.py'
+      - 'tests/test_tr_market_overview_service.py'
+      - '.github/workflows/ebbot-pwa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-pwa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: PWA source tests
+        run: npm run test:pwa
+      - name: Real candlestick chart component tests
+        run: npm test -- src/components/dashboard/__tests__/StockCandlestickChart.test.tsx
+      - name: Pure RSI EMA MACD numerical tests
+        run: npm test -- src/utils/__tests__/technicalIndicators.test.ts
+      - name: Turkish market cards and mobile layout tests
+        run: npm test -- src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx
+      - name: Dashboard portfolio, risk, watchlist and AI task card tests
+        run: npm test -- src/components/dashboard/__tests__/DashboardSummaryCards.test.tsx
+      - name: Build frontend
+        run: npm run build
+      - name: Built PWA asset tests
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  white-dashboard-browser:
+    # Playwright 1.58 Chromium dependencies support Ubuntu 24.04, not 26.04.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium for emulated mobile tests
+        run: npx playwright install --with-deps chromium
+      - name: Test white panel at mobile, tablet and desktop widths
+        run: npx playwright test --config=playwright.fixture.config.ts ebbot-white-overview.spec.ts
+      - name: Attach screenshots on test failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-white-mobile-debug
+          path: |
+            apps/dsa-web/test-results/fixtures/**
+          retention-days: 3
+
+  market-overview-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline source and staleness tests
+        run: python -m unittest discover -s tests -p test_tr_market_overview_service.py -v

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Distribution contracts for the globally bundled Futu SDK."""
+"""Historical Futu distribution contracts; archived workflows cannot run."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _job_run_text(job: dict) -> str:
     )
 
 
-def test_futu_sdk_is_pinned_and_verified_across_linux_distributions() -> None:
+def test_archived_futu_sdk_is_pinned_and_verified_across_linux_distributions() -> None:
     requirements = _read("requirements.txt")
     dockerfile = _read("docker/Dockerfile")
     ci = _workflow("workflows_disabled/ci.yml.disabled")
@@ -48,7 +48,7 @@ def test_futu_sdk_is_pinned_and_verified_across_linux_distributions() -> None:
     assert "import futu" in _job_run_text(manual_publish["jobs"]["build-and-push"])
 
 
-def test_futu_sdk_is_collected_and_probed_in_desktop_backends() -> None:
+def test_archived_futu_sdk_is_collected_and_probed_in_desktop_backends() -> None:
     ci = _workflow("workflows_disabled/ci.yml.disabled")
     changes_job = ci["jobs"]["changes"]
     filter_step = next(
@@ -84,3 +84,18 @@ def test_futu_sdk_is_collected_and_probed_in_desktop_backends() -> None:
     assert probe is not None
     probe_modules = set(re.findall(r"'([^']+)'", probe.group(1)))
     assert {"src.services.screening.pipeline", "futu", "orjson"} <= probe_modules
+
+
+def test_current_integration_does_not_enable_futu_distribution_or_scheduled_analysis() -> None:
+    active = _workflow(".github/workflows/ebbot-integration.yml")
+    assert "schedule" not in active["on"]
+    assert "workflow_dispatch" not in active["on"]
+    assert active["permissions"] == {"contents": "read"}
+    assert "full-backend-regression" in active["jobs"]
+    assert not any(
+        name in active["jobs"] for name in (
+            "docker-build", "desktop-futu-package-windows",
+            "desktop-futu-package-macos", "build-and-push",
+        )
+    )
+    assert not (REPO_ROOT / ".github/workflows/00-daily-analysis.yml").exists()

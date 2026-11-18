@@ -1,4 +1,4 @@
-"""Daily Actions env and runtime routing must agree on optional data sources."""
+"""Historical, disabled daily Actions env must remain compatible with data routing. No scheduler is enabled by this test."""
 from pathlib import Path
 from unittest.mock import Mock, patch
 
