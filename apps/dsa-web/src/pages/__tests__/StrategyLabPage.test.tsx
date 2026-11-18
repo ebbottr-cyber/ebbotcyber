@@ -61,7 +61,7 @@ beforeEach(() => {
 describe('StrategyLabPage', () => {
   it('renders real API results only after explicitly clicking run', async () => {
     mount();
-    expect(await screen.findByRole('button', { name: /karşılaştır/i })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: /karşılaştır/i })).toBeEnabled());
     expect(mocks.analyzeEtf).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /karşılaştır/i }));
     await waitFor(() => expect(mocks.analyzeEtf).toHaveBeenCalledWith('510300', 500));
