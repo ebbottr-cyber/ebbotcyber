@@ -577,8 +577,8 @@ describe('MemeCoinPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
     fireEvent.click(screen.getByRole('button', { name: 'Fiyat teklifini sorgula' }));
-    expect(await screen.findByText(/100000000/)).toBeInTheDocument();
-    expect(screen.getByText(/25000000/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/100000000/)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/25000000/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Cüzdan yok, işlem yapılmadı/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /satın al|buy|execute/i })).not.toBeInTheDocument();
   });
