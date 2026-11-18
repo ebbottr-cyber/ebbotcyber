@@ -132,6 +132,8 @@ def rank_candidates(
         base = rel.get("base_token")
         base_data = base.get("data") if isinstance(base, dict) else None
         base_id = base_data.get("id") if isinstance(base_data, dict) else None
+        if not isinstance(base_id, str):
+            continue
         token = included.get(base_id, {})
         mint = token.get("address")
         address = attr.get("address")
@@ -231,7 +233,7 @@ def scan_strategy(strategy: Strategy) -> dict[str, Any]:
                 "candidates": candidates,
                 "error": None,
             }
-        except (RuntimeError, ValueError) as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             logger.warning("Meme coin %s discovery failed: %s", strategy, exc)
             result = {
                 "strategy": strategy,
