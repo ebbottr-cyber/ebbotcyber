@@ -74,7 +74,10 @@ def run(args: argparse.Namespace) -> int:
         "journal_writes": 0,
         "network_requests": len(endpoints),
     }
-    print(json.dumps(output, ensure_ascii=False, sort_keys=True, allow_nan=False))
+    # Windows PowerShell 5.1 often uses a legacy console encoding. Binance
+    # symbols can contain Unicode glyphs not encodable by that code page.
+    # JSON ASCII escaping is lossless: ConvertFrom-Json reconstructs them.
+    print(json.dumps(output, ensure_ascii=True, sort_keys=True, allow_nan=False))
     return 0
 
 
@@ -90,7 +93,7 @@ def main() -> int:
             "live_trading_enabled": False,
             "orders": 0,
             "paper_fills": 0,
-        }, ensure_ascii=False), file=sys.stderr)
+        }, ensure_ascii=True), file=sys.stderr)
         return 1
 
 

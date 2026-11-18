@@ -146,3 +146,18 @@ ayrı, güncel order book (alış/satış), spread, likidite, timestamp,
 API erişim ve piyasa/ülke izin denetimleri gereklidir.
 Mevcut `paper_ready=false`, `executable_prices=0`,
 gerçek emir ve sanal alım satım kapalıdır.
+
+
+## V5.3 — PowerShell 5.1 / Windows charmap korumasi
+
+Gercek Binance Spot sembolleri ASCII disi Unicode karakterler
+icerebilir. Windows PowerShell 5.1 eski konsol kod sayfasinda
+`'charmap' codec can't encode characters` hatasi verebilir.
+`scripts.audit_paper_quote_sources` artik hem raporu hem de hata
+JSON'unu `ensure_ascii=True` ile **kayipsiz Unicode escape** olarak
+yazdirir. JSON parse edildiginde tum semboller eski hallerine doner;
+`ConvertFrom-Json` ve filtreler calismaya devam eder.
+
+Bu duzeltme envanter kayitlarini degistirmez, sorunlu ciftleri silmez,
+API anahtari gerektirmez; fiyat incelemesi sirasinda emir, sanal
+fill, zamanlayici, kaldirac ve gercek trading kapali kalir.

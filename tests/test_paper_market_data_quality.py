@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from io import StringIO
+from io import BytesIO, StringIO, TextIOWrapper
 import json
 from pathlib import Path
 import tempfile
@@ -256,15 +256,33 @@ class QuoteQualityTests(unittest.TestCase):
                     "symbol": "BTCUSD_PERP", "markPrice": "100", "time": now_ms
                 }]),
             }
+            # Binance can include symbols outside Windows cp1252. Force a
+            # real strict Windows-style text stream to catch charmap failures.
+            weird_symbol = "⚡USDT"
+            rows = json.loads(responses[BINANCE_SPOT_URL])["symbols"]
+            rows.append({
+                "symbol": weird_symbol, "baseAsset": "⚡", "quoteAsset": "USDT",
+                "status": "TRADING", "isSpotTradingAllowed": True,
+            })
+            responses[BINANCE_SPOT_URL] = json.dumps({"symbols": rows}, ensure_ascii=False)
+            tickers = json.loads(responses[BINANCE_SPOT_TICKERS_URL])
+            tickers.append({"symbol": weird_symbol, "lastPrice": "0", "count": 0})
+            responses[BINANCE_SPOT_TICKERS_URL] = json.dumps(tickers, ensure_ascii=False)
             called: list[str] = []
             def fake(url: str) -> str:
                 called.append(url)
                 return responses[url]
-            output = StringIO()
-            with patch("scripts.audit_paper_quote_sources.fetch_source", side_effect=fake):
-                with redirect_stdout(output):
-                    self.assertEqual(run(args), 0)
-            report = json.loads(output.getvalue())
+            output_bytes = BytesIO()
+            with TextIOWrapper(output_bytes, encoding="cp1252", errors="strict") as output:
+                with patch("scripts.audit_paper_quote_sources.fetch_source", side_effect=fake):
+                    with redirect_stdout(output):
+                        self.assertEqual(run(args), 0)
+                        output.flush()
+                report = json.loads(output_bytes.getvalue().decode("cp1252"))
+            self.assertEqual(
+                report["spot"]["quote_review_block_reasons"][weird_symbol],
+                "nonpositive_last_price_no_trades_24h",
+            )
             self.assertEqual(len(called), 4)
             self.assertEqual(report["bist"]["missing_close"], 2)
             self.assertEqual(report["usdm"]["fresh_mark_count"], 1)
