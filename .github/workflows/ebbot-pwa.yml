@@ -7,6 +7,10 @@ on:
     branches: [main, feat/ebbot-pwa-installable]
     paths:
       - 'apps/dsa-web/**'
+      - 'src/services/tr_market_overview_service.py'
+      - 'api/v1/endpoints/data.py'
+      - 'api/v1/schemas/tr_market_overview.py'
+      - 'tests/test_tr_market_overview_service.py'
       - '.github/workflows/ebbot-pwa.yml'
 
 permissions:
@@ -32,7 +36,20 @@ jobs:
         run: npm run test:pwa
       - name: Real candlestick chart component tests
         run: npm test -- src/components/dashboard/__tests__/StockCandlestickChart.test.tsx
+      - name: Turkish market cards and mobile layout tests
+        run: npm test -- src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx
       - name: Build frontend
         run: npm run build
       - name: Built PWA asset tests
         run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  market-overview-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline source and staleness tests
+        run: python -m unittest discover -s tests -p test_tr_market_overview_service.py -v

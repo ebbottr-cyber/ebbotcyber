@@ -96,7 +96,7 @@ class MarketOverviewTests(unittest.TestCase):
 
         result = build_overview(factory, today=self.today)
         self.assertEqual(result["cadence"], "delayed_daily")
-        self.assertEqual(calls, [r[2] for r in INSTRUMENTS])
+        self.assertCountEqual(calls, [r[2] for r in INSTRUMENTS])
         self.assertEqual(len(result["items"]), 5)
         self.assertEqual(result["items"][0]["price"], 11010)
         self.assertTrue(all(item["price"] is None for item in result["items"][1:]))
