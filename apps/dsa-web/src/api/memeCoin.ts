@@ -22,7 +22,7 @@ export type MemeCoinStrategy = {
 };
 
 export type MemeCoinOverview = {
-  market: 'solana';
+  market: 'multi_chain';
   mode: 'paper_planned';
   liveTradingEnabled: boolean;
   sharedRiskEngineConnected: boolean;
