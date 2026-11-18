@@ -7,7 +7,7 @@ const number = (value: number | undefined | null): string =>
     : '—';
 const percent = (value: number | null | undefined): string =>
   typeof value === 'number' && Number.isFinite(value)
-    ? new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(value) + '%'
+    ? new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value) + '%'
     : '—';
 
 type PortfolioProps = {
