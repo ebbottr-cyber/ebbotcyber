@@ -23,6 +23,7 @@ from api.v1.endpoints import (
     health,
     history,
     intelligence,
+    meme_coins,
     portfolio,
     stocks,
     system_config,
@@ -120,4 +121,10 @@ router.include_router(
 router.include_router(
     health.router,
     tags=["Health"]
+)
+
+router.include_router(
+    meme_coins.router,
+    prefix="/meme-coins",
+    tags=["MemeCoins"]
 )

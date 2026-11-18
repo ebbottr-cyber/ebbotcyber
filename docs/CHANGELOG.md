@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] 为 Solana Meme Radar 添加显式启用的手动只读 HTTP API 和 Web 入口，不含交易。
 - [修复] 修正土耳其语界面的时间格式化、通知渠道及系统配置分类，避免 UI 语言类型检查失败。
 - [新功能] 新增默认关闭、只读的 Solana Meme Radar 预览：DEX Screener、GeckoTerminal、GoPlus 数据适配及两种观察策略和离线测试。
 - [修复] 实时行情基准仅接受同交易日的有效日期；Yahoo 行情使用未复权价格并区分交易日与更新时间，避免除息日涨跌方向错误及误报过期。
