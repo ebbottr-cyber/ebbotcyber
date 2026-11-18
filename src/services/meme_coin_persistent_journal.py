@@ -167,6 +167,17 @@ def append_synthetic_scenario(
         payload = _canonical(event)
         if len(payload) > 4096:
             return _blocked("invalid_synthetic_event")
+        # Before creating a NEW file, reject impossible initial scenarios.
+        # For existing files, validation uses cumulative equity/risk history.
+        if not path.exists():
+            initial = replay_synthetic_journal(
+                starting_equity_usd=equity, events=[event],
+            )
+            if initial["status"] != "synthetic_preview_only":
+                return _blocked(initial["reason"] or "invalid_synthetic_event")
+            if initial["audit"][-1]["result"] != "synthetic_recorded":
+                return _blocked(initial["audit"][-1]["reason"]
+                                or "synthetic_event_rejected")
     except (ValueError, TypeError, OverflowError):
         return _blocked("invalid_synthetic_inputs")
     try:
