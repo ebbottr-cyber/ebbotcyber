@@ -1,0 +1,134 @@
+"""Completely offline deterministic contract and safety tests."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+
+import pytest
+
+from data_provider.solana_meme import (
+    MarketDataError,
+    MemeQuote,
+    SolanaMemeFeed,
+    _dex_quotes,
+    _gecko_quotes,
+    get_json,
+)
+from scripts.scan_solana_meme import scan
+from src.services.solana_meme_radar import evaluate, security_reasons
+
+MINT = "So11111111111111111111111111111111111111112"
+NOW = 1_800_000_000_000
+SAFE = {key: {"status": "0"} for key in ("mintable", "freezable", "closable", "non_transferable", "transfer_hook")}
+
+
+def new_quote(**updates):
+    quote = MemeQuote(MINT, "TEST", "geckoterminal", "solana_pool", 0.05, 25000, 100000, 35, 10, 5.0, NOW - 3600_000, NOW)
+    return replace(quote, **updates)
+
+
+def test_opt_in_default_no_network():
+    assert scan() == {"enabled": False, "trading_enabled": False, "candidates": [], "errors": [],
+                      "message": "Use --live to explicitly enable read-only API calls"}
+
+
+def test_new_hunter_and_momentum_can_watch_with_complete_risk_data():
+    for strategy in ("new_coin_hunter", "momentum_watcher"):
+        result = evaluate(new_quote(), strategy, NOW, SAFE)
+        assert result.status == "watch"
+        assert result.score == 100
+
+
+def test_no_go_plus_record_is_blocked():
+    out = evaluate(new_quote(), "momentum_watcher", NOW, None)
+    assert out.status == "blocked"
+    assert "security_unknown" in out.reasons
+
+
+def test_reject_incomplete_or_dangerous_risks():
+    assert "mintable_unknown" in security_reasons({"freezable": "0"})
+    assert "mintable" in security_reasons({**SAFE, "mintable": {"status": "1"}})
+    assert "malicious_creator" in security_reasons({**SAFE, "creator": {"malicious_address": "1"}})
+
+
+def test_source_classification_and_stale_quotes():
+    dex = replace(new_quote(), source="dexscreener")
+    assert "not_new_pool_feed" in evaluate(dex, "new_coin_hunter", NOW, SAFE).reasons
+    old = replace(new_quote(), observed_at_ms=NOW-121_000)
+    assert "stale_quote" in evaluate(old, "momentum_watcher", NOW, SAFE).reasons
+
+
+def test_absent_metrics_fail_closed():
+    poor = new_quote(liquidity_usd=None, volume_h24_usd=None, buys_m5=None, sells_m5=None, change_m5_pct=None)
+    result = evaluate(poor, "momentum_watcher", NOW, SAFE)
+    assert result.status == "blocked"
+    assert "transaction_counts_unknown" in result.reasons
+
+
+def test_dex_normalizes_and_skips_non_solana():
+    pair = {"chainId": "solana", "pairAddress": "pair1", "baseToken": {"address": MINT, "symbol": "TEST"},
+            "priceUsd": "0.1", "volume": {"h24": 100000}, "liquidity": {"usd": 32000},
+            "txns": {"m5": {"buys": 21, "sells": 10}}, "priceChange": {"m5": 8.2},
+            "pairCreatedAt": NOW-2000}
+    quotes = _dex_quotes([pair, {**pair, "chainId": "ethereum"}], NOW)
+    assert len(quotes) == 1
+    assert quotes[0].buys_m5 == 21
+    assert quotes[0].liquidity_usd == 32000
+
+
+def test_gecko_normalizes_and_skips_invalid_ids():
+    pool = {"id": "solana_pool123", "relationships": {"base_token": {"data": {"id": "solana_" + MINT}}},
+            "attributes": {"name": "TEST/SOL", "base_token_price_usd": "0.015", "reserve_in_usd": "22000",
+                           "volume_usd": {"h24": "50000"}, "price_change_percentage": {"m5": "3"},
+                           "transactions": {"m5": {"buys": 23, "sells": 8}},
+                           "pool_created_at": "2027-01-01T00:00:00Z"}}
+    quotes = _gecko_quotes({"data": [pool, {**pool, "id": "eth_bad"}]}, NOW)
+    assert len(quotes) == 1
+    assert quotes[0].mint == MINT
+    assert quotes[0].buys_m5 == 23
+    assert quotes[0].pool_created_at_ms is not None
+
+
+def test_profile_endpoint_does_not_claim_mint_event():
+    calls = []
+    def transport(url):
+        calls.append(url)
+        if "token-profiles" in url:
+            return [{"chainId": "solana", "tokenAddress": MINT},
+                    {"chainId": "solana", "tokenAddress": MINT},
+                    {"chainId": "ethereum", "tokenAddress": "0x123"}]
+        return [{"chainId": "solana", "pairAddress": "testpool", "baseToken": {"address": MINT}}]
+    got = SolanaMemeFeed(transport).latest_profiles(NOW)
+    assert len(got) == 1
+    assert got[0].source == "dexscreener"
+    assert len(calls) == 2
+
+
+def test_goplus_lookup_unknown_is_not_safe():
+    feed = SolanaMemeFeed(lambda url: {"code": 1, "result": {}})
+    assert feed.security(MINT) is None
+
+
+def test_provider_error_is_not_silently_treated_as_empty():
+    feed = SolanaMemeFeed(lambda url: {"not": "a pool list"})
+    with pytest.raises(MarketDataError):
+        feed.new_pools(NOW)
+    with pytest.raises(MarketDataError):
+        feed.security(MINT)
+    with pytest.raises(MarketDataError):
+        get_json("https://example.org/api")
+
+
+def test_payload_nan_and_invalid_address_rejected():
+    pair = {"chainId": "solana", "pairAddress": "pool", "baseToken": {"address": MINT},
+            "priceUsd": "NaN", "liquidity": {"usd": -1}}
+    q = _dex_quotes([pair], NOW)[0]
+    assert q.price_usd is None
+    assert q.liquidity_usd is None
+    with pytest.raises(ValueError):
+        SolanaMemeFeed().security("/../../etc/passwd")
+
+
+def test_limit_capped():
+    with pytest.raises(ValueError):
+        SolanaMemeFeed().latest_profiles(NOW, limit=31)
