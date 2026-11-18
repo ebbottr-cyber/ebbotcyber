@@ -235,3 +235,22 @@ class SolanaOrcaVaultReview(BaseModel):
     lp_withdrawal_authority_verified: Literal[False]
     sellability_verified: Literal[False]
     tradable: Literal[False]
+
+
+class MemeCoinPaperLedgerStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    state: Literal["not_running"]
+    realized_pnl_usd: Optional[float] = None
+
+
+class MemeCoinPaperReplayStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["offline_replay_available"]
+    data_source: Literal["operator_supplied_offline_fixture"]
+    live_quotes_connected: Literal[False]
+    paper_automated: Literal[False]
+    live_trading_enabled: Literal[False]
+    strategy_ledgers: list[MemeCoinPaperLedgerStatus]
