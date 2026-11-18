@@ -181,6 +181,7 @@ const CONTENT = {
     markTitle: 'İki Kaynaktan Fiyat Karşılaştırması (V12)',
     markDesc: 'Jupiter satış teklifi ile seçilen havuzun DEX Screener USD fiyatını karşılaştırır. Cüzdan bağlanmaz.',
     markButton: 'Satış fiyatlarını karşılaştır',
+    markRawLabel: 'Karşılaştırma için ham token miktarı',
     markLoading: 'Fiyatlar karşılaştırılıyor...',
     markDisabled: 'MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true ile açılır.',
     markNeedsJupiter: 'MEME_COIN_JUPITER_QUOTES_ENABLED=true da etkin olmalı.',
@@ -351,6 +352,7 @@ const CONTENT = {
     markTitle: 'Two-source price comparison (V12)',
     markDesc: 'Compares a Jupiter sell quote with the USD price of the exact DEX Screener pool, without wallets.',
     markButton: 'Compare sell prices',
+    markRawLabel: 'Raw token amount for comparison',
     markLoading: 'Comparing prices...',
     markDisabled: 'Set MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true.',
     markNeedsJupiter: 'Also enable MEME_COIN_JUPITER_QUOTES_ENABLED=true.',
@@ -521,6 +523,7 @@ const CONTENT = {
     markTitle: '双数据源价格比对（V12）',
     markDesc: '比较 Jupiter 卖出报价与指定 DEX Screener 池的美元报价，不连接钱包。',
     markButton: '对比卖出报价',
+    markRawLabel: '价格比较的代币原始数量',
     markLoading: '正在比对...',
     markDisabled: '请启用 MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true。',
     markNeedsJupiter: '还需要 MEME_COIN_JUPITER_QUOTES_ENABLED=true。',
@@ -1286,7 +1289,7 @@ export default function MemeCoinPage() {
                   <h5 className="font-semibold">{copy.markTitle}</h5>
                   <p className="text-xs text-secondary-text">{copy.markDesc}</p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <label htmlFor="dual-source-sell-raw" className="text-xs">{copy.jupSellRaw}</label>
+                    <label htmlFor="dual-source-sell-raw" className="text-xs">{copy.markRawLabel}</label>
                     <input id="dual-source-sell-raw" type="text" inputMode="numeric"
                       className="w-40 rounded-lg border border-border bg-card px-2 py-1.5 text-sm"
                       value={sellRawAmount}
