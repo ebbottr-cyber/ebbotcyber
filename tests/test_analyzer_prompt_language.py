@@ -202,7 +202,7 @@ class EnglishStockPromptTemplateTestCase(unittest.TestCase):
         self.assertEqual(_cjk_chars(tr_user), "")
         self.assertEqual(_cjk_chars(tr_system), "")
         self.assertIn("# Decision Dashboard Analysis Request", tr_user)
-        self.assertIn("All human-readable JSON values must be in Turkish (Türkçe).", tr_user)
+        self.assertIn("All human-readable JSON values must be in Turkish (Türkçe)", tr_user)
         self.assertIn("Write all human-readable JSON values", tr_system)
         self.assertIn("in Turkish (Türkçe).", tr_system)
         self.assertIn("US stock", tr_system)
