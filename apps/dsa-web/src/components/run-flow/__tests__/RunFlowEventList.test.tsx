@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import type { RunFlowEvent } from '../../../types/runFlow';
 import { RunFlowEventList } from '../RunFlowEventList';
 
@@ -30,6 +32,13 @@ const events: RunFlowEvent[] = [
     title: '任务取消',
   },
 ];
+
+// The expected labels in this regression suite are intentionally Chinese.
+// Supply the same locale as production rather than relying on fallbackContext.
+const render: typeof rtlRender = (ui, options) => {
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return rtlRender(<UiLanguageProvider>{ui}</UiLanguageProvider>, options);
+};
 
 describe('RunFlowEventList', () => {
   it('filters fallback and cancellation events with visible text labels', () => {
