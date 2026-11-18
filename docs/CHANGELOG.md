@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [安全] Block weekend/pre-close backdated prospective ETF paper commits and restore safe V10 offline status mode; add focused pre-merge safety regression checks.
+
 - [修复] Resolve Turkish report prompt market-context language selection and restore explicit Turkish empty-news disclosure test coverage without enabling automated analysis or altering trading logic.
 
 - [修复] Redirect historical CI and daily-analysis contract tests to intentionally disabled workflow archives, and restore a non-secret environment template; no automation activated.
