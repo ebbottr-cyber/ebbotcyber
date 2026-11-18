@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Resolve Turkish report prompt market-context language selection and restore explicit Turkish empty-news disclosure test coverage without enabling automated analysis or altering trading logic.
+
 - [修复] Redirect historical CI and daily-analysis contract tests to intentionally disabled workflow archives, and restore a non-secret environment template; no automation activated.
 
 - [修复] 实时行情基准仅接受同交易日的有效日期；Yahoo 行情使用未复权价格并区分交易日与更新时间，避免除息日涨跌方向错误及误报过期。
