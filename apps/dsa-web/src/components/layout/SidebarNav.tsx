@@ -31,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'home', labelKey: 'layout.nav.home', to: '/', icon: Home, exact: true },
   { key: 'chat', labelKey: 'layout.nav.chat', to: '/chat', icon: MessageSquareQuote, badge: 'completion' },
   { key: 'screening', labelKey: 'layout.nav.screening', to: '/screening', icon: Search },
+  { key: 'germany', labelKey: 'layout.nav.dataCenter', to: '/germany', icon: BarChart3 },
   { key: 'portfolio', labelKey: 'layout.nav.portfolio', to: '/portfolio', icon: BriefcaseBusiness },
   { key: 'decision-signals', labelKey: 'layout.nav.decisionSignals', to: '/decision-signals', icon: Activity },
   { key: 'meme-coin', labelKey: 'layout.nav.memeCoin', to: '/meme-coins', icon: Radar },
@@ -93,7 +94,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
             ? (language === 'tr' ? 'Piyasa \u00d6zeti' : language === 'zh' ? '\u5e02\u573a\u6982\u89c8' : 'Overview')
             : key === 'home'
               ? (language === 'tr' ? 'Hisse Analizi' : t(labelKey))
-              : t(labelKey);
+              : key === 'germany'
+                ? (language === 'tr' ? 'Almanya (Xetra)' : language === 'zh' ? '德国（Xetra）' : 'Germany (Xetra)')
+                : t(labelKey);
           return (
           <NavLink
             key={key}
