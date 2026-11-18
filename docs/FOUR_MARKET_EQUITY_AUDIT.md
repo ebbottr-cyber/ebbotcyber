@@ -10,6 +10,22 @@ proved exhaustive listings, broker permissions, quote availability, or live
 trading signals. No scheduled scan, external request, price check, journal,
 paper fill or real order is performed by this feature.
 
+## Verified Xetra stock inventory imported on 18 November 2026
+
+The source-derived snapshot is checked in at
+`data/market_snapshots/de/xetra-candidates.csv`. The offline
+`python -m scripts.audit_four_market_equities` command automatically reads
+this dated manifest (1,749 unique active XETR common-stock candidates). The
+official raw Xetra CSV was retrieved and validated by the read-only GitHub
+Actions source check. The snapshot remains historical after 18 November 2026;
+it does NOT update automatically and cannot prove current exchange listing,
+real-time stock prices, valid Yahoo symbols, market-data redistribution rights,
+or Turkish broker access. The remaining BIST inventory must still be provided
+as an operator KAP CSV in order to complete all four-market counts.
+
+Never enable live or simulated orders based only on these candidate symbols.
+Do not confuse the snapshot with a verified price feed.
+
 ## Inputs and limitations
 
 * US and HK: existing repository stock index, not fresh-source verified.
