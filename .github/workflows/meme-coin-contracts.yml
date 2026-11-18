@@ -20,6 +20,7 @@ on:
       - 'feat/meme-coin-paper-replay-v8'
       - 'feat/meme-coin-jupiter-quote-v9'
       - 'feat/meme-coin-journal-circuit-v10'
+      - 'feat/meme-coin-mtm-recovery-v11'
     paths:
       - 'src/services/meme_coin_*'
       - 'api/v1/endpoints/meme_coin.py'
@@ -44,7 +45,7 @@ jobs:
       - name: Install backend CI dependencies
         run: python -m pip install -r .github/requirements-ci.txt
       - name: Test isolated read-only meme coin contracts
-        run: pytest -q tests/test_meme_coin_strategy_panel.py tests/test_meme_coin_discovery.py tests/test_meme_coin_robinhood.py tests/test_meme_coin_solana_risk.py tests/test_meme_coin_solana_holders.py tests/test_meme_coin_solana_pool.py tests/test_meme_coin_solana_owner_groups.py tests/test_meme_coin_solana_orca.py tests/test_meme_coin_paper_replay.py tests/test_meme_coin_jupiter_quotes.py tests/test_meme_coin_quote_bridge.py tests/test_meme_coin_quote_journal.py tests/test_meme_coin_paper_guard.py
+        run: pytest -q tests/test_meme_coin_strategy_panel.py tests/test_meme_coin_discovery.py tests/test_meme_coin_robinhood.py tests/test_meme_coin_solana_risk.py tests/test_meme_coin_solana_holders.py tests/test_meme_coin_solana_pool.py tests/test_meme_coin_solana_owner_groups.py tests/test_meme_coin_solana_orca.py tests/test_meme_coin_paper_replay.py tests/test_meme_coin_jupiter_quotes.py tests/test_meme_coin_quote_bridge.py tests/test_meme_coin_quote_journal.py tests/test_meme_coin_paper_guard.py tests/test_meme_coin_paper_mtm.py tests/test_meme_coin_paper_recovery.py
 
   frontend-contracts:
     runs-on: ubuntu-latest
