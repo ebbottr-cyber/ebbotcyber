@@ -68,7 +68,53 @@ export type MemeCoinDiscoveryResponse = {
   error: string | null;
 };
 
+export type SolanaMintReview = {
+  mint: string;
+  network: 'solana-mainnet';
+  status: 'disabled' | 'screened' | 'unavailable' | 'unsupported';
+  verdict: 'blocked' | 'review_only' | 'unknown';
+  slot: number | null;
+  checkedAt: string | null;
+  tokenProgram: string | null;
+  mintAuthorityRevoked: boolean | null;
+  freezeAuthorityRevoked: boolean | null;
+  decimals: number | null;
+  supplyBaseUnits: string | null;
+  blockingReasons: string[];
+  remainingUnverified: string[];
+  fullSafetyVerified: false;
+  tradable: false;
+};
+
+export type SolanaImpactEstimate = {
+  model: 'hypothetical_cpmm_50_50';
+  liquidityUsd: number;
+  orderUsd: number;
+  feeBps: number;
+  adverseSlippageBps: number;
+  modeledFeeUsd: number;
+  modeledOutputValueUsd: number;
+  modeledMinOutputValueUsd: number;
+  modeledPriceImpactPct: number;
+  modeledTotalCostPct: number;
+  orderVsLiquidityPct: number;
+  flags: string[];
+  paperReviewStatus: 'blocked' | 'research_only';
+  realQuoteAvailable: false;
+  tradable: false;
+};
+
 export const memeCoinApi = {
+  async reviewSolanaMint(mint: string): Promise<SolanaMintReview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/mint-review', { params: { mint } });
+    return toCamelCase<SolanaMintReview>(data);
+  },
+  async estimateSolanaImpact(liquidityUsd: number, orderUsd: number): Promise<SolanaImpactEstimate> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/impact', {
+      params: { liquidity_usd: liquidityUsd, order_usd: orderUsd, fee_bps: 30, adverse_slippage_bps: 100 },
+    });
+    return toCamelCase<SolanaImpactEstimate>(data);
+  },
   async getRobinhoodStatus(): Promise<RobinhoodRpcStatus> {
     const { data } = await apiClient.get('/api/v1/meme-coins/robinhood/status');
     return toCamelCase<RobinhoodRpcStatus>(data);

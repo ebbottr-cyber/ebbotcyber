@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -61,6 +61,28 @@ const CONTENT = {
     robinhoodBlock: 'Son blok',
     robinhoodWarning: 'OpenCatz, DEX taraması ve gerçek alım satım bağlı değil. Bu yalnızca RPC sağlık kontrolüdür.',
     robinhoodAgents: 'AI ajan modülleri (taslak)',
+    inspect: 'Mint ve maliyeti incele',
+    inspectTitle: 'Solana token ön incelemesi',
+    inspectLoading: 'Kontrol ediliyor...',
+    inspectAmount: 'Örnek işlem tutarı (USD)',
+    mintDisabled: 'On-chain mint denetimi kapalı. MEME_COIN_SOLANA_MINT_AUDIT_ENABLED=true ile etkinleştirilebilir.',
+    mintUnavailable: 'Mint kontrolü kullanılamıyor veya veri eksik.',
+    mintBlocked: 'Token yetkisi kaynaklı engel veya desteklenmeyen program tespit edildi.',
+    mintReviewOnly: 'Mint ve dondurma yetkisi kaldırılmış; bu tokenin güvenli olduğu anlamına GELMEZ.',
+    mintAuthority: 'Yeni token basma yetkisi',
+    freezeAuthority: 'Cüzdan dondurma yetkisi',
+    authorityRevoked: 'Kaldırılmış',
+    authorityActive: 'Aktif',
+    authorityUnknown: 'Doğrulanamadı',
+    unknownSafety: 'Likidite sahipliği, büyük cüzdanlar ve satış yapılabilirliği hâlâ doğrulanmadı. İşlem engeli devam ediyor.',
+    impactTitle: 'Varsayımsal havuz maliyet modeli',
+    impactWarning: '50/50 sabit çarpım AMM varsayımıdır; gerçek DEX teklifi, gerçek kayma veya gerçekleşecek fiyat değildir.',
+    impactPct: 'Model fiyat etkisi',
+    costPct: 'Model toplam maliyet',
+    feeUsd: 'Model havuz komisyonu',
+    worstUsd: 'Ek %1 fiyat değişimi sonrası model alt sınırı',
+    impactBlocked: 'Model limitlerini aşıyor; sanal işlem araştırması engellendi.',
+    inspectFailed: 'İnceleme verileri alınamadı.',
   },
   en: {
     title: 'Meme Coin Strategies',
@@ -117,6 +139,28 @@ const CONTENT = {
     robinhoodBlock: 'Latest block',
     robinhoodWarning: 'OpenCatz, DEX scanning and live trading are not connected. This is only an RPC health check.',
     robinhoodAgents: 'AI agent modules (planned)',
+    inspect: 'Review mint & costs',
+    inspectTitle: 'Solana token preliminary review',
+    inspectLoading: 'Reviewing...',
+    inspectAmount: 'Example order size (USD)',
+    mintDisabled: 'On-chain mint audit is disabled. Opt in with MEME_COIN_SOLANA_MINT_AUDIT_ENABLED=true.',
+    mintUnavailable: 'Mint review is unavailable or lacks required data.',
+    mintBlocked: 'Token authority or unsupported program restriction identified.',
+    mintReviewOnly: 'Mint and freeze authorities revoked, but this does NOT prove token safety.',
+    mintAuthority: 'Mint authority',
+    freezeAuthority: 'Freeze authority',
+    authorityRevoked: 'Revoked',
+    authorityActive: 'Active',
+    authorityUnknown: 'Unknown',
+    unknownSafety: 'Holder concentration, liquidity ownership and sellability are still unverified. Trading remains blocked.',
+    impactTitle: 'Hypothetical pool cost model',
+    impactWarning: 'Assumes 50/50 constant-product AMM; NOT an executable quote, actual slippage or real fill price.',
+    impactPct: 'Modeled price impact',
+    costPct: 'Modeled total cost',
+    feeUsd: 'Modeled pool fee',
+    worstUsd: 'Modeled floor after extra 1% adverse move',
+    impactBlocked: 'Model limits exceeded; paper-trade research blocked.',
+    inspectFailed: 'Could not retrieve review data.',
   },
   zh: {
     title: 'Meme Coin 策略',
@@ -173,6 +217,28 @@ const CONTENT = {
     robinhoodBlock: '最新区块',
     robinhoodWarning: '尚未连接 OpenCatz、DEX 扫描或实盘。这里只检测 RPC 健康状态。',
     robinhoodAgents: 'AI 代理模块（规划中）',
+    inspect: '检查 Mint 与成本',
+    inspectTitle: 'Solana 代币初步检查',
+    inspectLoading: '检查中...',
+    inspectAmount: '模拟订单金额（美元）',
+    mintDisabled: '链上 Mint 检查未开启。设置 MEME_COIN_SOLANA_MINT_AUDIT_ENABLED=true 后启用。',
+    mintUnavailable: 'Mint 检查不可用或缺少数据。',
+    mintBlocked: '检测到代币权限风险或不支持的程序。',
+    mintReviewOnly: '铸造和冻结权限已撤销，但不表示代币安全。',
+    mintAuthority: '铸币权限',
+    freezeAuthority: '冻结权限',
+    authorityRevoked: '已撤销',
+    authorityActive: '有效',
+    authorityUnknown: '未知',
+    unknownSafety: '持仓集中度、流动性所有权和可卖性仍未验证，交易继续禁止。',
+    impactTitle: '假设的资金池成本模型',
+    impactWarning: '采用 50/50 恒定乘积模型，不是真实 DEX 报价、真实滑点或成交价格。',
+    impactPct: '模型价格影响',
+    costPct: '模型总成本',
+    feeUsd: '模型手续费',
+    worstUsd: '额外 1% 不利波动后的模型下限',
+    impactBlocked: '超出模型限制，不允许模拟研究。',
+    inspectFailed: '无法获取检查数据。',
   },
 } satisfies Record<UiLanguage, Record<string, string>>;
 
@@ -204,6 +270,14 @@ export default function MemeCoinPage() {
   const [scanResult, setScanResult] = useState<MemeCoinDiscoveryResponse | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [scanError, setScanError] = useState(false);
+  const [researchAmount, setResearchAmount] = useState(25);
+  const [researchTarget, setResearchTarget] = useState<{ mint: string; symbol: string } | null>(null);
+  const [mintResearch, setMintResearch] = useState<SolanaMintReview | null>(null);
+  const [impactResearch, setImpactResearch] = useState<SolanaImpactEstimate | null>(null);
+  const [mintResearchError, setMintResearchError] = useState(false);
+  const [impactResearchError, setImpactResearchError] = useState(false);
+  const [researchLoading, setResearchLoading] = useState(false);
+  const researchRequestSeq = useRef(0);
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodRpcStatus | null>(null);
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
   const [robinhoodError, setRobinhoodError] = useState(false);
@@ -239,6 +313,10 @@ export default function MemeCoinPage() {
     setScanLoading(true);
     setScanError(false);
     setScanResult(null);
+    researchRequestSeq.current += 1;
+    setResearchTarget(null);
+    setMintResearch(null);
+    setImpactResearch(null);
     try {
       const result = await memeCoinApi.scanCandidates(selected);
       if (seq === scanRequestSeq.current) setScanResult(result);
@@ -251,6 +329,32 @@ export default function MemeCoinPage() {
       if (seq === scanRequestSeq.current) setScanLoading(false);
     }
   }, [selected]);
+
+  const inspectSolanaCandidate = useCallback(async (mint: string, symbol: string, liquidityUsd: number) => {
+    const seq = ++researchRequestSeq.current;
+    setResearchTarget({ mint, symbol });
+    setMintResearch(null);
+    setImpactResearch(null);
+    setMintResearchError(false);
+    setImpactResearchError(false);
+    setResearchLoading(true);
+    const [mintResponse, impactResponse] = await Promise.allSettled([
+      memeCoinApi.reviewSolanaMint(mint),
+      memeCoinApi.estimateSolanaImpact(liquidityUsd, researchAmount),
+    ]);
+    if (seq !== researchRequestSeq.current) return;
+    if (mintResponse.status === 'fulfilled') {
+      setMintResearch(mintResponse.value);
+    } else {
+      setMintResearchError(true);
+    }
+    if (impactResponse.status === 'fulfilled') {
+      setImpactResearch(impactResponse.value);
+    } else {
+      setImpactResearchError(true);
+    }
+    setResearchLoading(false);
+  }, [researchAmount]);
 
   const checkRobinhood = useCallback(async () => {
     const seq = ++robinhoodRequestSeq.current;
@@ -273,6 +377,7 @@ export default function MemeCoinPage() {
   useEffect(() => () => {
     scanRequestSeq.current += 1;
     robinhoodRequestSeq.current += 1;
+    researchRequestSeq.current += 1;
   }, []);
 
   const current = overview?.strategies.find((item) => item.id === selected) ?? overview?.strategies[0];
@@ -321,6 +426,11 @@ export default function MemeCoinPage() {
                   onClick={() => {
                     scanRequestSeq.current += 1;
                     robinhoodRequestSeq.current += 1;
+                    researchRequestSeq.current += 1;
+                    setResearchTarget(null);
+                    setMintResearch(null);
+                    setImpactResearch(null);
+                    setResearchLoading(false);
                     setSelected(item.id);
                     setRobinhoodStatus(null);
                     setRobinhoodError(false);
@@ -403,6 +513,24 @@ export default function MemeCoinPage() {
               </button>
             </div>
             <p className="text-xs text-secondary-text">{copy.scanNote}</p>
+            <label className="flex flex-wrap items-center gap-2 text-sm" htmlFor="meme-research-amount">
+              {copy.inspectAmount}
+              <select
+                id="meme-research-amount"
+                className="rounded-lg border border-border bg-card px-3 py-1.5"
+                value={researchAmount}
+                onChange={(event) => {
+                  researchRequestSeq.current += 1;
+                  setResearchAmount(Number(event.target.value));
+                  setResearchTarget(null);
+                  setMintResearch(null);
+                  setImpactResearch(null);
+                  setResearchLoading(false);
+                }}
+              >
+                <option value={25}>$25</option><option value={50}>$50</option><option value={100}>$100</option>
+              </select>
+            </label>
             {scanError && <p role="alert" className="text-sm text-danger">{copy.scanUnavailable}</p>}
             {scanResult?.status === 'disabled' && <p className="text-sm text-warning">{copy.scanDisabled}</p>}
             {scanResult?.status === 'unavailable' && <p role="alert" className="text-sm text-danger">{copy.scanUnavailable}</p>}
@@ -417,7 +545,7 @@ export default function MemeCoinPage() {
                       <thead><tr className="border-b border-border/60 text-secondary-text">
                         <th className="p-2">Token</th><th className="p-2">{copy.scanScore}</th><th className="p-2">{copy.scanLiquidity}</th>
                         <th className="p-2">{copy.scanVolume}</th><th className="p-2">{copy.scanChange}</th>
-                        <th className="p-2">{copy.scanAge}</th><th className="p-2">{copy.scanTrades}</th>
+                        <th className="p-2">{copy.scanAge}</th><th className="p-2">{copy.scanTrades}</th><th className="p-2">{copy.inspectTitle}</th>
                       </tr></thead>
                       <tbody>{scanResult.candidates.map((coin) => (
                         <tr key={coin.tokenAddress} className="border-b border-border/40">
@@ -432,12 +560,51 @@ export default function MemeCoinPage() {
                           <td className="p-2">{coin.change5mPct.toFixed(2)}%</td>
                           <td className="p-2">{coin.ageMinutes.toFixed(0)}</td>
                           <td className="p-2">{coin.buys5m} / {coin.sells5m}</td>
+                          <td className="p-2">
+                            <button type="button" className="btn-secondary whitespace-nowrap px-2 py-1 text-xs" onClick={() => void inspectSolanaCandidate(coin.tokenAddress, coin.symbol, coin.liquidityUsd)}>
+                              {copy.inspect}
+                            </button>
+                          </td>
                         </tr>
                       ))}</tbody>
                     </table>
                   </div>
                 )}
               </>
+            )}
+            {researchTarget && (
+              <div className="space-y-3 border-t border-border/50 pt-3" aria-label={copy.inspectTitle}>
+                <h4 className="font-semibold">{copy.inspectTitle}: {researchTarget.symbol}</h4>
+                <p className="break-all font-mono text-xs text-secondary-text">{researchTarget.mint}</p>
+                {researchLoading && <p className="text-sm text-secondary-text">{copy.inspectLoading}</p>}
+                {(mintResearchError || impactResearchError) && <p role="alert" className="text-sm text-danger">{copy.inspectFailed}</p>}
+                {mintResearch?.status === 'disabled' && <p className="text-sm text-warning">{copy.mintDisabled}</p>}
+                {mintResearch && ['unavailable','unsupported'].includes(mintResearch.status) && <p className="text-sm text-danger">{copy.mintUnavailable}</p>}
+                {mintResearch?.status === 'screened' && (
+                  <div className="space-y-2">
+                    <p className="text-sm">{mintResearch.verdict === 'blocked' ? copy.mintBlocked : copy.mintReviewOnly}</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <p className="text-sm">{copy.mintAuthority}: {mintResearch.mintAuthorityRevoked === null ? copy.authorityUnknown : mintResearch.mintAuthorityRevoked ? copy.authorityRevoked : copy.authorityActive}</p>
+                      <p className="text-sm">{copy.freezeAuthority}: {mintResearch.freezeAuthorityRevoked === null ? copy.authorityUnknown : mintResearch.freezeAuthorityRevoked ? copy.authorityRevoked : copy.authorityActive}</p>
+                    </div>
+                    {mintResearch.blockingReasons.length > 0 && <p className="text-xs text-danger">{mintResearch.blockingReasons.join(', ')}</p>}
+                  </div>
+                )}
+                {impactResearch && (
+                  <div className="space-y-2 rounded-xl bg-elevated/60 p-3">
+                    <h5 className="font-semibold">{copy.impactTitle}</h5>
+                    <p className="text-xs text-secondary-text">{copy.impactWarning}</p>
+                    <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                      <p>{copy.impactPct}: {impactResearch.modeledPriceImpactPct.toFixed(2)}%</p>
+                      <p>{copy.costPct}: {impactResearch.modeledTotalCostPct.toFixed(2)}%</p>
+                      <p>{copy.feeUsd}: ${impactResearch.modeledFeeUsd.toFixed(4)}</p>
+                      <p>{copy.worstUsd}: ${impactResearch.modeledMinOutputValueUsd.toFixed(2)}</p>
+                    </div>
+                    {impactResearch.paperReviewStatus === 'blocked' && <p className="text-sm text-danger">{copy.impactBlocked}</p>}
+                  </div>
+                )}
+                <p className="text-xs text-warning">{copy.unknownSafety}</p>
+              </div>
             )}
           </Card>
         )}
