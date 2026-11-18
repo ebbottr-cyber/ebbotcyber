@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -75,6 +75,15 @@ const CONTENT = {
     authorityActive: 'Aktif',
     authorityUnknown: 'Doğrulanamadı',
     unknownSafety: 'Likidite sahipliği, büyük cüzdanlar ve satış yapılabilirliği hâlâ doğrulanmadı. İşlem engeli devam ediyor.',
+    concentrationTitle: 'En büyük token hesapları',
+    concentrationDisclaimer: 'Bu sonuçlar cüzdan sahiplerini değil, token hesap bakiyelerini ölçer. DEX havuzları veya ilişkili hesaplar ayrıştırılmadı.',
+    concentrationDisabled: 'Yoğunlaşma denetimi kapalı. MEME_COIN_SOLANA_HOLDER_AUDIT_ENABLED=true ile açılır.',
+    concentrationUnavailable: 'Token hesap dağılımı alınamadı veya tutarsız; işlem yapılamaz.',
+    concentrationSignal: 'Yüksek hesap yoğunlaşması tespit edildi. Gerçek sahiplik ve havuz kasaları incelenmeli.',
+    concentrationNoSignal: 'İlk 20 hesapta eşik aşımı görülmedi; bu sonuç tokenin güvenli olduğunu göstermez.',
+    concentrationTop1: 'En büyük token hesabı',
+    concentrationTop10: 'İlk 10 token hesabı',
+    concentrationNote: 'Toplam arzdaki pay · Token hesapları, benzersiz yatırımcılar değildir',
     impactTitle: 'Varsayımsal havuz maliyet modeli',
     impactWarning: '50/50 sabit çarpım AMM varsayımıdır; gerçek DEX teklifi, gerçek kayma veya gerçekleşecek fiyat değildir.',
     impactPct: 'Model fiyat etkisi',
@@ -153,6 +162,15 @@ const CONTENT = {
     authorityActive: 'Active',
     authorityUnknown: 'Unknown',
     unknownSafety: 'Holder concentration, liquidity ownership and sellability are still unverified. Trading remains blocked.',
+    concentrationTitle: 'Largest token accounts',
+    concentrationDisclaimer: 'These are token-account balances, not wallet owners. DEX vaults and related accounts have not been classified.',
+    concentrationDisabled: 'Concentration check is off. Set MEME_COIN_SOLANA_HOLDER_AUDIT_ENABLED=true to opt in.',
+    concentrationUnavailable: 'Token-account balances are unavailable or inconsistent; no trading allowed.',
+    concentrationSignal: 'High token-account concentration detected. Owner identity and pool vaults need further review.',
+    concentrationNoSignal: 'No threshold crossed by the largest 20 accounts; this does not prove token safety.',
+    concentrationTop1: 'Largest token account',
+    concentrationTop10: 'Top 10 token accounts',
+    concentrationNote: 'Share of total supply · Token accounts are not distinct investors',
     impactTitle: 'Hypothetical pool cost model',
     impactWarning: 'Assumes 50/50 constant-product AMM; NOT an executable quote, actual slippage or real fill price.',
     impactPct: 'Modeled price impact',
@@ -231,6 +249,15 @@ const CONTENT = {
     authorityActive: '有效',
     authorityUnknown: '未知',
     unknownSafety: '持仓集中度、流动性所有权和可卖性仍未验证，交易继续禁止。',
+    concentrationTitle: '最大代币账户',
+    concentrationDisclaimer: '结果统计代币账户，不是钱包实际持有人。未区分 DEX 资金池和关联账户。',
+    concentrationDisabled: '账户集中度检查关闭。设置 MEME_COIN_SOLANA_HOLDER_AUDIT_ENABLED=true 可开启。',
+    concentrationUnavailable: '账户余额数据不可用或不一致，不允许交易。',
+    concentrationSignal: '发现高账户集中度，需要继续验证所有权和池资金。',
+    concentrationNoSignal: '前 20 个账户未超过阈值，但不代表代币安全。',
+    concentrationTop1: '最大代币账户',
+    concentrationTop10: '前 10 个代币账户',
+    concentrationNote: '占总供应量比例 · 账户不代表独立投资者',
     impactTitle: '假设的资金池成本模型',
     impactWarning: '采用 50/50 恒定乘积模型，不是真实 DEX 报价、真实滑点或成交价格。',
     impactPct: '模型价格影响',
@@ -274,6 +301,8 @@ export default function MemeCoinPage() {
   const [researchTarget, setResearchTarget] = useState<{ mint: string; symbol: string } | null>(null);
   const [mintResearch, setMintResearch] = useState<SolanaMintReview | null>(null);
   const [impactResearch, setImpactResearch] = useState<SolanaImpactEstimate | null>(null);
+  const [concentrationResearch, setConcentrationResearch] = useState<SolanaConcentrationReview | null>(null);
+  const [concentrationError, setConcentrationError] = useState(false);
   const [mintResearchError, setMintResearchError] = useState(false);
   const [impactResearchError, setImpactResearchError] = useState(false);
   const [researchLoading, setResearchLoading] = useState(false);
@@ -317,6 +346,8 @@ export default function MemeCoinPage() {
     setResearchTarget(null);
     setMintResearch(null);
     setImpactResearch(null);
+    setConcentrationResearch(null);
+    setConcentrationError(false);
     try {
       const result = await memeCoinApi.scanCandidates(selected);
       if (seq === scanRequestSeq.current) setScanResult(result);
@@ -335,12 +366,15 @@ export default function MemeCoinPage() {
     setResearchTarget({ mint, symbol });
     setMintResearch(null);
     setImpactResearch(null);
+    setConcentrationResearch(null);
+    setConcentrationError(false);
     setMintResearchError(false);
     setImpactResearchError(false);
     setResearchLoading(true);
-    const [mintResponse, impactResponse] = await Promise.allSettled([
+    const [mintResponse, impactResponse, concentrationResponse] = await Promise.allSettled([
       memeCoinApi.reviewSolanaMint(mint),
       memeCoinApi.estimateSolanaImpact(liquidityUsd, researchAmount),
+      memeCoinApi.reviewSolanaConcentration(mint),
     ]);
     if (seq !== researchRequestSeq.current) return;
     if (mintResponse.status === 'fulfilled') {
@@ -352,6 +386,11 @@ export default function MemeCoinPage() {
       setImpactResearch(impactResponse.value);
     } else {
       setImpactResearchError(true);
+    }
+    if (concentrationResponse.status === 'fulfilled') {
+      setConcentrationResearch(concentrationResponse.value);
+    } else {
+      setConcentrationError(true);
     }
     setResearchLoading(false);
   }, [researchAmount]);
@@ -430,6 +469,8 @@ export default function MemeCoinPage() {
                     setResearchTarget(null);
                     setMintResearch(null);
                     setImpactResearch(null);
+                    setConcentrationResearch(null);
+                    setConcentrationError(false);
                     setResearchLoading(false);
                     setSelected(item.id);
                     setRobinhoodStatus(null);
@@ -525,6 +566,8 @@ export default function MemeCoinPage() {
                   setResearchTarget(null);
                   setMintResearch(null);
                   setImpactResearch(null);
+                  setConcentrationResearch(null);
+                  setConcentrationError(false);
                   setResearchLoading(false);
                 }}
               >
@@ -577,7 +620,7 @@ export default function MemeCoinPage() {
                 <h4 className="font-semibold">{copy.inspectTitle}: {researchTarget.symbol}</h4>
                 <p className="break-all font-mono text-xs text-secondary-text">{researchTarget.mint}</p>
                 {researchLoading && <p className="text-sm text-secondary-text">{copy.inspectLoading}</p>}
-                {(mintResearchError || impactResearchError) && <p role="alert" className="text-sm text-danger">{copy.inspectFailed}</p>}
+                {(mintResearchError || impactResearchError || concentrationError) && <p role="alert" className="text-sm text-danger">{copy.inspectFailed}</p>}
                 {mintResearch?.status === 'disabled' && <p className="text-sm text-warning">{copy.mintDisabled}</p>}
                 {mintResearch && ['unavailable','unsupported'].includes(mintResearch.status) && <p className="text-sm text-danger">{copy.mintUnavailable}</p>}
                 {mintResearch?.status === 'screened' && (
@@ -601,6 +644,26 @@ export default function MemeCoinPage() {
                       <p>{copy.worstUsd}: ${impactResearch.modeledMinOutputValueUsd.toFixed(2)}</p>
                     </div>
                     {impactResearch.paperReviewStatus === 'blocked' && <p className="text-sm text-danger">{copy.impactBlocked}</p>}
+                  </div>
+                )}
+                {concentrationResearch && (
+                  <div className="space-y-2 rounded-xl bg-elevated/60 p-3">
+                    <h5 className="font-semibold">{copy.concentrationTitle}</h5>
+                    <p className="text-xs text-secondary-text">{copy.concentrationDisclaimer}</p>
+                    {concentrationResearch.status === 'disabled' && <p className="text-sm text-warning">{copy.concentrationDisabled}</p>}
+                    {concentrationResearch.status === 'unavailable' && <p className="text-sm text-danger">{copy.concentrationUnavailable}</p>}
+                    {concentrationResearch.status === 'screened' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>{copy.concentrationTop1}: {concentrationResearch.topAccountPct?.toFixed(2) ?? '—'}%</div>
+                          <div>{copy.concentrationTop10}: {concentrationResearch.topTenAccountsPct?.toFixed(2) ?? '—'}%</div>
+                        </div>
+                        <p className="text-xs text-secondary-text">{copy.concentrationNote}</p>
+                        <p className={`text-sm ${concentrationResearch.verdict === 'concentration_signal' ? 'text-danger' : 'text-warning'}`}>
+                          {concentrationResearch.verdict === 'concentration_signal' ? copy.concentrationSignal : copy.concentrationNoSignal}
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
                 <p className="text-xs text-warning">{copy.unknownSafety}</p>
