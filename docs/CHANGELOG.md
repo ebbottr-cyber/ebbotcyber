@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] Add research-only V8 fixed-parameter chronological walk-forward and reserved holdout validation for single ETF/cash timing, with explicit noninformative fold reporting and no execution wiring.
+
 - [新功能] Add an opt-in read-only V7 cross-provider ETF price consistency diagnostic comparing aligned daily returns, missing dates, and actual single-asset strategy sensitivity; no trading-path changes.
 
 - [修复] Complete Turkish UI type coverage for decision-signal timestamps, run-flow dates, system settings categories and notification channel labels; preserve Chinese and English behavior.
