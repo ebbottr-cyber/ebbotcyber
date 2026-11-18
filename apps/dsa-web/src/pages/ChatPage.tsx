@@ -50,6 +50,25 @@ const QUICK_QUESTIONS: Array<{
   { label: '用情绪周期分析东方财富', skill: 'emotion_cycle', stockContext: { stock_code: '300059', stock_name: '东方财富' } },
 ];
 
+const QUICK_QUESTION_LABELS = {
+  tr: [
+    '600519 hissesini Chan teorisiyle analiz et',
+    '300750 hissesini Elliott dalga teorisiyle analiz et',
+    '002594 hissesinin trendini analiz et',
+    '688981 hissesini yatay bant stratejisiyle analiz et',
+    'HK00700 hissesini analiz et',
+    '300059 hissesini piyasa duyarlılığıyla analiz et',
+  ],
+  en: [
+    'Analyze 600519 with Chan theory',
+    'Analyze 300750 with Elliott waves',
+    'Analyze the trend of 002594',
+    'Analyze 688981 with range trading',
+    'Analyze HK00700',
+    'Analyze 300059 with sentiment cycles',
+  ],
+} as const;
+
 const MAX_SELECTED_SKILLS = 3;
 const CONTEXT_COMPRESSION_CONFIG_KEY = 'AGENT_CONTEXT_COMPRESSION_ENABLED';
 const getMessageSkillNames = (msg: Message): string[] => {
@@ -81,7 +100,8 @@ const getPipelineBudgetSkippedLabel = (step: ProgressStep): string => {
 };
 
 const ChatPage: React.FC = () => {
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
+  const lt = (tr: string, en: string, zh: string) => language === 'tr' ? tr : language === 'en' ? en : zh;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [input, setInput] = useState('');
@@ -128,7 +148,7 @@ const ChatPage: React.FC = () => {
   const agentStatusRequestIdRef = useRef(0);
 
   // Get localized text (default to Chinese)
-  const text = getReportText('zh');
+  const text = getReportText(language);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -145,10 +165,10 @@ const ChatPage: React.FC = () => {
     };
   }, []);
 
-  // Set page title
+  // Keep the browser title in sync with the selected UI language.
   useEffect(() => {
-    document.title = '问股 - DSA';
-  }, []);
+    document.title = lt('Hisse Asistanı - EBBot', 'Stock Assistant - EBBot', '问股 - DSA');
+  }, [language]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -188,18 +208,18 @@ const ChatPage: React.FC = () => {
           const codes = await systemConfigApi.removeFromWatchlist(existingStockCode);
           if (isMountedRef.current) {
             setWatchlistCodes(codes);
-            setWatchlistMessage(`已从自选中移除 ${stockCode}`);
+            setWatchlistMessage(lt(`${stockCode} takip listesinden çıkarıldı`, `${stockCode} removed from watchlist`, `已从自选中移除 ${stockCode}`));
           }
         } else {
           const codes = await systemConfigApi.addToWatchlist(stockCode);
           if (isMountedRef.current) {
             setWatchlistCodes(codes);
-            setWatchlistMessage(`已加入自选 ${stockCode}`);
+            setWatchlistMessage(lt(`${stockCode} takip listesine eklendi`, `${stockCode} added to watchlist`, `已加入自选 ${stockCode}`));
           }
         }
       } catch {
         if (isMountedRef.current) {
-          setWatchlistMessage('操作失败，请重试');
+          setWatchlistMessage(lt('İşlem başarısız, tekrar deneyin', 'Action failed, please retry', '操作失败，请重试'));
         }
       } finally {
         if (isMountedRef.current) {
@@ -364,7 +384,7 @@ const ChatPage: React.FC = () => {
         }
         const parsed = getParsedApiError(error);
         setContextCompressionLoaded(false);
-        setContextCompressionError(parsed.message || '无法读取上下文压缩配置');
+        setContextCompressionError(parsed.message || lt('Bağlam sıkıştırma ayarları okunamadı', 'Could not load context compression settings', '无法读取上下文压缩配置'));
         console.error('Failed to load context compression setting:', error);
       });
 
@@ -400,7 +420,7 @@ const ChatPage: React.FC = () => {
       } catch (error) {
         const parsed = getParsedApiError(error);
         setContextCompressionEnabled(previousEnabled);
-        setContextCompressionError(parsed.message || '上下文压缩设置保存失败');
+        setContextCompressionError(parsed.message || lt('Bağlam sıkıştırma ayarları kaydedilemedi', 'Could not save context compression settings', '上下文压缩设置保存失败'));
       } finally {
         setContextCompressionSaving(false);
       }
@@ -415,7 +435,10 @@ const ChatPage: React.FC = () => {
   );
 
   const availableSkillIds = new Set(skills.map((skill) => skill.id));
-  const quickQuestions = QUICK_QUESTIONS.filter((question) => availableSkillIds.size === 0 || availableSkillIds.has(question.skill));
+  const quickQuestions = QUICK_QUESTIONS.map((question, index) => ({
+    ...question,
+    label: language === 'zh' ? question.label : QUICK_QUESTION_LABELS[language][index],
+  })).filter((question) => availableSkillIds.size === 0 || availableSkillIds.has(question.skill));
   const selectedSkillIdSet = new Set(selectedSkillIds);
   const skillLimitReached = selectedSkillIds.length >= MAX_SELECTED_SKILLS;
   const agentConfirmedUnavailable = Boolean(agentStatus && !agentStatus.available);
@@ -572,7 +595,7 @@ const ChatPage: React.FC = () => {
       const usedSkillIds = normalizeSelectedSkillIds(
         requestedSkillIds ?? selectedSkillIds,
       );
-      const usedSkillNames = usedSkillIds.length > 0 ? getSkillNames(usedSkillIds) : ['通用'];
+      const usedSkillNames = usedSkillIds.length > 0 ? getSkillNames(usedSkillIds) : [lt('Genel', 'General', '通用')];
       // Only report/shortcut hints accompany this request. Ordinary follow-ups
       // rely on the server's accepted state, not a replay or a client-selected fact.
       const contextForSend = overrideStockContext ?? followUpContextRef.current ?? undefined;
@@ -656,7 +679,7 @@ const ChatPage: React.FC = () => {
 
   const downloadMessageAsMarkdown = useCallback((msg: Message) => {
     const skillLabel = getMessageSkillLabel(msg);
-    const heading = msg.role === 'user' ? '# 用户消息' : `# AI 回复${skillLabel ? ` · ${skillLabel}` : ''}`;
+    const heading = msg.role === 'user' ? lt('# Kullanıcı Mesajı', '# User message', '# 用户消息') : `# ${lt('AI Yanıtı', 'AI response', 'AI 回复')}${skillLabel ? ` · ${skillLabel}` : ''}`;
     const content = [heading, '', msg.content].join('\n');
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -670,13 +693,13 @@ const ChatPage: React.FC = () => {
   }, []);
 
   const getCurrentStage = (steps: ProgressStep[]): string => {
-    if (steps.length === 0) return '正在连接...';
+    if (steps.length === 0) return lt('Bağlanıyor...', 'Connecting...', '正在连接...');
     const last = steps[steps.length - 1];
-    if (last.type === 'thinking') return last.message || 'AI 正在思考...';
+    if (last.type === 'thinking') return last.message || lt('AI düşünüyor...', 'AI is thinking...', 'AI 正在思考...');
     if (last.type === 'tool_start')
       return `${last.display_name || last.tool}...`;
     if (last.type === 'tool_done')
-      return `${last.display_name || last.tool} 完成`;
+      return `${last.display_name || last.tool} ${lt('tamamlandı', 'completed', '完成')}`;
     if (last.type === 'stage_start')
       return last.message || `Starting ${last.stage || 'stage'}...`;
     if (last.type === 'stage_done')
@@ -686,8 +709,8 @@ const ChatPage: React.FC = () => {
     if (last.type === 'pipeline_budget_skipped')
       return getPipelineBudgetSkippedLabel(last);
     if (last.type === 'generating')
-      return last.message || '正在生成最终分析...';
-    return '处理中...';
+      return last.message || lt('Son analiz hazırlanıyor...', 'Preparing final analysis...', '正在生成最终分析...');
+    return lt('İşleniyor...', 'Processing...', '处理中...');
   };
 
   const renderThinkingBlock = (msg: Message) => {
@@ -698,7 +721,7 @@ const ChatPage: React.FC = () => {
       (sum, s) => sum + (s.duration || 0),
       0,
     );
-    const summary = `${toolSteps.length} 个工具调用 · ${totalDuration.toFixed(1)}s`;
+    const summary = `${toolSteps.length} ${lt('araç çağrısı', 'tool calls', '个工具调用')} · ${totalDuration.toFixed(1)}s`;
 
     return (
       <button
@@ -719,7 +742,7 @@ const ChatPage: React.FC = () => {
           />
         </svg>
         <span className="flex items-center gap-1.5">
-          <span className="opacity-60">思考过程</span>
+          <span className="opacity-60">{lt('Düşünme süreci', 'Thinking process', '思考过程')}</span>
           <span className="text-muted-text/50">·</span>
           <span className="opacity-50">{summary}</span>
         </span>
@@ -734,7 +757,7 @@ const ChatPage: React.FC = () => {
         let iconClass = 'chat-progress-dot-muted';
         let text = '';
         if (step.type === 'thinking') {
-          text = step.message || `第 ${step.step} 步：思考`;
+          text = step.message || lt(`${step.step}. adım: düşünme`, `Step ${step.step}: thinking`, `第 ${step.step} 步：思考`);
           statusClass = 'chat-progress-item-thinking';
           iconClass = 'chat-progress-dot-thinking';
         } else if (step.type === 'tool_start') {
@@ -763,7 +786,7 @@ const ChatPage: React.FC = () => {
           statusClass = 'chat-progress-item-muted';
           iconClass = 'chat-progress-dot-muted';
         } else if (step.type === 'generating') {
-          text = step.message || '生成分析';
+          text = step.message || lt('Analiz oluşturuluyor', 'Generating analysis', '生成分析');
           statusClass = 'chat-progress-item-generating';
           iconClass = 'chat-progress-dot-generating';
         } else {
