@@ -7,13 +7,15 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
 from src.services.meme_coin_robinhood import get_robinhood_rpc_status
 from src.services.meme_coin_solana_risk import review_mint, estimate_cpmm_impact
 from src.services.meme_coin_solana_holders import review_concentration
+from src.services.meme_coin_solana_pool import review_pool
+from src.services.meme_coin_solana_owner_groups import review_owner_groups
 
 admin_session_cookie = APIKeyCookie(
     name=COOKIE_NAME, scheme_name="AdminSessionCookie", auto_error=False
@@ -103,5 +105,36 @@ def solana_concentration(
 ) -> SolanaConcentrationReview:
     try:
         return SolanaConcentrationReview(**review_concentration(mint))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_mint_address")
+
+
+@router.get(
+    "/solana/pool-review",
+    response_model=SolanaPoolReview,
+    operation_id="reviewSolanaPoolLiquidity",
+    summary="Opt-in read-only cross-source Solana pool account and liquidity research",
+)
+def solana_pool_review(
+    mint: str = Query(..., min_length=32, max_length=44),
+    pool: str = Query(..., min_length=32, max_length=44),
+) -> SolanaPoolReview:
+    try:
+        return SolanaPoolReview(**review_pool(mint, pool))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_pool_or_mint")
+
+
+@router.get(
+    "/solana/owner-groups",
+    response_model=SolanaOwnerGroupReview,
+    operation_id="reviewSolanaTokenAccountOwnerGroups",
+    summary="Opt-in read-only group analysis for up to 10 largest token accounts",
+)
+def solana_owner_groups(
+    mint: str = Query(..., min_length=32, max_length=44),
+) -> SolanaOwnerGroupReview:
+    try:
+        return SolanaOwnerGroupReview(**review_owner_groups(mint))
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid_mint_address")
