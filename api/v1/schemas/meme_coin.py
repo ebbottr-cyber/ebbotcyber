@@ -36,3 +36,33 @@ class MemeCoinOverview(BaseModel):
     shared_risk_engine_connected: bool
     last_market_event_at: Optional[str] = None
     strategies: list[MemeCoinStrategy]
+
+
+class MemeCoinCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    symbol: str
+    token_address: str
+    pool_address: str
+    liquidity_usd: float
+    volume_5m_usd: float
+    change_5m_pct: float
+    age_minutes: float
+    buys_5m: int
+    sells_5m: int
+    research_score: float
+    risk_status: Literal["unverified"]
+    tradable: Literal[False]
+    source: Literal["geckoterminal"]
+
+
+class MemeCoinDiscoveryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    status: Literal["disabled", "ok", "unavailable"]
+    source: Literal["geckoterminal"]
+    observed_at: Optional[str] = None
+    candidates: list[MemeCoinCandidate]
+    error: Optional[str] = None

@@ -29,7 +29,37 @@ export type MemeCoinOverview = {
   strategies: MemeCoinStrategy[];
 };
 
+export type MemeCoinCandidate = {
+  strategy: MemeCoinStrategyId;
+  symbol: string;
+  tokenAddress: string;
+  poolAddress: string;
+  liquidityUsd: number;
+  volume5mUsd: number;
+  change5mPct: number;
+  ageMinutes: number;
+  buys5m: number;
+  sells5m: number;
+  researchScore: number;
+  riskStatus: 'unverified';
+  tradable: false;
+  source: 'geckoterminal';
+};
+
+export type MemeCoinDiscoveryResponse = {
+  strategy: MemeCoinStrategyId;
+  status: 'disabled' | 'ok' | 'unavailable';
+  source: 'geckoterminal';
+  observedAt: string | null;
+  candidates: MemeCoinCandidate[];
+  error: string | null;
+};
+
 export const memeCoinApi = {
+  async scanCandidates(strategy: MemeCoinStrategyId): Promise<MemeCoinDiscoveryResponse> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/candidates', { params: { strategy } });
+    return toCamelCase<MemeCoinDiscoveryResponse>(data);
+  },
   async getOverview(): Promise<MemeCoinOverview> {
     const { data } = await apiClient.get('/api/v1/meme-coins/overview');
     return toCamelCase<MemeCoinOverview>(data);
