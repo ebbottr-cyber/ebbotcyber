@@ -205,6 +205,7 @@ class EnglishStockPromptTemplateTestCase(unittest.TestCase):
         self.assertIn("All human-readable JSON values must be in Turkish (Türkçe).", tr_user)
         self.assertIn("Write all human-readable JSON values", tr_system)
         self.assertIn("in Turkish (Türkçe).", tr_system)
+        self.assertIn("US stock", tr_system)
         self.assertEqual(
             re.findall(r"^#{1,4} .+$", tr_user, re.MULTILINE),
             re.findall(r"^#{1,4} .+$", en_user, re.MULTILINE),

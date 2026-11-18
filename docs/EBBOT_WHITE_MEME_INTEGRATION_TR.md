@@ -30,3 +30,10 @@ Bu dal `feat/ebbot-white-dashboard-v1` üzerine `feat/meme-coin-discovery-v2` ko
 
 ## PWA kurulumundan açılan ilk sayfa
 PWA manifest `id` ve `scope` alanları `/` olarak korunur. `start_url`, yalnızca entegrasyon test dalında `/overview` olacak biçimde ayarlanmıştır; bu nedenle uygulama simgesi beyaz Piyasa Özeti'ni açar. Tarayıcıdaki `/` ayrıntılı hisse analiz ekranı aynı kalır. iOS/Android gerçek cihaz davranışı ayrıca doğrulanmalıdır.
+
+## Türkçe rapor yayın engeli düzeltmesi
+- `get_market_role` ve `get_market_guidelines` işlevlerinde Türkçe çıktı modu artık İngilizce finansal piyasa çerçevesi üzerinden çalışır. AAPL/ABD hissesine Çince pazar açıklaması eklenmez.
+- Bildirim kaynak adlarında Türkçe/Korece için İngilizce kaynak etiketi kullanılır; `KeyError` ile rapor oluşturma kesilmez.
+- Türkçe boş haber kanıtı uyarıları mevcut desteklenen dil test sözlüğüne eklendi ve gerçek şablon çıktıları denetlenir.
+- Entegrasyon CI'ına ilgili iki Python regresyon testi eklendi. **Bu düzeltmeler genel backend testlerinin tamamının geçtiği anlamına gelmez.**
+- Eski `.env.example`, `.github/workflows/ci.yml` ve `.github/workflows/00-daily-analysis.yml` yoklukları hâlâ yayın engelidir. Bu dosyalar gerçek üretim sözleşmeleri doğrulanmadan uydurma içerikle oluşturulmayacaktır.
