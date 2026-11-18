@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] Add an opt-in research-only adapter from historical single-asset ETF rotation trades to the random-timing benchmark; reject unsupported allocations and preserve existing live/report behavior.
+
 - [新功能] Add an opt-in read-only random timing benchmark with deterministic seeded Monte Carlo comparisons, per-side transaction costs, and unit tests; no execution or decision-signal integration.
 
 - [修复] 实时行情基准仅接受同交易日的有效日期；Yahoo 行情使用未复权价格并区分交易日与更新时间，避免除息日涨跌方向错误及误报过期。
