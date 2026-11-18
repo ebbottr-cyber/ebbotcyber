@@ -44,8 +44,12 @@ def _prevalidate(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids: set[str] = set()
     previous = 0
     for step in steps:
-        if not isinstance(step, dict) or set(step) != _ALLOWED_STEP_FIELDS:
+        if not isinstance(step, dict) or (set(step) not in (
+            _ALLOWED_STEP_FIELDS, _ALLOWED_STEP_FIELDS | {"emergency_stop"},
+        )):
             raise ValueError("invalid_step_contract")
+        if "emergency_stop" in step and type(step["emergency_stop"]) is not bool:
+            raise ValueError("invalid_step_emergency_stop")
         event = step["event"]
         _validate_event(event)
         identifier = event["id"]
@@ -124,6 +128,7 @@ def replay_marked_guarded(
     starting_capital = sum((x.initial_cash_usd for x in ledgers.values()), D(0))
     global_peak = starting_capital
     global_halt = False
+    stop_latched = False
     current_day: dict[str, str] = {}
     daily_start: dict[str, Decimal | None] = {}
     daily_halt = {strategy: False for strategy in STRATEGIES}
@@ -136,6 +141,7 @@ def replay_marked_guarded(
 
     for step in steps:
         event = step["event"]
+        stop_latched = stop_latched or step.get("emergency_stop", False)
         strategy = event["strategy"]
         ledger = ledgers[strategy]
         now = event["attempted_at_ms"]
@@ -166,7 +172,7 @@ def replay_marked_guarded(
             if start - before[strategy] >= DAILY_STRATEGY_LOSS_USD:
                 daily_halt[strategy] = True
 
-        if emergency_stop:
+        if emergency_stop or stop_latched:
             _reject(ledger, event, "emergency_stop")
             latest_equities, latest_mark_problems = before, problems
             continue
@@ -234,7 +240,8 @@ def replay_marked_guarded(
         "mark_is_executable_quote": False,
         "automatic_paper_trading_enabled": False,
         "live_trading_enabled": False,
-        "emergency_stop_enabled": emergency_stop,
+        "emergency_stop_enabled": emergency_stop or stop_latched,
+        "emergency_stop_persisted_in_steps": stop_latched,
         "global_mark_drawdown_circuit_open": global_halt,
         "global_peak_equity_usd": money(global_peak),
         "global_latest_equity_usd": money(last_global) if last_global is not None else None,
