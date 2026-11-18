@@ -61,6 +61,7 @@ class QuoteQualityTests(unittest.TestCase):
         self.assertEqual(s["verified_trade_event_times"], 0)
         self.assertEqual(s["executable_prices"], 0)
         self.assertEqual(s["invalid_price_symbols"], ["ETHUSDT"])
+        self.assertEqual(s["invalid_price_reasons"], {"ETHUSDT": "nonpositive_last_price"})
         self.assertEqual(s["missing_price_symbols"], [])
         self.assertFalse(s["paper_ready"])
 
@@ -73,6 +74,48 @@ class QuoteQualityTests(unittest.TestCase):
         self.assertEqual(ex["invalid_price_symbols"], [])
         self.assertEqual(ex["saved_assets_not_current"], 1)
         self.assertEqual(ex["current_assets_not_saved"], 1)
+
+    def test_spot_distinguishes_no_recent_trades_from_corrupt_price(self):
+        exchange = json.dumps({"symbols": [
+            {"symbol": f"ALT{i}USDT", "baseAsset": f"ALT{i}", "quoteAsset": "USDT",
+             "status": "TRADING", "isSpotTradingAllowed": True}
+            for i in range(5)
+        ]})
+        tick = json.dumps([
+            {"symbol": "ALT0USDT", "lastPrice": "0", "count": 0},
+            {"symbol": "ALT1USDT", "lastPrice": "NaN", "count": 5},
+            {"symbol": "ALT2USDT", "lastPrice": "10", "count": 0},
+            {"symbol": "ALT3USDT", "lastPrice": "-1", "count": 8},
+            {"symbol": "ALT4USDT", "lastPrice": "9", "count": -2},
+        ])
+        result = check_spot(exchange, tick, set())
+        self.assertEqual(result["positive_price_pairs"], 1)
+        self.assertEqual(result["invalid_price_pairs"], 4)
+        self.assertEqual(result["zero_trades_24h_symbols"], ["ALT0USDT", "ALT2USDT"])
+        self.assertEqual(result["invalid_price_reasons"], {
+            "ALT0USDT": "nonpositive_last_price_no_trades_24h",
+            "ALT1USDT": "non_finite_last_price",
+            "ALT3USDT": "nonpositive_last_price",
+            "ALT4USDT": "invalid_24h_trade_count",
+        })
+        self.assertFalse(result["paper_ready"])
+
+    def test_spot_diagnostic_keeps_every_invalid_symbol_not_top_n(self):
+        exchange = json.dumps({"symbols": [
+            {"symbol": f"ERR{i:04d}", "baseAsset": "ERR", "quoteAsset": "USD",
+             "status": "TRADING", "isSpotTradingAllowed": True}
+            for i in range(205)
+        ]})
+        tick = json.dumps([
+            {"symbol": f"ERR{i:04d}", "lastPrice": "0", "count": 0}
+            for i in range(205)
+        ])
+        result = check_spot(exchange, tick, set())
+        self.assertEqual(result["invalid_price_pairs"], 205)
+        self.assertEqual(len(result["invalid_price_reasons"]), 205)
+        self.assertEqual(result["zero_trades_24h_pairs"], 205)
+        self.assertEqual(result["positive_price_pairs"], 0)
+        self.assertEqual(result["executable_prices"], 0)
 
     def test_spot_duplicates_and_malformed_response_block(self):
         with self.assertRaisesRegex(ValueError, "spot_24h_duplicate"):

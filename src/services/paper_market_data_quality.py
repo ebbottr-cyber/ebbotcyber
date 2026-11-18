@@ -69,6 +69,35 @@ def active_spot_assets(raw: str) -> set[str]:
     return active
 
 
+def _spot_price_issue(tick: dict) -> str | None:
+    """Reason codes are diagnostic, NOT evidence that an asset is delisted.
+
+    Binance 24h 'count' is the number of trades in the rolling window.
+    Neither the count nor 'closeTime' establishes last-trade freshness.
+    """
+    count = tick.get("count")
+    if count is not None and (type(count) is not int or count < 0):
+        return "invalid_24h_trade_count"
+    raw = tick.get("lastPrice")
+    if _positive(raw):
+        return None
+    if raw is None:
+        return "missing_last_price"
+    if not isinstance(raw, str):
+        return "non_string_last_price"
+    try:
+        value = Decimal(raw)
+    except (ValueError, InvalidOperation):
+        return "non_numeric_last_price"
+    if not value.is_finite():
+        return "non_finite_last_price"
+    if value <= 0 and count == 0:
+        return "nonpositive_last_price_no_trades_24h"
+    if value <= 0:
+        return "nonpositive_last_price"
+    return "unusable_last_price"
+
+
 def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
     """All TRADING Spot pairs, not a top-N; quote time is unverified."""
     try:
@@ -90,17 +119,25 @@ def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
             current_assets.update((base, quote))
     positive = 0
     invalid_symbols: list[str] = []
+    invalid_reasons: dict[str, str] = {}
+    zero_trade_symbols: list[str] = []
     missing_symbols: list[str] = []
     for symbol in sorted(expected):
         row = prices.get(symbol)
         if row is None:
             missing_symbols.append(symbol)
-        elif _positive(row.get("lastPrice")):
-            positive += 1
         else:
-            # Source symbol only, no raw provider payload or wallet details.
-            # Keep all failures, never silently remove pairs to hit 100%.
-            invalid_symbols.append(symbol)
+            issue = _spot_price_issue(row)
+            # A positive indicative lastPrice can still have zero trades in
+            # the rolling period. Report this separately, never equate a
+            # window statistic with executable last-trade freshness.
+            if row.get("count") == 0 and type(row.get("count")) is int:
+                zero_trade_symbols.append(symbol)
+            if issue is None:
+                positive += 1
+            else:
+                invalid_symbols.append(symbol)
+                invalid_reasons[symbol] = issue
     return {
         "price_kind": "spot_24h_last_price_indicative",
         "timestamp_kind": "rolling_window_end_not_last_trade",
@@ -110,6 +147,10 @@ def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
         "missing_price_symbols": missing_symbols,
         "invalid_price_pairs": len(invalid_symbols),
         "invalid_price_symbols": invalid_symbols,
+        "invalid_price_reasons": invalid_reasons,
+        "zero_trades_24h_symbols": zero_trade_symbols,
+        "zero_trades_24h_pairs": len(zero_trade_symbols),
+        "issue_codes_are_diagnostics_not_delisting_proof": True,
         "saved_active_assets": len(assets),
         "current_active_assets": len(current_assets),
         "saved_assets_not_current": len(assets - current_assets),

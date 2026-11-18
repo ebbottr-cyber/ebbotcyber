@@ -108,3 +108,24 @@ PowerShell (mevcut dört snapshot dosyası, public API için açık opt-in):
     python -m scripts.audit_paper_quote_sources --fetch --stocks "$HOME\\EBBotPaperData\\kap-bist-all.csv" --spot "$HOME\\EBBotPaperData\\binance-spot-all.json" --usdm "$HOME\\EBBotPaperData\\binance-usdm-futures.json" --coinm "$HOME\\EBBotPaperData\\binance-coinm-futures.json"
 
 Yalnızca 4 sabit Binance public GET çağrısı vardır. API anahtarı, cüzdan, pozisyon, disk raporu veya zamanlayıcı yoktur. Testler sentetik fixture'larla internetsiz çalışır; gerçek kaynakların güncelliği bilgisayarda ayrıca doğrulanmalıdır.
+
+
+## V5.1 — Spot 24 saat fiyat sorunlarının sınıflandırılması
+
+Binance 24 saatlik ticker kaydındaki `count`, o kayan 24 saatlik
+pencerenin işlem sayısıdır; **son işlem zamanının** kanıtı değildir.
+Denetim artık her geçersiz Spot çifti için `invalid_price_reasons`
+döndürür: sıfır/negatif fiyat, sayısal olmayan fiyat, boş fiyat,
+son 24 saatte işlem olmamasıyla birlikte sıfır fiyat veya
+geçersiz işlem sayısı. Ayrıca `zero_trades_24h_symbols` listesi,
+**pozitif son fiyat olsa bile**, o dönemde 0 işlem bildiren çiftleri
+gösterir. Tüm eşleşmeler taranır, Top-N veya sessiz ayıklama yoktur.
+Bu uyarılar delist kararı değil, veri sağlayıcısının verdiği
+24 saatlik özet istatistiklerin teşhisidir.
+
+18 Kasım 2026 Windows denetiminde geçersiz fiyatla dönen 9 çift:
+`ARBU`, `LTCUSD1`, `ORDIU`, `PLUMETHB`, `TRBJPY`,
+`TRXUSD1`, `UIDR`, `WLDU`, `XLMUSD1`.
+Sembol adları kullanıcı çıktısıdır; **kesin hata nedenleri**
+bir sonraki gerçek API denetiminde `invalid_price_reasons`
+alanından görülecek. `paper_ready=false` ve gerçek emirler kapalı.
