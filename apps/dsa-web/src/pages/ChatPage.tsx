@@ -101,7 +101,7 @@ const getPipelineBudgetSkippedLabel = (step: ProgressStep): string => {
 
 const ChatPage: React.FC = () => {
   const { t, language } = useUiLanguage();
-  const lt = (tr: string, en: string, zh: string) => language === 'tr' ? tr : language === 'en' ? en : zh;
+  const lt = useCallback((tr: string, en: string, zh: string) => language === 'tr' ? tr : language === 'en' ? en : zh, [language]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [input, setInput] = useState('');
@@ -235,7 +235,7 @@ const ChatPage: React.FC = () => {
         }
       }
     },
-    [isWatchlistActioning, watchlistCodes],
+    [isWatchlistActioning, watchlistCodes, lt],
   );
 
   const {
@@ -391,7 +391,7 @@ const ChatPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [lt]);
 
   const updateContextCompressionEnabled = useCallback(
     async (nextEnabled: boolean) => {
@@ -431,6 +431,7 @@ const ChatPage: React.FC = () => {
       contextCompressionLoaded,
       contextCompressionMaskToken,
       contextCompressionSaving,
+      lt,
     ],
   );
 
@@ -1293,7 +1294,7 @@ const ChatPage: React.FC = () => {
                     d="M19 14l-7 7m0 0l-7-7m7 7V3"
                   />
                 </svg>
-                有新消息
+                {lt('Yeni mesajlar', 'New messages', '有新消息')}
               </button>
             </div>
           )}
@@ -1427,7 +1428,7 @@ const ChatPage: React.FC = () => {
                     )}
                   >
                     <span className="text-xs text-muted-text font-medium uppercase tracking-wider flex-shrink-0 mt-1">
-                      策略
+                      {lt('Stratejiler', 'Strategies', '策略')}
                     </span>
                     <label className="flex items-center gap-1.5 text-sm cursor-pointer group mt-0.5">
                       <input
@@ -1441,7 +1442,7 @@ const ChatPage: React.FC = () => {
                       <span
                         className={`transition-colors text-sm ${selectedSkillIds.length === 0 ? 'text-foreground font-medium' : 'text-secondary-text group-hover:text-foreground'}`}
                       >
-                        通用分析
+                        {lt('Genel Analiz', 'General analysis', '通用分析')}
                       </span>
                     </label>
                     {skills.map((s) => {
