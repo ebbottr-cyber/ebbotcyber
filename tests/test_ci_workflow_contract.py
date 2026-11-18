@@ -243,7 +243,10 @@ def test_active_ebbot_ci_runs_fail_closed_regression_without_live_trading() -> N
     jobs = active["jobs"]
 
     assert active["permissions"] == {"contents": "read"}
-    assert active["on"]["push"]["branches"] == ["integration/ebbot-white-meme-discovery"]
+    assert active["on"]["push"]["branches"] == [
+        "integration/ebbot-white-meme-discovery",
+        "review/ebbot-3lu-entegrasyon-20261118",
+    ]
     assert active["on"]["pull_request"]["branches"] == ["feat/ebbot-white-dashboard-v1"]
     assert "schedule" not in active["on"]
     assert "workflow_dispatch" not in active["on"]
