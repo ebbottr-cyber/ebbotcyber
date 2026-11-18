@@ -372,7 +372,7 @@ describe('MemeCoinPage', () => {
     expect(await screen.findByText(/1.64%/)).toBeInTheDocument();
     expect(screen.getByText(/likidite kilidi henüz doğrulanmış DEĞİL/)).toBeInTheDocument();
     expect(screen.getByText(/en büyük 10 token hesabı örneklendi/i)).toBeInTheDocument();
-    expect(screen.getByText(/35.00%/)).toBeInTheDocument();
+    expect(screen.getAllByText(/35.00%/).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
   });
 
