@@ -60,7 +60,7 @@ describe('PaperJournalPanel', () => {
     mount();
     upload('{"seq":0}\n');
     await waitFor(() => expect(mocks.inspectPaperJournal).toHaveBeenCalledWith('{"seq":0}\n'));
-    expect(await screen.findByText('-%0.15')).toBeInTheDocument();
+    expect(await screen.findByText('-0.15%')).toBeInTheDocument();
     expect(screen.getByText('MockAdjusted', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('0.9985')).toBeInTheDocument();
     expect(screen.getByText(/Kayıt bütünlüğü doğrulandı/)).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('PaperJournalPanel', () => {
     mount();
     upload('bad\n');
     expect(await screen.findByRole('alert')).toHaveTextContent(/Günlük doğrulanamadı/);
-    expect(screen.queryByText('-%0.15')).not.toBeInTheDocument();
+    expect(screen.queryByText('-0.15%')).not.toBeInTheDocument();
   });
 
   it('rejects overlarge local files before upload', async () => {
