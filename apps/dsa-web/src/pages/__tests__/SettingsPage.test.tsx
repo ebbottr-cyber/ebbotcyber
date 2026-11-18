@@ -7,6 +7,8 @@ import { resetSharedDesktopUpdateState } from '../../desktop/updateStore';
 import type { SetupStatusResponse } from '../../types/systemConfig';
 import SettingsPage from '../SettingsPage';
 import { DesktopUpdateIndicator } from '../../components/layout/DesktopUpdateIndicator';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 
 function renderSettingsPage(initialEntries: string[] = ['/settings']) {
   const router = createMemoryRouter(
@@ -23,7 +25,7 @@ function renderSettingsPage(initialEntries: string[] = ['/settings']) {
     ],
     { initialEntries },
   );
-  const utils = render(<RouterProvider router={router} />);
+  const utils = render(<UiLanguageProvider><RouterProvider router={router} /></UiLanguageProvider>);
   // Trigger an in-router state refresh so memoised route element re-renders
   // after the mocked hook return value changes between iterations (the data
   // router keeps the <SettingsPage /> element reference stable across
@@ -579,6 +581,7 @@ function hangDesktopUpdateCheck() {
 
 describe('SettingsPage', () => {
   beforeEach(() => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     editorTestMode.real = false;
     vi.restoreAllMocks();
     vi.clearAllMocks();
@@ -707,6 +710,40 @@ describe('SettingsPage', () => {
     expect(screen.getByText('认证与登录保护')).toBeInTheDocument();
     expect(screen.getByText('修改密码')).toBeInTheDocument();
     expect(load).toHaveBeenCalled();
+  });
+
+  it('shows the first-run setup status in Turkish when Turkish is selected', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    useSystemConfigMock.mockReturnValue(buildSystemConfigState({ activeCategory: 'base' }));
+    getSetupStatus.mockResolvedValue({
+      isComplete: false,
+      readyForSmoke: false,
+      requiredMissingKeys: ['llm_primary', 'llm_agent', 'stock_list'],
+      nextStepKey: 'llm_primary',
+      checks: [
+        { key: 'llm_primary', title: 'LLM 主渠道', category: 'ai_model', required: true,
+          status: 'needs_action', message: '尚未检测到主模型配置',
+          nextStep: '请配置 LITELLM_MODEL、LLM_CHANNELS、LITELLM_CONFIG 或 legacy provider API Key。' },
+        { key: 'llm_agent', title: 'Agent 渠道', category: 'agent', required: true,
+          status: 'needs_action', message: 'Agent 未配置独立模型，且 LLM 主渠道尚不可用。',
+          nextStep: '请先补齐 LLM 主渠道配置。' },
+        { key: 'stock_list', title: '自选股', category: 'base', required: true,
+          status: 'needs_action', message: '当前 STOCK_LIST 为空。',
+          nextStep: '请至少添加 1 只股票用于首次试跑。' },
+        { key: 'notification', title: '通知渠道', category: 'notification', required: false,
+          status: 'optional', message: '通知为可选项，未配置也不影响首次跑通。',
+          nextStep: '需要推送时可稍后配置飞书、钉钉、Telegram、邮件或其他通知渠道。' },
+      ],
+    });
+    renderSettingsPage();
+    expect(await screen.findByRole('heading', { name: 'İlk Kurulum Kontrolü' })).toBeInTheDocument();
+    expect(screen.getByText('Ana Yapay Zekâ Modeli')).toBeInTheDocument();
+    expect(screen.getByText('Agent Modeli')).toBeInTheDocument();
+    expect(screen.getByText('Takip Listesi')).toBeInTheDocument();
+    expect(screen.getByText('Bildirim Kanalı')).toBeInTheDocument();
+    expect(screen.getByText('STOCK_LIST şu anda boş.')).toBeInTheDocument();
+    expect(screen.getByText('Tamamlanması gereken 3 ayar: Ana Yapay Zekâ Modeli, Agent Modeli, Takip Listesi')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kısa test çalıştır' })).toBeDisabled();
   });
 
   it('renders first-run setup checks and routes setup actions', async () => {
