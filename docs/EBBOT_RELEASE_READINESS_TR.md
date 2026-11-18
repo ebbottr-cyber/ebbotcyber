@@ -73,3 +73,15 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 - Önceki `"0"` metin değerinin geçersiz sayılmasına neden olan sayısal ayrıştırma hatası giderildi.
 - Bağımsız testler yeni modülle birlikte salt-okunur CI görevinde koşar; aktif paper emir motoru veya canlı işlem yaratılmadı.
 - Detaylar `docs/MEME_COIN_SYNTHETIC_JOURNAL_V1.md` dosyasında.
+
+## Kalıcı sentetik günlük — V12
+
+- Yerel SQLite kayıt prototipi yalnızca manuel `enabled=True` ile açılır;
+  hiçbir backend route veya zamanlayıcıya bağlanmaz.
+- İşlem ID'si tekilliği, iki ayrı strateji günlüğü, atomik yazma, hash zinciri,
+  tekrar başlatmada doğrulama, kalıcı kill switch ve stratejiler arası günlük
+  zarar bütçesi testlerle denetlenir. Gerçek emir veya doldurulmuş işlem yoktur.
+- `tests/test_meme_coin_persistent_journal.py` yeni salt-okunur CI hedefli
+  testlerine dahil edildi (yalnızca geçici sentetik SQLite dosyaları kullanır).
+- `docs/MEME_COIN_PERSISTENT_JOURNAL_V1.md` riskleri ve kullanım sınırlarını
+  açıklar. Bu modül **production-grade** denetim günlüğü değildir.
