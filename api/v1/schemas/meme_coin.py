@@ -335,3 +335,36 @@ class MemeCoinMtmReadiness(BaseModel):
     paper_scheduler_running: Literal[False]
     live_trading_enabled: Literal[False]
     strategies: list[MemeCoinMtmStrategyReadiness]
+
+
+class SolanaDualSourceMarkPreview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    mint: str
+    pool: str
+    network: Literal["solana-mainnet"]
+    status: Literal["disabled", "prerequisite_disabled", "rate_limited", "unavailable", "screened"]
+    verdict: Literal["unknown", "flagged", "comparison_only"]
+    sample_sell_raw: str
+    token_decimals: Optional[int] = None
+    mint_slot: Optional[int] = None
+    jupiter_price_usd: Optional[str] = None
+    dexscreener_price_usd: Optional[str] = None
+    dex_liquidity_usd: Optional[str] = None
+    price_divergence_pct: Optional[str] = None
+    sample_quoted_usd: Optional[str] = None
+    jupiter_captured_at_ms: Optional[int] = None
+    dex_retrieved_at_ms: Optional[int] = None
+    checked_at: Optional[str] = None
+    quote_capture_id: Optional[str] = None
+    dex_id: Optional[str] = None
+    warning_flags: list[str]
+    source_independence_verified: Literal[False]
+    dex_market_observation_timestamp_verified: Literal[False]
+    token_safety_verified: Literal[False]
+    sell_fill_verified: Literal[False]
+    mark_to_market_execution_verified: Literal[False]
+    automated_paper_marks_enabled: Literal[False]
+    live_trading_enabled: Literal[False]
+    tradable: Literal[False]
