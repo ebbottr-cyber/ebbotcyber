@@ -1,16 +1,8 @@
 name: EBBot Xetra two-symbol live quote sample (manual research)
 
+# Manual only. This workflow must exist on the default branch before
+# workflow_dispatch is available. No automatic quote polling on draft PRs.
 on:
-  push:
-    branches:
-      - feat/xetra-quote-guard-v1
-    paths:
-      - '.github/workflows/xetra-quote-live-sample.yml'
-  pull_request:
-    branches:
-      - feat/four-market-equity-audit-v1
-    paths:
-      - '.github/workflows/xetra-quote-live-sample.yml'
   workflow_dispatch:
 
 permissions:
