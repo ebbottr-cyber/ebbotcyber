@@ -10,9 +10,11 @@ import { alertsApi } from '../api/alerts';
 import { analysisApi } from '../api/analysis';
 import { historyApi } from '../api/history';
 import { portfolioApi } from '../api/portfolio';
+import { trMarketApi, type TrMarketItem } from '../api/trMarketOverview';
+import { TurkeyMarketCards } from '../components/dashboard/TurkeyMarketCards';
 import { useWatchlist } from '../hooks/useWatchlist';
 import { StockCandlestickChart } from '../components/dashboard/StockCandlestickChart';
-import type { HistoryItem, MarketReviewIndex, MarketReviewPayload, TaskInfo } from '../types/analysis';
+import type { HistoryItem, TaskInfo } from '../types/analysis';
 import type { AlertTriggerItem } from '../types/alerts';
 import type { PortfolioRiskResponse, PortfolioSnapshotResponse } from '../types/portfolio';
 
@@ -39,20 +41,6 @@ const formatChange = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value)
     ? (value > 0 ? '+' : '') + new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(value) + '%'
     : 'Veri yok';
-
-const marketDefs = [
-  { title: 'BIST 100', pattern: /XU100|BIST.?100|BIST100/i },
-  { title: 'BIST 30', pattern: /XU030|BIST.?30|BIST30/i },
-  { title: 'USD/TRY', pattern: /USD.?TRY|USDTRY/i },
-  { title: 'EUR/TRY', pattern: /EUR.?TRY|EURTRY/i },
-  { title: 'Gram Altın', pattern: /XAUTRY|GRAM.?ALTIN|GAUTRY|GOLD.?TRY/i },
-];
-
-function getMarketIndices(payload: MarketReviewPayload | null): MarketReviewIndex[] {
-  if (!payload) return [];
-  const related = Object.values(payload.markets ?? {});
-  return [payload, ...related].flatMap((market) => market.indices ?? []);
-}
 
 function ReportPriceHistory({ points }: { points: HistoryItem[] }) {
   const priced = points
@@ -107,7 +95,8 @@ const DashboardOverviewPage: React.FC = () => {
   const [risk, setRisk] = useState<PortfolioRiskResponse | null>(null);
   const [alerts, setAlerts] = useState<AlertTriggerItem[]>([]);
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
-  const [marketReport, setMarketReport] = useState<MarketReviewPayload | null>(null);
+  const [marketItems, setMarketItems] = useState<TrMarketItem[]>([]);
+  const [marketLoadFailed, setMarketLoadFailed] = useState(false);
   const [selectedCode, setSelectedCode] = useState('');
   const [news, setNews] = useState<Array<{ title: string; snippet: string; url: string }>>([]);
   const [newsUnavailable, setNewsUnavailable] = useState(false);
@@ -124,7 +113,7 @@ const DashboardOverviewPage: React.FC = () => {
         portfolioApi.getRisk(),
         alertsApi.listTriggers({ pageSize: 5 }),
         analysisApi.getTasks({ limit: 8 }),
-        historyApi.getList({ reportType: 'market_review', limit: 1 }),
+        trMarketApi.getOverview(),
       ]);
       if (!active) return;
       const errors: string[] = [];
@@ -138,17 +127,15 @@ const DashboardOverviewPage: React.FC = () => {
       else errors.push('Uyarılar');
       if (tasksResult.status === 'fulfilled') setTasks(tasksResult.value.tasks);
       else errors.push('Görevler');
-      setFailed(errors);
-      if (reviewResult.status === 'fulfilled' && reviewResult.value.items[0]) {
-        try {
-          const report = await historyApi.getDetail(reviewResult.value.items[0].id);
-          if (active) setMarketReport(report.details?.contextSnapshot?.marketReviewPayload ?? null);
-        } catch {
-          if (active) setMarketReport(null);
-        }
+      if (reviewResult.status === 'fulfilled') {
+        setMarketItems(reviewResult.value.items);
+        setMarketLoadFailed(false);
       } else {
-        setMarketReport(null);
+        setMarketItems([]);
+        setMarketLoadFailed(true);
+        errors.push('Türkiye piyasaları');
       }
+      setFailed(errors);
       if (active) setLoading(false);
     }
     void load();
@@ -170,7 +157,6 @@ const DashboardOverviewPage: React.FC = () => {
     return () => { active = false; };
   }, [latest?.id]);
 
-  const indices = useMemo(() => getMarketIndices(marketReport), [marketReport]);
   const uniqueStocks = useMemo(() =>
     Array.from(new Map(history.map((item) => [item.stockCode, item])).values()).slice(0, 7),
     [history],
@@ -204,24 +190,7 @@ const DashboardOverviewPage: React.FC = () => {
           </div>
         ) : null}
 
-        <section aria-label="Piyasa kartları" className="flex snap-x gap-3 overflow-x-auto pb-1">
-          {marketDefs.map((market) => {
-            const found = indices.find((index) => market.pattern.test(index.code + ' ' + index.name));
-            const change = found?.changePct;
-            return (
-              <div key={market.title} className={surface + ' min-w-[158px] flex-1 snap-start px-4 py-3 sm:min-w-[180px]'}>
-                <p className="text-xs font-semibold text-[#536a88]">{market.title}</p>
-                <p className="mt-1 text-lg font-extrabold tabular-nums text-[#183055]">{formatAmount(found?.current)}</p>
-                <p className={'mt-0.5 flex items-center gap-1 text-xs font-semibold ' +
-                  (typeof change !== 'number' ? 'text-[#8494aa]' : change >= 0 ? 'text-[#14a870]' : 'text-[#e45a5a]')}>
-                  {typeof change === 'number' ? change >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" /> : null}
-                  {formatChange(change)}
-                </p>
-              </div>
-            );
-          })}
-        </section>
-        <p className="-mt-3 text-[11px] text-[#8494ab]">Piyasa kartları yalnızca kayıtlı son piyasa raporunda ilgili veri varsa dolar. Canlı veri garantisi yoktur.</p>
+        <TurkeyMarketCards items={marketItems} loading={loading} failed={marketLoadFailed} />
 
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.95fr)_minmax(300px,1fr)]">
           <div className="min-w-0 space-y-4">
