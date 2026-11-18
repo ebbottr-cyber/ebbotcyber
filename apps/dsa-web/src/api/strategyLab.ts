@@ -46,3 +46,40 @@ export const strategyLabApi = {
     return toCamelCase<EtfStrategyResearch>(data);
   },
 };
+
+
+export type PaperJournalEvent = {
+  session: string;
+  paperFill: 'BUY' | 'SELL' | null;
+  paperInvested: boolean;
+  signalRecorded: boolean;
+  equity: number;
+};
+
+export type PaperJournalSummary = {
+  status: 'PAPER_ONLY';
+  researchOnly: true;
+  source: string;
+  assetCode: string;
+  recordCount: number;
+  firstSession: string;
+  lastSession: string;
+  lastObservedAtUtc: string;
+  lastEquity: number;
+  observedReturnPct: number;
+  observedMaxDrawdownPct: number;
+  paperBuyCount: number;
+  paperSellCount: number;
+  invested: boolean;
+  nextExpectedSession: string;
+  events: PaperJournalEvent[];
+  verifiedHashChain: true;
+  note: string;
+};
+
+export async function inspectPaperJournal(journalJsonl: string): Promise<PaperJournalSummary> {
+  const { data } = await apiClient.post<Record<string, unknown>>('/api/v1/strategy-lab/paper/inspect', {
+    journal_jsonl: journalJsonl,
+  });
+  return toCamelCase<PaperJournalSummary>(data);
+}
