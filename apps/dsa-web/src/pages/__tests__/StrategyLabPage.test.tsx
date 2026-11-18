@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import StrategyLabPage from '../StrategyLabPage';
 
 const mocks = vi.hoisted(() => ({
@@ -51,6 +52,7 @@ function mount() {
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
   vi.clearAllMocks();
   mocks.eligibleEtfs.mockResolvedValue(['510300', '518880']);
   mocks.analyzeEtf.mockResolvedValue(sample);
