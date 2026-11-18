@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness, MemeCoinMtmReadiness, SolanaDualSourceMarkPreview)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness, MemeCoinMtmReadiness, SolanaDualSourceMarkPreview, MemeCoinExitGuardReadiness)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
@@ -22,6 +22,7 @@ from src.services.meme_coin_paper_guard import readiness as get_paper_guard_read
 from src.services.meme_coin_paper_mtm import readiness as get_mtm_readiness
 from src.services.meme_coin_jupiter_quotes import quote_preview
 from src.services.meme_coin_price_crosscheck import preview_crosscheck
+from src.services.meme_coin_exit_feed_guard import readiness as get_exit_guard_readiness
 
 admin_session_cookie = APIKeyCookie(
     name=COOKIE_NAME, scheme_name="AdminSessionCookie", auto_error=False
@@ -234,3 +235,14 @@ def solana_mark_crosscheck(
         )
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid_mark_crosscheck_input")
+
+
+@router.get(
+    "/paper/exit-guard-readiness",
+    response_model=MemeCoinExitGuardReadiness,
+    operation_id="getMemeCoinExitGuardReadiness",
+    summary="Static read-only status of V13 offline full-exit and feed guards",
+)
+def paper_exit_guard_readiness() -> MemeCoinExitGuardReadiness:
+    # No file reads, side effects, real prices or order issuance.
+    return MemeCoinExitGuardReadiness(**get_exit_guard_readiness())

@@ -27,6 +27,11 @@ from src.services.meme_coin_solana_risk import validate_mint
 D = Decimal
 MAX_MARK_AGE_MS = 30000
 _ALLOWED_STEP_FIELDS = {"event", "risk_fact", "marks"}
+_ENTRY_GATE_REASONS = {
+    "feed_disconnected", "feed_stale", "missing_exit_snapshot",
+    "invalid_exit_evidence", "stale_exit_quote", "wrong_full_position_size",
+    "insufficient_exit_proceeds",
+}
 _MARK_FIELDS = {"source", "bid_price_usd", "observed_at_ms"}
 
 
@@ -44,12 +49,19 @@ def _prevalidate(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids: set[str] = set()
     previous = 0
     for step in steps:
-        if not isinstance(step, dict) or (set(step) not in (
-            _ALLOWED_STEP_FIELDS, _ALLOWED_STEP_FIELDS | {"emergency_stop"},
-        )):
+        optional = {"emergency_stop", "exit_quote_gate"}
+        if (not isinstance(step, dict) or
+                not _ALLOWED_STEP_FIELDS.issubset(step) or
+                set(step) - _ALLOWED_STEP_FIELDS - optional):
             raise ValueError("invalid_step_contract")
         if "emergency_stop" in step and type(step["emergency_stop"]) is not bool:
             raise ValueError("invalid_step_emergency_stop")
+        if "exit_quote_gate" in step:
+            gate = step["exit_quote_gate"]
+            if (not isinstance(gate, dict) or set(gate) != {"status", "reason"}
+                    or gate["status"] != "blocked"
+                    or gate["reason"] not in _ENTRY_GATE_REASONS):
+                raise ValueError("invalid_exit_quote_gate")
         event = step["event"]
         _validate_event(event)
         identifier = event["id"]
@@ -174,6 +186,13 @@ def replay_marked_guarded(
 
         if emergency_stop or stop_latched:
             _reject(ledger, event, "emergency_stop")
+            latest_equities, latest_mark_problems = before, problems
+            continue
+        if event["side"] == "buy" and "exit_quote_gate" in step:
+            # A V13 offline full-position evidence failure blocks *this*
+            # hypothetical BUY without forcing an unsafe/irreversible SELL
+            # freeze. Offline recovery serializes this exact decision.
+            _reject(ledger, event, "exit_quote_" + step["exit_quote_gate"]["reason"])
             latest_equities, latest_mark_problems = before, problems
             continue
 

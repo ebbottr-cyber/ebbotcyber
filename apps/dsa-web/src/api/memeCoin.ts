@@ -309,7 +309,24 @@ export type SolanaDualSourceMarkPreview = {
   tradable: false;
 };
 
+export type MemeCoinExitGuardReadiness = {
+  status: 'offline_exit_feed_safeguards_available';
+  fullExitQuotesVerifiedLive: false;
+  paperSafetySchedulerRunning: false;
+  providerMarketTimestampsVerified: false;
+  connectivityFromLiveProviders: false;
+  liveTradingEnabled: false;
+  strategies: Array<{
+    strategy: SolanaMemeCoinStrategyId;
+    state: 'not_running';
+  }>;
+};
+
 export const memeCoinApi = {
+  async getExitGuardReadiness(): Promise<MemeCoinExitGuardReadiness> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/paper/exit-guard-readiness');
+    return toCamelCase<MemeCoinExitGuardReadiness>(data);
+  },
   async getSolanaMarkCrosscheck(
     strategy: SolanaMemeCoinStrategyId,
     mint: string,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness, type MemeCoinMtmReadiness, type SolanaDualSourceMarkPreview } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture, type MemeCoinOfflineRiskReadiness, type MemeCoinMtmReadiness, type SolanaDualSourceMarkPreview, type MemeCoinExitGuardReadiness } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -75,6 +75,12 @@ const CONTENT = {
     mtmRisk: 'Açık pozisyonların varsayımsal kaybı $50 günlük ve $100 toplam sınırları aşarsa yeni test alımları durur.',
     mtmRecovery: 'Yeniden açılışta kayıtlar tekrar hesaplanır ve SQLite kontrol noktasıyla karşılaştırılır.',
     mtmUnavailable: 'V11 modül hazırlık durumu doğrulanamadı.',
+    exitGuardTitle: 'Tam Pozisyon Satış ve Bağlantı Koruması (V13)',
+    exitGuardReady: 'Çevrimdışı risk ön kontrolü hazır.',
+    exitGuardExplain: 'Açık pozisyonların tamamı ve planlanan yeni alım için tam miktarlı satış teklifi gerekir. Bağlantı kesilir veya teklif eskirse yeni sanal alım engellenir.',
+    exitGuardDisabled: 'Otomatik veri kontrolü ve sanal işlem motoru çalışmıyor.',
+    exitGuardCaution: 'Bu test bağlantı durumları ve fiyatlar doğrulanmış canlı piyasa verileri değil; satış garantisi yok.',
+    exitGuardUnavailable: 'V13 modül hazırlık durumu doğrulanamadı.',
     paperLedgerNew: 'Yeni Coin Avcısı',
     paperLedgerMomentum: 'Momentum Avcısı',
     next: 'Sonraki geliştirme',
@@ -246,6 +252,12 @@ const CONTENT = {
     mtmRisk: 'Modeled open losses of $50/day per strategy or $100 globally block new simulated buys.',
     mtmRecovery: 'Restart reconstructs history and compares the result with the SQLite checkpoint.',
     mtmUnavailable: 'V11 module readiness could not be verified.',
+    exitGuardTitle: 'Full Position Exit & Feed Protection (V13)',
+    exitGuardReady: 'Offline risk preflight is available.',
+    exitGuardExplain: 'Full-size sell quotes for all open positions and prospective buys are required. Missing/stale quotes and feed outages block hypothetical new buys.',
+    exitGuardDisabled: 'Automated provider monitoring and paper simulator are not running.',
+    exitGuardCaution: 'Fixture connectivity and prices are not verified live market data, and do not guarantee sellability.',
+    exitGuardUnavailable: 'V13 readiness could not be verified.',
     paperLedgerNew: 'New Launch Hunter',
     paperLedgerMomentum: 'Momentum Hunter',
     next: 'Next development',
@@ -417,6 +429,12 @@ const CONTENT = {
     mtmRisk: '单策略每日模拟损失 50 美元或总损失 100 美元会停止新的模拟买单。',
     mtmRecovery: '重启时重放交易历史，并与 SQLite 检查点核对。',
     mtmUnavailable: '无法确认 V11 模块状态。',
+    exitGuardTitle: '全仓退出及数据源防护（V13）',
+    exitGuardReady: '离线风险预检已准备。',
+    exitGuardExplain: '所有持仓及拟买入的全仓卖出报价必须存在。断线或报价过期时拦截新模拟买单。',
+    exitGuardDisabled: '自动行情监控和模拟引擎尚未运行。',
+    exitGuardCaution: '离线数据源和价格不代表已验证的实时数据或可卖出性。',
+    exitGuardUnavailable: '无法确认 V13 模块就绪状态。',
     paperLedgerNew: '新币发现',
     paperLedgerMomentum: '动量发现',
     next: '下一阶段',
@@ -575,6 +593,8 @@ export default function MemeCoinPage() {
   const [riskReadinessError, setRiskReadinessError] = useState(false);
   const [mtmReadiness, setMtmReadiness] = useState<MemeCoinMtmReadiness | null>(null);
   const [mtmReadinessError, setMtmReadinessError] = useState(false);
+  const [exitGuardReadiness, setExitGuardReadiness] = useState<MemeCoinExitGuardReadiness | null>(null);
+  const [exitGuardReadinessError, setExitGuardReadinessError] = useState(false);
   const [selected, setSelected] = useState<MemeCoinStrategyId>('new_launch');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -623,11 +643,12 @@ export default function MemeCoinPage() {
     setLoading(true);
     setError(false);
     try {
-      const [overviewResult, paperResult, riskResult, mtmResult] = await Promise.allSettled([
+      const [overviewResult, paperResult, riskResult, mtmResult, exitResult] = await Promise.allSettled([
         memeCoinApi.getOverview(),
         memeCoinApi.getPaperReplayStatus(),
         memeCoinApi.getPaperRiskReadiness(),
         memeCoinApi.getPaperMtmReadiness(),
+        memeCoinApi.getExitGuardReadiness(),
       ]);
       if (seq === requestSeq.current) {
         if (overviewResult.status === 'fulfilled') {
@@ -657,6 +678,13 @@ export default function MemeCoinPage() {
           setMtmReadiness(null);
           setMtmReadinessError(true);
         }
+        if (exitResult.status === 'fulfilled') {
+          setExitGuardReadiness(exitResult.value);
+          setExitGuardReadinessError(false);
+        } else {
+          setExitGuardReadiness(null);
+          setExitGuardReadinessError(true);
+        }
       }
     } catch {
       if (seq === requestSeq.current) {
@@ -664,10 +692,12 @@ export default function MemeCoinPage() {
         setPaperStatus(null);
         setRiskReadiness(null);
         setMtmReadiness(null);
+        setExitGuardReadiness(null);
         setError(true);
         setPaperStatusError(true);
         setRiskReadinessError(true);
         setMtmReadinessError(true);
+        setExitGuardReadinessError(true);
       }
     } finally {
       if (seq === requestSeq.current) setLoading(false);
@@ -1413,6 +1443,26 @@ export default function MemeCoinPage() {
                   </div>
                 ))}
               </div>
+            </>
+          )}
+        </Card>
+
+        <Card title={copy.exitGuardTitle} className="space-y-3">
+          {exitGuardReadinessError && <p role="alert" className="text-sm text-danger">{copy.exitGuardUnavailable}</p>}
+          {exitGuardReadiness && (
+            <>
+              <Badge variant="warning">{copy.exitGuardReady}</Badge>
+              <p className="text-sm text-secondary-text">{copy.exitGuardExplain}</p>
+              <p className="text-xs text-secondary-text">{copy.exitGuardDisabled}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {exitGuardReadiness.strategies.map((entry) => (
+                  <div className="rounded-lg border border-border/50 p-3" key={entry.strategy}>
+                    <p className="font-semibold">{entry.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
+                    <p className="text-xs text-secondary-text">{copy.exitGuardDisabled}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-warning">{copy.exitGuardCaution}</p>
             </>
           )}
         </Card>

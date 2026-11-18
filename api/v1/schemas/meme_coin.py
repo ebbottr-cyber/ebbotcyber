@@ -368,3 +368,22 @@ class SolanaDualSourceMarkPreview(BaseModel):
     automated_paper_marks_enabled: Literal[False]
     live_trading_enabled: Literal[False]
     tradable: Literal[False]
+
+
+class MemeCoinExitGuardStrategyStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    state: Literal["not_running"]
+
+
+class MemeCoinExitGuardReadiness(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["offline_exit_feed_safeguards_available"]
+    full_exit_quotes_verified_live: Literal[False]
+    paper_safety_scheduler_running: Literal[False]
+    provider_market_timestamps_verified: Literal[False]
+    connectivity_from_live_providers: Literal[False]
+    live_trading_enabled: Literal[False]
+    strategies: list[MemeCoinExitGuardStrategyStatus]

@@ -3,15 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness, getSolanaMarkCrosscheck } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness, getSolanaMarkCrosscheck, getExitGuardReadiness } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
   reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
-  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(), getPaperMtmReadiness: vi.fn(), getSolanaMarkCrosscheck: vi.fn(),
+  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(), getPaperMtmReadiness: vi.fn(), getSolanaMarkCrosscheck: vi.fn(), getExitGuardReadiness: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness, getSolanaMarkCrosscheck },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness, getSolanaMarkCrosscheck, getExitGuardReadiness },
 }));
 
 const overview = {
@@ -65,6 +65,18 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  getExitGuardReadiness.mockResolvedValue({
+    status: 'offline_exit_feed_safeguards_available',
+    fullExitQuotesVerifiedLive: false,
+    paperSafetySchedulerRunning: false,
+    providerMarketTimestampsVerified: false,
+    connectivityFromLiveProviders: false,
+    liveTradingEnabled: false,
+    strategies: [
+      { strategy: 'new_launch', state: 'not_running' },
+      { strategy: 'momentum', state: 'not_running' },
+    ],
+  });
   getSolanaMarkCrosscheck.mockResolvedValue({
     strategy: 'new_launch',
     mint: '11111111111111111111111111111111',
@@ -780,6 +792,24 @@ describe('MemeCoinPage', () => {
     expect(screen.getByText(/price_sources_diverge_over_10pct/)).toBeInTheDocument();
     expect(screen.getByText(/Otomatik sanal değerlemeye bağlanmadı/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /buy|satın al|execute/i })).not.toBeInTheDocument();
+  });
+
+  it('describes V13 full-position safety as OFFLINE without inventing a live fill', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(await screen.findByText('Tam Pozisyon Satış ve Bağlantı Koruması (V13)')).toBeInTheDocument();
+    expect(screen.getByText(/planlanan yeni alım için tam miktarlı satış teklifi gerekir/)).toBeInTheDocument();
+    expect(screen.getByText(/Bu test bağlantı durumları ve fiyatlar doğrulanmış canlı piyasa verileri değil/)).toBeInTheDocument();
+    expect(getExitGuardReadiness).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /satın al|buy|execute|sanal işlem başlat/i })).not.toBeInTheDocument();
+  });
+
+  it('never fabricates V13 safety readiness if the endpoint fails', async () => {
+    getExitGuardReadiness.mockRejectedValue(new Error('service unavailable'));
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(await screen.findByText('V13 modül hazırlık durumu doğrulanamadı.')).toBeInTheDocument();
+    expect(screen.queryByText('Çevrimdışı risk ön kontrolü hazır.')).not.toBeInTheDocument();
   });
 
 });
