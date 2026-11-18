@@ -18,6 +18,7 @@ from api.v1.endpoints import (
     analysis,
     auth,
     backtest,
+    strategy_lab,
     data,
     decision_signals,
     health,
@@ -67,6 +68,12 @@ router.include_router(
     backtest.router,
     prefix="/backtest",
     tags=["Backtest"]
+)
+
+router.include_router(
+    strategy_lab.router,
+    prefix="/strategy-lab",
+    tags=["StrategyLab"]
 )
 
 router.include_router(
