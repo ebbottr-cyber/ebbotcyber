@@ -60,6 +60,7 @@ const CONTENT = {
     robinhoodChainId: 'Chain ID',
     robinhoodBlock: 'Son blok',
     robinhoodWarning: 'OpenCatz, DEX taraması ve gerçek alım satım bağlı değil. Bu yalnızca RPC sağlık kontrolüdür.',
+    robinhoodAgents: 'AI ajan modülleri (taslak)',
   },
   en: {
     title: 'Meme Coin Strategies',
@@ -115,6 +116,7 @@ const CONTENT = {
     robinhoodChainId: 'Chain ID',
     robinhoodBlock: 'Latest block',
     robinhoodWarning: 'OpenCatz, DEX scanning and live trading are not connected. This is only an RPC health check.',
+    robinhoodAgents: 'AI agent modules (planned)',
   },
   zh: {
     title: 'Meme Coin 策略',
@@ -170,6 +172,7 @@ const CONTENT = {
     robinhoodChainId: 'Chain ID',
     robinhoodBlock: '最新区块',
     robinhoodWarning: '尚未连接 OpenCatz、DEX 扫描或实盘。这里只检测 RPC 健康状态。',
+    robinhoodAgents: 'AI 代理模块（规划中）',
   },
 } satisfies Record<UiLanguage, Record<string, string>>;
 
@@ -376,6 +379,18 @@ export default function MemeCoinPage() {
                 </ul>
               </section>
             </div>
+            {current.id === 'robinhood_chain' && current.agentModules && current.agentModules.length > 0 && (
+              <section>
+                <h3 className="mb-2 font-semibold">{copy.robinhoodAgents}</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {current.agentModules.map((agent) => (
+                    <div key={agent.id} className="flex items-center justify-between gap-2 rounded-lg bg-elevated/60 px-3 py-2 text-sm">
+                      <span>{agent.name}</span><Badge>{copy.pending}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </Card>
         )}
 
