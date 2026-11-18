@@ -751,7 +751,7 @@ export default function MemeCoinPage() {
                     {poolResearch.status === 'unavailable' && <p className="text-sm text-danger">{copy.poolUnavailable}</p>}
                     {poolResearch.status === 'screened' && (
                       <>
-                        <p className="text-sm">GeckoTerminal: ${poolResearch.geckoterminalUsd?.toLocaleString()} · DEX Screener: ${poolResearch.dexscreenerUsd?.toLocaleString()} USD</p>
+                        <p className="text-sm">GeckoTerminal: {poolResearch.geckoterminalUsd?.toLocaleString()} USD · DEX Screener: {poolResearch.dexscreenerUsd?.toLocaleString()} USD</p>
                         <p className="text-sm">{copy.sourceDifference}: {poolResearch.differencePct?.toFixed(2)}%</p>
                         <p className="break-all text-xs text-secondary-text">{copy.poolAccountOwner}: {poolResearch.onchainOwnerProgram ?? '—'}</p>
                         <p className="text-sm text-warning">{poolResearch.verdict === 'blocked' ? copy.poolBlocked : copy.poolReviewOnly}</p>
