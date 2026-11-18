@@ -137,7 +137,9 @@ def test_holdout_guardrails_reject_bad_splits_and_nonpositive_prices():
     with pytest.raises(ValueError, match="finite"):
         _run(wrong)
     dup = valid.copy()
-    dup.index = dup.index.where(pd.Series(range(len(dup))) != 1, dup.index[0])
+    duplicated_dates = list(dup.index)
+    duplicated_dates[1] = duplicated_dates[0]
+    dup.index = pd.DatetimeIndex(duplicated_dates)
     with pytest.raises(ValueError, match="unique"):
         _run(dup)
     with pytest.raises(ValueError, match="single-column"):
