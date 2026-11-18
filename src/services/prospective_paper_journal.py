@@ -38,7 +38,7 @@ def _checked_records(contents: bytes) -> list[dict[str, Any]]:
             raise ValueError("unsupported journal version or purpose")
         if type(data.get("seq")) is not int or data["seq"] != len(records):
             raise ValueError("missing or out-of-order paper record")
-        if type(data.get("invested")) is not bool or data.get("pending_target") not in (None, True, False) \
+        if type(data.get("invested")) is not bool or type(data.get("pending_target")) not in (type(None), bool) \
                 or data.get("fill") not in (None, "BUY", "SELL"):
             raise ValueError("invalid journal paper state")
         try:
