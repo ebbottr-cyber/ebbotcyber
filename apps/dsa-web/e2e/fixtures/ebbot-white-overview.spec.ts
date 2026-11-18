@@ -73,6 +73,11 @@ async function stubOverview(page: Page, options: { marketError?: boolean; empty?
             metrics: { trades: null, net_pnl_usd: null, win_rate_pct: null } },
         ],
       };
+    } else if (path.startsWith('/api/v1/meme-coins/paper/')) {
+      return route.fulfill({
+        status: 503,
+        json: { detail: 'Offline paper services unavailable in fixture' },
+      });
     } else if (path === '/api/v1/meme-coins/candidates') {
       memeScans += 1;
       json = {
