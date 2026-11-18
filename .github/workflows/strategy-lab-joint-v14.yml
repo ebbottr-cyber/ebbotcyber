@@ -27,7 +27,7 @@ jobs:
       - name: Verify V12 and V13 are still review-only and stacked correctly
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/check_integration_dependencies_v14.py --repository "${{ github.repository }}"
+        run: PYTHONPATH=. python scripts/check_integration_dependencies_v14.py --repository "${{ github.repository }}"
 
   targeted-backend:
     runs-on: ubuntu-latest
