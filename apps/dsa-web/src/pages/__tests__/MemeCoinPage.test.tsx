@@ -3,15 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness, getSolanaMarkCrosscheck } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
   reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
-  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(), getPaperMtmReadiness: vi.fn(),
+  getPaperReplayStatus: vi.fn(), getSolanaQuotePreview: vi.fn(), getPaperRiskReadiness: vi.fn(), getPaperMtmReadiness: vi.fn(), getSolanaMarkCrosscheck: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus, getSolanaQuotePreview, getPaperRiskReadiness, getPaperMtmReadiness, getSolanaMarkCrosscheck },
 }));
 
 const overview = {
@@ -65,6 +65,22 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  getSolanaMarkCrosscheck.mockResolvedValue({
+    strategy: 'new_launch',
+    mint: '11111111111111111111111111111111',
+    pool: 'So11111111111111111111111111111111111111112',
+    network: 'solana-mainnet', status: 'disabled', verdict: 'unknown',
+    sampleSellRaw: '1000000', tokenDecimals: null, mintSlot: null,
+    jupiterPriceUsd: null, dexscreenerPriceUsd: null,
+    dexLiquidityUsd: null, priceDivergencePct: null, sampleQuotedUsd: null,
+    jupiterCapturedAtMs: null, dexRetrievedAtMs: null, checkedAt: null,
+    quoteCaptureId: null, dexId: null, warningFlags: [],
+    sourceIndependenceVerified: false,
+    dexMarketObservationTimestampVerified: false,
+    tokenSafetyVerified: false, sellFillVerified: false,
+    markToMarketExecutionVerified: false, automatedPaperMarksEnabled: false,
+    liveTradingEnabled: false, tradable: false,
+  });
   getPaperMtmReadiness.mockResolvedValue({
     status: 'offline_mtm_recovery_available',
     markSource: 'unverified_offline_assumptions',
@@ -684,6 +700,86 @@ describe('MemeCoinPage', () => {
     await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
     expect(await screen.findByText('V11 modül hazırlık durumu doğrulanamadı.')).toBeInTheDocument();
     expect(screen.queryByText(/yerel kurtarma veritabanı sunucuya bağlı değil/)).not.toBeInTheDocument();
+  });
+
+  it('requires an explicit manual action for V12 comparison and never creates trades', async () => {
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: '11111111111111111111111111111111',
+        poolAddress: 'So11111111111111111111111111111111111111112',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+    expect(await screen.findByText('İki Kaynaktan Fiyat Karşılaştırması (V12)')).toBeInTheDocument();
+    expect(getSolanaMarkCrosscheck).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Satış fiyatlarını karşılaştır' }));
+    expect(await screen.findByText(/MEME_COIN_DUAL_SOURCE_MARKS_ENABLED=true/)).toBeInTheDocument();
+    expect(getSolanaMarkCrosscheck).toHaveBeenCalledWith(
+      'new_launch', '11111111111111111111111111111111',
+      'So11111111111111111111111111111111111111112', 1000000,
+    );
+    expect(screen.queryByRole('button', { name: /satın al|buy|execute/i })).not.toBeInTheDocument();
+  });
+
+  it('flags large Jupiter/DEX price divergence and validates raw sell amount', async () => {
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: '11111111111111111111111111111111',
+        poolAddress: 'So11111111111111111111111111111111111111112',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    getSolanaMarkCrosscheck.mockResolvedValue({
+      strategy: 'new_launch', mint: '11111111111111111111111111111111',
+      pool: 'So11111111111111111111111111111111111111112',
+      network: 'solana-mainnet', status: 'screened', verdict: 'flagged',
+      sampleSellRaw: '1000000', tokenDecimals: 6, mintSlot: 10000,
+      jupiterPriceUsd: '1.600000000000', dexscreenerPriceUsd: '2.00',
+      dexLiquidityUsd: '60000', priceDivergencePct: '20.0000',
+      sampleQuotedUsd: '1.6', jupiterCapturedAtMs: 1000000,
+      dexRetrievedAtMs: 1000100, checkedAt: '2026-11-18T12:00:00Z',
+      quoteCaptureId: 'a'.repeat(64), dexId: 'orca',
+      warningFlags: ['price_sources_diverge_over_10pct'],
+      sourceIndependenceVerified: false,
+      dexMarketObservationTimestampVerified: false,
+      tokenSafetyVerified: false, sellFillVerified: false,
+      markToMarketExecutionVerified: false, automatedPaperMarksEnabled: false,
+      liveTradingEnabled: false, tradable: false,
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+    fireEvent.change(screen.getByLabelText('Karşılaştırma için ham token miktarı'), {
+      target: { value: '-100' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Satış fiyatlarını karşılaştır' }));
+    expect(await screen.findByText(/Pozitif tam sayı ham token miktarı gir/)).toBeInTheDocument();
+    expect(getSolanaMarkCrosscheck).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Karşılaştırma için ham token miktarı'), {
+      target: { value: '1000000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Satış fiyatlarını karşılaştır' }));
+    expect(await screen.findByText(/20.0000%/)).toBeInTheDocument();
+    expect(screen.getByText(/price_sources_diverge_over_10pct/)).toBeInTheDocument();
+    expect(screen.getByText(/Otomatik sanal değerlemeye bağlanmadı/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /buy|satın al|execute/i })).not.toBeInTheDocument();
   });
 
 });
