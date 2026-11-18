@@ -26,6 +26,6 @@ jobs:
       - name: Install CI dependencies
         run: python -m pip install -r .github/requirements-ci.txt
       - name: Syntax validation
-        run: python -m py_compile src/core/prospective_paper.py src/services/prospective_paper_journal.py scripts/observe_etf_paper_v9.py tests/test_prospective_paper.py
+        run: python -m py_compile src/core/prospective_paper.py src/services/prospective_paper_journal.py scripts/observe_etf_paper_v9.py tests/test_prospective_paper.py tests/test_prospective_paper_cli.py
       - name: Check no-lookahead and append-only paper journal contracts
-        run: python -m pytest -q tests/test_prospective_paper.py tests/test_temporal_validation.py tests/test_rotation_timing_adapter.py
+        run: python -m pytest -q tests/test_prospective_paper.py tests/test_prospective_paper_cli.py tests/test_temporal_validation.py tests/test_rotation_timing_adapter.py
