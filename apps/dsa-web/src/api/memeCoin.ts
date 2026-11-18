@@ -14,6 +14,7 @@ export type MemeCoinStrategy = {
   paperTradingEnabled: boolean;
   liveTradingEnabled: boolean;
   riskChecks: string[];
+  agentModules?: Array<{ id: string; name: string; status: 'not_connected' }>;
   metrics: {
     trades: number | null;
     netPnlUsd: number | null;
