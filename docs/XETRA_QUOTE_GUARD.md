@@ -54,6 +54,21 @@ provider sweeps or exhaust all 1,749 candidates; bulk pricing requires a
 properly licensed and reliability-checked feed. Results are not auto-
 imported into the EBBot UI, prices database, journal or paper ledger.
 
+## One-time live public-feed sample (18 Nov 2026)
+
+The read-only GitHub Actions [sample run 44395440152](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44395440152)
+queried **SAP.DE** and **SIE.DE** (2 HTTP GETs, 0 orders) on 18 Nov 2026
+at 20:51:53 UTC. Both matched Yahoo's XETRA/EUR/EQUITY metadata.
+The returned **delayed** regular-market values were SAP 193.92 EUR
+(16:37:40 UTC) and SIE 266.00 EUR (16:38:55 UTC).
+These are timestamped historical *samples*, not current prices, exchange
+licensed real-time quotes or proof of ISIN identity. The remaining 1,747
+candidate symbols have not been validated. No scan of all shares occurred.
+
+Automatic trigger of the live-sample workflow was removed after the check;
+it is manual-only and cannot be dispatched until available on the default
+GitHub branch. The operator can instead run the CLI `--fetch` locally.
+
 ## Verification
 
 ```powershell
