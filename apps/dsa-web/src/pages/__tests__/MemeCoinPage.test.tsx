@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
+  reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups },
 }));
 
 const overview = {
@@ -81,6 +82,27 @@ beforeEach(() => {
     topAccountPct: null, topTenAccountsPct: null, observedTopTwentyPct: null,
     warningFlags: [], interpretation: 'token_accounts_not_wallets',
     ownerIdentityVerified: false, poolVaultsClassified: false,
+    fullSafetyVerified: false, tradable: false,
+  });
+  reviewSolanaPool.mockResolvedValue({
+    mint: 'So11111111111111111111111111111111111111112',
+    pool: '11111111111111111111111111111111',
+    network: 'solana', status: 'disabled', verdict: 'unknown',
+    checkedAt: null, geckoterminalUsd: null, dexscreenerUsd: null,
+    differencePct: null, dexId: null, onchainAccountFound: null,
+    onchainOwnerProgram: null, onchainSlot: null, flags: [],
+    onchainReservesVerified: false, liquidityLockVerified: false,
+    lpOwnerVerified: false, poolAuthenticityVerified: false,
+    sellabilityVerified: false, tradable: false,
+  });
+  reviewSolanaOwnerGroups.mockResolvedValue({
+    mint: 'So11111111111111111111111111111111111111112',
+    network: 'solana-mainnet', status: 'disabled', verdict: 'unknown',
+    checkedAt: null, observedTopTokenAccounts: 0,
+    observedOwnerGroups: 0, largestObservedOwnerSharePct: null,
+    ownerGroups: [], flags: [],
+    interpretation: 'observed_token_account_owner_not_beneficial_owner',
+    vaultClassificationVerified: false, beneficialOwnershipVerified: false,
     fullSafetyVerified: false, tradable: false,
   });
   estimateSolanaImpact.mockResolvedValue({
@@ -215,6 +237,8 @@ describe('MemeCoinPage', () => {
     expect(reviewSolanaMint).not.toHaveBeenCalled();
     expect(estimateSolanaImpact).not.toHaveBeenCalled();
     expect(reviewSolanaConcentration).not.toHaveBeenCalled();
+    expect(reviewSolanaPool).not.toHaveBeenCalled();
+    expect(reviewSolanaOwnerGroups).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
     const reviewButton = await screen.findByRole('button', { name: 'Mint ve maliyeti incele' });
@@ -225,6 +249,8 @@ describe('MemeCoinPage', () => {
     expect(reviewSolanaMint).toHaveBeenCalledWith('So11111111111111111111111111111111111111112');
     expect(estimateSolanaImpact).toHaveBeenCalledWith(60000, 25);
     expect(reviewSolanaConcentration).toHaveBeenCalledWith('So11111111111111111111111111111111111111112');
+    expect(reviewSolanaPool).toHaveBeenCalledWith('So11111111111111111111111111111111111111112', '11111111111111111111111111111111');
+    expect(reviewSolanaOwnerGroups).toHaveBeenCalledWith('So11111111111111111111111111111111111111112');
     expect(screen.getByText(/MEME_COIN_SOLANA_HOLDER_AUDIT_ENABLED=true/)).toBeInTheDocument();
     expect(screen.getByText(/gerçek DEX teklifi/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /buy|satın al/i })).not.toBeInTheDocument();
@@ -297,6 +323,57 @@ describe('MemeCoinPage', () => {
     expect(screen.getByText(/80.00%/)).toBeInTheDocument();
     expect(screen.getByText(/DEX havuzları veya ilişkili hesaplar ayrıştırılmadı/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /buy|satın al/i })).not.toBeInTheDocument();
+  });
+
+  it('cross-checks two liquidity sources and shows sampled owner groups without a trade control', async () => {
+    reviewSolanaPool.mockResolvedValue({
+      mint: 'So11111111111111111111111111111111111111112',
+      pool: '11111111111111111111111111111111',
+      network: 'solana', status: 'screened', verdict: 'review_only',
+      checkedAt: '2026-11-18T12:00:00Z', geckoterminalUsd: 60000,
+      dexscreenerUsd: 61000, differencePct: 1.639, dexId: 'example',
+      onchainAccountFound: true, onchainOwnerProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      onchainSlot: 1234, flags: [], onchainReservesVerified: false,
+      liquidityLockVerified: false, lpOwnerVerified: false,
+      poolAuthenticityVerified: false, sellabilityVerified: false, tradable: false,
+    });
+    reviewSolanaOwnerGroups.mockResolvedValue({
+      mint: 'So11111111111111111111111111111111111111112',
+      network: 'solana-mainnet', status: 'screened', verdict: 'concentration_signal',
+      checkedAt: '2026-11-18T12:00:00Z', observedTopTokenAccounts: 3,
+      observedOwnerGroups: 2, largestObservedOwnerSharePct: 35,
+      ownerGroups: [{ ownerAddress: '11111111111111111111111111111111',
+        sampledTokenAccounts: 2, shareOfTotalSupplyPct: 35 }],
+      flags: ['sampled_owner_group_at_least_20pct'],
+      interpretation: 'observed_token_account_owner_not_beneficial_owner',
+      vaultClassificationVerified: false, beneficialOwnershipVerified: false,
+      fullSafetyVerified: false, tradable: false,
+    });
+    scanCandidates.mockResolvedValue({
+      strategy: 'new_launch', status: 'ok', source: 'geckoterminal',
+      observedAt: '2026-11-18T12:00:00Z', error: null,
+      candidates: [{
+        strategy: 'new_launch', symbol: 'MEME',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+        poolAddress: '11111111111111111111111111111111',
+        liquidityUsd: 60000, volume5mUsd: 9000, change5mPct: 7,
+        ageMinutes: 15, buys5m: 20, sells5m: 12,
+        researchScore: 81.5, riskStatus: 'unverified', tradable: false,
+        source: 'geckoterminal',
+      }],
+    });
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+    expect(reviewSolanaPool).not.toHaveBeenCalled();
+    expect(reviewSolanaOwnerGroups).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Aday coinleri tara' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Mint ve maliyeti incele' }));
+
+    expect(await screen.findByText(/1.64%/)).toBeInTheDocument();
+    expect(screen.getByText(/likidite kilidi henüz doğrulanmış DEĞİL/)).toBeInTheDocument();
+    expect(screen.getByText(/en büyük 10 token hesabı örneklendi/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/35.00%/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
   });
 
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -84,6 +84,21 @@ const CONTENT = {
     concentrationTop1: 'En büyük token hesabı',
     concentrationTop10: 'İlk 10 token hesabı',
     concentrationNote: 'Toplam arzdaki pay · Token hesapları, benzersiz yatırımcılar değildir',
+    poolTitle: 'Havuz likiditesi çapraz kontrolü',
+    poolDisabled: 'Havuz kontrolü kapalı. MEME_COIN_SOLANA_LIQUIDITY_REVIEW_ENABLED=true ile açılır.',
+    poolUnavailable: 'Havuz bilgileri doğrulanamadı; araştırma sonucu güvenilir değil.',
+    poolBlocked: 'Likidite değerleri, havuz adresi veya zincir hesabı için uyarı oluştu.',
+    poolReviewOnly: 'Veri kaynakları tutarlı görünüyor; havuz rezervleri veya likidite kilidi henüz doğrulanmış DEĞİL.',
+    sourceDifference: 'Kaynaklar arası fark',
+    poolAccountOwner: 'Havuz hesabının programı',
+    poolDisclaimer: 'DEX Screener ve GeckoTerminal ortak kaynaklardan veri alabilir; eşleşmeleri bağımsız on-chain rezerv kanıtı değildir.',
+    groupTitle: 'Sahip adresine göre gruplanan token hesapları',
+    groupDisabled: 'Sahip adresi gruplaması kapalı. MEME_COIN_SOLANA_OWNER_GROUPS_ENABLED=true ile açılır.',
+    groupUnavailable: 'Zincir üzerindeki sahip adresleri gruplandırılamadı.',
+    groupWarning: 'Bir veya daha fazla hesap aynı kontrol adresini kullanıyor; uyarı yoğunlaşması görüldü.',
+    groupReviewOnly: 'Örneklenmiş hesaplarda eşik aşılmadı; güvenli anlamına gelmez.',
+    groupDisclaimer: 'Yalnızca en büyük 10 token hesabı örneklendi. Kontrol adresi yatırımcının gerçek kimliğini, LP kilidini veya nihai sahipliği kanıtlamaz.',
+    topGroup: 'En büyük gözlenen sahip grubu',
     impactTitle: 'Varsayımsal havuz maliyet modeli',
     impactWarning: '50/50 sabit çarpım AMM varsayımıdır; gerçek DEX teklifi, gerçek kayma veya gerçekleşecek fiyat değildir.',
     impactPct: 'Model fiyat etkisi',
@@ -171,6 +186,21 @@ const CONTENT = {
     concentrationTop1: 'Largest token account',
     concentrationTop10: 'Top 10 token accounts',
     concentrationNote: 'Share of total supply · Token accounts are not distinct investors',
+    poolTitle: 'Pool liquidity cross-check',
+    poolDisabled: 'Pool review is off. Set MEME_COIN_SOLANA_LIQUIDITY_REVIEW_ENABLED=true.',
+    poolUnavailable: 'Pool data could not be verified; no risk clearance available.',
+    poolBlocked: 'Liquidity divergence, identity or on-chain account warning detected.',
+    poolReviewOnly: 'Reported liquidity is consistent, but actual reserves and liquidity locks are NOT verified.',
+    sourceDifference: 'Difference between sources',
+    poolAccountOwner: 'Pool account program',
+    poolDisclaimer: 'DEX Screener and GeckoTerminal may use shared sources; their agreement is not an independent on-chain reserve verification.',
+    groupTitle: 'Token accounts grouped by on-chain owner address',
+    groupDisabled: 'Owner grouping is off. Set MEME_COIN_SOLANA_OWNER_GROUPS_ENABLED=true.',
+    groupUnavailable: 'Token account control addresses could not be grouped.',
+    groupWarning: 'Potential concentration among sampled token account owner addresses.',
+    groupReviewOnly: 'No threshold crossed in sampled accounts; this is not a safety clearance.',
+    groupDisclaimer: 'Only the ten largest token accounts are sampled. A control address does not establish ultimate ownership or LP locks.',
+    topGroup: 'Largest sampled control-address group',
     impactTitle: 'Hypothetical pool cost model',
     impactWarning: 'Assumes 50/50 constant-product AMM; NOT an executable quote, actual slippage or real fill price.',
     impactPct: 'Modeled price impact',
@@ -258,6 +288,21 @@ const CONTENT = {
     concentrationTop1: '最大代币账户',
     concentrationTop10: '前 10 个代币账户',
     concentrationNote: '占总供应量比例 · 账户不代表独立投资者',
+    poolTitle: '资金池流动性交叉核查',
+    poolDisabled: '资金池核查关闭。设置 MEME_COIN_SOLANA_LIQUIDITY_REVIEW_ENABLED=true 后开启。',
+    poolUnavailable: '资金池数据无法核对，不表示安全。',
+    poolBlocked: '流动性数值、池地址或链上账户存在警示。',
+    poolReviewOnly: '平台数据基本一致，但未验证真实储备或流动性锁定。',
+    sourceDifference: '数据源差异',
+    poolAccountOwner: '资金池账户程序',
+    poolDisclaimer: 'DEX Screener 和 GeckoTerminal 可能共享数据源；一致性不能证明链上储备。',
+    groupTitle: '代币账户按链上控制地址分组',
+    groupDisabled: '控制地址分组关闭。设置 MEME_COIN_SOLANA_OWNER_GROUPS_ENABLED=true 后开启。',
+    groupUnavailable: '无法分组链上控制地址。',
+    groupWarning: '样本中的控制地址存在集中度警示。',
+    groupReviewOnly: '样本未超阈值，但不证明安全。',
+    groupDisclaimer: '仅抽样前十个代币账户；控制地址不代表最终受益人或 LP 锁定。',
+    topGroup: '最大样本控制组',
     impactTitle: '假设的资金池成本模型',
     impactWarning: '采用 50/50 恒定乘积模型，不是真实 DEX 报价、真实滑点或成交价格。',
     impactPct: '模型价格影响',
@@ -298,10 +343,14 @@ export default function MemeCoinPage() {
   const [scanLoading, setScanLoading] = useState(false);
   const [scanError, setScanError] = useState(false);
   const [researchAmount, setResearchAmount] = useState(25);
-  const [researchTarget, setResearchTarget] = useState<{ mint: string; symbol: string } | null>(null);
+  const [researchTarget, setResearchTarget] = useState<{ mint: string; symbol: string; pool: string } | null>(null);
   const [mintResearch, setMintResearch] = useState<SolanaMintReview | null>(null);
   const [impactResearch, setImpactResearch] = useState<SolanaImpactEstimate | null>(null);
   const [concentrationResearch, setConcentrationResearch] = useState<SolanaConcentrationReview | null>(null);
+  const [poolResearch, setPoolResearch] = useState<SolanaPoolReview | null>(null);
+  const [ownerGroupResearch, setOwnerGroupResearch] = useState<SolanaOwnerGroupReview | null>(null);
+  const [poolResearchError, setPoolResearchError] = useState(false);
+  const [ownerGroupResearchError, setOwnerGroupResearchError] = useState(false);
   const [concentrationError, setConcentrationError] = useState(false);
   const [mintResearchError, setMintResearchError] = useState(false);
   const [impactResearchError, setImpactResearchError] = useState(false);
@@ -347,6 +396,10 @@ export default function MemeCoinPage() {
     setMintResearch(null);
     setImpactResearch(null);
     setConcentrationResearch(null);
+    setPoolResearch(null);
+    setOwnerGroupResearch(null);
+    setPoolResearchError(false);
+    setOwnerGroupResearchError(false);
     setConcentrationError(false);
     try {
       const result = await memeCoinApi.scanCandidates(selected);
@@ -361,20 +414,26 @@ export default function MemeCoinPage() {
     }
   }, [selected]);
 
-  const inspectSolanaCandidate = useCallback(async (mint: string, symbol: string, liquidityUsd: number) => {
+  const inspectSolanaCandidate = useCallback(async (mint: string, symbol: string, pool: string, liquidityUsd: number) => {
     const seq = ++researchRequestSeq.current;
-    setResearchTarget({ mint, symbol });
+    setResearchTarget({ mint, symbol, pool });
     setMintResearch(null);
     setImpactResearch(null);
     setConcentrationResearch(null);
+    setPoolResearch(null);
+    setOwnerGroupResearch(null);
+    setPoolResearchError(false);
+    setOwnerGroupResearchError(false);
     setConcentrationError(false);
     setMintResearchError(false);
     setImpactResearchError(false);
     setResearchLoading(true);
-    const [mintResponse, impactResponse, concentrationResponse] = await Promise.allSettled([
+    const [mintResponse, impactResponse, concentrationResponse, poolResponse, ownerGroupResponse] = await Promise.allSettled([
       memeCoinApi.reviewSolanaMint(mint),
       memeCoinApi.estimateSolanaImpact(liquidityUsd, researchAmount),
       memeCoinApi.reviewSolanaConcentration(mint),
+      memeCoinApi.reviewSolanaPool(mint, pool),
+      memeCoinApi.reviewSolanaOwnerGroups(mint),
     ]);
     if (seq !== researchRequestSeq.current) return;
     if (mintResponse.status === 'fulfilled') {
@@ -391,6 +450,16 @@ export default function MemeCoinPage() {
       setConcentrationResearch(concentrationResponse.value);
     } else {
       setConcentrationError(true);
+    }
+    if (poolResponse.status === 'fulfilled') {
+      setPoolResearch(poolResponse.value);
+    } else {
+      setPoolResearchError(true);
+    }
+    if (ownerGroupResponse.status === 'fulfilled') {
+      setOwnerGroupResearch(ownerGroupResponse.value);
+    } else {
+      setOwnerGroupResearchError(true);
     }
     setResearchLoading(false);
   }, [researchAmount]);
@@ -470,6 +539,10 @@ export default function MemeCoinPage() {
                     setMintResearch(null);
                     setImpactResearch(null);
                     setConcentrationResearch(null);
+                    setPoolResearch(null);
+                    setOwnerGroupResearch(null);
+                    setPoolResearchError(false);
+                    setOwnerGroupResearchError(false);
                     setConcentrationError(false);
                     setResearchLoading(false);
                     setSelected(item.id);
@@ -567,6 +640,10 @@ export default function MemeCoinPage() {
                   setMintResearch(null);
                   setImpactResearch(null);
                   setConcentrationResearch(null);
+                  setPoolResearch(null);
+                  setOwnerGroupResearch(null);
+                  setPoolResearchError(false);
+                  setOwnerGroupResearchError(false);
                   setConcentrationError(false);
                   setResearchLoading(false);
                 }}
@@ -604,7 +681,7 @@ export default function MemeCoinPage() {
                           <td className="p-2">{coin.ageMinutes.toFixed(0)}</td>
                           <td className="p-2">{coin.buys5m} / {coin.sells5m}</td>
                           <td className="p-2">
-                            <button type="button" className="btn-secondary whitespace-nowrap px-2 py-1 text-xs" onClick={() => void inspectSolanaCandidate(coin.tokenAddress, coin.symbol, coin.liquidityUsd)}>
+                            <button type="button" className="btn-secondary whitespace-nowrap px-2 py-1 text-xs" onClick={() => void inspectSolanaCandidate(coin.tokenAddress, coin.symbol, coin.poolAddress, coin.liquidityUsd)}>
                               {copy.inspect}
                             </button>
                           </td>
@@ -620,7 +697,7 @@ export default function MemeCoinPage() {
                 <h4 className="font-semibold">{copy.inspectTitle}: {researchTarget.symbol}</h4>
                 <p className="break-all font-mono text-xs text-secondary-text">{researchTarget.mint}</p>
                 {researchLoading && <p className="text-sm text-secondary-text">{copy.inspectLoading}</p>}
-                {(mintResearchError || impactResearchError || concentrationError) && <p role="alert" className="text-sm text-danger">{copy.inspectFailed}</p>}
+                {(mintResearchError || impactResearchError || concentrationError || poolResearchError || ownerGroupResearchError) && <p role="alert" className="text-sm text-danger">{copy.inspectFailed}</p>}
                 {mintResearch?.status === 'disabled' && <p className="text-sm text-warning">{copy.mintDisabled}</p>}
                 {mintResearch && ['unavailable','unsupported'].includes(mintResearch.status) && <p className="text-sm text-danger">{copy.mintUnavailable}</p>}
                 {mintResearch?.status === 'screened' && (
@@ -662,6 +739,44 @@ export default function MemeCoinPage() {
                         <p className={`text-sm ${concentrationResearch.verdict === 'concentration_signal' ? 'text-danger' : 'text-warning'}`}>
                           {concentrationResearch.verdict === 'concentration_signal' ? copy.concentrationSignal : copy.concentrationNoSignal}
                         </p>
+                      </>
+                    )}
+                  </div>
+                )}
+                {poolResearch && (
+                  <div className="space-y-2 rounded-xl bg-elevated/60 p-3">
+                    <h5 className="font-semibold">{copy.poolTitle}</h5>
+                    <p className="text-xs text-secondary-text">{copy.poolDisclaimer}</p>
+                    {poolResearch.status === 'disabled' && <p className="text-sm text-warning">{copy.poolDisabled}</p>}
+                    {poolResearch.status === 'unavailable' && <p className="text-sm text-danger">{copy.poolUnavailable}</p>}
+                    {poolResearch.status === 'screened' && (
+                      <>
+                        <p className="text-sm">GeckoTerminal: {poolResearch.geckoterminalUsd?.toLocaleString()} USD · DEX Screener: {poolResearch.dexscreenerUsd?.toLocaleString()} USD</p>
+                        <p className="text-sm">{copy.sourceDifference}: {poolResearch.differencePct?.toFixed(2)}%</p>
+                        <p className="break-all text-xs text-secondary-text">{copy.poolAccountOwner}: {poolResearch.onchainOwnerProgram ?? '—'}</p>
+                        <p className="text-sm text-warning">{poolResearch.verdict === 'blocked' ? copy.poolBlocked : copy.poolReviewOnly}</p>
+                        {poolResearch.flags.length > 0 && <p className="text-xs text-danger">{poolResearch.flags.join(', ')}</p>}
+                      </>
+                    )}
+                  </div>
+                )}
+                {ownerGroupResearch && (
+                  <div className="space-y-2 rounded-xl bg-elevated/60 p-3">
+                    <h5 className="font-semibold">{copy.groupTitle}</h5>
+                    <p className="text-xs text-secondary-text">{copy.groupDisclaimer}</p>
+                    {ownerGroupResearch.status === 'disabled' && <p className="text-sm text-warning">{copy.groupDisabled}</p>}
+                    {ownerGroupResearch.status === 'unavailable' && <p className="text-sm text-danger">{copy.groupUnavailable}</p>}
+                    {ownerGroupResearch.status === 'screened' && (
+                      <>
+                        <p className="text-sm">{copy.topGroup}: {ownerGroupResearch.largestObservedOwnerSharePct?.toFixed(2)}%</p>
+                        <p className={`text-sm ${ownerGroupResearch.verdict === 'concentration_signal' ? 'text-danger' : 'text-warning'}`}>
+                          {ownerGroupResearch.verdict === 'concentration_signal' ? copy.groupWarning : copy.groupReviewOnly}
+                        </p>
+                        {ownerGroupResearch.ownerGroups.slice(0, 5).map((group) => (
+                          <p className="break-all font-mono text-xs text-secondary-text" key={group.ownerAddress}>
+                            {group.ownerAddress.slice(0, 6)}…{group.ownerAddress.slice(-5)} · {group.sampledTokenAccounts} · {group.shareOfTotalSupplyPct.toFixed(2)}%
+                          </p>
+                        ))}
                       </>
                     )}
                   </div>

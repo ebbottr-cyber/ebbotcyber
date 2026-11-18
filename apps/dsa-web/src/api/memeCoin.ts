@@ -125,7 +125,60 @@ export type SolanaConcentrationReview = {
   tradable: false;
 };
 
+export type SolanaPoolReview = {
+  mint: string;
+  pool: string;
+  network: 'solana';
+  status: 'disabled' | 'screened' | 'unavailable';
+  verdict: 'unknown' | 'blocked' | 'review_only';
+  checkedAt: string | null;
+  geckoterminalUsd: number | null;
+  dexscreenerUsd: number | null;
+  differencePct: number | null;
+  dexId: string | null;
+  onchainAccountFound: boolean | null;
+  onchainOwnerProgram: string | null;
+  onchainSlot: number | null;
+  flags: string[];
+  onchainReservesVerified: false;
+  liquidityLockVerified: false;
+  lpOwnerVerified: false;
+  poolAuthenticityVerified: false;
+  sellabilityVerified: false;
+  tradable: false;
+};
+
+export type SolanaOwnerGroupReview = {
+  mint: string;
+  network: 'solana-mainnet';
+  status: 'disabled' | 'screened' | 'unavailable';
+  verdict: 'unknown' | 'review_only' | 'concentration_signal';
+  checkedAt: string | null;
+  observedTopTokenAccounts: number;
+  observedOwnerGroups: number;
+  largestObservedOwnerSharePct: number | null;
+  ownerGroups: Array<{
+    ownerAddress: string;
+    sampledTokenAccounts: number;
+    shareOfTotalSupplyPct: number;
+  }>;
+  flags: string[];
+  interpretation: 'observed_token_account_owner_not_beneficial_owner';
+  vaultClassificationVerified: false;
+  beneficialOwnershipVerified: false;
+  fullSafetyVerified: false;
+  tradable: false;
+};
+
 export const memeCoinApi = {
+  async reviewSolanaPool(mint: string, pool: string): Promise<SolanaPoolReview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/pool-review', { params: { mint, pool } });
+    return toCamelCase<SolanaPoolReview>(data);
+  },
+  async reviewSolanaOwnerGroups(mint: string): Promise<SolanaOwnerGroupReview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/owner-groups', { params: { mint } });
+    return toCamelCase<SolanaOwnerGroupReview>(data);
+  },
   async reviewSolanaConcentration(mint: string): Promise<SolanaConcentrationReview> {
     const { data } = await apiClient.get('/api/v1/meme-coins/solana/concentration', { params: { mint } });
     return toCamelCase<SolanaConcentrationReview>(data);

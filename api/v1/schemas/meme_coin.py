@@ -150,3 +150,56 @@ class SolanaConcentrationReview(BaseModel):
     pool_vaults_classified: Literal[False]
     full_safety_verified: Literal[False]
     tradable: Literal[False]
+
+
+class SolanaPoolReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mint: str
+    pool: str
+    network: Literal["solana"]
+    status: Literal["disabled", "screened", "unavailable"]
+    verdict: Literal["unknown", "blocked", "review_only"]
+    checked_at: Optional[str] = None
+    geckoterminal_usd: Optional[float] = None
+    dexscreener_usd: Optional[float] = None
+    difference_pct: Optional[float] = None
+    dex_id: Optional[str] = None
+    onchain_account_found: Optional[bool] = None
+    onchain_owner_program: Optional[str] = None
+    onchain_slot: Optional[int] = None
+    flags: list[str]
+    onchain_reserves_verified: Literal[False]
+    liquidity_lock_verified: Literal[False]
+    lp_owner_verified: Literal[False]
+    pool_authenticity_verified: Literal[False]
+    sellability_verified: Literal[False]
+    tradable: Literal[False]
+
+
+class ObservedTokenAccountOwnerGroup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner_address: str
+    sampled_token_accounts: int
+    share_of_total_supply_pct: float
+
+
+class SolanaOwnerGroupReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mint: str
+    network: Literal["solana-mainnet"]
+    status: Literal["disabled", "screened", "unavailable"]
+    verdict: Literal["unknown", "review_only", "concentration_signal"]
+    checked_at: Optional[str] = None
+    observed_top_token_accounts: int
+    observed_owner_groups: int
+    largest_observed_owner_share_pct: Optional[float] = None
+    owner_groups: list[ObservedTokenAccountOwnerGroup]
+    flags: list[str]
+    interpretation: Literal["observed_token_account_owner_not_beneficial_owner"]
+    vault_classification_verified: Literal[False]
+    beneficial_ownership_verified: Literal[False]
+    full_safety_verified: Literal[False]
+    tradable: Literal[False]
