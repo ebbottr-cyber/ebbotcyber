@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Security
 from fastapi.security import APIKeyCookie
 
-from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview)
+from api.v1.schemas.meme_coin import (MemeCoinOverview, MemeCoinDiscoveryResponse, RobinhoodRpcStatus, SolanaMintReview, SolanaImpactEstimate, SolanaConcentrationReview, SolanaPoolReview, SolanaOwnerGroupReview, SolanaOrcaVaultReview, MemeCoinPaperReplayStatus, SolanaJupiterQuotePreview, MemeCoinOfflineRiskReadiness)
 from src.auth import COOKIE_NAME
 from src.services.meme_coin_strategy_service import get_meme_coin_overview
 from src.services.meme_coin_discovery import scan_strategy
@@ -18,6 +18,7 @@ from src.services.meme_coin_solana_pool import review_pool
 from src.services.meme_coin_solana_owner_groups import review_owner_groups
 from src.services.meme_coin_solana_orca import review_orca_vaults
 from src.services.meme_coin_paper_replay import status as get_paper_replay_status
+from src.services.meme_coin_paper_guard import readiness as get_paper_guard_readiness
 from src.services.meme_coin_jupiter_quotes import quote_preview
 
 admin_session_cookie = APIKeyCookie(
@@ -189,3 +190,14 @@ def solana_quote_preview(
         )
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid_quote_preview_input")
+
+
+@router.get(
+    "/paper/risk-readiness",
+    response_model=MemeCoinOfflineRiskReadiness,
+    operation_id="getMemeCoinOfflineRiskReadiness",
+    summary="Static read-only status of offline quote journal and paper risk safeguards",
+)
+def paper_risk_readiness() -> MemeCoinOfflineRiskReadiness:
+    # No archive paths, captured quotes, DB writes or strategy orders.
+    return MemeCoinOfflineRiskReadiness(**get_paper_guard_readiness())
