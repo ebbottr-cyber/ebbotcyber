@@ -1272,7 +1272,7 @@ export default function MemeCoinPage() {
                 {mtmReadiness.strategies.map((entry) => (
                   <div className="rounded-lg border border-border/50 p-3" key={entry.strategy}>
                     <p className="font-semibold">{entry.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
-                    <p className="text-xs text-secondary-text">{copy.paperNotRunning}</p>
+                    <p className="text-xs text-secondary-text">{copy.safetyNotRunning}</p>
                   </div>
                 ))}
               </div>
