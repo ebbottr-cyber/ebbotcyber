@@ -20,6 +20,7 @@ import './App.css';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const DashboardOverviewPage = lazy(() => import('./pages/DashboardOverviewPage'));
+const MemeCoinPage = lazy(() => import('./pages/MemeCoinPage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -94,6 +95,7 @@ const routeChildren = [
   { path: '/chat', element: <ChatPage /> },
   { path: '/portfolio', element: <PortfolioPage /> },
   { path: '/decision-signals', element: <DecisionSignalsPage /> },
+  { path: '/meme-coins', element: <MemeCoinPage /> },
   { path: '/screening', element: <StockScreeningPage /> },
   { path: '/data', element: <DataCenterPage /> },
   { path: '/backtest', element: <BacktestPage /> },

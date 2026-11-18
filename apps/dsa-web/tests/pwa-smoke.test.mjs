@@ -12,7 +12,7 @@ const manifest = JSON.parse(read('public/manifest.webmanifest'));
 test('manifest is Turkish and has safe root scope and standalone mode', () => {
   assert.equal(manifest.id, '/');
   assert.equal(manifest.scope, '/');
-  assert.equal(manifest.start_url, '/');
+  assert.equal(manifest.start_url, '/overview');
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.lang, 'tr');
   assert.equal(manifest.short_name, 'EBBot');

@@ -1,0 +1,186 @@
+name: EBBot White Dashboard + Meme Coin integration
+
+on:
+  push:
+    branches: [integration/ebbot-white-meme-discovery]
+  pull_request:
+    branches: [feat/ebbot-white-dashboard-v1]
+    paths:
+      - 'apps/dsa-web/**'
+      - 'api/v1/router.py'
+      - 'api/v1/endpoints/meme_coin.py'
+      - 'api/v1/schemas/meme_coin.py'
+      - 'src/services/meme_coin_*.py'
+      - 'tests/test_meme_coin_*.py'
+      - '.github/workflows/ebbot-integration.yml'
+      - 'scripts/audit_ebbot_release.py'
+      - 'tests/test_ebbot_release_audit.py'
+      - 'docs/EBBOT_RELEASE_READINESS_TR.md'
+      - '.env.example'
+      - '.gitignore'
+      - 'tests/test_daily_analysis_workflow_*.py'
+      - 'tests/test_ci_workflow_contract.py'
+      - 'tests/test_futu_distribution_contract.py'
+      - 'tests/test_packaging_build_scripts.py'
+      - 'workflows_disabled/**'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-and-pwa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: Existing PWA safety tests
+        run: npm run test:pwa
+      - name: Isolated meme strategies frontend tests
+        run: npm test -- MemeCoinPage.test.tsx syntheticReport.test.ts syntheticEvidence.test.ts
+      - name: Existing white panel frontend tests
+        run: npm test -- src/components/dashboard/__tests__/DashboardSummaryCards.test.tsx src/components/dashboard/__tests__/StockCandlestickChart.test.tsx src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx src/utils/__tests__/technicalIndicators.test.ts
+      - name: Production TypeScript and Vite build
+        run: npm run build
+      - name: Installable asset verification
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  read-only-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI Python dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Offline Solana, Turkey data, and Turkish report regressions
+        run: |
+          python -m pytest -q \
+            tests/test_meme_coin_strategy_panel.py \
+            tests/test_meme_coin_discovery.py \
+            tests/test_meme_coin_paper_preview.py \
+            tests/test_meme_coin_synthetic_journal.py \
+            tests/test_meme_coin_persistent_journal.py \
+            tests/test_meme_coin_report_export.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_analyzer_prompt_language.py \
+            tests/test_notification_empty_news_disclosure.py
+
+  release-readiness-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test that unsafe deployments remain blocked
+        run: python -m unittest discover -s tests -p test_ebbot_release_audit.py -v
+      - name: Generate source audit (informational, NOT deploy approval)
+        run: |
+          python scripts/audit_ebbot_release.py --json > release-audit.json
+          python -c "import json; d=json.load(open('release-audit.json')); print('Status:', d['status'], 'review:', len(d['legacy_contract_reviews']), 'manual:', len(d['manual_release_gates']))"
+          python -c "import json; d=json.load(open('release-audit.json')); print('### EBBot release: '+d['status'].upper()); [print('- '+x) for x in d['technical_blockers']+d['legacy_contract_reviews']+d['manual_release_gates']]" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish offline release audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-release-readiness
+          path: release-audit.json
+          retention-days: 14
+
+  legacy-env-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install regression dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Check archived workflow and environment example contracts
+        run: |
+          python -m pytest -q --tb=short \
+            tests/test_daily_analysis_workflow_data_sources.py \
+            tests/test_daily_analysis_workflow_llm_env.py \
+            tests/test_daily_analysis_workflow_notification_env.py \
+            tests/test_searxng_env_docs.py \
+            tests/test_us_routing_priority.py::test_env_example_has_no_conflict_markers \
+            tests/test_config_registry.py::TestEnvExampleWebSettingsCoverage
+
+  full-backend-regression:
+    # An explicit release-blocking gate: legacy workflow/env failures must remain visible.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Full Python regression suite (failure blocks integration)
+        run: python -m pytest -q -m "not network" --tb=line --disable-warnings --junitxml=full-backend-report.xml
+      - name: Publish full regression report even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-full-backend-regression
+          path: full-backend-report.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  integrated-mobile-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Mobile route and read-only scan integration
+        run: npx playwright test --config=playwright.fixture.config.ts ebbot-white-overview.spec.ts
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-white-meme-integration-debug
+          path: apps/dsa-web/test-results/fixtures/**
+          retention-days: 3
+
+  ci-and-packaging-contracts:
+    # Explicitly distinguish historical, disabled CI from the active read-only pipeline.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI Python dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Check archived CI and packaging contracts plus active release safeguards
+        run: python -m pytest -q --tb=short tests/test_ci_workflow_contract.py tests/test_futu_distribution_contract.py tests/test_packaging_build_scripts.py

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Generate and check the notification Actions env table in docs."""
+"""Generate and check notification env table from the deliberately archived workflow."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from src.services.notification_diagnostics import (  # noqa: E402
     P6_CHANNEL_ACTIONS_ENV_KEYS,
 )
 
-WORKFLOW_PATH = ROOT_DIR / ".github/workflows/00-daily-analysis.yml"
+WORKFLOW_PATH = ROOT_DIR / "workflows_disabled/00-daily-analysis.yml.disabled"
 DOCS_PATH = ROOT_DIR / "docs/notifications.md"
 TABLE_START = "<!-- notification-actions-env-table:start -->"
 TABLE_END = "<!-- notification-actions-env-table:end -->"
@@ -42,7 +42,7 @@ class EnvTableRow:
 
 
 def load_daily_analysis_env(workflow_path: Path = WORKFLOW_PATH) -> dict[str, str]:
-    """Load the env block from the daily analysis workflow."""
+    """Read historical env mappings without enabling the scheduled workflow."""
 
     workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["analyze"]["steps"]

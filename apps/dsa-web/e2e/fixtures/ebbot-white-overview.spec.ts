@@ -41,6 +41,7 @@ const reports = [
 async function stubOverview(page: Page, options: { marketError?: boolean; empty?: boolean } = {}) {
   const writes: string[] = [];
   let marketLoads = 0;
+  let memeScans = 0;
   await page.addInitScript(() => window.localStorage.setItem('dsa.uiLanguage', 'tr'));
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -55,6 +56,30 @@ async function stubOverview(page: Page, options: { marketError?: boolean; empty?
       marketLoads += 1;
       if (options.marketError) return route.fulfill({ status: 503, json: { detail: 'Fixture no quote' } });
       json = options.empty ? { ...market, items: [] } : market;
+    } else if (path === '/api/v1/meme-coins/overview') {
+      json = {
+        market: 'solana', mode: 'paper_planned', live_trading_enabled: false,
+        shared_risk_engine_connected: false, last_market_event_at: null,
+        strategies: [
+          { id: 'new_launch', name: 'New Launch', market: 'solana',
+            data_sources: ['Pump.fun', 'Solana pool events'], status: 'not_connected',
+            engine_connected: false, paper_trading_enabled: false, live_trading_enabled: false,
+            risk_checks: ['token_authorities', 'liquidity'],
+            metrics: { trades: null, net_pnl_usd: null, win_rate_pct: null } },
+          { id: 'momentum', name: 'Momentum', market: 'solana',
+            data_sources: ['GMGN', 'Solana DEX market data'], status: 'not_connected',
+            engine_connected: false, paper_trading_enabled: false, live_trading_enabled: false,
+            risk_checks: ['volume_quality', 'price_impact'],
+            metrics: { trades: null, net_pnl_usd: null, win_rate_pct: null } },
+        ],
+      };
+    } else if (path === '/api/v1/meme-coins/candidates') {
+      memeScans += 1;
+      json = {
+        strategy: new URL(request.url()).searchParams.get('strategy') || 'new_launch',
+        status: 'disabled', source: 'geckoterminal',
+        observed_at: null, candidates: [], error: null,
+      };
     } else if (path === '/api/v1/history') {
       json = { items: options.empty ? [] : reports, total: options.empty ? 0 : 2, page: 1, limit: 60 };
     } else if (path.endsWith('/stocks/THYAO.IS/history')) {
@@ -82,7 +107,7 @@ async function stubOverview(page: Page, options: { marketError?: boolean; empty?
     }
     return route.fulfill({ json });
   });
-  return { writes, get marketLoads() { return marketLoads; } };
+  return { writes, get marketLoads() { return marketLoads; }, get memeScans() { return memeScans; } };
 }
 
 test('white EBBot screen fits small phones, tablets and desktop with functioning mobile navigation', async ({ page }, testInfo) => {
@@ -179,5 +204,41 @@ test('watchlist clicks change the selected chart even without a saved analysis r
   await expect(page.getByRole('img', { name: /ASELS.IS günlük mum grafiği/ })).toBeVisible();
   await expect(page.getByTestId('candle-scroll')).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(mock.writes).toEqual([]);
+});
+
+test('mobile white overview reaches both isolated Meme Coin strategies with no automatic scanner or trade requests', async ({ page }) => {
+  const mock = await stubOverview(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/overview');
+  const bottomNav = page.getByRole('navigation', { name: 'Mobil hızlı gezinme' });
+  await expect(bottomNav).toBeVisible();
+  await bottomNav.getByRole('button', { name: 'Meme' }).click();
+  await expect(page).toHaveURL(/\/meme-coins$/);
+  await expect(page.getByRole('heading', { name: 'Meme Coin Stratejileri' })).toBeVisible();
+  await expect(page.getByText('Sanal işlem planlandı')).toBeVisible();
+  await expect(page.getByText('Pump.fun')).toBeVisible();
+  expect(mock.memeScans).toBe(0);
+  await page.getByRole('button', { name: /Momentum Avcısı/ }).click();
+  await expect(page.getByText('GMGN')).toBeVisible();
+  expect(mock.memeScans).toBe(0);
+  await page.getByRole('button', { name: 'Aday coinleri tara' }).click();
+  await expect(page.getByText(/MEME_COIN_DISCOVERY_ENABLED=true/)).toBeVisible();
+  expect(mock.memeScans).toBe(1);
+  expect(mock.writes).toEqual([]);
+  expect(await page.getByRole('button', { name: /satın al|buy|cüzdan bağla|trade/i }).count()).toBe(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('white dashboard and meme panel share the same mobile authenticated app menu', async ({ page }) => {
+  const mock = await stubOverview(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/overview');
+  await page.getByRole('navigation', { name: 'Mobil hızlı gezinme' }).getByRole('button', { name: 'Meme' }).click();
+  await expect(page).toHaveURL(/\/meme-coins$/);
+  await page.getByRole('button', { name: 'Menüyü aç' }).click();
+  await page.getByRole('link', { name: 'Piyasa Özeti' }).click();
+  await expect(page).toHaveURL(/\/overview$/);
+  await expect(page.getByTestId('ebbot-white-overview')).toBeVisible();
   expect(mock.writes).toEqual([]);
 });

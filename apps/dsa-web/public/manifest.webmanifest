@@ -4,7 +4,7 @@
   "short_name": "EBBot",
   "description": "Piyasa analizi, AI sinyalleri, portföy ve risk takibi.",
   "lang": "tr",
-  "start_url": "/",
+  "start_url": "/overview",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f6f8fc",
