@@ -21,6 +21,9 @@ KAP_URL = "https://www.kap.org.tr/tr/bist-sirketler"
 BINANCE_SPOT_URL = "https://data-api.binance.vision/api/v3/exchangeInfo"
 USDM_FUTURES_URL = "https://fapi.binance.com/fapi/v1/exchangeInfo"
 COINM_FUTURES_URL = "https://dapi.binance.com/dapi/v1/exchangeInfo"
+BINANCE_SPOT_TICKERS_URL = "https://data-api.binance.vision/api/v3/ticker/24hr"
+USDM_MARKS_URL = "https://fapi.binance.com/fapi/v1/premiumIndex"
+COINM_MARKS_URL = "https://dapi.binance.com/dapi/v1/premiumIndex"
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 _KAP_CODE = re.compile(r"^[A-Z0-9]{3,8}$")
 
@@ -180,7 +183,10 @@ class _NoRedirect(HTTPRedirectHandler):
 
 def fetch_source(url: str) -> str:
     """Only allowlisted, public, read-only HTTPS endpoints; never account or order routes."""
-    if url not in (KAP_URL, BINANCE_SPOT_URL, USDM_FUTURES_URL, COINM_FUTURES_URL):
+    if url not in (
+        KAP_URL, BINANCE_SPOT_URL, USDM_FUTURES_URL, COINM_FUTURES_URL,
+        BINANCE_SPOT_TICKERS_URL, USDM_MARKS_URL, COINM_MARKS_URL,
+    ):
         raise ValueError("unapproved_inventory_source")
     request = Request(url, headers={
         "User-Agent": "EBBot-Paper-Universe-Manual-Inventory/1.0",

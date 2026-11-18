@@ -92,3 +92,19 @@ edilir. Hatalı kayıt atlanıp eksik pazar oluşturulmaz; kaynak satır
 numarası ve kısaltılmış hatalı değerle işlem BLOKLANIR.
 Stok envanter kontrolü aynı kuralla uyumlu kalır.
 Gerçek emir, sanal fill, cüzdan veya kaldıraç açılmaz.
+
+
+## V5 — Fiyat kaynaklarını doğrulama (yalnızca araştırma)
+
+Yeni modül, mevcut **tüm aktif Binance Spot çiftlerini** ve **tüm aktif USDⓈ-M / COIN-M sözleşmelerini** fiyat kaynaklarına karşı kontrol eder; 3, 50 veya 100 örnek varlık seçmez.
+
+- Spot: Binance public Spot exchangeInfo ile /api/v3/ticker/24hr verilerini karşılaştırır. Son fiyatın pozitifliği denetlenir, kayıp/kötü veri sayılır. 24h ticker closeTime **son işlemin zamanı değildir**; bu nedenle Spot anlık işlem fiyatı doğrulanmış sayılmaz.
+- Futures: /fapi/v1/premiumIndex ve /dapi/v1/premiumIndex işaret fiyatlarının pozitifliği, eksik kayıtlar ve kaynak time alanına göre 120 saniyelik eskime kontrolü yapılır. Mark fiyatları emir gerçekleşme fiyatı değildir. Funding, marjin, kaldıraç, likidasyon, kontrat büyüklüğü için iş modeli henüz doğrulanmadı.
+- BIST: KAP şirket dizinindeki bütün semboller sayılır. KAP şirket kodu fiyat değildir. Lisanslı günlük kapanış dosyası verilmezse 803 BIST adayı için fiyat durumu **missing** kalır. İsteğe bağlı dosya: symbol,close,as_of,source,currency alanlı CSV. Tarih son 7 takvim günü içinde olsa da kesin işlem takvimi veya anlık işlem kotasyonu kanıtlanmaz.
+- Çıktı, her piyasa için ayrıntılı **adetler ve hata/kapsam nedenleri** sunar; fiyatların kendisini, alım-satım talimatını ya da sanal PnL'yi oluşturmaz.
+
+PowerShell (mevcut dört snapshot dosyası, public API için açık opt-in):
+
+    python -m scripts.audit_paper_quote_sources --fetch --stocks "$HOME\\EBBotPaperData\\kap-bist-all.csv" --spot "$HOME\\EBBotPaperData\\binance-spot-all.json" --usdm "$HOME\\EBBotPaperData\\binance-usdm-futures.json" --coinm "$HOME\\EBBotPaperData\\binance-coinm-futures.json"
+
+Yalnızca 4 sabit Binance public GET çağrısı vardır. API anahtarı, cüzdan, pozisyon, disk raporu veya zamanlayıcı yoktur. Testler sentetik fixture'larla internetsiz çalışır; gerçek kaynakların güncelliği bilgisayarda ayrıca doğrulanmalıdır.
