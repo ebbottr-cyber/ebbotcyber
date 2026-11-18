@@ -3,14 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import MemeCoinPage from '../MemeCoinPage';
 
-const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults } = vi.hoisted(() => ({
+const { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus } = vi.hoisted(() => ({
   getOverview: vi.fn(), scanCandidates: vi.fn(), getRobinhoodStatus: vi.fn(),
   reviewSolanaMint: vi.fn(), estimateSolanaImpact: vi.fn(), reviewSolanaConcentration: vi.fn(),
   reviewSolanaPool: vi.fn(), reviewSolanaOwnerGroups: vi.fn(), reviewSolanaOrcaVaults: vi.fn(),
+  getPaperReplayStatus: vi.fn(),
 }));
 
 vi.mock('../../api/memeCoin', () => ({
-  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults },
+  memeCoinApi: { getOverview, scanCandidates, getRobinhoodStatus, reviewSolanaMint, estimateSolanaImpact, reviewSolanaConcentration, reviewSolanaPool, reviewSolanaOwnerGroups, reviewSolanaOrcaVaults, getPaperReplayStatus },
 }));
 
 const overview = {
@@ -64,6 +65,17 @@ beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem('dsa.uiLanguage', 'tr');
   getOverview.mockResolvedValue(overview);
+  getPaperReplayStatus.mockResolvedValue({
+    status: 'offline_replay_available',
+    dataSource: 'operator_supplied_offline_fixture',
+    liveQuotesConnected: false,
+    paperAutomated: false,
+    liveTradingEnabled: false,
+    strategyLedgers: [
+      { strategy: 'new_launch', state: 'not_running', realizedPnlUsd: null },
+      { strategy: 'momentum', state: 'not_running', realizedPnlUsd: null },
+    ],
+  });
   scanCandidates.mockResolvedValue({strategy: 'new_launch', status: 'disabled', source: 'geckoterminal', observedAt: null, candidates: [], error: null});
   getRobinhoodStatus.mockResolvedValue({network:'testnet',chainIdExpected:46630,chainIdSeen:null,blockNumber:null,status:'disabled',checkedAt:null,error:null,tradingEnabled:false});
   reviewSolanaMint.mockResolvedValue({
@@ -461,6 +473,28 @@ describe('MemeCoinPage', () => {
     expect(await screen.findByText(/420000/)).toBeInTheDocument();
     expect(screen.getByText(/120000/)).toBeInTheDocument();
     expect(screen.getByText(/işlem derinliği veya likidite kilidi hâlâ doğrulanmadı/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
+  });
+
+  it('shows separate idle paper ledgers without invented profit or buy controls', async () => {
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+
+    expect(await screen.findByText('İki bağımsız sanal işlem defteri')).toBeInTheDocument();
+    expect(screen.getByText(/çevrimdışı test dosyalarıyla çalışabilir/)).toBeInTheDocument();
+    expect(screen.getAllByText('Henüz çalışmıyor')).toHaveLength(2);
+    expect(getPaperReplayStatus).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/%100 kâr|100% profit/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /satın al|buy|place order/i })).not.toBeInTheDocument();
+  });
+
+  it('fails visibly and never fabricates readiness when paper status endpoint is offline', async () => {
+    getPaperReplayStatus.mockRejectedValue(new Error('backend unreachable'));
+    render(<UiLanguageProvider><MemeCoinPage /></UiLanguageProvider>);
+    await screen.findByRole('heading', { name: 'Meme Coin Stratejileri' });
+
+    expect(await screen.findByText('Sanal test motorunun bağlantı durumu doğrulanamadı.')).toBeInTheDocument();
+    expect(screen.queryByText('Çevrimdışı test motoru hazır')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
   });
 
