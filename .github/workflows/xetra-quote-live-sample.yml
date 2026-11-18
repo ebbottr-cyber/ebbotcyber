@@ -1,0 +1,26 @@
+name: EBBot Xetra two-symbol live quote sample (manual research)
+
+on:
+  push:
+    branches:
+      - feat/xetra-quote-guard-v1
+    paths:
+      - '.github/workflows/xetra-quote-live-sample.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  two-symbol-read-only-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Read two public Yahoo chart snapshots; no authentication or trades
+        continue-on-error: true
+        run: |
+          python -m scripts.verify_xetra_quotes --fetch --symbol SAP.DE --symbol SIE.DE
