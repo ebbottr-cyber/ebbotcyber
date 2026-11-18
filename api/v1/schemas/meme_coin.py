@@ -12,6 +12,13 @@ class MemeCoinMetrics(BaseModel):
     win_rate_pct: Optional[float] = None
 
 
+class RobinhoodAgentModule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: Literal["dex_scout", "liquidity_scout", "risk_sentinel", "sentiment_scout"]
+    name: str
+    status: Literal["not_connected"]
+
+
 class MemeCoinStrategy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -24,6 +31,7 @@ class MemeCoinStrategy(BaseModel):
     paper_trading_enabled: bool
     live_trading_enabled: bool
     risk_checks: list[str]
+    agent_modules: list[RobinhoodAgentModule] = []
     metrics: MemeCoinMetrics
 
 
