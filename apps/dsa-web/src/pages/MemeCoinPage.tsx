@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
@@ -28,6 +28,13 @@ const CONTENT = {
     data: 'Veri akışı',
     performance: 'Doğrulanmış performans',
     noResults: 'Henüz test işlemi veya performans kaydı bulunmuyor.',
+    paperStatusTitle: 'İki bağımsız sanal işlem defteri',
+    paperOfflineReady: 'Çevrimdışı test motoru hazır',
+    paperNotRunning: 'Henüz çalışmıyor',
+    paperUnlinked: 'Gerçek kotasyon bağlantısı yok. İki stratejinin sanal işlem defterleri yalnızca çevrimdışı test dosyalarıyla çalışabilir; panelde gerçek performans gösterilmez.',
+    paperNotAvailable: 'Sanal test motorunun bağlantı durumu doğrulanamadı.',
+    paperLedgerNew: 'Yeni Coin Avcısı',
+    paperLedgerMomentum: 'Momentum Avcısı',
     next: 'Sonraki geliştirme',
     nextInfo: 'Gerçek zamanlı Solana veri adaptörleri, risk filtreleri ve komisyon/kayma modellemeli sanal işlemler ayrı servis olarak eklenecek.',
     safety: 'Cüzdan bağlanmadı, alım satım yapılmıyor. Mevcut EBBot ve Solana Hype işlemleri değiştirilmedi.',
@@ -141,6 +148,13 @@ const CONTENT = {
     data: 'Data feed',
     performance: 'Verified performance',
     noResults: 'No simulation trades or performance results exist yet.',
+    paperStatusTitle: 'Two independent paper ledgers',
+    paperOfflineReady: 'Offline test runner available',
+    paperNotRunning: 'Not running',
+    paperUnlinked: 'No live quote feed is connected. Both strategy ledgers only run with local offline fixture files; this panel does not show verified performance.',
+    paperNotAvailable: 'Could not verify offline replay status.',
+    paperLedgerNew: 'New Launch Hunter',
+    paperLedgerMomentum: 'Momentum Hunter',
     next: 'Next development',
     nextInfo: 'Build isolated live Solana data adapters, risk filters, and realistic simulated fills including fees and slippage.',
     safety: 'No wallet is connected and no trades are placed. Existing EBBot and Solana Hype operations are unchanged.',
@@ -254,6 +268,13 @@ const CONTENT = {
     data: '行情数据',
     performance: '已验证业绩',
     noResults: '尚无模拟交易或业绩记录。',
+    paperStatusTitle: '两个独立模拟交易账本',
+    paperOfflineReady: '离线测试引擎可用',
+    paperNotRunning: '未运行',
+    paperUnlinked: '尚未连接真实报价。两个策略账本只处理本地离线数据，不展示未经验证的收益。',
+    paperNotAvailable: '无法确认离线回放状态。',
+    paperLedgerNew: '新币发现',
+    paperLedgerMomentum: '动量发现',
     next: '下一阶段',
     nextInfo: '搭建独立的 Solana 数据适配器、风控过滤器和包含费用及滑点的模拟成交。',
     safety: '未连接钱包、未执行交易。现有 EBBot 与 Solana Hype 不受影响。',
@@ -369,6 +390,8 @@ export default function MemeCoinPage() {
   const { language } = useUiLanguage();
   const copy = CONTENT[language];
   const [overview, setOverview] = useState<MemeCoinOverview | null>(null);
+  const [paperStatus, setPaperStatus] = useState<MemeCoinPaperReplayStatus | null>(null);
+  const [paperStatusError, setPaperStatusError] = useState(false);
   const [selected, setSelected] = useState<MemeCoinStrategyId>('new_launch');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -405,12 +428,31 @@ export default function MemeCoinPage() {
     setLoading(true);
     setError(false);
     try {
-      const data = await memeCoinApi.getOverview();
-      if (seq === requestSeq.current) setOverview(data);
+      const [overviewResult, paperResult] = await Promise.allSettled([
+        memeCoinApi.getOverview(),
+        memeCoinApi.getPaperReplayStatus(),
+      ]);
+      if (seq === requestSeq.current) {
+        if (overviewResult.status === 'fulfilled') {
+          setOverview(overviewResult.value);
+        } else {
+          setOverview(null);
+          setError(true);
+        }
+        if (paperResult.status === 'fulfilled') {
+          setPaperStatus(paperResult.value);
+          setPaperStatusError(false);
+        } else {
+          setPaperStatus(null);
+          setPaperStatusError(true);
+        }
+      }
     } catch {
       if (seq === requestSeq.current) {
         setOverview(null);
+        setPaperStatus(null);
         setError(true);
+        setPaperStatusError(true);
       }
     } finally {
       if (seq === requestSeq.current) setLoading(false);
@@ -907,6 +949,24 @@ export default function MemeCoinPage() {
             )}
           </Card>
         )}
+
+        <Card title={copy.paperStatusTitle} className="space-y-3">
+          <p className="text-sm text-secondary-text">{copy.paperUnlinked}</p>
+          {paperStatusError && <p role="alert" className="text-sm text-danger">{copy.paperNotAvailable}</p>}
+          {paperStatus && (
+            <>
+              <Badge variant="warning">{copy.paperOfflineReady}</Badge>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {paperStatus.strategyLedgers.map((ledger) => (
+                  <div className="rounded-lg border border-border/50 p-3" key={ledger.strategy}>
+                    <p className="font-semibold">{ledger.strategy === 'new_launch' ? copy.paperLedgerNew : copy.paperLedgerMomentum}</p>
+                    <p className="text-sm text-secondary-text">{copy.paperNotRunning}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card title={copy.performance}>
