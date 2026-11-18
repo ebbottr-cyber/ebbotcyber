@@ -1211,8 +1211,11 @@ const SettingsPage: React.FC = () => {
 
   const shouldGuardActiveConfigPanel = activeCategory === 'notification' || activeCategory === 'agent';
   const activeConfigPanelErrorTitle = activeCategory === 'agent' ? t('settings.agentSettings') : t('settings.notificationSettings');
+  const desktopDiagnosticParts = t('settings.diagnosticHintDesktop').split('desktop.log');
   const settingsPanelDiagnosticHint = isDesktopRuntime
-    ? t('settings.diagnosticHintDesktop')
+    ? desktopDiagnosticParts.length === 2
+      ? <>{desktopDiagnosticParts[0]}<code>desktop.log</code>{desktopDiagnosticParts[1]}</>
+      : t('settings.diagnosticHintDesktop')
     : t('settings.diagnosticHintWeb');
   const activeCategoryTitle = getCategoryTitle(activeCategory as SystemConfigCategory, t('settings.activePanelTitle'), uiLanguage);
   const activeCategoryDescription = getCategoryDescription(activeCategory as SystemConfigCategory, '', uiLanguage);
