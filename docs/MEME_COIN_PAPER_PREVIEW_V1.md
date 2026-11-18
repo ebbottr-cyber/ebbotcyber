@@ -18,7 +18,7 @@ synthetic return is **not** historical performance or an investment signal.
 | Single position | USD 25 |
 | One position / equity | 2% |
 | Pool liquidity | >= USD 50,000 |
-| Requested notional / pool | <= 0.05% |
+| Requested notional / pool | <= 0.03% |
 | Synthetic snapshot age | <= 60 seconds |
 | Daily realized loss + hypothetical 10% stop exposure | <= 3% of synthetic equity |
 | Fee assumption | 30 bps each side |
