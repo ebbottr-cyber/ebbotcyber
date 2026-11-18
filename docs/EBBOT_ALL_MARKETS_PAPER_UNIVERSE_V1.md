@@ -129,3 +129,20 @@ Bu uyarılar delist kararı değil, veri sağlayıcısının verdiği
 Sembol adları kullanıcı çıktısıdır; **kesin hata nedenleri**
 bir sonraki gerçek API denetiminde `invalid_price_reasons`
 alanından görülecek. `paper_ready=false` ve gerçek emirler kapalı.
+
+
+## V5.2 — Spot araştırma adayları için kapalı-varsayılan kalite kapısı
+
+Binance 24h ticker `lastPrice > 0` ve `count > 0` birlikte
+görülmedikçe Spot işlem çifti **fiyat araştırması adayı** bile sayılmaz.
+`count` eksikse güvenli tarafta kalınır (missing_24h_trade_count).
+Tüm çiftler envanterde kalır: bir işlem çiftinin fiyat kalitesi
+uygun değilse delist varsayılmaz ve kaydı silinmez.
+
+Rapor: `indicative_quote_review_candidate_count` ve isimler,
+`quote_review_blocked_pair_count` ve tüm çiftlerin neden kodları.
+Bunlar **emir izni değildir**: fiyat araştırması adayı için dahi
+ayrı, güncel order book (alış/satış), spread, likidite, timestamp,
+API erişim ve piyasa/ülke izin denetimleri gereklidir.
+Mevcut `paper_ready=false`, `executable_prices=0`,
+gerçek emir ve sanal alım satım kapalıdır.

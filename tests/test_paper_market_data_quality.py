@@ -60,6 +60,8 @@ class QuoteQualityTests(unittest.TestCase):
                           s["invalid_price_pairs"]), (2, 1, 1))
         self.assertEqual(s["verified_trade_event_times"], 0)
         self.assertEqual(s["executable_prices"], 0)
+        self.assertEqual(s["indicative_quote_review_candidate_count"], 0)
+        self.assertEqual(s["quote_review_block_reasons"]["BTCUSDT"], "missing_24h_trade_count")
         self.assertEqual(s["invalid_price_symbols"], ["ETHUSDT"])
         self.assertEqual(s["invalid_price_reasons"], {"ETHUSDT": "nonpositive_last_price"})
         self.assertEqual(s["missing_price_symbols"], [])
@@ -91,6 +93,9 @@ class QuoteQualityTests(unittest.TestCase):
         result = check_spot(exchange, tick, set())
         self.assertEqual(result["positive_price_pairs"], 1)
         self.assertEqual(result["invalid_price_pairs"], 4)
+        self.assertEqual(result["indicative_quote_review_candidate_count"], 0)
+        self.assertEqual(result["quote_review_blocked_pair_count"], 5)
+        self.assertEqual(result["quote_review_block_reasons"]["ALT2USDT"], "zero_trades_24h")
         self.assertEqual(result["zero_trades_24h_symbols"], ["ALT0USDT", "ALT2USDT"])
         self.assertEqual(result["invalid_price_reasons"], {
             "ALT0USDT": "nonpositive_last_price_no_trades_24h",
@@ -99,6 +104,24 @@ class QuoteQualityTests(unittest.TestCase):
             "ALT4USDT": "invalid_24h_trade_count",
         })
         self.assertFalse(result["paper_ready"])
+
+    def test_positive_price_and_24h_trades_only_allows_quote_review(self):
+        data = json.dumps({"symbols": [
+            {"symbol": "BTCUSDT", "baseAsset": "BTC", "quoteAsset": "USDT",
+             "status": "TRADING", "isSpotTradingAllowed": True},
+            {"symbol": "LTCUSDT", "baseAsset": "LTC", "quoteAsset": "USDT",
+             "status": "TRADING", "isSpotTradingAllowed": True},
+        ]})
+        ticks = json.dumps([
+            {"symbol": "BTCUSDT", "lastPrice": "123", "count": 9},
+            {"symbol": "LTCUSDT", "lastPrice": "12", "count": 0},
+        ])
+        r = check_spot(data, ticks, set())
+        self.assertEqual(r["indicative_quote_review_candidates"], ["BTCUSDT"])
+        self.assertEqual(r["quote_review_block_reasons"], {"LTCUSDT": "zero_trades_24h"})
+        self.assertEqual(r["executable_prices"], 0)
+        self.assertTrue(r["quote_review_needs_fresh_order_book_and_spread"])
+        self.assertFalse(r["paper_ready"])
 
     def test_spot_diagnostic_keeps_every_invalid_symbol_not_top_n(self):
         exchange = json.dumps({"symbols": [
@@ -114,6 +137,8 @@ class QuoteQualityTests(unittest.TestCase):
         self.assertEqual(result["invalid_price_pairs"], 205)
         self.assertEqual(len(result["invalid_price_reasons"]), 205)
         self.assertEqual(result["zero_trades_24h_pairs"], 205)
+        self.assertEqual(result["quote_review_blocked_pair_count"], 205)
+        self.assertEqual(len(result["quote_review_block_reasons"]), 205)
         self.assertEqual(result["positive_price_pairs"], 0)
         self.assertEqual(result["executable_prices"], 0)
 

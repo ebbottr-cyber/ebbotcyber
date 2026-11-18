@@ -122,10 +122,13 @@ def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
     invalid_reasons: dict[str, str] = {}
     zero_trade_symbols: list[str] = []
     missing_symbols: list[str] = []
+    quote_review_candidates: list[str] = []
+    quote_review_block_reasons: dict[str, str] = {}
     for symbol in sorted(expected):
         row = prices.get(symbol)
         if row is None:
             missing_symbols.append(symbol)
+            quote_review_block_reasons[symbol] = "missing_24h_ticker"
         else:
             issue = _spot_price_issue(row)
             # A positive indicative lastPrice can still have zero trades in
@@ -138,6 +141,18 @@ def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
             else:
                 invalid_symbols.append(symbol)
                 invalid_reasons[symbol] = issue
+            # A necessary (not sufficient) prerequisite for further
+            # *read-only* quote review: positive indicative price and
+            # >0 reported trades in the rolling window. Missing count fails
+            # closed, and NOTHING here enables paper orders or fills.
+            if issue is not None:
+                quote_review_block_reasons[symbol] = issue
+            elif type(row.get("count")) is not int:
+                quote_review_block_reasons[symbol] = "missing_24h_trade_count"
+            elif row["count"] == 0:
+                quote_review_block_reasons[symbol] = "zero_trades_24h"
+            else:
+                quote_review_candidates.append(symbol)
     return {
         "price_kind": "spot_24h_last_price_indicative",
         "timestamp_kind": "rolling_window_end_not_last_trade",
@@ -150,6 +165,11 @@ def check_spot(exchange_raw: str, ticker_raw: str, assets: set[str]) -> dict:
         "invalid_price_reasons": invalid_reasons,
         "zero_trades_24h_symbols": zero_trade_symbols,
         "zero_trades_24h_pairs": len(zero_trade_symbols),
+        "indicative_quote_review_candidate_count": len(quote_review_candidates),
+        "indicative_quote_review_candidates": quote_review_candidates,
+        "quote_review_blocked_pair_count": len(quote_review_block_reasons),
+        "quote_review_block_reasons": quote_review_block_reasons,
+        "quote_review_needs_fresh_order_book_and_spread": True,
         "issue_codes_are_diagnostics_not_delisting_proof": True,
         "saved_active_assets": len(assets),
         "current_active_assets": len(current_assets),
