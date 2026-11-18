@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowRight, BarChart3, Bell, BrainCircuit,
-  Clock3, Database, Layers3, LineChart, RefreshCcw, ShieldCheck,
+  Clock3, Database, Layers3, LineChart, Radar, RefreshCcw, ShieldCheck,
   Wallet,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -307,10 +307,11 @@ const DashboardOverviewPage: React.FC = () => {
           </div>
         </div>
       </div>
-      <nav aria-label="Mobil hızlı gezinme" className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-[#dce7f6] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur sm:hidden">
+      <nav aria-label="Mobil hızlı gezinme" className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-[#dce7f6] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur sm:hidden">
         {[
           { text: 'Pano', icon: BarChart3, path: '/overview' },
           { text: 'Analiz', icon: LineChart, path: '/' },
+          { text: 'Meme', icon: Radar, path: '/meme-coins' },
           { text: 'Portföy', icon: Wallet, path: '/portfolio' },
           { text: 'Uyarılar', icon: Bell, path: '/alerts' },
         ].map(({ text, icon: Icon, path }) => (
