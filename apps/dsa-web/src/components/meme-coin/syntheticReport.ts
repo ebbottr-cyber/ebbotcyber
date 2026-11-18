@@ -9,7 +9,22 @@ type SyntheticStrategy = {
   syntheticLosses: number;
   syntheticNetPnlUsd: string;
   syntheticWinRatePct: string | null;
+  syntheticTimeline: SyntheticTimeline;
 };
+export type SyntheticDailyPoint = {
+  day: string;
+  syntheticDailyPnlUsd: string;
+  syntheticCumulativePnlUsd: string;
+  syntheticRoundTrips: number;
+};
+export type SyntheticTimeline = {
+  days: SyntheticDailyPoint[];
+  maxSyntheticDrawdownUsd: string;
+  worstSyntheticDayUsd: string | null;
+  positiveDays: number;
+  negativeDays: number;
+};
+
 export type SyntheticReport = {
   eventCount: number;
   auditTipSha256: string;
@@ -17,6 +32,7 @@ export type SyntheticReport = {
   startingSyntheticEquityUsd: string;
   endingSyntheticEquityUsd: string;
   syntheticNetPnlUsd: string;
+  syntheticTimeline: SyntheticTimeline;
   strategies: Record<SyntheticReportStrategyId, SyntheticStrategy>;
 };
 export const MAX_SYNTHETIC_REPORT_BYTES = 262144;
@@ -93,6 +109,58 @@ function winRate(wins: number, total: number): string | null {
   return (Number(hundredthPercent) / 100).toFixed(2);
 }
 
+type DayAccumulator = { pnlCents: bigint; count: number };
+
+function addSyntheticDay(
+  source: Map<string, DayAccumulator>, day: string, pnlCents: bigint,
+): void {
+  const prev = source.get(day);
+  source.set(day, {
+    pnlCents: (prev?.pnlCents ?? 0n) + pnlCents,
+    count: (prev?.count ?? 0) + 1,
+  });
+}
+
+function usdFromCents(cents: bigint): string {
+  const negative = cents < 0n;
+  const amount = (negative ? -cents : cents).toString().padStart(3, '0');
+  return `${negative ? '-' : ''}${amount.slice(0, -2)}.${amount.slice(-2)}`;
+}
+
+/** Drawdown is a daily-close USD peak-to-trough loss on SYNTHETIC PnL only.
+ * No intra-day fills, market values, investment returns or price series.
+ */
+function syntheticTimeline(byDay: Map<string, DayAccumulator>): SyntheticTimeline {
+  let cumulative = 0n;
+  let peak = 0n;
+  let maxDrawdown = 0n;
+  let worstDay: bigint | null = null;
+  let positiveDays = 0;
+  let negativeDays = 0;
+  const days = [...byDay].sort(([a], [b]) => a.localeCompare(b)).map(([day, value]) => {
+    cumulative += value.pnlCents;
+    if (cumulative > peak) peak = cumulative;
+    const drawdown = peak - cumulative;
+    if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+    if (worstDay === null || value.pnlCents < worstDay) worstDay = value.pnlCents;
+    if (value.pnlCents > 0n) positiveDays++;
+    if (value.pnlCents < 0n) negativeDays++;
+    return {
+      day,
+      syntheticDailyPnlUsd: usdFromCents(value.pnlCents),
+      syntheticCumulativePnlUsd: usdFromCents(cumulative),
+      syntheticRoundTrips: value.count,
+    };
+  });
+  return {
+    days,
+    maxSyntheticDrawdownUsd: usdFromCents(maxDrawdown),
+    worstSyntheticDayUsd: worstDay === null ? null : usdFromCents(worstDay),
+    positiveDays,
+    negativeDays,
+  };
+}
+
 export function parseSyntheticReport(payload: unknown): SyntheticReport {
   const root = object(payload);
   if (root.format !== REPORT_FORMAT || Object.keys(root).sort().join(',') !== 'format,snapshot') {
@@ -117,6 +185,7 @@ export function parseSyntheticReport(payload: unknown): SyntheticReport {
 
   const seenIds = new Set<string>();
   const allDailyLosses = new Map<string, bigint>();
+  const accountDaily = new Map<string, DayAccumulator>();
   const read = (id: SyntheticReportStrategyId): SyntheticStrategy => {
     const strategy = object(strategies[id]);
     const n = count(strategy.synthetic_round_trips);
@@ -130,6 +199,7 @@ export function parseSyntheticReport(payload: unknown): SyntheticReport {
     let negative = 0;
     let priorDay = '';
     const expectedLosses = new Map<string, bigint>();
+    const perStrategyDays = new Map<string, DayAccumulator>();
     for (const item of strategy.records) {
       const record = object(item);
       if (Object.keys(record).sort().join(',') !== RECORD_FIELDS) throw new Error('invalid_report');
@@ -147,6 +217,8 @@ export function parseSyntheticReport(payload: unknown): SyntheticReport {
           || record.assumed_slippage_bps_per_side !== 100) throw new Error('invalid_report');
       const pnl = moneyCents(record.synthetic_net_pnl_usd);
       sum += pnl;
+      addSyntheticDay(perStrategyDays, day, pnl);
+      addSyntheticDay(accountDaily, day, pnl);
       if (pnl > 0n) positive++;
       if (pnl < 0n) {
         negative++;
@@ -165,6 +237,7 @@ export function parseSyntheticReport(payload: unknown): SyntheticReport {
       syntheticLosses: losses,
       syntheticNetPnlUsd: strategy.synthetic_net_pnl_usd as string,
       syntheticWinRatePct: winRate(wins, n),
+      syntheticTimeline: syntheticTimeline(perStrategyDays),
     };
   };
 
@@ -187,6 +260,12 @@ export function parseSyntheticReport(payload: unknown): SyntheticReport {
   if (starting <= 0n || combined !== account || starting + account !== ending) {
     throw new Error('invalid_report');
   }
+  const timeline = syntheticTimeline(accountDaily);
+  const lastCumulative = timeline.days.at(-1)?.syntheticCumulativePnlUsd ?? '0.00';
+  if (moneyCents(lastCumulative) !== account
+      || timeline.days.reduce((sum, d) => sum + d.syntheticRoundTrips, 0) !== total) {
+    throw new Error('invalid_report');
+  }
 
   return {
     eventCount: total,
@@ -195,6 +274,7 @@ export function parseSyntheticReport(payload: unknown): SyntheticReport {
     startingSyntheticEquityUsd: summary.starting_synthetic_equity_usd as string,
     endingSyntheticEquityUsd: summary.ending_synthetic_equity_usd as string,
     syntheticNetPnlUsd: summary.synthetic_net_pnl_usd as string,
+    syntheticTimeline: timeline,
     strategies: { new_launch: newLaunch, momentum },
   };
 }

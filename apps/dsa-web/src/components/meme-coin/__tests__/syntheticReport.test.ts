@@ -137,3 +137,69 @@ describe('offline synthetic research report parser', () => {
     expect(parseSyntheticReport(payload).syntheticNetPnlUsd).toBe('-4.99');
   });
 });
+
+// All daily figures are derived from successfully reconciled offline synthetic records.
+describe('synthetic timeline and risk comparison', () => {
+  it('preserves isolated per-strategy curves and exact combined cents', () => {
+    const r = parseSyntheticReport(valid());
+    expect(r.syntheticTimeline.days).toEqual([
+      { day: '2026-11-18', syntheticDailyPnlUsd: '-5.00',
+        syntheticCumulativePnlUsd: '-5.00', syntheticRoundTrips: 2 },
+    ]);
+    expect(r.syntheticTimeline.maxSyntheticDrawdownUsd).toBe('5.00');
+    expect(r.syntheticTimeline.worstSyntheticDayUsd).toBe('-5.00');
+    expect(r.syntheticTimeline.negativeDays).toBe(1);
+    expect(r.strategies.new_launch.syntheticTimeline.maxSyntheticDrawdownUsd).toBe('0.00');
+    expect(r.strategies.momentum.syntheticTimeline.maxSyntheticDrawdownUsd).toBe('10.00');
+    expect(r.strategies.new_launch.syntheticTimeline.days[0].syntheticDailyPnlUsd).toBe('5.00');
+    expect(r.strategies.momentum.syntheticTimeline.days[0].syntheticDailyPnlUsd).toBe('-10.00');
+  });
+
+  it('uses dated daily close, including gaps between synthetic scenario days', () => {
+    const p = valid();
+    p.snapshot.strategies.momentum.records[0].trading_day = '2026-11-20';
+    p.snapshot.strategies.momentum.daily_gross_synthetic_losses_usd = { '2026-11-20': '10.00' };
+    p.snapshot.summary.daily_gross_synthetic_losses_usd = { '2026-11-20': '10.00' };
+    const r = parseSyntheticReport(p);
+    expect(r.syntheticTimeline.days.map(d => d.day)).toEqual(['2026-11-18', '2026-11-20']);
+    expect(r.syntheticTimeline.days.map(d => d.syntheticCumulativePnlUsd)).toEqual(['5.00', '-5.00']);
+    expect(r.syntheticTimeline.maxSyntheticDrawdownUsd).toBe('10.00');
+    expect(r.syntheticTimeline.positiveDays).toBe(1);
+    expect(r.syntheticTimeline.negativeDays).toBe(1);
+    expect(r.strategies.new_launch.syntheticTimeline.days).toHaveLength(1);
+    expect(r.strategies.momentum.syntheticTimeline.days).toHaveLength(1);
+  });
+
+  it('makes no performance claims without synthetic sample data', () => {
+    const empty = valid();
+    empty.snapshot.event_count = 0;
+    empty.snapshot.audit_tip_sha256 = '0'.repeat(64);
+    empty.snapshot.summary.synthetic_round_trips = 0;
+    empty.snapshot.summary.synthetic_net_pnl_usd = '0.00';
+    empty.snapshot.summary.ending_synthetic_equity_usd = '1000.00';
+    empty.snapshot.summary.daily_gross_synthetic_losses_usd = {};
+    for (const key of ['new_launch', 'momentum'] as const) {
+      empty.snapshot.strategies[key] = {
+        synthetic_round_trips: 0, synthetic_wins: 0, synthetic_losses: 0,
+        synthetic_net_pnl_usd: '0.00', daily_gross_synthetic_losses_usd: {}, records: [],
+      };
+    }
+    const r = parseSyntheticReport(empty);
+    expect(r.syntheticTimeline.days).toEqual([]);
+    expect(r.syntheticTimeline.maxSyntheticDrawdownUsd).toBe('0.00');
+    expect(r.syntheticTimeline.worstSyntheticDayUsd).toBe(null);
+    expect(r.strategies.momentum.syntheticWinRatePct).toBe(null);
+  });
+
+  it('does not confuse profitable days with win rate from individual rounds', () => {
+    const p = valid();
+    p.snapshot.strategies.new_launch.records[0].synthetic_net_pnl_usd = '10.01';
+    p.snapshot.strategies.new_launch.synthetic_net_pnl_usd = '10.01';
+    p.snapshot.summary.synthetic_net_pnl_usd = '0.01';
+    p.snapshot.summary.ending_synthetic_equity_usd = '1000.01';
+    const r = parseSyntheticReport(p);
+    expect(r.syntheticTimeline.days[0].syntheticDailyPnlUsd).toBe('0.01');
+    expect(r.syntheticTimeline.positiveDays).toBe(1);
+    expect(r.syntheticTimeline.maxSyntheticDrawdownUsd).toBe('0.00');
+  });
+});

@@ -173,6 +173,8 @@ describe('MemeCoinPage', () => {
     expect(screen.getAllByText(/-0.26/).length).toBeGreaterThan(0);
     expect(scanCandidates).not.toHaveBeenCalled();
     expect(screen.getAllByText(/Varsayımsal kazanma oranı/)).toHaveLength(2);
+    expect(screen.getByRole('region', { name: 'Sentetik günlük sonuç karşılaştırması' })).toBeInTheDocument();
+    expect(screen.getByText('2026-11-18')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /satın al|buy/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Raporu kaldır' }));

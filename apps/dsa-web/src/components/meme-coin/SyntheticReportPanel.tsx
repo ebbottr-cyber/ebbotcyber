@@ -14,6 +14,13 @@ const COPY = {
     pnl: 'Varsayımsal net kâr/zarar (USD)',
     wins: 'Varsayımsal kazançlı / kayıplı',
     rate: 'Varsayımsal kazanma oranı',
+    drawdown: 'Varsayımsal en yüksek günlük kapanış düşüşü (USD)',
+    timeline: 'Sentetik günlük sonuç karşılaştırması',
+    day: 'Test günü',
+    totalDaily: 'Ortak günlük PnL (USD)',
+    cumulative: 'Birikimli varsayımsal PnL (USD)',
+    noDays: 'Henüz karşılaştırılacak sentetik gün yok.',
+    periodNote: 'Yalnızca kaydı olan günler gösterilir; gün içi değer veya gerçek piyasa performansı değildir.',
     kill: 'Kalıcı durdurma',
     on: 'Etkin',
     off: 'Devre dışı',
@@ -32,6 +39,13 @@ const COPY = {
     pnl: 'Hypothetical net P&L (USD)',
     wins: 'Hypothetical wins / losses',
     rate: 'Hypothetical win rate',
+    drawdown: 'Hypothetical max daily-close drawdown (USD)',
+    timeline: 'Synthetic daily outcome comparison',
+    day: 'Research day',
+    totalDaily: 'Combined daily PnL (USD)',
+    cumulative: 'Cumulative hypothetical PnL (USD)',
+    noDays: 'No synthetic days available for comparison.',
+    periodNote: 'Only days with records are shown, not intraday results or real-market performance.',
     kill: 'Persistent kill switch',
     on: 'On',
     off: 'Off',
@@ -50,6 +64,13 @@ const COPY = {
     pnl: '假设净损益 (USD)',
     wins: '假设盈利 / 亏损',
     rate: '假设胜率',
+    drawdown: '假设日终最大回撤 (USD)',
+    timeline: '合成每日结果对比',
+    day: '测试日期',
+    totalDaily: '合计每日盈亏 (USD)',
+    cumulative: '累计假设盈亏 (USD)',
+    noDays: '暂无可比较的合成交易日期。',
+    periodNote: '仅显示有记录的日期，非日内或真实市场表现。',
     kill: '持久停止开关',
     on: '已启用',
     off: '已关闭',
@@ -130,10 +151,50 @@ export function SyntheticReportPanel({ language }: { language: UiLanguage }) {
                   <p className="mt-1 text-sm">{c.pnl}: <strong>{s.syntheticNetPnlUsd}</strong></p>
                   <p className="mt-1 text-xs text-secondary-text">{c.wins}: {s.syntheticWins} / {s.syntheticLosses}</p>
                   <p className="mt-1 text-xs text-secondary-text">{c.rate}: {s.syntheticWinRatePct === null ? "—" : `${s.syntheticWinRatePct}%`}</p>
+                  <p className="mt-1 text-xs text-secondary-text">{c.drawdown}: {s.syntheticTimeline.maxSyntheticDrawdownUsd}</p>
                 </div>
               );
             })}
           </div>
+          <section aria-label={c.timeline} className="space-y-2">
+            <h3 className="font-semibold">{c.timeline}</h3>
+            <p className="text-xs text-secondary-text">{c.periodNote}</p>
+            <p className="text-xs text-secondary-text">{c.drawdown}: {report.syntheticTimeline.maxSyntheticDrawdownUsd}</p>
+            {report.syntheticTimeline.days.length === 0 ? (
+              <p className="text-sm text-secondary-text">{c.noDays}</p>
+            ) : (
+              <div className="max-h-72 overflow-auto rounded-xl border border-border/60">
+                <table className="w-full min-w-[640px] text-left text-xs">
+                  <thead className="sticky top-0 bg-card text-secondary-text">
+                    <tr>
+                      <th scope="col" className="p-2">{c.day}</th>
+                      <th scope="col" className="p-2">{c.newLaunch} (USD)</th>
+                      <th scope="col" className="p-2">{c.momentum} (USD)</th>
+                      <th scope="col" className="p-2">{c.totalDaily}</th>
+                      <th scope="col" className="p-2">{c.cumulative}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.syntheticTimeline.days.map((day) => {
+                      const launch = report.strategies.new_launch.syntheticTimeline.days
+                        .find((item) => item.day === day.day);
+                      const momentum = report.strategies.momentum.syntheticTimeline.days
+                        .find((item) => item.day === day.day);
+                      return (
+                        <tr key={day.day} className="border-t border-border/50">
+                          <td className="p-2 font-mono">{day.day}</td>
+                          <td className="p-2 tabular-nums">{launch?.syntheticDailyPnlUsd ?? '—'}</td>
+                          <td className="p-2 tabular-nums">{momentum?.syntheticDailyPnlUsd ?? '—'}</td>
+                          <td className="p-2 tabular-nums">{day.syntheticDailyPnlUsd}</td>
+                          <td className="p-2 tabular-nums">{day.syntheticCumulativePnlUsd}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
           <button
             type="button"
             className="btn-secondary"

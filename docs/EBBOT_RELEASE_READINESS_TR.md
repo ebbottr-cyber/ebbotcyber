@@ -103,3 +103,7 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 ## 54. aşama: Sentetik rapor mutabakatı
 
 Tarayıcıdaki yerel rapor görüntüleyici, toplam işlem sayıları yanında kayıt bazında sentetik PnL, strateji toplamları, günlük brüt zarar ve hesap bakiyesi tutarlılığını tam sent aritmetiğiyle doğrular. Uyumsuz dosyalar fail-closed reddedilir. Yeni arayüz oranları **yalnızca sentetik test oranıdır**; JSON dosyası kendi başına kriptografik olarak doğrulanmış performans kaydı değildir. Gerçek emir, API ve cüzdan bağlantısı kapalıdır.
+
+## V15 — Sentetik zaman serisi ve risk karşılaştırması
+
+İçe aktarılan açıkça işaretli yerel JSON raporundan iki stratejinin senaryo günü bazında net PnL/birikimli PnL ve günlük kapanış noktasındaki varsayımsal zirveden düşüşü hesaplayan karşılaştırma tablosu eklendi. Önceden kullanılan tam sent mutabakatı korunur. Rapor gerçek piyasa verisi, emri, fiyat akışı veya kazanç iddiası değildir; güvenilir kaynaktan imzalı performans kaydı sayılmaz. Panel sadece seçilen tarayıcı oturumunda raporu görüntüler.

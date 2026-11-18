@@ -60,3 +60,11 @@ servisleri, finansal hareket veya yayına alma halen bloke.
 - Parasal tutarlar JavaScript kayan noktalı aritmetiği yerine tam sent değerinde `BigInt` ile karşılaştırılır. İki stratejinin PnL toplamı hesap PnL'sine; başlangıç bakiyesi + PnL bitiş bakiyesine eşit değilse dosya reddedilir.
 - Panelde iki ayrı stratejinin sentetik kazanma oranı, yalnızca doğrulanmış yerel dosyadaki işaretli senaryolar üzerinden hesaplanır. Gerçek başarı oranı, gerçek işlem kalitesi veya tahmini fiyat başarısı değildir.
 - Raporun kaynak kimliği ve değiştirilmezliği yine **kanıtlanmaz**: kullanıcı kontrolündeki bir JSON dosyası bilinçli olarak sahte, kendi içinde tutarlı sayılarla hazırlanabilir. Zincir/özetin doğruluğu için güvenilir, bağımsız imzalı provenance gerekir.
+
+## 55. aşama: Zaman içinde sentetik strateji karşılaştırması
+
+- Her iki stratejinin yerel ve doğrulanmış **sentetik** kayıtları yalnızca tarih bazında toplanır; gün içi mark-to-market veya gerçek piyasaya ait mum/fiyat akışı **yoktur**.
+- Her günün sentetik net PnL'si, birikimli PnL'si ve örnek kapatılmış senaryo adedi bellekte hesaplanır. Sadece kayıt bulunan günler listelenir; tarih boşlukları işlem yok olarak geçer.
+- Günlük kapanış bazlı **varsayımsal maksimum düşüş** (önceki birikimli PnL zirvesi ile sonradan gelen en düşük PnL arasındaki USD farkı) Yeni Coin Avcısı, Momentum Avcısı ve ortak görünüm için ayrı hesaplanır. Bu rakam *gerçek drawdown, risk/sermaye yeterliliği ölçümü veya geleceğe dönük tahmin değildir*.
+- Bütün tutarlar `BigInt` ile kuruş hassasiyetinde hesaplanır. Ham işlem kaydı, coin adresi, cüzdan adresi veya API verisi arayüze taşınmaz. Varsayımsal bir stratejinin üstünlüğünü veya kazanç garantisini çıkarmaz.
+- Örnek sayısı sıfırsa çizelge boş, sentetik kazanma oranı belirsiz kalır. Tüm veri tarayıcı oturumunda yalnızca açık dosya seçiminden sonra görünür; API, canlı emir, otomatik sorgu ve tarayıcı deposuna yazma eklenmez.
