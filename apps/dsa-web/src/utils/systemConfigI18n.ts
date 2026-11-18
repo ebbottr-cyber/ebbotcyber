@@ -22,6 +22,16 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
     backtest: 'Backtest',
     uncategorized: 'Other',
   },
+  tr: {
+    base: 'Temel ayarlar',
+    data_source: 'Veri kaynakları',
+    ai_model: 'AI modelleri',
+    notification: 'Bildirimler',
+    system: 'Sistem',
+    agent: 'AI ajanları',
+    backtest: 'Geriye dönük test',
+    uncategorized: 'Diğer',
+  },
 };
 
 const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCategory, string>>> = {
@@ -44,6 +54,16 @@ const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCate
     agent: 'Manage Agent mode, strategies, and multi-agent orchestration.',
     backtest: 'Manage backtest switches, evaluation windows, and engine parameters.',
     uncategorized: 'Other uncategorized settings.',
+  },
+  tr: {
+    base: 'Takip listelerini ve temel çalışma ayarlarını yönetin.',
+    data_source: 'Piyasa veri kaynaklarını ve önceliklerini yönetin.',
+    ai_model: 'Model servislerini ve çıkarım ayarlarını yönetin.',
+    notification: 'Bildirim kanallarını ve webhook ayarlarını yönetin.',
+    system: 'Zamanlayıcı, günlük, port ve sistem ayarlarını yönetin.',
+    agent: 'AI ajan modunu, stratejileri ve çoklu ajan ayarlarını yönetin.',
+    backtest: 'Geriye dönük test ayarlarını ve değerlendirme dönemlerini yönetin.',
+    uncategorized: 'Diğer yapılandırma ayarları.',
   },
 };
 
@@ -605,7 +625,7 @@ export function getFieldOptionLabel(
   fallbackLabel?: string,
   locale: UiLanguage = 'zh',
 ): string {
-  const map = locale === 'en' ? fieldOptionLabelMapEn[key] : fieldOptionLabelMap[key];
+  const map = locale !== 'zh' ? fieldOptionLabelMapEn[key] : fieldOptionLabelMap[key];
   if (!map) {
     return fallbackLabel ?? value;
   }

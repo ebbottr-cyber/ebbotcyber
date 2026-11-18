@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "EBBot – Yapay Zekâ Yatırım Analizi",
+  "short_name": "EBBot",
+  "description": "Piyasa analizi, AI sinyalleri, portföy ve risk takibi.",
+  "lang": "tr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fc",
+  "theme_color": "#f6f8fc",
+  "icons": [
+    {
+      "src": "/icons/ebbot-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/ebbot-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/ebbot-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
