@@ -37,6 +37,23 @@ class FourMarketEquityTests(unittest.TestCase):
         self.assertFalse(audit["price_symbols_verified"])
         self.assertEqual(audit["network_requests"], 0)
 
+    def test_xetra_actual_2026_semicolon_preface(self):
+        # The official 18-Nov-2026 Xetra snapshot uses semicolons even in
+        # its first two metadata rows, unlike the old documentation samples.
+        actual_preface = xetra(SAP, DAX_ETF).replace(
+            "Market: XETR\nDate Last Update: 18.11.2026",
+            "Market:;XETR\nDate Last Update:;18.11.2026",
+        )
+        csv_text, audit = xetra_equities_to_manifest(actual_preface, today=date(2026, 11, 18))
+        self.assertIn("SAP.DE", csv_text)
+        self.assertNotIn("DAXF.DE", csv_text)
+        self.assertEqual(audit["source_as_of_date"], "2026-11-18")
+
+    def test_xetra_rejects_semicolon_market_spoof(self):
+        spoof = xetra(SAP).replace("Market: XETR", "Market:;XFRA")
+        with self.assertRaisesRegex(ValueError, "wrong_xetra_market"):
+            xetra_equities_to_manifest(spoof, today=date(2026, 11, 18))
+
     def test_xetra_stale_and_future_dates_fail_closed(self):
         for stamp in ("01.11.2026", "19.11.2026"):
             with self.subTest(stamp=stamp):
