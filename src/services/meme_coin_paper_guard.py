@@ -26,7 +26,7 @@ MIN_DATA_FRESHNESS_MS = 30000
 DAILY_STRATEGY_LOSS_USD = D("50")
 GLOBAL_LOSS_USD = D("100")
 CONSECUTIVE_FAILURE_LIMIT = 3
-MAX_NOTIONAL_LIQUIDITY_SHARE = D("0.01")
+MAX_NOTIONAL_LIQUIDITY_SHARE = D("0.005")
 _FACT_FIELDS = {"source", "liquidity_usd", "observed_at_ms"}
 
 
@@ -175,7 +175,7 @@ def replay_guarded(
             "global_book_loss_usd": money(GLOBAL_LOSS_USD),
             "minimum_reported_liquidity_usd": money(MIN_LIQUIDITY_USD),
             "max_risk_data_age_ms": MIN_DATA_FRESHNESS_MS,
-            "max_buy_vs_liquidity_fraction": "0.01",
+            "max_buy_vs_liquidity_fraction": "0.005",
             "max_consecutive_failed_attempts": CONSECUTIVE_FAILURE_LIMIT,
         },
         "ledgers": {},
