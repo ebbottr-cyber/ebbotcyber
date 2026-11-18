@@ -252,7 +252,25 @@ export type SolanaJupiterQuotePreview = {
   tradable: false;
 };
 
+export type MemeCoinOfflineRiskReadiness = {
+  status: 'offline_safeguards_available';
+  archiveMode: 'manual_local_sqlite_only';
+  journalOnline: false;
+  paperEngineRunning: false;
+  liveTradingEnabled: false;
+  riskFactsVerifiedFromMarket: false;
+  strategyLedgers: Array<{
+    strategy: SolanaMemeCoinStrategyId;
+    mode: 'offline_only';
+    liveOrdersEnabled: false;
+  }>;
+};
+
 export const memeCoinApi = {
+  async getPaperRiskReadiness(): Promise<MemeCoinOfflineRiskReadiness> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/paper/risk-readiness');
+    return toCamelCase<MemeCoinOfflineRiskReadiness>(data);
+  },
   async getSolanaQuotePreview(
     strategy: SolanaMemeCoinStrategyId,
     mint: string,
