@@ -1,9 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Database, Radar, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview } from '../api/memeCoin';
+import { memeCoinApi, type MemeCoinOverview, type MemeCoinStrategyId, type MemeCoinDiscoveryResponse, type RobinhoodRpcStatus, type SolanaMintReview, type SolanaImpactEstimate, type SolanaConcentrationReview, type SolanaPoolReview, type SolanaOwnerGroupReview, type SolanaOrcaVaultReview, type MemeCoinPaperReplayStatus, type SolanaJupiterQuotePreview, type SolanaJupiterQuoteCapture } from '../api/memeCoin';
 import { AppPage, Badge, Card, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
+
+/** Explicitly export the Python bridge's snake_case snapshot contract.
+ * Displaying the camelCase API client object would not replay correctly.
+ */
+function toOfflineQuoteCapture(raw: SolanaJupiterQuoteCapture) {
+  return {
+    capture_id: raw.captureId,
+    source: raw.source,
+    strategy: raw.strategy,
+    mint: raw.mint,
+    side: raw.side,
+    input_mint: raw.inputMint,
+    output_mint: raw.outputMint,
+    amount_in_raw: raw.amountInRaw,
+    amount_out_raw: raw.amountOutRaw,
+    fee_bps: raw.feeBps,
+    router: raw.router,
+    captured_at_ms: raw.capturedAtMs,
+    captured_at: raw.capturedAt,
+    transaction_returned: raw.transactionReturned,
+    execution_is_real: raw.executionIsReal,
+    token_safety_verified: raw.tokenSafetyVerified,
+    estimated_network_fee_available: raw.estimatedNetworkFeeAvailable,
+    tradable: raw.tradable,
+  };
+}
 
 const CONTENT = {
   tr: {
@@ -1087,7 +1113,7 @@ export default function MemeCoinPage() {
                       <details>
                         <summary className="cursor-pointer text-xs font-semibold">{copy.jupRaw}</summary>
                         <p className="my-2 text-xs text-secondary-text">{copy.jupCopy}</p>
-                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card p-2 text-xs">{JSON.stringify(quotePreview.quote, null, 2)}</pre>
+                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-md bg-card p-2 text-xs">{JSON.stringify(toOfflineQuoteCapture(quotePreview.quote), null, 2)}</pre>
                       </details>
                     </div>
                   )}
