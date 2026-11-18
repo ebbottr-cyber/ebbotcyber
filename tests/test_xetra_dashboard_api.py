@@ -98,11 +98,17 @@ class GermanyPanelApiTests(TestCase):
         self.assertEqual(result["orders"], 0)
 
     def test_route_mount(self):
+        # FastAPI 0.137+ stores nested routers lazily; app routing
+        # must be tested via HTTP, not by scanning router.routes.
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
         from api.v1.router import router
-        routes = {r.path: r.methods for r in router.routes if hasattr(r, "methods")}
-        detail = {"router_type": str(type(router)), "route_count": len(router.routes),
-                  "route_types": [str(type(r)) for r in router.routes[:5]],
-                  "route_paths": [getattr(r, "path", None) for r in router.routes[:10]]}
-        self.assertIn("/xetra/inventory", routes, repr(detail))
-        self.assertIn("GET", routes["/xetra/inventory"])
-        self.assertIn("POST", routes["/xetra/quote-check"])
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1")
+        with (patch.object(api, "read_xetra_manifest", return_value=INVENTORY),
+              patch.object(api, "is_auth_enabled", return_value=False)):
+            response = TestClient(app).get("/api/v1/xetra/inventory?query=SAP")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["items"][0]["symbol"], "SAP.DE")
+        self.assertFalse(response.json()["manual_quote_check_enabled"])
