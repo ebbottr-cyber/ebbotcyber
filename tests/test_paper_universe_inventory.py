@@ -87,8 +87,8 @@ class PaperUniverseTests(unittest.TestCase):
             path.write_text(json.dumps({"contracts": [{
                 "market": "binance_usdm_futures",
                 "instrument_kind": "derivative_contract",
-                "symbol": "BTC\\nUSDT",
-                "contract_symbol": "BTC\\nUSDT",
+                "symbol": "BTC" + chr(10) + "USDT",
+                "contract_symbol": "BTC" + chr(10) + "USDT",
                 "contract_type": "PERPETUAL",
                 "contract_status": "TRADING",
                 "source": "binance_usdm_exchange_info",
