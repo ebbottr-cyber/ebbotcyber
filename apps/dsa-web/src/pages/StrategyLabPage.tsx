@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { strategyLabApi, type EtfStrategyResearch } from '../api/strategyLab';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
+import PaperJournalPanel from '../components/strategy-lab/PaperJournalPanel';
 import type { UiLanguage } from '../i18n/uiText';
 
 const TEXT: Record<UiLanguage, {
@@ -150,6 +151,8 @@ export default function StrategyLabPage() {
 
       {!report && !loading && !analysisError &&
         <p className="text-sm text-muted-text">{text.noResult}</p>}
+
+      <PaperJournalPanel />
 
       {report && metrics && (
         <section className="space-y-4" aria-label={text.title}>
