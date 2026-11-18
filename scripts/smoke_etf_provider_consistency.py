@@ -54,6 +54,10 @@ def main() -> int:
             max_daily_gap_limit_bps=150.0,
             total_return_gap_limit_pp=1.0,
         )
+        # Strategy comparisons must use *exactly identical* trading dates;
+        # even a missing early observation changes possible signal timing.
+        if not validated["EfinanceFetcher"].index.equals(validated["BaostockFetcher"].index):
+            raise ValueError("provider session calendars differ; cannot compare strategy outcomes")
         results = {}
         # Quantify *strategy* result sensitivity to each provider separately:
         # same parameters and seed; reported outcomes are not investment claims.
