@@ -45,7 +45,7 @@ jobs:
       - name: Existing PWA safety tests
         run: npm run test:pwa
       - name: Isolated meme strategies frontend tests
-        run: npm test -- MemeCoinPage.test.tsx syntheticReport.test.ts
+        run: npm test -- MemeCoinPage.test.tsx syntheticReport.test.ts syntheticEvidence.test.ts
       - name: Existing white panel frontend tests
         run: npm test -- src/components/dashboard/__tests__/DashboardSummaryCards.test.tsx src/components/dashboard/__tests__/StockCandlestickChart.test.tsx src/components/dashboard/__tests__/TurkeyMarketCards.test.tsx src/utils/__tests__/technicalIndicators.test.ts
       - name: Production TypeScript and Vite build
