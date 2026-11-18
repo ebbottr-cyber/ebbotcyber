@@ -49,3 +49,11 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 - `.gitignore` yalnızca `.env.example` için istisna içerir; gerçek `.env` ve `.env.*` dosyaları gizli kalır.
 - Eski `.github/workflows/ci.yml` **üretilmedi**; onun yapısına dair eski testler hâlâ kalan teknik borçtur.
 - CI'a günlük arşiv workflow uyumluluğu ve güvenli örnek ortam dosyası için ayrı hedefli test görevi eklendi; gerçek tam test ve release blocked kontrolleri aynen kaldı.
+
+## Pasif CI sözleşmelerinin taşınması — V9
+
+- `.github/workflows/ci.yml` **yeniden etkinleştirilmedi**. Eski path-filter, üçlü shard, Futu SDK ve macOS paketleme sözleşmeleri yalnızca `workflows_disabled/ci.yml.disabled` ile diğer arşivlenmiş workflow'ların **tarihsel davranışını** test eder; bunlar şu anda çalışan CI işleri değildir.
+- Aktif `.github/workflows/ebbot-integration.yml` için ayrı fail-closed sözleşme eklendi: tam backend regresyonu, salt-okunur Meme Coin varsayılanı, yayın yapmayan izinler ve arşivlenmiş günlük analizin aktif olmaması.
+- `ci-and-packaging-contracts` adlı hedefli CI işi iki sözleşme grubunu koşar. Tam regresyon işi hâlâ bağımsız olarak **zorunlu** kalır.
+- Futu masaüstü paketleme, Docker yayınlama, günlük analiz ve gerçek alım-satım bu PR'da etkinleştirilmez. Arşivdeki testlerin yeşile dönmesi bu işlerin güncel CI ile doğrulandığı veya yayına hazır olduğu anlamına gelmez.
+- Tam backend sonucunun PR #35'in en son commit'i üzerinden doğrulanması beklenir; kaynak testleri gerçek cihaz/sunucu testlerinin yerini tutmaz.
