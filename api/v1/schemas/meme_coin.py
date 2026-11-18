@@ -317,3 +317,21 @@ class MemeCoinOfflineRiskReadiness(BaseModel):
     live_trading_enabled: Literal[False]
     risk_facts_verified_from_market: Literal[False]
     strategy_ledgers: list[MemeCoinOfflineGuardLedger]
+
+
+class MemeCoinMtmStrategyReadiness(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["new_launch", "momentum"]
+    status: Literal["not_running"]
+
+
+class MemeCoinMtmReadiness(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["offline_mtm_recovery_available"]
+    mark_source: Literal["unverified_offline_assumptions"]
+    database_online: Literal[False]
+    paper_scheduler_running: Literal[False]
+    live_trading_enabled: Literal[False]
+    strategies: list[MemeCoinMtmStrategyReadiness]
