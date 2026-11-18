@@ -49,3 +49,20 @@ jobs:
         run: npx tsc -p tsconfig.app.json --noEmit
       - name: Frontend build
         run: npm run build
+
+  live-price-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    env:
+      EFINANCE_CALL_TIMEOUT: "12"
+    steps:
+      - name: Checkout PR merge
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Strict read-only real price provider smoke
+        run: python scripts/smoke_strategy_lab_real_data.py
