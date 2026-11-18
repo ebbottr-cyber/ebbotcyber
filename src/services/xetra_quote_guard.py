@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 from src.services.paper_universe_inventory import read_input
 
 SOURCE = "deutsche_boerse_xetra_t7"
-SYMBOL = re.compile(r"^[A-Z0-9]{1,16}\\.DE$")
+SYMBOL = re.compile(r"^[A-Z0-9]{1,16}\.DE$")
 ISIN = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
 REQUIRED = {
     "market", "symbol", "source", "kind", "source_as_of_date",
