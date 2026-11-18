@@ -87,3 +87,43 @@ class RobinhoodRpcStatus(BaseModel):
     checked_at: Optional[str] = None
     error: Optional[str] = None
     trading_enabled: Literal[False]
+
+
+class SolanaMintReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mint: str
+    network: Literal["solana-mainnet"]
+    status: Literal["disabled", "screened", "unavailable", "unsupported"]
+    verdict: Literal["blocked", "review_only", "unknown"]
+    slot: Optional[int] = None
+    checked_at: Optional[str] = None
+    token_program: Optional[str] = None
+    mint_authority_revoked: Optional[bool] = None
+    freeze_authority_revoked: Optional[bool] = None
+    decimals: Optional[int] = None
+    supply_base_units: Optional[str] = None
+    blocking_reasons: list[str]
+    remaining_unverified: list[str]
+    full_safety_verified: Literal[False]
+    tradable: Literal[False]
+
+
+class SolanaImpactEstimate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: Literal["hypothetical_cpmm_50_50"]
+    liquidity_usd: float
+    order_usd: float
+    fee_bps: int
+    adverse_slippage_bps: int
+    modeled_fee_usd: float
+    modeled_output_value_usd: float
+    modeled_min_output_value_usd: float
+    modeled_price_impact_pct: float
+    modeled_total_cost_pct: float
+    order_vs_liquidity_pct: float
+    flags: list[str]
+    paper_review_status: Literal["blocked", "research_only"]
+    real_quote_available: Literal[False]
+    tradable: Literal[False]
