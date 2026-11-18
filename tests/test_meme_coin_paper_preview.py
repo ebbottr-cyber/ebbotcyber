@@ -77,3 +77,14 @@ def test_preview_never_uses_provider_or_wallet(monkeypatch):
         r = case()
     assert r["status"] == "synthetic_preview_only"
     assert r["trade_executed"] is False
+
+def test_numeric_zero_string_and_numeric_are_equivalent():
+    for value in (0, "0", "0.00", 0.0):
+        result = case(synthetic_daily_realized_loss_usd=value, snapshot_age_seconds="0")
+        assert result["status"] == "synthetic_preview_only"
+
+
+def test_invalid_or_nonfinite_negative_budget_is_rejected():
+    for value in (True, None, float("nan"), "-0.0001", "Infinity"):
+        result = case(synthetic_daily_realized_loss_usd=value)
+        assert result["reason"] == "invalid_synthetic_inputs"

@@ -35,9 +35,16 @@ def _positive_decimal(value: Any) -> Decimal:
 
 
 def _nonnegative_decimal(value: Any) -> Decimal:
-    if value == 0 and not isinstance(value, bool):
-        return Decimal("0")
-    return _positive_decimal(value)
+    """Accept integer, float, Decimal and numeric-string zero consistently."""
+    if isinstance(value, bool) or value is None:
+        raise ValueError("invalid numeric input")
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError("invalid numeric input") from None
+    if not number.is_finite() or number < 0 or number > Decimal("1e12"):
+        raise ValueError("out-of-range numeric input")
+    return number
 
 
 def _blocked(strategy: str, reason: str) -> dict[str, Any]:

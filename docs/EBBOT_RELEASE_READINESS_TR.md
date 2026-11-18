@@ -64,3 +64,12 @@ Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.di
 - Varsayımsal pozisyon büyüklüğü, havuz likiditesi, veri yaşı ve günlük zarar bütçesi sınırları `tests/test_meme_coin_paper_preview.py` ile doğrulanır; test aktif salt-okunur CI işinde çalışır.
 - Modülün sunduğu hipotetik PnL **gerçek bir işlem sonucu değildir**; paneldeki performans metrikleri `null`, paper trading ve live trading kapalı kalır.
 - Sınırlamalar ve gerçek paper trading için sonraki gereksinimler `docs/MEME_COIN_PAPER_PREVIEW_V1.md` içinde belgelenmiştir.
+
+## Sentetik işlem kayıtları — V11
+
+- Yeni Coin Avcısı ve Momentum Avcısı için API/sunucudan bağımsız, yalnızca bellekte yaşayan sentetik kayıt motoru eklendi.
+- Aynı olayın iki kez hesaplanması engellenir; çelişkili olay ID'leri tüm hesaplamayı reddeder.
+- Strateji günlük zarar bütçesi %2, stratejiler arası ortak günlük zarar bütçesi %3 ve manuel durdurma kontrolü uygulanır. Bu sınırlar varsayımsal matematiksel testtir, gerçek emir güvenliği veya gerçekleştirilmiş PnL değildir.
+- Önceki `"0"` metin değerinin geçersiz sayılmasına neden olan sayısal ayrıştırma hatası giderildi.
+- Bağımsız testler yeni modülle birlikte salt-okunur CI görevinde koşar; aktif paper emir motoru veya canlı işlem yaratılmadı.
+- Detaylar `docs/MEME_COIN_SYNTHETIC_JOURNAL_V1.md` dosyasında.
