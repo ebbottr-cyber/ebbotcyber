@@ -40,3 +40,12 @@ Bu audit hiçbir zaman live trade, deploy veya GitHub PR merge işlemi başlatma
 ## Devre dışı günlük analiz testlerinin göçü
 
 Dört tarihsel test dosyası artık `workflows_disabled/00-daily-analysis.yml.disabled` içeriğindeki eski veri sağlayıcısı, model, bildirim ve SearXNG yapılandırmalarını okur. Amaç, eski örnek yapılandırmanın tutarlılığını korumaktır; bu testler **üretimde çalışacak zamanlanmış bir işin varlığını doğrulamaz**. Aktif `.github/workflows/00-daily-analysis.yml` bilinçli olarak oluşturulmadı. `audit_ebbot_release.py` eski workflow'un yanlışlıkla yeniden etkinleştirilmesini ayrıca engeller. Eksik `.env.example` ve eski `ci.yml` testleri çözülmediği sürece tam regresyon yayına izin vermez.
+
+
+## Güvenli örnek ortam dosyası — V8
+
+- `.env.example`, gerçek frontend sağlayıcı listesinden oluşturulmuş, **hiçbir API anahtarı içermeyen** açıklamalı bir şablondur. Her sağlayıcı örneği yorum satırındadır; otomatik olarak bir LLM, veri sağlayıcı, cüzdan veya işlem modu etkinleşmez.
+- SearXNG public-instance keşfi varsayılan olarak `false`, timeout `10` saniye, self-host URL boş tutulur. Kaynak: mevcut `src/config.py`, `docs/full-guide_EN.md` ve LLM sağlayıcı şablonları.
+- `.gitignore` yalnızca `.env.example` için istisna içerir; gerçek `.env` ve `.env.*` dosyaları gizli kalır.
+- Eski `.github/workflows/ci.yml` **üretilmedi**; onun yapısına dair eski testler hâlâ kalan teknik borçtur.
+- CI'a günlük arşiv workflow uyumluluğu ve güvenli örnek ortam dosyası için ayrı hedefli test görevi eklendi; gerçek tam test ve release blocked kontrolleri aynen kaldı.
