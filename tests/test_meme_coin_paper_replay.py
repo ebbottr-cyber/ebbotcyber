@@ -106,7 +106,7 @@ def test_position_budget_and_order_budget_rejected_without_spending():
 
     cases = [
         event("a", amount="100", output="100", slippage=0),
-        event("b", amount="100", output="100", observed=1300, attempted=1400, slippage=0),
+        event("b", amount="99.98", output="100", observed=1300, attempted=1400, slippage=0),
         event("c", amount="1", output="2", observed=1500, attempted=1600),
     ]
     ledger = paper.replay(cases)["ledgers"]["new_launch"]
