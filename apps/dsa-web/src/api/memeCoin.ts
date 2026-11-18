@@ -104,7 +104,32 @@ export type SolanaImpactEstimate = {
   tradable: false;
 };
 
+export type SolanaConcentrationReview = {
+  mint: string;
+  network: 'solana-mainnet';
+  status: 'disabled' | 'screened' | 'unavailable';
+  verdict: 'unknown' | 'review_only' | 'concentration_signal';
+  checkedAt: string | null;
+  supplySlot: number | null;
+  accountsSlot: number | null;
+  supplyBaseUnits: string | null;
+  observedAccounts: number;
+  topAccountPct: number | null;
+  topTenAccountsPct: number | null;
+  observedTopTwentyPct: number | null;
+  warningFlags: string[];
+  interpretation: 'token_accounts_not_wallets';
+  ownerIdentityVerified: false;
+  poolVaultsClassified: false;
+  fullSafetyVerified: false;
+  tradable: false;
+};
+
 export const memeCoinApi = {
+  async reviewSolanaConcentration(mint: string): Promise<SolanaConcentrationReview> {
+    const { data } = await apiClient.get('/api/v1/meme-coins/solana/concentration', { params: { mint } });
+    return toCamelCase<SolanaConcentrationReview>(data);
+  },
   async reviewSolanaMint(mint: string): Promise<SolanaMintReview> {
     const { data } = await apiClient.get('/api/v1/meme-coins/solana/mint-review', { params: { mint } });
     return toCamelCase<SolanaMintReview>(data);
