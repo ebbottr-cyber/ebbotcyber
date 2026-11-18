@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any, Mapping
@@ -50,7 +51,7 @@ def _checked_records(contents: bytes) -> list[dict[str, Any]]:
             raise ValueError("invalid or timezone-naive journal session")
         if not data.get("source") or not isinstance(data.get("rules"), dict):
             raise ValueError("journal source/rules missing")
-        if not all(type(data.get(k)) in (int, float) and float(data[k]) > 0
+        if not all(type(data.get(k)) in (int, float) and math.isfinite(float(data[k])) and float(data[k]) > 0
                    for k in ("close", "equity", "peak_equity")):
             raise ValueError("non-positive or invalid journal equity/price")
         if previous is None:
