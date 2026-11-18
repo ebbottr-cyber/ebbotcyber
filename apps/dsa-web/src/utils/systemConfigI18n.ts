@@ -22,6 +22,16 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
     backtest: 'Backtest',
     uncategorized: 'Other',
   },
+  tr: {
+    base: 'Temel ayarlar',
+    data_source: 'Veri kaynakları',
+    ai_model: 'Yapay zekâ modelleri',
+    notification: 'Bildirimler',
+    system: 'Sistem',
+    agent: 'Ajanlar',
+    backtest: 'Geriye dönük test',
+    uncategorized: 'Diğer',
+  },
 };
 
 const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCategory, string>>> = {
@@ -44,6 +54,16 @@ const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCate
     agent: 'Manage Agent mode, strategies, and multi-agent orchestration.',
     backtest: 'Manage backtest switches, evaluation windows, and engine parameters.',
     uncategorized: 'Other uncategorized settings.',
+  },
+  tr: {
+    base: 'İzleme listelerini ve temel çalışma ayarlarını yönetin.',
+    data_source: 'Piyasa veri kaynaklarını ve öncelik sırasını yönetin.',
+    ai_model: 'Model sağlayıcılarını ve çıkarım ayarlarını yönetin.',
+    notification: 'Bot, webhook ve bildirim ayarlarını yönetin.',
+    system: 'Zamanlayıcı, günlük ve sistem ayarlarını yönetin.',
+    agent: 'Ajan modlarını ve stratejilerini yönetin.',
+    backtest: 'Geriye dönük test ve değerlendirme ayarlarını yönetin.',
+    uncategorized: 'Diğer ayarlar.',
   },
 };
 
@@ -605,7 +625,9 @@ export function getFieldOptionLabel(
   fallbackLabel?: string,
   locale: UiLanguage = 'zh',
 ): string {
-  const map = locale === 'en' ? fieldOptionLabelMapEn[key] : fieldOptionLabelMap[key];
+  // Turkish options use the English map until dedicated translations are available.
+  // Never display Chinese option labels just because the UI locale is Turkish.
+  const map = locale === 'zh' ? fieldOptionLabelMap[key] : fieldOptionLabelMapEn[key];
   if (!map) {
     return fallbackLabel ?? value;
   }
