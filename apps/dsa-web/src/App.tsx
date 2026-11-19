@@ -33,6 +33,7 @@ const AlertsPage = lazy(() => import('./pages/AlertsPage'));
 const TokenUsagePage = lazy(() => import('./pages/TokenUsagePage'));
 const StockScreeningPage = lazy(() => import('./pages/StockScreeningPage'));
 const DataCenterPage = lazy(() => import('./pages/DataCenterPage'));
+const MemeCoinsPage = lazy(() => import('./pages/MemeCoinsPage'));
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -99,6 +100,7 @@ const routeChildren = [
   { path: '/meme-coins', element: <MemeCoinPage /> },
   { path: '/screening', element: <StockScreeningPage /> },
   { path: '/data', element: <DataCenterPage /> },
+  { path: '/meme-radar', element: <MemeCoinsPage /> },
   { path: '/backtest', element: <BacktestPage /> },
   { path: '/strategy-lab', element: <StrategyLabPage /> },
   { path: '/alerts', element: <AlertsPage /> },

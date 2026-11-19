@@ -3,6 +3,7 @@ import type React from 'react';
 import type { UiLanguage } from '../../i18n/uiText';
 import { Send } from 'lucide-react';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import type { UiLanguage } from '../../i18n/uiText';
 import { getParsedApiError, type ParsedApiError } from '../../api/error';
 import { systemConfigApi } from '../../api/systemConfig';
 import type {
@@ -15,17 +16,17 @@ import { SettingsSectionCard } from './SettingsSectionCard';
 
 function getChannelOptions(language: UiLanguage): Array<{ value: NotificationTestChannel; label: string }> {
   return [
-    { value: 'wechat', label: language !== 'zh' ? 'WeCom' : '企业微信' },
-    { value: 'feishu', label: language !== 'zh' ? 'Feishu Webhook' : '飞书 Webhook' },
-    { value: 'dingtalk', label: language !== 'zh' ? 'DingTalk' : '钉钉' },
+    { value: 'wechat', label: language === 'zh' ? '企业微信' : 'WeCom' },
+    { value: 'feishu', label: language === 'zh' ? '飞书 Webhook' : 'Feishu Webhook' },
+    { value: 'dingtalk', label: language === 'zh' ? '钉钉' : 'DingTalk' },
     { value: 'telegram', label: 'Telegram' },
-    { value: 'email', label: language !== 'zh' ? 'Email' : '邮件' },
+    { value: 'email', label: language === 'zh' ? '邮件' : language === 'tr' ? 'E-posta' : 'Email' },
     { value: 'pushover', label: 'Pushover' },
     { value: 'ntfy', label: 'ntfy' },
     { value: 'gotify', label: 'Gotify' },
     { value: 'pushplus', label: 'PushPlus' },
     { value: 'serverchan3', label: 'ServerChan3' },
-    { value: 'custom', label: language !== 'zh' ? 'Custom Webhook' : '自定义 Webhook' },
+    { value: 'custom', label: language === 'zh' ? '自定义 Webhook' : language === 'tr' ? 'Özel Webhook' : 'Custom Webhook' },
     { value: 'discord', label: 'Discord' },
     { value: 'slack', label: 'Slack' },
     { value: 'astrbot', label: 'AstrBot' },
