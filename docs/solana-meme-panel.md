@@ -25,7 +25,14 @@ is started. Maximum eight unique mints per scan, with a 30-second cache and
 exclusive scan lock to reduce provider usage.
 
 Only monitoring candidates with strategy, watch/blocked status, reasons
-and heuristic score are returned. Unknown security fields are blocked.
+and heuristic score are returned. Unknown core security fields are blocked.
+GoPlus Solana transfer-hook data may be an address object rather than a
+simple status flag; any nonempty external hook program address blocks a
+candidate. When the provider supplies mutable-metadata or upgrade-authority
+flags, active or unknown flags block a candidate as well. Missing optional
+extension fields cannot be assumed secure, and this is NOT a complete
+on-chain audit (holder concentration, trade restrictions and other risks
+require separate validation). Live GoPlus responses are not yet verified.
 
 Enable application authentication and network-level throttling before
 exposing optional live scans on an internet-facing deployment.

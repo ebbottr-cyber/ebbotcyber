@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Solana 新池扫描解析实际 token 符号、平衡 GeckoTerminal 和 DEX Screener 数据源。
+- [修复] Solana GoPlus transfer-hook 地址及升级权限等安全风险按缺省拒绝策略校验。
 - [修复] 还原完整、无凭证的 .env.example 示例配置：所有实际生效的示例键与当前注册表一致，日程和公网 SearXNG 默认关闭。
 - [修复] 历史 CI / 每日分析 / 发布 Actions 合约测试读取 workflows_disabled 中的禁用快照，并增加未恢复自动日程的保护测试。
 - [修复] 土耳其语报告市场角色与市场规则使用英文基础模板，避免插入中文内容；补全土耳其语新闻缺失提示的测试。
