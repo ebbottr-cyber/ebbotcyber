@@ -1,7 +1,7 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { formatUiText, UI_TEXT, type UiLanguage, type UiTextKey, type UiTextParams } from '../i18n/uiText';
-import { getRuntimeInitialLanguage, getUiLanguageStorage, persistUiLanguage } from '../utils/uiLanguage';
+import { getRuntimeInitialLanguage, getUiLanguageStorage, persistUiLanguage, shouldForceTurkishUi } from '../utils/uiLanguage';
 
 type UiLanguageContextValue = {
   language: UiLanguage;
@@ -21,13 +21,17 @@ export const UiLanguageProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [language, setLanguageState] = useState<UiLanguage>(getRuntimeInitialLanguage);
 
   const setLanguage = useCallback((nextLanguage: UiLanguage) => {
-    setLanguageState(nextLanguage);
-    persistUiLanguage(getUiLanguageStorage(), nextLanguage);
+    const selected = shouldForceTurkishUi() ? 'tr' : nextLanguage;
+    setLanguageState(selected);
+    persistUiLanguage(getUiLanguageStorage(), selected);
   }, []);
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.documentElement.lang = language === 'zh' ? 'zh-CN' : language;
+      document.documentElement.lang = shouldForceTurkishUi() ? 'tr' : language;
+    }
+    if (shouldForceTurkishUi()) {
+      persistUiLanguage(getUiLanguageStorage(), 'tr');
     }
   }, [language]);
 

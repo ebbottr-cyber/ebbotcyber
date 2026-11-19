@@ -1,0 +1,39 @@
+name: EBBot Turkish-only UI migration checks (review only)
+
+on:
+  push:
+    branches: [fix/turkish-only-ui-review-20261119]
+  pull_request:
+    branches: [audit/final-release-chain-20261119]
+
+permissions:
+  contents: read
+
+jobs:
+  locale-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/turkish-only-ui-review-20261119
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Production-like Turkish locale, Germany, Meme Coin and settings integration tests
+        env:
+          VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+        run: |
+          npm test -- src/utils/__tests__/turkishOnlyOperatorUi.test.tsx src/pages/__tests__/GermanyMarketPage.test.tsx src/pages/__tests__/MemeCoinPage.test.tsx src/pages/__tests__/MemeCoinsPage.test.tsx src/utils/__tests__/systemConfigLanguage.test.ts
+      - name: ESLint for compatibility regressions
+        run: npm run lint
+      - name: TypeScript and production build
+        run: npm run build
+      - name: PWA asset checks
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
