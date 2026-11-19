@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 校正 Solana GoPlus transfer_hook 地址对象解析，并识别可修改元数据和升级权限等风险字段；缺失/未知核心安全标志继续阻止监控放行。
 - [新功能] 为 Solana Meme Radar 添加显式启用的手动只读 HTTP API 和 Web 入口，不含交易。
 - [修复] 修正土耳其语界面的时间格式化、通知渠道及系统配置分类，避免 UI 语言类型检查失败。
 - [新功能] 新增默认关闭、只读的 Solana Meme Radar 预览：DEX Screener、GeckoTerminal、GoPlus 数据适配及两种观察策略和离线测试。

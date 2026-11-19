@@ -132,3 +132,49 @@ def test_payload_nan_and_invalid_address_rejected():
 def test_limit_capped():
     with pytest.raises(ValueError):
         SolanaMemeFeed().latest_profiles(NOW, limit=31)
+
+
+def test_goplus_transfer_hook_address_and_status_are_risky():
+    active = {**SAFE, "transfer_hook": {
+        "address": "HookProgram111111111111111111111111111111",
+        "malicious_address": "0",
+    }}
+    assert "transfer_hook" in security_reasons(active)
+    # A contradictory payload must not be treated as safe.
+    assert "transfer_hook" in security_reasons({
+        **SAFE, "transfer_hook": {"status": "0", "address": "HookProgram"},
+    })
+    assert "transfer_hook" in security_reasons({
+        **SAFE, "transfer_hook": {"status": "1", "address": ""},
+    })
+
+
+def test_goplus_transfer_hook_explicit_absence_and_unknown():
+    assert security_reasons({**SAFE, "transfer_hook": {"address": ""}}) == []
+    unknown = security_reasons({**SAFE, "transfer_hook": {"other": "value"}})
+    assert "transfer_hook_unknown" in unknown
+    assert "transfer_hook_unknown" in security_reasons({
+        **SAFE, "transfer_hook": None,
+    })
+
+
+def test_goplus_additional_authority_flags_are_not_ignored():
+    for field in (
+        "metadata_mutable",
+        "transfer_fee_upgradable",
+        "default_account_state_upgradable",
+        "balance_mutable_authority",
+        "transfer_hook_upgradable",
+    ):
+        assert field in security_reasons({**SAFE, field: {"status": "1"}})
+        assert f"{field}_unknown" in security_reasons({**SAFE, field: {"unknown": 4}})
+        assert field not in security_reasons({**SAFE, field: {"status": "0"}})
+
+
+def test_goplus_frozen_default_state_is_blocked():
+    assert "default_account_not_initialized" in security_reasons({
+        **SAFE, "default_account_state": "2",
+    })
+    assert "default_account_not_initialized" not in security_reasons({
+        **SAFE, "default_account_state": "1",
+    })
