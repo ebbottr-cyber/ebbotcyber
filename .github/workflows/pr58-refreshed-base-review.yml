@@ -1,0 +1,45 @@
+name: EBBot PR58 refreshed-base research-only verification
+
+on:
+  push:
+    branches:
+      - integration/pr58-paper-universe-sync-20261119
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
+
+permissions:
+  contents: read
+
+jobs:
+  research-only-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact refreshed PR57 base tree and immutable head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin review/ebbot-3lu-entegrasyon-20261118
+          expected=61ff4630e63941acd3b75ce5350eac81f8530f53
+          test "$(git rev-parse origin/review/ebbot-3lu-entegrasyon-20261118)" = "$expected"
+          git merge-base --is-ancestor "$expected" HEAD
+          echo "PR57_BASE_HEAD_SHA=$expected"
+          echo "PR57_BASE_TREE_SHA=$(git rev-parse "$expected^{tree}")"
+          echo "PR58_REVIEW_HEAD_SHA=$(git rev-parse HEAD)"
+          echo "NO_MAIN_OR_PR57_WRITES=true"
+      - name: Offline complete-universe regression (no exchange network)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_paper_universe_inventory.py' -v
+          python -m unittest discover -s tests -p 'test_paper_universe_sources.py' -v
+          python -m unittest discover -s tests -p 'test_binance_futures_catalog.py' -v
+          python -m unittest discover -s tests -p 'test_paper_market_data_quality.py' -v
+          python -m scripts.audit_paper_universe
