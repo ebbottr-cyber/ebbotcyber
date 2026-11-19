@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageToggle } from '../../components/i18n/UiLanguageToggle';
 import { UiLanguageProvider, useUiLanguage } from '../../contexts/UiLanguageContext';
 import {
@@ -7,6 +7,7 @@ import {
   normalizeUiLanguage,
   persistUiLanguage,
   resolveInitialUiLanguage,
+  shouldForceTurkishUi,
   UI_LANGUAGE_STORAGE_KEY,
 } from '../uiLanguage';
 
@@ -23,11 +24,17 @@ const OperatorDisplay = () => {
 };
 
 beforeEach(() => {
+  vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
   window.localStorage.clear();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('EBBot Turkish-only user interface', () => {
   it('migrates old saved Chinese/English languages and ignores browser locale', () => {
+    expect(shouldForceTurkishUi()).toBe(true);
     expect(normalizeUiLanguage('zh')).toBe('tr');
     expect(normalizeUiLanguage('en')).toBe('tr');
     expect(normalizeUiLanguage('tr')).toBe('tr');
