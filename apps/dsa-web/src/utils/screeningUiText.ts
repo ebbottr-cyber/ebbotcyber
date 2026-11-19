@@ -131,8 +131,8 @@ const LABELS: Record<string, { tr: string; en: string }> = {
     "en": "Missing: "
   },
   "发酵时间线": {
-    "tr": "Tema gelişim zaman çizelgesi",
-    "en": "Theme evolution timeline"
+    "tr": "Gelişim zaman çizelgesi",
+    "en": "Evolution timeline"
   },
   "查看消息": {
     "tr": "Haberi görüntüle",
@@ -533,6 +533,130 @@ const LABELS: Record<string, { tr: string; en: string }> = {
   "历史记录加载失败": {
     "tr": "Geçmiş yüklenemedi",
     "en": "History failed to load"
+  },
+  "正在检查选股状态": {
+    "tr": "Hisse tarama durumu kontrol ediliyor",
+    "en": "Checking screening status"
+  },
+  "选股状态未知": {
+    "tr": "Tarama durumu bilinmiyor",
+    "en": "Screening status unknown"
+  },
+  "选股已开启": {
+    "tr": "Hisse tarama etkin",
+    "en": "Stock screening enabled"
+  },
+  "智能重排未完成，当前候选继续使用确定性因子评分。": {
+    "tr": "Yapay zekâ yeniden sıralaması tamamlanmadı; adaylar faktör puanlarıyla sıralanıyor.",
+    "en": "AI reranking was not completed; candidates remain ranked by factor score."
+  },
+  "强势领先": {
+    "tr": "Güçlü lider",
+    "en": "Strong leader"
+  },
+  "强势": {
+    "tr": "Güçlü",
+    "en": "Strong"
+  },
+  "较强": {
+    "tr": "Görece güçlü",
+    "en": "Relatively strong"
+  },
+  "待刷新": {
+    "tr": "Güncelleme bekleniyor",
+    "en": "Awaiting refresh"
+  },
+  "观察中": {
+    "tr": "Takip ediliyor",
+    "en": "Under observation"
+  },
+  "活跃股观察中": {
+    "tr": "Aktif hisseler izleniyor",
+    "en": "Monitoring active stocks"
+  },
+  "暂无行情": {
+    "tr": "Fiyat verisi yok",
+    "en": "No quote data"
+  },
+  "核心龙头": {
+    "tr": "Ana lider",
+    "en": "Core leader"
+  },
+  "助攻": {
+    "tr": "Destekleyen hisse",
+    "en": "Supporting stock"
+  },
+  "掉队": {
+    "tr": "Geride kalan",
+    "en": "Laggard"
+  },
+  "补涨": {
+    "tr": "Sonradan yükselen",
+    "en": "Late gainer"
+  },
+  "确认扩散": {
+    "tr": "Yayılım doğrulandı",
+    "en": "Confirmed expansion"
+  },
+  "降温退潮": {
+    "tr": "İlgi azalıyor",
+    "en": "Cooling"
+  },
+  "分歧放量": {
+    "tr": "Görüş ayrılığı / hacim artışı",
+    "en": "Divergence / volume rise"
+  },
+  "初次异动": {
+    "tr": "İlk hareket",
+    "en": "Initial breakout"
+  },
+  "加速主升": {
+    "tr": "Yükseliş hızlanıyor",
+    "en": "Accelerating uptrend"
+  },
+  "概念股列表": {
+    "tr": "Tema hisseleri",
+    "en": "Theme stocks"
+  },
+  "实时概念股行情": {
+    "tr": "Tema hissesi fiyatları",
+    "en": "Theme stock quotes"
+  },
+  "发酵路径": {
+    "tr": "Gelişim rotası",
+    "en": "Evolution path"
+  },
+  "数据来源": {
+    "tr": "Veri kaynağı",
+    "en": "Data source"
+  },
+  "缓存回退": {
+    "tr": "Önbellek verisi kullanıldı",
+    "en": "Cached data used"
+  },
+  "备用数据源": {
+    "tr": "Yedek veri kaynağı",
+    "en": "Fallback data source"
+  },
+  "无更多说明": {
+    "tr": "Ek açıklama yok",
+    "en": "No further details"
+  },
+  "默认": {
+    "tr": "Varsayılan",
+    "en": "Default"
+  },
+  "部分明细": {
+    "tr": "Bazı ayrıntılar",
+    "en": "Some details"
+  },
+  "暂无摘要，请查看因子和风险信息。": {
+    "tr": "Özet yok; faktör ve risk bilgilerini inceleyin.",
+    "en": "No summary; see factor and risk details."
+  },
+  "暂无更多说明。": {
+    "tr": "Ek açıklama yok.",
+    "en": "No further details."
   }
 };
 
