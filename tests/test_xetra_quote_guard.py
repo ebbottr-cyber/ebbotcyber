@@ -43,6 +43,26 @@ class XetraQuoteGuardTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertEqual(rows["SAP.DE"]["isin"], "DE0007164600")
 
+    def test_official_19_nov_1750_candidate_manifest_includes_new_mnemonic(self):
+        path = Path(__file__).resolve().parents[1] / (
+            "data/market_snapshots/de/xetra-candidates.csv"
+        )
+        manifest = read_xetra_manifest(path)
+        self.assertEqual(len(manifest), 1750)
+        self.assertEqual(manifest["1ANT.DE"]["isin"], "US03703U1079")
+        self.assertEqual(manifest["1ANT.DE"]["source_as_of_date"], "2026-11-19")
+        fetch = Mock(return_value=chart(symbol="1ANT.DE"))
+        report = check_symbols(manifest, ["1ANT.DE"], fetch, now=NOW)
+        self.assertEqual(report["candidate_count_in_manifest"], 1750)
+        self.assertEqual(report["quote_metadata_matches"], 1)
+        self.assertEqual(report["checks"][0]["candidate_isin"], "US03703U1079")
+        self.assertFalse(report["checks"][0]["isin_identity_verified"])
+        self.assertFalse(report["checks"][0]["real_time_price_verified"])
+        self.assertFalse(report["paper_trading_enabled"])
+        self.assertFalse(report["live_trading_enabled"])
+        self.assertEqual(report["orders"], 0)
+        fetch.assert_called_once_with("1ANT.DE")
+
     def test_manifest_rejects_non_xetra_and_false_claims(self):
         invalid = (
             HEADER + SAP.replace(",stock,", ",etf,"),
