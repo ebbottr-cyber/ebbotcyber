@@ -81,6 +81,22 @@ class PaperUniverseTests(unittest.TestCase):
             self.assertFalse(result["leverage_enabled"])
             self.assertFalse(result["paper_trading_enabled"])
 
+    def test_nonprintable_futures_identity_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "bad-futures.json"
+            path.write_text(json.dumps({"contracts": [{
+                "market": "binance_usdm_futures",
+                "instrument_kind": "derivative_contract",
+                "symbol": "BTC" + chr(10) + "USDT",
+                "contract_symbol": "BTC" + chr(10) + "USDT",
+                "contract_type": "PERPETUAL",
+                "contract_status": "TRADING",
+                "source": "binance_usdm_exchange_info",
+                "active": True,
+            }]}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid_futures_symbol"):
+                audit_universe(INDEX, contract_manifests=[path])
+
     def test_invalid_coin_record_blocks_entire_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "bad.jsonl"

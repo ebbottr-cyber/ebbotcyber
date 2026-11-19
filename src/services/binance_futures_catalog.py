@@ -10,15 +10,23 @@ import json
 import re
 from typing import Any
 
-_CONTRACT_SYMBOL = re.compile(r"^[A-Za-z0-9._+-]{1,64}$")
-_ASSET_NAME = re.compile(r"^[A-Za-z0-9._+-]{1,64}$")
+# Binance futures instruments are exchange-scoped opaque UTF-8 identifiers,
+# NOT local file names, URL paths, wallet addresses or stock symbols.
+# Reject invisible/control characters; do not lose legitimate Unicode glyphs.
+_OPAQUE_EXCHANGE_SYMBOL = re.compile(r"^.{1,128}$")
+_ENUM_TOKEN = re.compile(r"^[A-Z0-9_+-]{1,64}$")
 _TYPES = {"usdm", "coinm"}
 
 
-def _field(row: dict[str, Any], name: str, pattern: re.Pattern[str]) -> str:
+def _field(row: dict[str, Any], name: str, pattern: re.Pattern[str], *,
+           row_index: int) -> str:
     value = row.get(name)
-    if not isinstance(value, str) or not pattern.fullmatch(value):
-        raise ValueError("invalid_binance_futures_" + name)
+    if (not isinstance(value, str) or not pattern.fullmatch(value)
+            or value != value.strip() or not value.isprintable()):
+        # A bounded repr and the row position make future provider schema
+        # changes diagnosable without silently deleting any contracts.
+        detail = repr(value)[:100]
+        raise ValueError(f"invalid_binance_futures_{name}_at_index_{row_index}: {detail}")
     return value
 
 
@@ -47,12 +55,12 @@ def futures_to_json(raw: str, observed_at: str, *, kind: str) -> tuple[str, int,
     for index, row in enumerate(payload["symbols"]):
         if not isinstance(row, dict):
             raise ValueError("invalid_futures_row_at_" + str(index))
-        symbol = _field(row, "symbol", _CONTRACT_SYMBOL)
-        base = _field(row, "baseAsset", _ASSET_NAME)
-        quote = _field(row, "quoteAsset", _ASSET_NAME)
-        margin = _field(row, "marginAsset", _ASSET_NAME)
-        contract_type = _field(row, "contractType", _CONTRACT_SYMBOL)
-        status = _field(row, key, _CONTRACT_SYMBOL)
+        symbol = _field(row, "symbol", _OPAQUE_EXCHANGE_SYMBOL, row_index=index)
+        base = _field(row, "baseAsset", _OPAQUE_EXCHANGE_SYMBOL, row_index=index)
+        quote = _field(row, "quoteAsset", _OPAQUE_EXCHANGE_SYMBOL, row_index=index)
+        margin = _field(row, "marginAsset", _OPAQUE_EXCHANGE_SYMBOL, row_index=index)
+        contract_type = _field(row, "contractType", _ENUM_TOKEN, row_index=index)
+        status = _field(row, key, _ENUM_TOKEN, row_index=index)
         if symbol in seen:
             raise ValueError("duplicate_binance_futures_symbol")
         seen.add(symbol)
