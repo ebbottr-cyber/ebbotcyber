@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, Flame, LayoutDashboard, LogOut, MessageSquareQuote, Radar, Search, Settings2 } from 'lucide-react';
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, LayoutDashboard, LogOut, MessageSquareQuote, Radar, Search, Settings2 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -31,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'home', labelKey: 'layout.nav.home', to: '/', icon: Home, exact: true },
   { key: 'chat', labelKey: 'layout.nav.chat', to: '/chat', icon: MessageSquareQuote, badge: 'completion' },
   { key: 'screening', labelKey: 'layout.nav.screening', to: '/screening', icon: Search },
+  { key: 'germany', labelKey: 'layout.nav.dataCenter', to: '/germany', icon: BarChart3 },
   { key: 'portfolio', labelKey: 'layout.nav.portfolio', to: '/portfolio', icon: BriefcaseBusiness },
   { key: 'decision-signals', labelKey: 'layout.nav.decisionSignals', to: '/decision-signals', icon: Activity },
   { key: 'meme-coin', labelKey: 'layout.nav.memeCoin', to: '/meme-coins', icon: Radar },
@@ -38,7 +39,6 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'strategy-lab', labelKey: 'layout.nav.strategyLab', to: '/strategy-lab', icon: Gauge },
   { key: 'alerts', labelKey: 'layout.nav.alerts', to: '/alerts', icon: Bell },
   { key: 'data', labelKey: 'layout.nav.dataCenter', to: '/data', icon: Database },
-  { key: 'meme-radar', labelKey: 'layout.nav.memeCoins', to: '/meme-radar', icon: Flame },
   { key: 'usage', labelKey: 'layout.nav.usage', to: '/usage', icon: Gauge },
   { key: 'settings', labelKey: 'layout.nav.settings', to: '/settings', icon: Settings2 },
 ];
@@ -94,7 +94,9 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
             ? (language === 'tr' ? 'Piyasa \u00d6zeti' : language === 'zh' ? '\u5e02\u573a\u6982\u89c8' : 'Overview')
             : key === 'home'
               ? (language === 'tr' ? 'Hisse Analizi' : t(labelKey))
-              : t(labelKey);
+              : key === 'germany'
+                ? (language === 'tr' ? 'Almanya (Xetra)' : language === 'zh' ? '德国（Xetra）' : 'Germany (Xetra)')
+                : t(labelKey);
           return (
           <NavLink
             key={key}
