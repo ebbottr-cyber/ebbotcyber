@@ -251,7 +251,7 @@ const GermanyMarketPage: React.FC = () => {
             </button>
           ))}
         </div>
-        {inventory && !inventory.manualQuoteCheckEnabled ? <p className="mt-3 text-xs text-amber-700">{t.checkOff}</p> : null}
+        {inventory && !inventory.manualQuoteCheckEnabled && !inventory.sourceStale ? <p className="mt-3 text-xs text-amber-700">{t.checkOff}</p> : null}
         <button type="button" onClick={() => void check()}
           disabled={!inventory?.manualQuoteCheckEnabled || !selected.length || quoteBusy}
           className="mt-4 rounded-lg bg-[#286fc4] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
