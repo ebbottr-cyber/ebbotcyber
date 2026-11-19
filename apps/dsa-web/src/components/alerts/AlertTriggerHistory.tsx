@@ -36,7 +36,7 @@ function renderPhaseQuality(trigger: AlertTriggerItem, language: UiLanguage): Re
   }
   return (
     <div className="space-y-1">
-      {phase ? <Badge variant="default">{phase.replace('市场阶段: ', '').replace('市场阶段：', '')}</Badge> : null}
+      {phase ? <Badge variant="default">{phase.replace(/^[^:：]+[:：]\s*/, '')}</Badge> : null}
       {quality ? <div className="text-xs text-secondary-text">{alertUiText('质量：', language)}{quality}</div> : null}
       {limitations.length ? (
         <div className="max-w-[180px] text-xs text-muted-text">{limitations.join('；')}</div>
