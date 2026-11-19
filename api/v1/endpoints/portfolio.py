@@ -25,6 +25,7 @@ from api.v1.schemas.portfolio import (
     PortfolioDeleteResponse,
     PortfolioEventCreatedResponse,
     PortfolioFxRefreshResponse,
+    PortfolioDisplayFxResponse,
     PortfolioImportBrokerListResponse,
     PortfolioImportCommitResponse,
     PortfolioImportParseResponse,
@@ -36,6 +37,7 @@ from api.v1.schemas.portfolio import (
     PortfolioTradeCreateRequest,
 )
 from src.services.task_queue import get_task_queue
+from src.services.portfolio_display_fx import get_try_display_rates
 from src.services.portfolio_import_service import PortfolioImportService
 from src.services.portfolio_risk_service import PortfolioRiskService
 from src.services.portfolio_service import (
@@ -624,6 +626,16 @@ def commit_csv_import(
         raise _bad_request(exc)
     except Exception as exc:
         raise _internal_error("Commit CSV import failed", exc)
+
+
+@router.get(
+    "/fx/display-rates",
+    response_model=PortfolioDisplayFxResponse,
+    summary="Current indicative USD/TRY and USD/CNY rates for TRY display only",
+)
+def get_display_fx_rates() -> PortfolioDisplayFxResponse:
+    """Read-only market data endpoint; never triggers trades or changes ledgers."""
+    return PortfolioDisplayFxResponse(**get_try_display_rates())
 
 
 @router.post(
