@@ -1158,10 +1158,10 @@ function buildRouteProvenanceMap(
   return provenance;
 }
 
-function buildModelOptions(models: string[], selectedModel: string, autoLabel: string): Array<{ value: string; label: string }> {
+function buildModelOptions(models: string[], selectedModel: string, autoLabel: string, language: UiLanguage = 'zh'): Array<{ value: string; label: string }> {
   const options: Array<{ value: string; label: string }> = [{ value: '', label: autoLabel }];
   if (selectedModel && !models.includes(selectedModel)) {
-    options.push({ value: selectedModel, label: `${selectedModel}（当前配置）` });
+    options.push({ value: selectedModel, label: `${selectedModel}${llmUiText('（当前配置）', language)}` });
   }
   for (const model of models) {
     options.push({ value: model, label: model });
@@ -1281,9 +1281,9 @@ function buildLlmFailureText(result: {
   const prefix = `${getLlmStageLabel(result.stage, language)} · ${getLlmErrorCodeLabel(result.errorCode, language)}`;
   const summary = result.message || llmUiText('测试失败', language);
   if (result.error && result.error !== result.message) {
-    return `${prefix}: ${summary} (${llmUiText('原始摘要：', language)}${result.error})`;
+    return language === 'zh' ? `${prefix}：${summary}（原始摘要：${result.error}）` : `${prefix}: ${summary} (${llmUiText('原始摘要：', language)}${result.error})`;
   }
-  return `${prefix}: ${summary}`;
+  return language === 'zh' ? `${prefix}：${summary}` : `${prefix}: ${summary}`;
 }
 
 function getCapabilityResultVariant(status: LLMCapabilityCheckResult['status']): 'success' | 'danger' | 'warning' {
@@ -2169,7 +2169,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
       });
 
       const text = result.success
-        ? `连接成功${result.resolvedModel ? ` · ${result.resolvedModel}` : ''}${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
+        ? `${L('连接成功')}${result.resolvedModel ? ` · ${result.resolvedModel}` : ''}${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
         : buildLlmFailureText(result, language);
       const hint = result.success ? undefined : buildLlmTestHint(result, language);
 
@@ -2236,7 +2236,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
         [channel.id]: {
           status: result.success ? 'success' : 'error',
           text: result.success
-            ? `已获取 ${result.models.length} 个模型${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
+            ? `${language === 'zh' ? `已获取 ${result.models.length} 个模型` : language === 'tr' ? `${result.models.length} model getirildi` : `Fetched ${result.models.length} models`}${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
             : buildLlmFailureText(result, language),
           hint: result.success ? undefined : getLlmTroubleshootingHint(result.errorCode, result.stage, 'discovery', result.details, language),
           models: result.success ? result.models : (previous[channel.id]?.models || []),
@@ -2542,7 +2542,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
                       id="runtime-primary-model"
                       value={runtimeConfig.primaryModel}
                       onChange={setPrimaryModel}
-                      options={buildModelOptions(availableModels, runtimeConfig.primaryModel, L("自动（使用第一个可用模型）"))}
+                      options={buildModelOptions(availableModels, runtimeConfig.primaryModel, L("自动（使用第一个可用模型）"), language)}
                       disabled={busy}
                       placeholder=""
                     />
@@ -2568,6 +2568,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
                         agentSafeModels,
                         agentSelectedModelForOptions,
                         L("自动（继承普通分析主模型）"),
+                        language,
                       )}
                       disabled={busy}
                       placeholder=""
@@ -2618,6 +2619,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
                         visionSafeModels,
                         visionSelectedModelForOptions,
                         L("自动（跟随 Vision 默认逻辑）"),
+                        language,
                       )}
                       disabled={busy}
                       placeholder=""
