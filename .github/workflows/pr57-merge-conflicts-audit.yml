@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - audit/pr57-merge-check-20261119
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
   workflow_dispatch:
 
 permissions:
