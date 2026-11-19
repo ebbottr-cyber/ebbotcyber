@@ -32,12 +32,14 @@ jobs:
           cache: npm
           cache-dependency-path: apps/dsa-web/package-lock.json
       - run: npm ci
+      - name: Verify all Turkish UI translations and interpolation keys
+        run: node scripts/verify-turkish-coverage.mjs
       - name: TypeScript and Vite production build
         run: npm run build
       - name: Frontend lint
         run: npm run lint
       - name: Turkish UI localized tests
-        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx src/utils/__tests__/portfolioTryDisplay.test.ts src/pages/__tests__/StockScreeningPage.test.tsx src/pages/__tests__/AlertsPage.test.tsx
+        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx src/utils/__tests__/portfolioTryDisplay.test.ts src/pages/__tests__/StockScreeningPage.test.tsx src/pages/__tests__/AlertsPage.test.tsx src/pages/__tests__/HomePage.test.tsx src/pages/__tests__/DecisionSignalsPage.test.tsx src/pages/__tests__/LoginPage.test.tsx src/pages/__tests__/TokenUsagePage.test.tsx src/components/watchlist/__tests__/HomeStockWorkspace.test.tsx src/components/run-flow/__tests__/RunFlowPanel.test.tsx src/components/history/__tests__/StockHistoryTrendDrawer.test.tsx
 
   portfolio-display-fx:
     runs-on: ubuntu-24.04
