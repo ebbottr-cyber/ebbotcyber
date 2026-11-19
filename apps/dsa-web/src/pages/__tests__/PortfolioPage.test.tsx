@@ -288,6 +288,7 @@ describe('PortfolioPage FX refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
 
     getAccounts.mockResolvedValue(makeAccounts());
     getSnapshot.mockImplementation(async ({ accountId }: { accountId?: number } = {}) => makeSnapshot({ accountId, fxStale: true }));
@@ -358,8 +359,10 @@ describe('PortfolioPage FX refresh', () => {
     expect(screen.getByText('Elle Kayıt: Şirket İşlemi')).toBeInTheDocument();
     expect(screen.getByText('Aracı Kurum CSV Aktarımı')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Hisse kodu (örn. AAPL)')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Alış' })).toHaveValue('buy');
-    expect(screen.getByRole('option', { name: 'Satış' })).toHaveValue('sell');
+    expect(screen.getAllByRole('option', { name: 'Alış' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: 'Alış' })[0]).toHaveValue('buy');
+    expect(screen.getAllByRole('option', { name: 'Satış' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: 'Satış' })[0]).toHaveValue('sell');
     expect(screen.getByRole('option', { name: 'huatai (Huatai)' })).toHaveValue('huatai');
     expect(screen.queryByText('手工录入：交易')).not.toBeInTheDocument();
   });
