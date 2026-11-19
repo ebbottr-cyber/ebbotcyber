@@ -677,6 +677,34 @@ const LABELS: Record<string, { tr: string; en: string }> = {
   "已获取 ": {
     "tr": "Alınan model sayısı: ",
     "en": "Fetched "
+  },
+  "检测 response_format JSON 输出是否可用。": {
+    "tr": "response_format ile JSON yanıtı destekleniyor mu denetler.",
+    "en": "Checks whether response_format JSON output is supported."
+  },
+  "检测 function/tool calling 是否可用。": {
+    "tr": "Fonksiyon ve araç çağrılarının desteklenip desteklenmediğini denetler.",
+    "en": "Checks whether tool/function calling is supported."
+  },
+  "检测流式输出是否能返回有效 chunk。": {
+    "tr": "Akış yanıtının geçerli parçalar döndürüp döndürmediğini denetler.",
+    "en": "Checks whether streaming returns valid chunks."
+  },
+  "检测当前模型是否接受 image_url 输入。": {
+    "tr": "Modelin image_url görsel girdisini destekleyip desteklemediğini denetler.",
+    "en": "Checks whether the model accepts image_url input."
+  },
+  "运行时注入的 Hermes Key 不会回传；如需在设置页测试，请重新输入 Key 或保存到 .env。": {
+    "tr": "Çalışma sırasında verilen Hermes anahtarı arayüze geri gönderilmez. Test için anahtarı yeniden girin veya .env dosyasına kaydedin.",
+    "en": "Runtime-injected Hermes keys are not returned to the UI. Re-enter the key or save it in .env to test."
+  },
+  "LLM 配置指南": {
+    "tr": "Model Yapılandırma Rehberi",
+    "en": "LLM Configuration Guide"
+  },
+  "LLM 服务商配置速查": {
+    "tr": "Model Sağlayıcıları Rehberi",
+    "en": "LLM Provider Guide"
   }
 };
 
