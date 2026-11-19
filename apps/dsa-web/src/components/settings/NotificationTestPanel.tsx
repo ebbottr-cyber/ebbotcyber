@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
-import type { UiLanguage } from '../../i18n/uiText';
 import { Send } from 'lucide-react';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import type { UiLanguage } from '../../i18n/uiText';
 import type { UiLanguage } from '../../i18n/uiText';
 import { getParsedApiError, type ParsedApiError } from '../../api/error';
 import { systemConfigApi } from '../../api/systemConfig';
