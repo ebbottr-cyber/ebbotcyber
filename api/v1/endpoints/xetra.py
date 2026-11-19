@@ -67,7 +67,7 @@ def _source_date(rows: dict[str, dict[str, str]]) -> tuple[str, int]:
     if len(source_dates) != 1:
         raise HTTPException(status_code=503, detail="xetra_mixed_source_dates")
     source = source_dates.pop()
-    age = (date.today() - date.fromisoformat(source)).days
+    age = (datetime.now(timezone.utc).date() - date.fromisoformat(source)).days
     return source, age
 
 
@@ -107,12 +107,12 @@ def get_inventory(
         "candidate_count": len(rows),
         "source_as_of_date": latest,
         "snapshot_age_days": age,
-        "source_stale": age > MAX_SOURCE_AGE_DAYS,
+        "source_stale": not 0 <= age <= MAX_SOURCE_AGE_DAYS,
         "items": [
             {"symbol": code, "isin": rows[code]["isin"], "price_symbol_verified": False}
             for code in selected
         ],
-        "manual_quote_check_enabled": _ui_quotes_enabled() and age <= MAX_SOURCE_AGE_DAYS,
+        "manual_quote_check_enabled": _ui_quotes_enabled() and 0 <= age <= MAX_SOURCE_AGE_DAYS,
         "quotes_auto_loaded": False,
         "broker_access_verified": False,
         "paper_trading_enabled": False,
