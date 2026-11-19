@@ -561,6 +561,122 @@ const LABELS: Record<string, { tr: string; en: string }> = {
   "同一 ANSPIRE_API_KEYS 可复用到搜索与 LLM 渠道。以下模型与网关为配置示例，实际可用性请以账号权限和控制台为准；建议先点“测试连接”确认。": {
     "tr": "ANSPIRE_API_KEYS hem arama hem model kanalında kullanılabilir. Örnek modellerin gerçek erişimini hesabınızdan ve bağlantı testinden doğrulayın.",
     "en": "ANSPIRE_API_KEYS may be reused for search and LLM. Verify sample model availability with your account and connection test."
+  },
+  "请检查 API Key 是否正确、是否有多余空格，以及当前渠道是否需要额外组织/项目权限。": {
+    "tr": "API anahtarını, boşlukları ve hesap/proje izinlerini kontrol edin.",
+    "en": "Check the API key, extra spaces, and account/project permissions."
+  },
+  "可重试；若持续超时，请检查 Base URL、网络代理、服务商可用区或本地防火墙。": {
+    "tr": "Yeniden deneyin; zaman aşımı sürerse Base URL, proxy, bölge ve güvenlik duvarını denetleyin.",
+    "en": "Retry; if timeouts persist, check Base URL, proxy, region and firewall."
+  },
+  "请检查余额、套餐额度、RPM/TPM 限流或并发设置，必要时稍后重试。": {
+    "tr": "Bakiye, kullanım kotası, RPM/TPM sınırları ve eşzamanlı istekleri kontrol edin.",
+    "en": "Check balance, quota, RPM/TPM limits and concurrency."
+  },
+  "请确认模型名与渠道协议匹配，并先用“获取模型”核对该渠道实际可用模型列表。": {
+    "tr": "Model adının protokolle uyumlu olduğunu doğrulayın; Modelleri Getir ile listeyi kontrol edin.",
+    "en": "Verify the model name matches the protocol; check availability with Fetch Models."
+  },
+  "渠道已连通但未返回正文；可尝试切换兼容模型、关闭额外响应模式后再测试。": {
+    "tr": "Kanal bağlandı ancak yanıt içeriği boş. Başka model deneyin veya özel yanıt modunu kapatın.",
+    "en": "Connected but no response body returned. Try another model or disable special response mode."
+  },
+  "请检查 Base URL、代理、TLS/证书、中转网关或本地网络策略，并可稍后重试。": {
+    "tr": "Base URL, proxy, TLS sertifikası, ağ geçidi ve yerel ağ ayarlarını inceleyin.",
+    "en": "Check Base URL, proxy, TLS certificate, gateway and network policy."
+  },
+  "先补齐协议、Base URL、API Key 和模型配置，再执行一键测试。": {
+    "tr": "Testten önce protokol, Base URL, API anahtarı ve model alanlarını tamamlayın.",
+    "en": "Fill protocol, Base URL, API key and model before testing."
+  },
+  "当前仅对 OpenAI Compatible / DeepSeek 渠道提供自动模型发现，请改为手动维护模型列表。": {
+    "tr": "Otomatik model keşfi yalnızca OpenAI uyumlu/DeepSeek kanallarında destekleniyor. Modelleri elle ekleyin.",
+    "en": "Model discovery supports OpenAI-compatible/DeepSeek channels only; enter models manually."
+  },
+  "API Key 为空，或逗号分隔后没有任何可用 Key；请填入至少一个有效 Key 后再测试。": {
+    "tr": "Geçerli bir API anahtarı girin; virgülle ayrılan boş anahtarlar geçerli sayılmaz.",
+    "en": "Enter a valid API key; empty entries in a comma-separated list do not count."
+  },
+  "服务商拒绝了当前 API Key；请检查 Key、组织/项目权限、区域和账号状态。": {
+    "tr": "Sağlayıcı API anahtarını reddetti. Anahtarı, proje izinlerini, bölgeyi ve hesabı kontrol edin.",
+    "en": "Provider rejected the API key; check permissions, region and account."
+  },
+  "服务商触发 RPM/TPM 或并发限流；请降低请求频率或稍后重试。": {
+    "tr": "Sağlayıcı hız veya eşzamanlı istek sınırına ulaştı. İstekleri azaltıp yeniden deneyin.",
+    "en": "Rate or concurrency limit reached; reduce requests and retry."
+  },
+  "服务商返回余额、账单或额度不足；请检查账户余额和套餐状态。": {
+    "tr": "Yetersiz bakiye veya kullanım limiti. Hesap ve abonelik durumunu kontrol edin.",
+    "en": "Insufficient balance or allowance; check account billing and plan."
+  },
+  "服务商返回配额已耗尽；请确认账号套餐、余量和项目额度。": {
+    "tr": "Kota dolmuş. Hesap planını ve proje limitlerini kontrol edin.",
+    "en": "Quota exhausted; check plan and project limits."
+  },
+  "请求被服务商或中转网关拦截；请检查账号风控、地域限制、模型权限、代理商网关策略、内容安全策略或请求来源限制。": {
+    "tr": "İstek sağlayıcı veya ağ geçidi tarafından engellendi. Bölge, model izni, güvenlik ve istek kaynak kurallarını kontrol edin.",
+    "en": "Request blocked by provider or gateway. Check region, model access, security and origin rules."
+  },
+  "域名解析失败；请检查 Base URL 域名、网络代理和 DNS 配置。": {
+    "tr": "DNS çözümlenemedi. Base URL, proxy ve DNS ayarlarını denetleyin.",
+    "en": "DNS lookup failed; check Base URL, proxy and DNS."
+  },
+  "TLS/证书握手失败；请检查 HTTPS 证书、中转网关或公司代理策略。": {
+    "tr": "TLS bağlantısı başarısız. HTTPS sertifikası, ağ geçidi ve proxy ayarlarını kontrol edin.",
+    "en": "TLS handshake failed; check HTTPS certificates, gateway and proxy."
+  },
+  "目标服务拒绝连接；请确认 Base URL 端口、服务进程和防火墙配置。": {
+    "tr": "Sunucu bağlantıyı reddetti. Base URL portunu, çalışan servisi ve güvenlik duvarını kontrol edin.",
+    "en": "Connection refused; verify Base URL port, running service and firewall."
+  },
+  "当前账号无法使用该模型；请确认模型是否已开通、账号是否可见，或模型是否已被禁用。": {
+    "tr": "Bu model için hesap yetkisi yok. Model erişimini ve etkinliğini denetleyin.",
+    "en": "Account cannot use this model; verify model access and enablement."
+  },
+  "模型 provider 前缀与当前渠道不匹配；请确认模型名是否应使用该渠道的 OpenAI-compatible 路由。": {
+    "tr": "Model sağlayıcı öneki kanalla eşleşmiyor. OpenAI uyumlu yönlendirme ve model adını kontrol edin.",
+    "en": "Model provider prefix does not match the channel; check OpenAI-compatible routing."
+  },
+  "当前模型或兼容层不支持该能力；这不影响基础文本连接，可换模型或关闭该能力依赖。": {
+    "tr": "Bu özellik model tarafından desteklenmiyor. Temel metin bağlantısı çalışabilir; başka model seçin.",
+    "en": "Feature unsupported by the model; basic text may still work. Try another model."
+  },
+  "该渠道返回的 /models 响应格式不兼容，请改为手动填写模型列表。": {
+    "tr": "/models yanıtı beklenen biçimde değil; model listesini elle girin.",
+    "en": "Incompatible /models response; enter model list manually."
+  },
+  "返回结构与预期不一致，请确认该渠道兼容 Chat Completions 接口。": {
+    "tr": "Yanıt biçimi beklenenden farklı. Chat Completions API uyumluluğunu kontrol edin.",
+    "en": "Unexpected response structure; verify Chat Completions compatibility."
+  },
+  "该渠道的 /models 接口未返回可用模型 ID；请检查 Base URL 是否指向兼容的模型列表接口，或改为手动填写模型列表。": {
+    "tr": "/models kullanılabilir model kimliği döndürmedi. Base URL'yi kontrol edin veya modelleri elle ekleyin.",
+    "en": "/models returned no available model IDs; check Base URL or enter models manually."
+  },
+  "基础连接测试默认只测试模型列表中的第一个模型。": {
+    "tr": "Temel bağlantı testi varsayılan olarak yalnızca ilk modeli sınar.",
+    "en": "Basic connection test checks only the first model by default."
+  },
+  "若该模型不可用，请调整模型顺序或移除不可用模型后重试。": {
+    "tr": "Model kullanılamıyorsa sıralamayı değiştirin veya listeden kaldırıp yeniden deneyin.",
+    "en": "If the model is unavailable, reorder or remove it and retry."
+  },
+  "原始摘要：": {
+    "tr": "Orijinal özet: ",
+    "en": "Original summary: "
+  },
+  "本次测试模型：": {
+    "tr": "Test edilen model: ",
+    "en": "Tested model: "
+  },
+  "能力检测完成：": {
+    "tr": "Özellik testi tamamlandı: ",
+    "en": "Capability check completed: "
+  },
+  "已获取 ": {
+    "tr": "Alınan model sayısı: ",
+    "en": "Fetched "
   }
 };
 
