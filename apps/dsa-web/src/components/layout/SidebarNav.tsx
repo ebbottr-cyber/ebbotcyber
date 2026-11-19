@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, LayoutDashboard, LogOut, MessageSquareQuote, Radar, Search, Settings2 } from 'lucide-react';
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, Flame, LayoutDashboard, LogOut, MessageSquareQuote, Radar, Search, Settings2 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -38,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'strategy-lab', labelKey: 'layout.nav.strategyLab', to: '/strategy-lab', icon: Gauge },
   { key: 'alerts', labelKey: 'layout.nav.alerts', to: '/alerts', icon: Bell },
   { key: 'data', labelKey: 'layout.nav.dataCenter', to: '/data', icon: Database },
+  { key: 'meme-radar', labelKey: 'layout.nav.memeCoins', to: '/meme-radar', icon: Flame },
   { key: 'usage', labelKey: 'layout.nav.usage', to: '/usage', icon: Gauge },
   { key: 'settings', labelKey: 'layout.nav.settings', to: '/settings', icon: Settings2 },
 ];

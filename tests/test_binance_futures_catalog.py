@@ -56,6 +56,28 @@ class FuturesTests(unittest.TestCase):
         self.assertEqual(record["contract_size_unverified"], "100")
         self.assertEqual(record["delivery_date_ms"], 9999999999999)
 
+    def test_printable_unicode_and_punctuation_symbols_preserved(self):
+        unusual_symbol = "BTCⓈUSD/26"
+        data = json.dumps({"symbols": [contract(unusual_symbol)]})
+        text, total, trading, _, _ = futures_to_json(data, "2026", kind="usdm")
+        self.assertEqual((total, trading), (1, 1))
+        self.assertEqual(json.loads(text)["contracts"][0]["symbol"], unusual_symbol)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "futures.json"
+            path.write_text(text, encoding="utf-8")
+            result = audit_universe(INDEX, contract_manifests=[path])
+            self.assertEqual(result["futures_contract_count"], 1)
+            self.assertEqual(result["coin_count"], 0)
+            self.assertEqual(result["orders"], 0)
+
+    def test_bad_futures_symbol_reports_source_row_without_dropping(self):
+        bad = contract("BTC\nUSDT")
+        with self.assertRaisesRegex(ValueError, "invalid_binance_futures_symbol_at_index_0"):
+            futures_to_json(json.dumps({"symbols": [bad]}), "2026", kind="usdm")
+        bad = contract("  BTCUSDT")
+        with self.assertRaisesRegex(ValueError, "invalid_binance_futures_symbol_at_index_0"):
+            futures_to_json(json.dumps({"symbols": [bad]}), "2026", kind="usdm")
+
     def test_no_100_contract_limit(self):
         raw = json.dumps({"symbols": [
             contract(f"ASSET{i:04d}USDT") for i in range(750)

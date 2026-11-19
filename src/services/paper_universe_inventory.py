@@ -156,7 +156,10 @@ def audit_universe(stock_index: Path, *, stock_manifests: Iterable[Path] = (),
             if row.get("source") != allowed_futures[market]:
                 raise ValueError("invalid_futures_source")
             symbol = row.get("symbol")
-            if not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol):
+            # Futures symbols must follow the same safe opaque-ID rule as
+            # the imported Binance data, not the ASCII-only stock index rule.
+            if (not isinstance(symbol, str) or not 1 <= len(symbol) <= 128
+                    or symbol != symbol.strip() or not symbol.isprintable()):
                 raise ValueError("invalid_futures_symbol")
             if row.get("contract_symbol") != symbol:
                 raise ValueError("futures_symbol_mismatch")
