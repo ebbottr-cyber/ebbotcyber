@@ -14,6 +14,30 @@ from data_provider.solana_meme import MarketDataError, SolanaMemeFeed
 from src.services.solana_meme_radar import evaluate
 
 
+def _select_quotes(quotes: list, limit: int) -> dict:
+    if not 1 <= limit <= 8:
+        raise ValueError("limit must be between 1 and 8")
+    ranked = sorted(
+        quotes,
+        key=lambda quote: (quote.liquidity_usd or 0, quote.volume_h24_usd or 0),
+        reverse=True,
+    )
+    selected: dict = {}
+    if limit >= 2:
+        for source in ("geckoterminal", "dexscreener"):
+            for quote in ranked:
+                if (quote.source == source and quote.mint not in selected
+                        and (quote.liquidity_usd or 0) >= 10_000):
+                    selected[quote.mint] = quote
+                    break
+    for quote in ranked:
+        if len(selected) >= limit:
+            break
+        if quote.mint not in selected:
+            selected[quote.mint] = quote
+    return selected
+
+
 def scan(*, live: bool = False, limit: int = 8) -> dict:
     if not live:
         return {"enabled": False, "trading_enabled": False, "candidates": [], "errors": [], "message": "Use --live to explicitly enable read-only API calls"}
@@ -27,11 +51,10 @@ def scan(*, live: bool = False, limit: int = 8) -> dict:
             quotes.extend(fetch(now_ms))
         except (MarketDataError, ValueError) as error:
             errors.append({"provider": name, "message": str(error)})
-    # Process a bounded number of unique mints to respect GoPlus API limits.
-    selected = {}
-    for quote in sorted(quotes, key=lambda q: (q.liquidity_usd or 0), reverse=True):
-        if quote.mint not in selected and len(selected) < limit:
-            selected[quote.mint] = quote
+    # Give each independent discovery source one eligible slot when possible.
+    # Otherwise a single high-liquidity feed could occupy the entire budget,
+    # making the "new pool" and "momentum" discovery paths indistinguishable.
+    selected = _select_quotes(quotes, limit)
     for quote in selected.values():
         try:
             security = feed.security(quote.mint)
