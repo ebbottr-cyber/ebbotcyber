@@ -1,0 +1,45 @@
+name: EBBot All-Markets Paper Universe (offline)
+
+on:
+  push:
+    branches: [feat/all-markets-paper-universe-v1]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/services/paper_universe_inventory.py'
+      - 'src/services/paper_universe_sources.py'
+      - 'src/services/paper_market_data_quality.py'
+      - 'scripts/audit_paper_quote_sources.py'
+      - 'tests/test_paper_market_data_quality.py'
+      - 'src/services/binance_futures_catalog.py'
+      - 'tests/test_binance_futures_catalog.py'
+      - 'scripts/refresh_paper_universe_sources.py'
+      - 'tests/test_paper_universe_sources.py'
+      - 'docs/EBBOT_ALL_MARKETS_PAPER_UNIVERSE_V1.md'
+      - 'scripts/audit_paper_universe.py'
+      - 'tests/test_paper_universe_inventory.py'
+      - '.github/workflows/paper-universe-offline.yml'
+      - 'apps/dsa-web/public/stocks.index.json'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test full-index and manifest inventory
+        run: python -m unittest discover -s tests -p 'test_paper_universe_inventory.py' -v
+      - name: Offline source importer tests (no network requests)
+        run: python -m unittest discover -s tests -p 'test_paper_universe_sources.py' -v
+      - name: Futures-only offline tests (no network or leverage)
+        run: python -m unittest discover -s tests -p 'test_binance_futures_catalog.py' -v
+      - name: Offline price provenance and freshness tests (no API calls)
+        run: python -m unittest discover -s tests -p 'test_paper_market_data_quality.py' -v
+      - name: Print all-market offline audit counts
+        run: python -m scripts.audit_paper_universe
