@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PortfolioDisplayFxRates } from '../../types/portfolio';
-import { toTryDisplayValue, formatTryDisplay } from '../portfolioTryDisplay';
+import type { PortfolioDisplayFxRates, PortfolioSnapshotResponse } from '../../types/portfolio';
+import { toTryDisplayValue, formatTryDisplay, formatPortfolioSnapshotTry } from '../portfolioTryDisplay';
 
 const now = Date.parse('2026-11-19T09:00:00.000Z');
 const fx: PortfolioDisplayFxRates = {
@@ -39,4 +39,24 @@ describe('TRY presentation conversion', () => {
   it('preserves a valid TRY amount without any FX network quote', () => {
     expect(toTryDisplayValue(1000, 'TRY', null, false, now)).toBe(1000);
   });
+  it('sums account-native CNY and USD amounts in TRY, not the CNY aggregate', () => {
+    const snapshot = {
+      accountCount: 2,
+      currency: 'CNY',
+      fxStale: false,
+      totalEquity: 999999, // deliberately wrong legacy aggregate
+      accounts: [
+        { baseCurrency: 'CNY', totalEquity: 70, totalCash: 7, totalMarketValue: 63, fxStale: false },
+        { baseCurrency: 'USD', totalEquity: 10, totalCash: 4, totalMarketValue: 6, fxStale: false },
+      ],
+    } as PortfolioSnapshotResponse;
+    expect(formatPortfolioSnapshotTry(snapshot, 'totalEquity', fx, now)).toContain('1.000,00');
+    expect(formatPortfolioSnapshotTry(snapshot, 'totalCash', fx, now)).toContain('250,00');
+    expect(formatPortfolioSnapshotTry({ ...snapshot, fxStale: true }, 'totalEquity', fx, now)).toBe('—');
+    expect(formatPortfolioSnapshotTry({
+      ...snapshot,
+      accounts: [{ ...snapshot.accounts[0], fxStale: true }, snapshot.accounts[1]],
+    }, 'totalEquity', fx, now)).toBe('—');
+  });
+
 });
