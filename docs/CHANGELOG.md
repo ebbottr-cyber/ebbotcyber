@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 还原完整、无凭证的 .env.example 示例配置：所有实际生效的示例键与当前注册表一致，日程和公网 SearXNG 默认关闭。
+- [修复] 历史 CI / 每日分析 / 发布 Actions 合约测试读取 workflows_disabled 中的禁用快照，并增加未恢复自动日程的保护测试。
+- [修复] 土耳其语报告市场角色与市场规则使用英文基础模板，避免插入中文内容；补全土耳其语新闻缺失提示的测试。
 - [新功能] 为 Solana Meme Radar 添加显式启用的手动只读 HTTP API 和 Web 入口，不含交易。
 - [修复] 修正土耳其语界面的时间格式化、通知渠道及系统配置分类，避免 UI 语言类型检查失败。
 - [新功能] 新增默认关闭、只读的 Solana Meme Radar 预览：DEX Screener、GeckoTerminal、GoPlus 数据适配及两种观察策略和离线测试。

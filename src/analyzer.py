@@ -5126,7 +5126,7 @@ Output the complete Decision Dashboard in JSON format."""
 ### Output language requirements (highest priority)
 - Keep every JSON key exactly as defined above; do not translate keys.
 - `decision_type` must remain `buy`, `hold`, or `sell`.
-- All human-readable JSON values must be in Turkish (Türkçe), including every summary, risk warning, checklist item and nested explanation.
+- All human-readable JSON values must be in Turkish (Türkçe). This includes every summary, risk warning, checklist item and nested explanation.
 - Preserve tickers, official company names and numeric values; do not invent data.
 - When data is missing, explain this clearly in Turkish.
 """
