@@ -37,4 +37,19 @@ jobs:
       - name: Frontend lint
         run: npm run lint
       - name: Turkish UI localized tests
-        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx
+        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx src/utils/__tests__/portfolioTryDisplay.test.ts
+
+  portfolio-display-fx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated FX test dependency
+        run: python -m pip install pytest
+      - name: Verify fail-closed TRY cross rates
+        run: python -m pytest -q tests/test_portfolio_display_fx.py
+      - name: Compile Python display API modules
+        run: python -m compileall -q src/services/portfolio_display_fx.py api/v1/schemas/portfolio.py api/v1/endpoints/portfolio.py
