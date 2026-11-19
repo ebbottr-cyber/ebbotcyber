@@ -157,6 +157,66 @@ const LABELS: Record<string, { tr: string; en: string }> = {
   "已创建告警规则": {
     "tr": "Uyarı kuralı oluşturuldu",
     "en": "Alert rule created"
+  },
+  "已触发": {
+    "tr": "Tetiklendi",
+    "en": "Triggered"
+  },
+  "已跳过": {
+    "tr": "Atlandı",
+    "en": "Skipped"
+  },
+  "触发历史": {
+    "tr": "Tetikleme Geçmişi",
+    "en": "Trigger History"
+  },
+  "评估记录": {
+    "tr": "Değerlendirme Kayıtları",
+    "en": "Evaluation Records"
+  },
+  "正在加载触发历史": {
+    "tr": "Tetikleme geçmişi yükleniyor",
+    "en": "Loading trigger history"
+  },
+  "暂无触发历史": {
+    "tr": "Henüz tetikleme geçmişi yok",
+    "en": "No trigger history"
+  },
+  "后台评估会记录 triggered、skipped、degraded 和 failed 状态；正常未触发不会写入历史。": {
+    "tr": "Arka plan değerlendirmesi tetiklenen, atlanan, kısıtlı ve başarısız denemeleri kaydeder. Tetiklenmeyen kontroller geçmişe yazılmaz.",
+    "en": "Background evaluations record triggered, skipped, degraded and failed states; untriggered checks are not logged."
+  },
+  "阶段 / 质量": {
+    "tr": "Piyasa evresi / kalite",
+    "en": "Phase / quality"
+  },
+  "目标": {
+    "tr": "Hedef",
+    "en": "Target"
+  },
+  "观察值": {
+    "tr": "Ölçülen değer",
+    "en": "Observed value"
+  },
+  "阈值": {
+    "tr": "Eşik",
+    "en": "Threshold"
+  },
+  "数据源": {
+    "tr": "Veri kaynağı",
+    "en": "Data source"
+  },
+  "数据时间": {
+    "tr": "Veri zamanı",
+    "en": "Data timestamp"
+  },
+  "原因": {
+    "tr": "Gerekçe",
+    "en": "Reason"
+  },
+  "质量：": {
+    "tr": "Kalite: ",
+    "en": "Quality: "
   }
 };
 
