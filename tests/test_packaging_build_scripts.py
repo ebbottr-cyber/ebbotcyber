@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.workflow_archive_contract import archived_workflow
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -195,7 +197,7 @@ def test_macos_unsigned_packaging_contract_is_explicit() -> None:
     )
     backend_script = _read_text(REPO_ROOT / "scripts" / "build-backend-macos.sh")
     desktop_script = _read_text(REPO_ROOT / "scripts" / "build-desktop-macos.sh")
-    workflow = _read_text(REPO_ROOT / ".github" / "workflows" / "ci.yml")
+    workflow = _read_text(archived_workflow(REPO_ROOT, "ci.yml"))
 
     assert package["build"]["mac"]["identity"] is None
     assert package["build"]["mac"]["hardenedRuntime"] is False

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from tests.workflow_archive_contract import archived_workflow
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
@@ -38,7 +40,7 @@ def test_searxng_timeout_env_contract() -> None:
 
 def test_daily_analysis_workflow_matches_documented_searxng_variable_mapping() -> None:
     workflow = (
-        ROOT_DIR / ".github" / "workflows" / "00-daily-analysis.yml"
+        archived_workflow(ROOT_DIR, "00-daily-analysis.yml")
     ).read_text(encoding="utf-8")
 
     assert (
@@ -95,7 +97,7 @@ def test_config_module_uses_false_as_runtime_default() -> None:
 def test_workflow_reports_disabled_when_variable_unset() -> None:
     """工作流诊断不得把「未设置」显示成已开启，否则与运行时行为不一致。"""
     workflow = (
-        ROOT_DIR / ".github" / "workflows" / "00-daily-analysis.yml"
+        archived_workflow(ROOT_DIR, "00-daily-analysis.yml")
     ).read_text(encoding="utf-8")
 
     assert "默认开启" not in workflow
@@ -163,7 +165,7 @@ def test_constructor_kwargs_carry_searxng_timeout_for_subprocess_rebuild() -> No
 
 def test_daily_analysis_workflow_maps_searxng_timeout_variable() -> None:
     workflow = (
-        ROOT_DIR / ".github" / "workflows" / "00-daily-analysis.yml"
+        archived_workflow(ROOT_DIR, "00-daily-analysis.yml")
     ).read_text(encoding="utf-8")
     assert (
         "SEARXNG_TIMEOUT_SECONDS: ${{ vars.SEARXNG_TIMEOUT_SECONDS || secrets.SEARXNG_TIMEOUT_SECONDS }}"

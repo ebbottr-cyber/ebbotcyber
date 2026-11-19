@@ -15,10 +15,9 @@ Example server environment setting (disabled by default):
 MEME_RADAR_LIVE_ENABLED=false
 ```
 
-The current main branch does not contain a canonical root `.env.example`.
-Do not replace the project's global environment template with a Meme-only
-stub. This option is documented here until a full configuration template
-is restored and reconciled with the settings registry.
+The root `.env.example` contains safe defaults and commented provider examples.
+Meme Radar remains disabled unless explicitly enabled in the server environment;
+its option is shown commented in the example because it is not a Web settings field.
 The default is disabled, including when the setting is missing. The browser
 never receives credentials or a wallet interface. No cron or background scan
 is started. Maximum eight unique mints per scan, with a 30-second cache and

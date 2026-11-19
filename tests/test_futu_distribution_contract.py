@@ -8,11 +8,16 @@ import re
 
 import yaml
 
+from tests.workflow_archive_contract import archived_workflow
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _read(relative_path: str) -> str:
+    if relative_path.startswith(".github/workflows/"):
+        filename = Path(relative_path).name
+        return archived_workflow(REPO_ROOT, filename).read_text(encoding="utf-8")
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 

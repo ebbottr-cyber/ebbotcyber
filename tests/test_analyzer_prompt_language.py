@@ -191,6 +191,15 @@ class EnglishStockPromptTemplateTestCase(unittest.TestCase):
         ko_headers = re.findall(r"^#{1,4} .+$", ko_user, re.MULTILINE)
         self.assertEqual(ko_headers, en_headers)
 
+    def test_turkish_market_context_remains_english_for_every_market(self) -> None:
+        from src.market_context import get_market_guidelines, get_market_role
+
+        for ticker in ("600519", "AAPL", "hk00700", "7203.T", "005930.KS", "2330.TW"):
+            with self.subTest(ticker=ticker):
+                self.assertEqual(get_market_role(ticker, "tr"), get_market_role(ticker, "en"))
+                self.assertEqual(get_market_guidelines(ticker, "tr"), get_market_guidelines(ticker, "en"))
+                self.assertEqual(_cjk_chars(get_market_guidelines(ticker, "tr")), "")
+
     def test_turkish_uses_english_scaffolding_with_turkish_directive(self) -> None:
         analyzer = _make_analyzer(legacy=True)
         fake_cfg = SimpleNamespace(news_max_age_days=3, news_strategy_profile="short")
