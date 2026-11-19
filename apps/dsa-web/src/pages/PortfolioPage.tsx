@@ -18,7 +18,6 @@ import {
   formatBrokerLabel,
   formatCashDirectionLabel,
   formatCorporateActionLabel,
-  formatMoney,
   formatPct,
   formatSideLabel,
   formatSignedPct,
