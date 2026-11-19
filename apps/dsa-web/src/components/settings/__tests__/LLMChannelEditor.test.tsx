@@ -60,6 +60,36 @@ describe('LLMChannelEditor', () => {
     expect(screen.getByRole('button', { name: 'Bağlantıyı Test Et' })).toBeInTheDocument();
   });
 
+  it('translates structured model authentication errors into Turkish', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    testLLMChannel.mockResolvedValue({
+      success: false,
+      message: 'LLM authentication failed',
+      errorCode: 'auth',
+      stage: 'chat_completion',
+      details: {},
+      resolvedModel: 'openai/gpt-4o-mini',
+    });
+    render(<LLMChannelEditor
+      items={[
+        { key: 'LLM_CHANNELS', value: 'openai' },
+        { key: 'LLM_OPENAI_PROTOCOL', value: 'openai' },
+        { key: 'LLM_OPENAI_BASE_URL', value: 'https://api.openai.com/v1' },
+        { key: 'LLM_OPENAI_ENABLED', value: 'true' },
+        { key: 'LLM_OPENAI_API_KEY', value: 'secret-key' },
+        { key: 'LLM_OPENAI_MODELS', value: 'gpt-4o-mini' },
+      ]}
+      configVersion="v1"
+      maskToken="******"
+      onSaved={() => undefined}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: /OpenAI Resmî/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bağlantıyı Test Et' }));
+    expect(await screen.findByText(/Sohbet isteği · Kimlik doğrulama başarısız/)).toBeInTheDocument();
+    expect(screen.getByText(/API anahtarını, boşlukları/)).toBeInTheDocument();
+    expect(testLLMChannel).toHaveBeenCalledTimes(1);
+  });
+
   function selectOptionValues(label: string): string[] {
     const select = screen.getByLabelText(label) as HTMLSelectElement;
     return Array.from(select.options).map((option) => option.value);
