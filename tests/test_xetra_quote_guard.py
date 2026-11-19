@@ -157,7 +157,8 @@ class XetraQuoteGuardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             csv_path = Path(folder) / "xetra.csv"
             out_path = Path(folder) / "review.json"
-            csv_path.write_text(HEADER + SAP, encoding="utf-8")
+            fresh_sap = SAP.replace("2026-11-18", datetime.now(timezone.utc).date().isoformat())
+            csv_path.write_text(HEADER + fresh_sap, encoding="utf-8")
             args = parser().parse_args([
                 "--fetch", "--symbol", "SAP.DE", "--manifest", str(csv_path),
                 "--output", str(out_path),
@@ -174,6 +175,29 @@ class XetraQuoteGuardTests(unittest.TestCase):
                     again = run(args)
                 self.assertEqual(again, 1)
                 self.assertEqual(fetch.call_count, 1)
+
+    def test_manual_cli_stale_or_mixed_snapshot_never_fetches(self):
+        fresh = datetime.now(timezone.utc).date().isoformat()
+        stale = "2026-01-01"
+        scenarios = (
+            HEADER + SAP.replace("2026-11-18", stale),
+            HEADER + SAP.replace("2026-11-18", fresh)
+            + SIE.replace("2026-11-18", stale),
+        )
+        for text in scenarios:
+            with self.subTest(rows=text[-100:]):
+                with tempfile.TemporaryDirectory() as folder:
+                    csv_path = Path(folder) / "xetra.csv"
+                    csv_path.write_text(text, encoding="utf-8")
+                    args = parser().parse_args([
+                        "--fetch", "--symbol", "SAP.DE",
+                        "--manifest", str(csv_path),
+                    ])
+                    with patch("scripts.verify_xetra_quotes.fetch_yahoo_chart") as fetch:
+                        with redirect_stdout(StringIO()):
+                            code = run(args)
+                    self.assertEqual(code, 1)
+                    fetch.assert_not_called()
 
     def test_fetch_url_is_fixed_https_and_get_only(self):
         class Response:
