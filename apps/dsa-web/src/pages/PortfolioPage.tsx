@@ -17,10 +17,7 @@ import { formatTryDisplay, formatPortfolioSnapshotTry } from '../utils/portfolio
 import {
   buildFxRefreshFeedback,
   formatBrokerLabel,
-  formatCashDirectionLabel,
-  formatCorporateActionLabel,
   formatPct,
-  formatSideLabel,
   formatSignedPct,
   getCsvCommitVariant,
   getCsvParseVariant,
@@ -1462,7 +1459,7 @@ const PortfolioPage: React.FC = () => {
       if (!reloaded || !isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
         return;
       }
-      setFxRefreshFeedback(buildFxRefreshFeedback(result));
+      setFxRefreshFeedback(buildFxRefreshFeedback(result, language));
     } catch (err) {
       if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
         return;
@@ -1833,7 +1830,7 @@ const PortfolioPage: React.FC = () => {
                       <td className="py-2 pr-2 text-right">
                         <div>{hasPositionPrice(row) ? formatTryDisplay(row.lastPrice, row.currency, tryDisplayRates) : '—'}</div>
                         <div className={`text-[11px] ${hasPositionPrice(row) ? 'text-secondary' : 'text-warning'}`}>
-                          {getPositionPriceLabel(row)}
+                          {getPositionPriceLabel(row, language)}
                         </div>
                       </td>
                       <td className="py-2 pr-2 text-right">{hasPositionPrice(row) ? formatTryDisplay(row.marketValueBase, row.valuationCurrency, tryDisplayRates, snapshotFxStale) : '—'}</td>
@@ -2069,9 +2066,9 @@ const PortfolioPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-2">
               <select className={PORTFOLIO_SELECT_CLASS} value={selectedBroker} onChange={(e) => setSelectedBroker(e.target.value)}>
                 {brokers.length > 0 ? (
-                  brokers.map((item) => <option key={item.broker} value={item.broker}>{formatBrokerLabel(item.broker, item.displayName)}</option>)
+                  brokers.map((item) => <option key={item.broker} value={item.broker}>{formatBrokerLabel(item.broker, item.displayName, language)}</option>)
                 ) : (
-                  <option value="huatai">huatai（华泰）</option>
+                  <option value="huatai">{formatBrokerLabel('huatai', undefined, language)}</option>
                 )}
               </select>
               <label className={PORTFOLIO_FILE_PICKER_CLASS}>
@@ -2163,7 +2160,7 @@ const PortfolioPage: React.FC = () => {
               {eventType === 'trade' && tradeEvents.map((item) => (
                 <div key={`t-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.tradeDate} {formatSideLabel(item.side)} {item.symbol} 数量={item.quantity} 价格={item.price}
+                    {formatUiText(ledger.tradeRecord, { date: item.tradeDate, side: sideLabel(item.side), symbol: item.symbol, quantity: item.quantity, price: item.price })}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2172,10 +2169,10 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'trade',
                         id: item.id,
-                        message: `确认删除 ${item.tradeDate} 的${formatSideLabel(item.side)}流水 ${item.symbol}（数量 ${item.quantity}，价格 ${item.price}）吗？`,
+                        message: formatUiText(ledger.tradeDeleteConfirm, { date: item.tradeDate, side: sideLabel(item.side), symbol: item.symbol, quantity: item.quantity, price: item.price }),
                       })}
                     >
-                      删除
+                      {ledger.delete}
                     </button>
                   ) : null}
                 </div>
@@ -2183,7 +2180,7 @@ const PortfolioPage: React.FC = () => {
               {eventType === 'cash' && cashEvents.map((item) => (
                 <div key={`c-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.eventDate} {formatCashDirectionLabel(item.direction)} {item.amount} {item.currency}
+                    {item.eventDate} {cashLabel(item.direction)} {item.amount} {item.currency}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2192,10 +2189,10 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'cash',
                         id: item.id,
-                        message: `确认删除 ${item.eventDate} 的资金流水（${formatCashDirectionLabel(item.direction)} ${item.amount} ${item.currency}）吗？`,
+                        message: formatUiText(ledger.cashDeleteConfirm, { date: item.eventDate, direction: cashLabel(item.direction), amount: item.amount, currency: item.currency }),
                       })}
                     >
-                      删除
+                      {ledger.delete}
                     </button>
                   ) : null}
                 </div>
@@ -2203,7 +2200,7 @@ const PortfolioPage: React.FC = () => {
               {eventType === 'corporate' && corporateEvents.map((item) => (
                 <div key={`ca-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.effectiveDate} {formatCorporateActionLabel(item.actionType)} {item.symbol}
+                    {item.effectiveDate} {actionLabel(item.actionType)} {item.symbol}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2212,10 +2209,10 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'corporate',
                         id: item.id,
-                        message: `确认删除 ${item.effectiveDate} 的公司行为 ${formatCorporateActionLabel(item.actionType)}（${item.symbol}）吗？`,
+                        message: formatUiText(ledger.corporateDeleteConfirm, { date: item.effectiveDate, action: actionLabel(item.actionType), symbol: item.symbol }),
                       })}
                     >
-                      删除
+                      {ledger.delete}
                     </button>
                   ) : null}
                 </div>
@@ -2232,15 +2229,15 @@ const PortfolioPage: React.FC = () => {
                   ) : null}
             </div>
             <div className="flex items-center justify-between text-xs text-secondary">
-              <span>第 {eventPage} / {totalEventPages} 页</span>
+              <span>{formatUiText(ledger.pageNumber, { page: eventPage, total: totalEventPages })}</span>
               <div className="flex gap-2">
                 <button type="button" className="btn-secondary text-xs px-3 py-1" disabled={eventPage <= 1}
                   onClick={() => setEventPage((prev) => Math.max(1, prev - 1))}>
-                  上一页
+                  {ledger.previous}
                 </button>
                 <button type="button" className="btn-secondary text-xs px-3 py-1" disabled={eventPage >= totalEventPages}
                   onClick={() => setEventPage((prev) => Math.min(totalEventPages, prev + 1))}>
-                  下一页
+                  {ledger.next}
                 </button>
               </div>
             </div>
@@ -2250,9 +2247,9 @@ const PortfolioPage: React.FC = () => {
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
         title={ledger.deleteRecordTitle}
-        message={pendingDelete?.message || '确认删除这条流水吗？'}
-        confirmText={deleteLoading ? '删除中...' : '确认删除'}
-        cancelText="取消"
+        message={pendingDelete?.message || ledger.deleteRecordConfirm}
+        confirmText={deleteLoading ? ledger.deleting : ledger.confirmDelete}
+        cancelText={ledger.cancel}
         isDanger
         onConfirm={() => void handleConfirmDelete()}
         onCancel={() => {
