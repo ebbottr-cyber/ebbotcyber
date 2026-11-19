@@ -122,6 +122,8 @@ describe('AlertsPage', () => {
     render(<AlertsPage />);
     expect(await screen.findByText('Uyarı Merkezi')).toBeInTheDocument();
     expect(screen.getByText('Bildirim Gönderim Denemeleri')).toBeInTheDocument();
+    expect(screen.getByText('Tetikleme Geçmişi')).toBeInTheDocument();
+    expect((await screen.findAllByText('Tetiklendi')).length).toBeGreaterThan(0);
     expect(await screen.findByText('Henüz bildirim denemesi yok')).toBeInTheDocument();
     expect(screen.queryByText('告警中心')).not.toBeInTheDocument();
   });
