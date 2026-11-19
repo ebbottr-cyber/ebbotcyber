@@ -23,7 +23,7 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
     uncategorized: 'Other',
   },
   tr: {
-    base: 'Temel ayarlar',
+    base: 'Temel Ayarlar',
     data_source: 'Veri kaynakları',
     ai_model: 'Yapay zekâ modelleri',
     notification: 'Bildirimler',
