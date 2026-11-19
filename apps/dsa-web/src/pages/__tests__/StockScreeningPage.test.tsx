@@ -1,7 +1,15 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor, within, type RenderOptions } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import type { ScreeningHotspotDetail } from '../../api/screening';
 import StockScreeningPage from '../StockScreeningPage';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
 
 const {
   enableScreening,
@@ -111,7 +119,22 @@ function createDeferred<T>() {
 }
 
 describe('StockScreeningPage', () => {
+  it('renders Turkish screening headings and controls when selected', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    getScreeningStatus.mockResolvedValue({ enabled: true, available: true });
+    getStrategies.mockResolvedValue(mockStrategiesResponse);
+    getHotspots.mockResolvedValue({ hotspots: [], updatedAt: null });
+    getHistory.mockResolvedValue({ runs: [] });
+    render(<StockScreeningPage />);
+    expect(await screen.findByRole('heading', { name: 'Hisse Tarama' })).toBeInTheDocument();
+    expect(screen.getByText('Öne Çıkan Temalar')).toBeInTheDocument();
+    expect(screen.getByText('Hisse Taramasını Çalıştır')).toBeInTheDocument();
+    expect(screen.getByText('Geçmiş Taramalar')).toBeInTheDocument();
+    expect(screen.queryByText('选股')).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     enableScreening.mockReset();
     getHistory.mockReset();
     getRun.mockReset();
