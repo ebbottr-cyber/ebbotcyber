@@ -1,0 +1,35 @@
+name: EBBot Xetra quote metadata guard (offline)
+
+on:
+  push:
+    branches:
+      - feat/xetra-quote-guard-v1
+    paths:
+      - 'src/services/xetra_quote_guard.py'
+      - 'scripts/verify_xetra_quotes.py'
+      - 'tests/test_xetra_quote_guard.py'
+      - '.github/workflows/xetra-quote-guard.yml'
+      - 'docs/XETRA_QUOTE_GUARD.md'
+  pull_request:
+    branches:
+      - feat/four-market-equity-audit-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quote-guard-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Quote guard offline tests (mocked provider, no price requests)
+        run: python -m unittest discover -s tests -p 'test_xetra_quote_guard.py' -v
+      - name: Verify default is disabled and no network requests
+        run: python -m scripts.verify_xetra_quotes
+      - name: Existing four-market regression checks
+        run: python -m unittest discover -s tests -p 'test_four_market_equities.py' -v
