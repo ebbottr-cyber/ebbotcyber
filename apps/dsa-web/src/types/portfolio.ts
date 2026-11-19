@@ -339,3 +339,14 @@ export interface PortfolioFxRefreshResponse {
   staleCount: number;
   errorCount: number;
 }
+
+
+/** Read-only, indicative FX quotes; only status=current may be used for TRY display. */
+export interface PortfolioDisplayFxRates {
+  status: 'current' | 'stale' | 'unavailable';
+  usdTry: number | null;
+  usdCny: number | null;
+  cnyTry: number | null;
+  asOf: string | null;
+  source: string;
+}
