@@ -40,6 +40,23 @@ jobs:
           echo "CONFLICT_FILES_START"
           cat /tmp/pr57-conflict-files.txt
           echo "CONFLICT_FILES_END"
+          echo "CONFLICT_HUNKS_START"
+          python - <<'PY'
+          from pathlib import Path
+          files = Path("/tmp/pr57-conflict-files.txt").read_text().splitlines()
+          for filename in files:
+              print("\\n" + "="*16 + " " + filename + " " + "="*16)
+              rows = Path(filename).read_text(encoding="utf-8").splitlines()
+              start = None
+              for line_no, row in enumerate(rows):
+                  if row.startswith("<<<<<<< "):
+                      start = max(0, line_no-4)
+                  if row.startswith(">>>>>>> ") and start is not None:
+                      for i in range(start, min(len(rows), line_no+5)):
+                          print(f"{i+1:04d}: {rows[i]}")
+                      start = None
+          PY
+          echo "CONFLICT_HUNKS_END"
           echo "MERGE_OUTPUT_START"
           tail -80 /tmp/pr57-merge-output.txt
           echo "MERGE_OUTPUT_END"
