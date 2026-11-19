@@ -8,6 +8,7 @@ on:
       - 'api/v1/router.py'
       - 'tests/test_xetra_dashboard_api.py'
       - 'apps/dsa-web/src/api/xetra.ts'
+      - 'apps/dsa-web/src/api/__tests__/xetraResponseContract.test.ts'
       - 'apps/dsa-web/src/pages/GermanyMarketPage.tsx'
       - 'apps/dsa-web/src/pages/__tests__/GermanyMarketPage.test.tsx'
       - 'apps/dsa-web/src/App.tsx'
@@ -55,6 +56,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Run Germany panel tests
-        run: npm test -- src/pages/__tests__/GermanyMarketPage.test.tsx
+        run: npm test -- src/pages/__tests__/GermanyMarketPage.test.tsx src/api/__tests__/xetraResponseContract.test.ts
       - name: Typecheck and build React frontend
         run: npm run build
