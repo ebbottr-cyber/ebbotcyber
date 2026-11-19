@@ -5,12 +5,14 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
+from tests.workflow_archive_contract import archived_workflow
+
 from data_provider.base import DataFetcherManager
 from data_provider.tickplus_fetcher import TickPlusFetcher
 from src.config import Config
 
 
-WORKFLOW = Path(__file__).resolve().parents[1] / '.github/workflows/00-daily-analysis.yml'
+WORKFLOW = archived_workflow(Path(__file__).resolve().parents[1], "00-daily-analysis.yml")
 
 
 def _apply_actions_env(monkeypatch, *, tickplus='', tushare='', explicit=''):
