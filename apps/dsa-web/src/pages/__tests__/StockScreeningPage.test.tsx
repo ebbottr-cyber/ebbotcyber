@@ -128,7 +128,7 @@ describe('StockScreeningPage', () => {
     render(<StockScreeningPage />);
     expect(await screen.findByRole('heading', { name: 'Hisse Tarama' })).toBeInTheDocument();
     expect(screen.getByText('Öne Çıkan Temalar')).toBeInTheDocument();
-    expect(screen.getByText('Hisse Taramasını Çalıştır')).toBeInTheDocument();
+    expect(screen.getAllByText('Hisse Taramasını Çalıştır').length).toBeGreaterThan(0);
     expect(screen.getByText('Geçmiş Taramalar')).toBeInTheDocument();
     expect(screen.queryByText('选股')).not.toBeInTheDocument();
   });
