@@ -28,7 +28,7 @@ jobs:
           git config user.name 'EBBot Conflict Review'
           git config user.email 'ebbot-review@example.invalid'
           git fetch origin main
-          expected_main=6be70ec2ed5cc29a3612646b9d5eda370cc3c49b
+          expected_main=2aade1eb43489483f3e18c1e04cb8d0849cf4900
           test "$(git rev-parse origin/main)" = "$expected_main"
           test "$(git branch --show-current)" = 'fix/pr57-main-sync-20261119'
           set +e
