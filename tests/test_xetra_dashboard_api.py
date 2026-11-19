@@ -36,6 +36,19 @@ class GermanyPanelApiTests(TestCase):
         self.assertEqual(response.headers.get("Cache-Control"), "no-store")
         fetch.assert_not_called()
 
+    def test_official_isin_can_find_a_candidate_without_fetching_price(self):
+        with (patch.object(api, "read_xetra_manifest", return_value=INVENTORY),
+              patch.object(api, "fetch_yahoo_chart") as fetch,
+              patch.object(api, "is_auth_enabled", return_value=False)):
+            result = api.get_inventory(
+                Response(), query="DE0007236101", limit=30,
+            )
+        self.assertEqual(
+            [item["symbol"] for item in result["items"]],
+            ["SIE.DE"],
+        )
+        fetch.assert_not_called()
+
     def test_quote_api_disallowed_when_auth_or_explicit_toggle_off(self):
         request = api.XetraQuoteCheckRequest(symbols=["SAP.DE"])
         for admin, feature in ((False, "true"), (True, ""), (True, "false")):
