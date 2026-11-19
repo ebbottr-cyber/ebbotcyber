@@ -29,6 +29,11 @@ jobs:
           echo "REVIEW_BASE_TREE_SHA=$(git rev-parse HEAD^{tree})"
           echo "REVIEW_MAIN_HEAD_SHA=$(git rev-parse origin/main)"
           test "$(git rev-parse origin/main)" = 2aade1eb43489483f3e18c1e04cb8d0849cf4900
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo 'MAIN_ALREADY_MERGED_IN_REVIEW_BRANCH=true'
+            echo 'NO_REF_OR_BRANCH_WAS_CHANGED=true'
+            exit 0
+          fi
           set +e
           git -c user.name=Audit -c user.email=audit@example.invalid merge --no-commit --no-ff origin/main
           result=$?
