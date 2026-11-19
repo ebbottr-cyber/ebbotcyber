@@ -1,0 +1,134 @@
+name: EBBot five-PR release preflight (NO deployment)
+
+on:
+  push:
+    branches: [audit/final-release-chain-20261119]
+  pull_request:
+    branches: [feat/xetra-dashboard-readonly-v1]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-release-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-topology-and-blockers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/final-release-chain-20261119
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Assert main and five draft branches are unchanged and the commit chain is linear in ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          names=(main review/ebbot-3lu-entegrasyon-20261118 feat/all-markets-paper-universe-v1 feat/four-market-equity-audit-v1 feat/xetra-quote-guard-v1 feat/xetra-dashboard-readonly-v1)
+          shas=(2aade1eb43489483f3e18c1e04cb8d0849cf4900 61ff4630e63941acd3b75ce5350eac81f8530f53 f943f02403c010a156dd0d26438e783e07b5fd32 89ad671fe686ab5ae084745fd5d8af26a96bc02c da5b666cefa538c9c8f6d734158a387aae126cc2 212516234bd5c2bb8ccc48caa58b17b388a691e8)
+          for i in "${!names[@]}"; do
+            git fetch --no-tags origin "${names[$i]}" >/dev/null
+            actual="$(git rev-parse "FETCH_HEAD")"
+            echo "BRANCH ${names[$i]} -> $actual"
+            test "$actual" = "${shas[$i]}"
+          done
+          for ((i=0;i<5;i++)); do
+            git merge-base --is-ancestor "${shas[$i]}" "${shas[$((i+1))]}"
+          done
+          git merge-base --is-ancestor "${shas[5]}" HEAD
+          echo 'ALL_FIVE_PR_HEADS_MATCH_AND_ANCESTRY_VALID=true'
+          echo 'MAIN_NOT_MODIFIED=true'
+      - name: Existing fail-closed release audit (must remain BLOCKED)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_ebbot_release_audit.py' -v
+          python scripts/audit_ebbot_release.py --json > release-audit.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a = json.loads(Path("release-audit.json").read_text(encoding="utf-8"))
+          assert a["status"] == "blocked", "Release must be blocked until manual gates have been fulfilled"
+          assert a["enables_live_trading"] is False
+          assert len(a["manual_release_gates"]) >= 5
+          print("RELEASE_STATUS=BLOCKED")
+          print("TECHNICAL_BLOCKERS=", len(a["technical_blockers"]))
+          print("LEGACY_CONTRACT_REVIEWS=", len(a["legacy_contract_reviews"]))
+          print("MANUAL_GATES=", len(a["manual_release_gates"]))
+          PY
+      - name: Save informational review report, never a deploy token
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-five-pr-source-preflight
+          path: release-audit.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  full-backend-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/final-release-chain-20261119
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned offline CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Entire offline backend regression; fail on any failure
+        run: python -m pytest -q -m "not network" --tb=line --disable-warnings --junitxml=release-preflight-pytest.xml
+      - name: Export test report (even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-five-pr-python-regression
+          path: release-preflight-pytest.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  frontend-lint-tests-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/final-release-chain-20261119
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Locked dependency install
+        run: npm ci --no-audit --no-fund
+      - name: Full lint / formatting safety
+        run: npm run lint
+      - name: PWA source tests
+        run: npm run test:pwa
+      - name: Germany UI, API contract and Solana strategy / radar tests
+        run: |
+          npm test -- src/pages/__tests__/GermanyMarketPage.test.tsx src/api/__tests__/xetraResponseContract.test.ts src/pages/__tests__/MemeCoinPage.test.tsx src/pages/__tests__/MemeCoinsPage.test.tsx src/utils/__tests__/systemConfigLanguage.test.ts
+      - name: Production frontend build and typecheck
+        run: npm run build
+      - name: Build PWA asset checks
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
