@@ -11,6 +11,7 @@ import { PortfolioSignalSummary } from '../components/decision-signals/DecisionS
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import { formatUiText, type UiLanguage } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
+import { PORTFOLIO_LEDGER_TEXT } from '../locales/portfolioLedgerText';
 import type { FxRefreshFeedback } from '../utils/portfolioFormat';
 import { formatTryDisplay, formatPortfolioSnapshotTry } from '../utils/portfolioTryDisplay';
 import {
@@ -655,6 +656,10 @@ async function loadPortfolioSignalLookup(lookup: PortfolioSignalLookup): Promise
 const PortfolioPage: React.FC = () => {
   const { language, t } = useUiLanguage();
   const text = PORTFOLIO_TEXT[language];
+  const ledger = PORTFOLIO_LEDGER_TEXT[language];
+  const sideLabel = (side: PortfolioSide) => side === 'buy' ? ledger.buy : ledger.sell;
+  const cashLabel = (direction: PortfolioCashDirection) => direction === 'in' ? ledger.cashIn : ledger.cashOut;
+  const actionLabel = (action: PortfolioCorporateActionType) => action === 'cash_dividend' ? ledger.cashDividend : ledger.splitAdjustment;
   const riskDashboardText = PORTFOLIO_RISK_DASHBOARD_TEXT[language];
   const decisionActionLabels = useMemo(() => buildDecisionActionLabelMap(t), [t]);
 
@@ -803,7 +808,7 @@ const PortfolioPage: React.FC = () => {
       const brokerItems = response.brokers || [];
       if (brokerItems.length === 0) {
         setBrokers(FALLBACK_BROKERS);
-        setBrokerLoadWarning('券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。');
+        setBrokerLoadWarning(ledger.brokerEmpty);
         if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
           setSelectedBroker(FALLBACK_BROKERS[0].broker);
         }
@@ -816,7 +821,7 @@ const PortfolioPage: React.FC = () => {
       }
     } catch {
       setBrokers(FALLBACK_BROKERS);
-      setBrokerLoadWarning('券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。');
+      setBrokerLoadWarning(ledger.brokerUnavailable);
       if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
         setSelectedBroker(FALLBACK_BROKERS[0].broker);
       }
@@ -845,7 +850,7 @@ const PortfolioPage: React.FC = () => {
       } catch (riskErr) {
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || ledger.riskUnavailable);
       }
     } catch (err) {
       setSnapshot(null);
@@ -1113,7 +1118,7 @@ const PortfolioPage: React.FC = () => {
         analysisPhase: 'auto',
         force: false,
       });
-      setPositionAnalysisMessage(`已提交 ${row.symbol} 分析任务：${task.taskId}`);
+      setPositionAnalysisMessage(formatUiText(ledger.analysisSubmitted, { symbol: row.symbol, taskId: task.taskId }));
     } catch (err) {
       setError(getParsedApiError(err));
     } finally {
@@ -1151,7 +1156,7 @@ const PortfolioPage: React.FC = () => {
   const handleTradeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(ledger.chooseAccountWrite);
       return;
     }
     try {
@@ -1178,7 +1183,7 @@ const PortfolioPage: React.FC = () => {
   const handleCashSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(ledger.chooseAccountWrite);
       return;
     }
     try {
@@ -1201,7 +1206,7 @@ const PortfolioPage: React.FC = () => {
   const handleCorporateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(ledger.chooseAccountWrite);
       return;
     }
     try {
@@ -1239,7 +1244,7 @@ const PortfolioPage: React.FC = () => {
   const handleCommitCsv = async () => {
     if (!csvFile) return;
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(ledger.chooseAccountWrite);
       return;
     }
     try {
@@ -1259,7 +1264,7 @@ const PortfolioPage: React.FC = () => {
 
   const openDeleteDialog = (item: PendingDelete) => {
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行删除修正。');
+      setWriteWarning(ledger.chooseAccountDelete);
       return;
     }
     setPendingDelete(item);
@@ -1267,7 +1272,7 @@ const PortfolioPage: React.FC = () => {
 
   const openAccountDeleteDialog = () => {
     if (!writableAccount) {
-      setWriteWarning('请先选择具体账户，再删除持仓账户。');
+      setWriteWarning(ledger.chooseAccountDeleteAccount);
       return;
     }
     setPendingAccountDelete({
@@ -1299,7 +1304,7 @@ const PortfolioPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!pendingDelete || deleteLoading) return;
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行删除修正。');
+      setWriteWarning(ledger.chooseAccountDelete);
       setPendingDelete(null);
       return;
     }
@@ -1331,7 +1336,7 @@ const PortfolioPage: React.FC = () => {
     e.preventDefault();
     const name = accountForm.name.trim();
     if (!name) {
-      setAccountCreateError('账户名称不能为空。');
+      setAccountCreateError(ledger.accountNameRequired);
       setAccountCreateSuccess(null);
       return;
     }
@@ -1355,10 +1360,10 @@ const PortfolioPage: React.FC = () => {
         market: accountForm.market,
         baseCurrency: accountForm.baseCurrency,
       });
-      setAccountCreateSuccess('账户创建成功，已自动切换到该账户。');
+      setAccountCreateSuccess(ledger.accountCreated);
     } catch (err) {
       const parsed = getParsedApiError(err);
-      setAccountCreateError(parsed.message || '创建账户失败，请稍后重试。');
+      setAccountCreateError(parsed.message || ledger.accountCreateFailed);
       setAccountCreateSuccess(null);
     } finally {
       setAccountCreating(false);
@@ -1411,7 +1416,7 @@ const PortfolioPage: React.FC = () => {
         }
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || ledger.riskUnavailable);
       }
       return true;
     } catch (err) {
