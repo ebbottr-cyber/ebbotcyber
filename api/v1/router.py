@@ -18,11 +18,13 @@ from api.v1.endpoints import (
     analysis,
     auth,
     backtest,
+    strategy_lab,
     data,
     decision_signals,
     health,
     history,
     intelligence,
+    meme_coin,
     meme_coins,
     portfolio,
     stocks,
@@ -71,6 +73,12 @@ router.include_router(
 )
 
 router.include_router(
+    strategy_lab.router,
+    prefix="/strategy-lab",
+    tags=["StrategyLab"]
+)
+
+router.include_router(
     system_config.router,
     prefix="/system",
     tags=["SystemConfig"]
@@ -98,6 +106,12 @@ router.include_router(
     decision_signals.router,
     prefix="/decision-signals",
     tags=["DecisionSignals"]
+)
+
+router.include_router(
+    meme_coin.router,
+    prefix="/meme-coins",
+    tags=["MemeCoin"]
 )
 
 router.include_router(

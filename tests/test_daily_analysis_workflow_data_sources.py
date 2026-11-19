@@ -1,4 +1,4 @@
-"""Daily Actions env and runtime routing must agree on optional data sources."""
+"""Historical, disabled daily Actions env must remain compatible with data routing. No scheduler is enabled by this test."""
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -10,7 +10,7 @@ from data_provider.tickplus_fetcher import TickPlusFetcher
 from src.config import Config
 
 
-WORKFLOW = Path(__file__).resolve().parents[1] / '.github/workflows/00-daily-analysis.yml'
+WORKFLOW = Path(__file__).resolve().parents[1] / 'workflows_disabled/00-daily-analysis.yml.disabled'
 
 
 def _apply_actions_env(monkeypatch, *, tickplus='', tushare='', explicit=''):

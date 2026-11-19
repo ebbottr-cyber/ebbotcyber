@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, Flame, LogOut, MessageSquareQuote, Search, Settings2 } from 'lucide-react';
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Database, Gauge, Home, Flame, LayoutDashboard, LogOut, MessageSquareQuote, Radar, Search, Settings2 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgentChatStore } from '../../stores/agentChatStore';
@@ -27,15 +27,18 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
+  { key: 'overview', labelKey: 'layout.nav.home', to: '/overview', icon: LayoutDashboard, exact: true },
   { key: 'home', labelKey: 'layout.nav.home', to: '/', icon: Home, exact: true },
   { key: 'chat', labelKey: 'layout.nav.chat', to: '/chat', icon: MessageSquareQuote, badge: 'completion' },
   { key: 'screening', labelKey: 'layout.nav.screening', to: '/screening', icon: Search },
   { key: 'portfolio', labelKey: 'layout.nav.portfolio', to: '/portfolio', icon: BriefcaseBusiness },
   { key: 'decision-signals', labelKey: 'layout.nav.decisionSignals', to: '/decision-signals', icon: Activity },
+  { key: 'meme-coin', labelKey: 'layout.nav.memeCoin', to: '/meme-coins', icon: Radar },
   { key: 'backtest', labelKey: 'layout.nav.backtest', to: '/backtest', icon: BarChart3 },
+  { key: 'strategy-lab', labelKey: 'layout.nav.strategyLab', to: '/strategy-lab', icon: Gauge },
   { key: 'alerts', labelKey: 'layout.nav.alerts', to: '/alerts', icon: Bell },
   { key: 'data', labelKey: 'layout.nav.dataCenter', to: '/data', icon: Database },
-  { key: 'meme', labelKey: 'layout.nav.memeCoins', to: '/meme-coins', icon: Flame },
+  { key: 'meme-radar', labelKey: 'layout.nav.memeCoins', to: '/meme-radar', icon: Flame },
   { key: 'usage', labelKey: 'layout.nav.usage', to: '/usage', icon: Gauge },
   { key: 'settings', labelKey: 'layout.nav.settings', to: '/settings', icon: Settings2 },
 ];
@@ -43,7 +46,7 @@ const NAV_ITEMS: NavItem[] = [
 export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNavigate, variant = 'default' }) => {
   const { authEnabled, logout } = useAuth();
   const location = useLocation();
-  const { t } = useUiLanguage();
+  const { t, language } = useUiLanguage();
   const completionBadge = useAgentChatStore((state) => state.completionBadge);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isRail = variant === 'rail';
@@ -81,13 +84,17 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({ collapsed = false, onNav
           <BarChart3 className={cn(isRail ? 'h-[19px] w-[19px]' : 'h-5 w-5')} />
         </div>
         {!collapsed ? (
-          <p className={cn('min-w-0 truncate font-semibold text-foreground', isRail ? 'text-[0.95rem] leading-none' : 'text-sm')}>DSA</p>
+          <p className={cn('min-w-0 truncate font-semibold text-foreground', isRail ? 'text-[0.95rem] leading-none' : 'text-sm')}>EBBot</p>
         ) : null}
       </div>
 
       <nav className={cn('flex flex-col gap-1.5', isRail ? 'min-h-0 overflow-y-auto' : 'flex-1')} aria-label={t('layout.mainNav')}>
         {NAV_ITEMS.map(({ key, labelKey, to, icon: Icon, exact, badge }) => {
-          const label = t(labelKey);
+          const label = key === 'overview'
+            ? (language === 'tr' ? 'Piyasa \u00d6zeti' : language === 'zh' ? '\u5e02\u573a\u6982\u89c8' : 'Overview')
+            : key === 'home'
+              ? (language === 'tr' ? 'Hisse Analizi' : t(labelKey))
+              : t(labelKey);
           return (
           <NavLink
             key={key}
