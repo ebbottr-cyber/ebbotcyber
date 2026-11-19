@@ -37,4 +37,4 @@ jobs:
       - name: Frontend lint
         run: npm run lint
       - name: Turkish UI localized tests
-        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx
+        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx
