@@ -1,7 +1,7 @@
 """Deterministic tests: Germany API must never trade or fetch on inventory GET."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -16,6 +16,10 @@ INVENTORY = {
 
 
 class GermanyPanelApiTests(TestCase):
+    def setUp(self):
+        # Requests in separate tests must not share the global safety cooldown.
+        api._quote_gate = api._ManualQuoteGate()
+
     def test_get_inventory_lists_official_candidates_without_provider_call(self):
         with (patch.object(api, "read_xetra_manifest", return_value=INVENTORY),
               patch.object(api, "fetch_yahoo_chart") as fetch,
@@ -112,3 +116,72 @@ class GermanyPanelApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["items"][0]["symbol"], "SAP.DE")
         self.assertFalse(response.json()["manual_quote_check_enabled"])
+
+    def test_stale_inventory_disables_quote_endpoint_before_network(self):
+        stale = {
+            code: {**row, "source_as_of_date": (date.today() - timedelta(days=9)).isoformat()}
+            for code, row in INVENTORY.items()
+        }
+        with (patch.object(api, "read_xetra_manifest", return_value=stale),
+              patch.object(api, "is_auth_enabled", return_value=True),
+              patch.object(api.os, "getenv", return_value="true"),
+              patch.object(api, "fetch_yahoo_chart") as fetch):
+            listing = api.get_inventory(Response(), query="", limit=20)
+            self.assertTrue(listing["source_stale"])
+            self.assertFalse(listing["manual_quote_check_enabled"])
+            with self.assertRaises(HTTPException) as exc:
+                api.check_xetra_quotes(
+                    api.XetraQuoteCheckRequest(symbols=["SAP.DE"]), Response())
+            self.assertEqual(exc.exception.status_code, 409)
+            self.assertEqual(exc.exception.detail, "xetra_snapshot_stale")
+            fetch.assert_not_called()
+
+    def test_mixed_source_dates_are_blocked_even_if_some_current(self):
+        mixed = {
+            "SAP.DE": {**INVENTORY["SAP.DE"], "source_as_of_date": date.today().isoformat()},
+            "SIE.DE": {**INVENTORY["SIE.DE"], "source_as_of_date": (
+                date.today() - timedelta(days=1)).isoformat()},
+        }
+        with (patch.object(api, "read_xetra_manifest", return_value=mixed),
+              patch.object(api, "is_auth_enabled", return_value=True),
+              patch.object(api.os, "getenv", return_value="true"),
+              patch.object(api, "fetch_yahoo_chart") as fetch):
+            with self.assertRaises(HTTPException) as exc:
+                api.get_inventory(Response(), query="", limit=30)
+            self.assertEqual(exc.exception.status_code, 503)
+            with self.assertRaises(HTTPException) as exc:
+                api.check_xetra_quotes(
+                    api.XetraQuoteCheckRequest(symbols=["SAP.DE"]), Response())
+            self.assertEqual(exc.exception.status_code, 503)
+            fetch.assert_not_called()
+
+    def test_manual_cooldown_prevents_repeat_provider_requests(self):
+        now = datetime.now(timezone.utc)
+        valid = {
+            "chart": {"error": None, "result": [{"meta": {
+                "symbol": "SAP.DE", "currency": "EUR", "fullExchangeName": "XETRA",
+                "exchangeTimezoneName": "Europe/Berlin", "instrumentType": "EQUITY",
+                "regularMarketPrice": 190.0,
+                "regularMarketTime": int((now - timedelta(hours=2)).timestamp()),
+            }}]},
+        }
+        with (patch.object(api, "is_auth_enabled", return_value=True),
+              patch.object(api.os, "getenv", return_value="true"),
+              patch.object(api, "read_xetra_manifest", return_value=INVENTORY),
+              patch.object(api, "fetch_yahoo_chart", return_value=valid) as fetch):
+            req = api.XetraQuoteCheckRequest(symbols=["SAP.DE"])
+            first = api.check_xetra_quotes(req, Response())
+            self.assertEqual(first["status"], "QUOTE_METADATA_SAMPLE_ONLY")
+            with self.assertRaises(HTTPException) as exc:
+                api.check_xetra_quotes(req, Response())
+            self.assertEqual(exc.exception.status_code, 429)
+            self.assertEqual(exc.exception.headers["Retry-After"], "30")
+            self.assertEqual(fetch.call_count, 1)
+
+    def test_manual_gate_rejects_concurrent_requests(self):
+        gate = api._ManualQuoteGate()
+        with gate.request_slot():
+            with self.assertRaises(HTTPException) as exc:
+                with gate.request_slot():
+                    pass
+            self.assertEqual(exc.exception.status_code, 429)
