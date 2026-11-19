@@ -1,0 +1,60 @@
+name: EBBot Xetra dashboard read-only integration
+
+on:
+  push:
+    branches: [feat/xetra-dashboard-readonly-v1]
+    paths:
+      - 'api/v1/endpoints/xetra.py'
+      - 'api/v1/router.py'
+      - 'tests/test_xetra_dashboard_api.py'
+      - 'apps/dsa-web/src/api/xetra.ts'
+      - 'apps/dsa-web/src/pages/GermanyMarketPage.tsx'
+      - 'apps/dsa-web/src/pages/__tests__/GermanyMarketPage.test.tsx'
+      - 'apps/dsa-web/src/App.tsx'
+      - 'apps/dsa-web/src/components/layout/SidebarNav.tsx'
+      - '.github/workflows/xetra-dashboard-readonly.yml'
+      - 'docs/XETRA_DASHBOARD_INTEGRATION.md'
+  pull_request:
+    branches: [feat/xetra-quote-guard-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xetra-backend-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install API test dependencies
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+      - name: Run Xetra quote guard and panel API tests (offline)
+        run: |
+          python -m unittest discover -s tests -p 'test_xetra_quote_guard.py' -v
+          python -m unittest discover -s tests -p 'test_xetra_dashboard_api.py' -v
+          python -m unittest discover -s tests -p 'test_four_market_equities.py' -v
+
+  xetra-react-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run Germany panel tests
+        run: npm test -- src/pages/__tests__/GermanyMarketPage.test.tsx
+      - name: Typecheck and build React frontend
+        run: npm run build
