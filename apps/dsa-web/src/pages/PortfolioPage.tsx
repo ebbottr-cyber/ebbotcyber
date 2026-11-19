@@ -761,7 +761,7 @@ const PortfolioPage: React.FC = () => {
   const safelyAggregatedCny = !snapshotFxStale && (snapshot?.accounts.length || 0) > 0
     && snapshot?.accounts.every((account) =>
       account.baseCurrency.toUpperCase() === 'CNY' && !account.fxStale && account.dataQuality !== 'partial') === true;
-  const showExposureTry = (amount: number) => formatTryDisplay(amount, snapshotCurrency, tryDisplayRates, !safelyAggregatedCny);
+  const showExposureTry = (amount: number | undefined) => formatTryDisplay(amount, snapshotCurrency, tryDisplayRates, !safelyAggregatedCny);
   const tryRateReady = showAccountTotalTry('totalEquity') !== '—';
   const writableAccount = selectedAccount === 'all' ? undefined : accounts.find((item) => item.id === selectedAccount);
   const writableAccountId = writableAccount?.id;
