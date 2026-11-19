@@ -297,3 +297,14 @@ class PortfolioRiskResponse(BaseModel):
     drawdown: Dict[str, Any] = Field(default_factory=dict)
     stop_loss: Dict[str, Any] = Field(default_factory=dict)
     decision_signal_risk: PortfolioDecisionSignalRiskBlock = Field(default_factory=PortfolioDecisionSignalRiskBlock)
+
+
+class PortfolioDisplayFxResponse(BaseModel):
+    """Indicative TRY display rates; unavailable when either quote is stale."""
+
+    status: Literal["current", "stale", "unavailable"]
+    usd_try: Optional[float] = None
+    usd_cny: Optional[float] = None
+    cny_try: Optional[float] = None
+    as_of: Optional[str] = None
+    source: str
