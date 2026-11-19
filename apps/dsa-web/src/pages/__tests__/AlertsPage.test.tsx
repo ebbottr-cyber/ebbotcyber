@@ -122,7 +122,7 @@ describe('AlertsPage', () => {
     render(<AlertsPage />);
     expect(await screen.findByText('Uyarı Merkezi')).toBeInTheDocument();
     expect(screen.getByText('Bildirim Gönderim Denemeleri')).toBeInTheDocument();
-    expect(screen.getByText('Kanal')).toBeInTheDocument();
+    expect(await screen.findByText('Henüz bildirim denemesi yok')).toBeInTheDocument();
     expect(screen.queryByText('告警中心')).not.toBeInTheDocument();
   });
 
