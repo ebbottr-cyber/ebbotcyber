@@ -1,4 +1,4 @@
-import type { PortfolioDisplayFxRates } from '../types/portfolio';
+import type { PortfolioDisplayFxRates, PortfolioSnapshotResponse } from '../types/portfolio';
 
 /** Convert ONLY presentation values; never rewrite source prices, positions or ledgers. */
 export function toTryDisplayValue(
@@ -35,4 +35,27 @@ export function formatTryDisplay(
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+
+type PortfolioMonetaryTotal = 'totalEquity' | 'totalMarketValue' | 'totalCash';
+
+/** Sum each account AFTER conversion instead of trusting the legacy aggregate CNY fallback. */
+export function formatPortfolioSnapshotTry(
+  snapshot: PortfolioSnapshotResponse | null,
+  field: PortfolioMonetaryTotal,
+  fx: PortfolioDisplayFxRates | null,
+  now = Date.now(),
+): string {
+  if (!snapshot || !Array.isArray(snapshot.accounts) ||
+      snapshot.accountCount !== snapshot.accounts.length ||
+      snapshot.fxStale || snapshot.accounts.length === 0) return '—';
+  let total = 0;
+  for (const account of snapshot.accounts) {
+    if (account.fxStale || account.dataQuality === 'partial') return '—';
+    const converted = toTryDisplayValue(account[field], account.baseCurrency, fx, false, now);
+    if (converted == null) return '—';
+    total += converted;
+  }
+  return formatTryDisplay(total, 'TRY', null, false, now);
 }
