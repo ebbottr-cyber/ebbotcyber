@@ -459,7 +459,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
   const apiSurfaceOptions = API_SURFACE_OPTIONS.some((option) => option.value === channel.apiSurface)
     ? API_SURFACE_OPTIONS
     : [
-        { value: channel.apiSurface, label: `无效配置：${channel.apiSurface}` },
+        { value: channel.apiSurface, label: L('无效配置：') + channel.apiSurface },
         ...API_SURFACE_OPTIONS,
       ];
 
@@ -496,7 +496,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
             </Badge>
           </div>
           <p className="mt-0.5 truncate text-[11px] text-secondary-text">
-            {modelCount > 0 ? `${modelCount} 个模型已配置` : L("未配置模型")}
+            {modelCount > 0 ? language === 'zh' ? `${modelCount} 个模型已配置` : language === 'tr' ? `${modelCount} model tanımlı` : `${modelCount} models configured` : L('未配置模型')}
           </p>
         </div>
 
@@ -597,7 +597,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                 id={apiSurfaceInputId}
                 value={channel.apiSurface}
                 onChange={(value) => onUpdate(index, 'apiSurface', value)}
-                options={apiSurfaceOptions}
+                options={apiSurfaceOptions.map((option) => ({ ...option, label: L(option.label) }))}
                 disabled={busy || (isHermesChannel(channel) && channel.apiSurface === 'chat_completions')}
                 placeholder={L("选择 API Surface")}
               />
@@ -632,10 +632,10 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                 {providerCapabilities.map((capability) => {
                   const capabilityMeta = LLM_PROVIDER_CAPABILITY_LABELS[capability];
                   return (
-                    <Tooltip key={capability} content={capabilityMeta.hint}>
+                    <Tooltip key={capability} content={L(capabilityMeta.hint)}>
                       <span className="inline-flex">
                         <Badge variant="default" className="border-[var(--settings-border)] bg-[var(--settings-surface)] text-secondary-text">
-                          {capabilityMeta.label}
+                          {L(capabilityMeta.label)}
                         </Badge>
                       </span>
                     </Tooltip>
@@ -643,7 +643,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                 })}
               </div>
               {providerHint ? (
-                <p className="text-[11px] leading-5 text-secondary-text">{providerHint}</p>
+                <p className="text-[11px] leading-5 text-secondary-text">{L(providerHint)}</p>
               ) : null}
               {providerSources.length > 0 ? (
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5 text-secondary-text">
@@ -656,7 +656,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                       rel="noreferrer"
                       className="settings-accent-text underline-offset-2 hover:underline"
                     >
-                      {source.label}
+                      {L(source.label)}
                     </a>
                   ))}
                 </p>
@@ -773,7 +773,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 
             {manualOnlyModels.length > 0 ? (
               <p className="text-[11px] text-secondary-text">
-                额外手动模型：{manualOnlyModels.join('，')}
+                {L('额外手动模型：')}{manualOnlyModels.join(language === 'zh' ? '，' : ', ')}
               </p>
             ) : null}
           </div>
@@ -803,7 +803,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                 </span>
                 {selectedModels[0] ? (
                   <p className="text-[11px] text-secondary-text">
-                    基础连接测试默认使用模型列表首项：{selectedModels[0]}
+                    {L('基础连接测试默认使用模型列表首项：')}{selectedModels[0]}
                   </p>
                 ) : null}
                 {testState.hint ? (
@@ -846,7 +846,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
 
             <div className="flex flex-wrap gap-2">
               {runtimeCapabilityOptions.map((option) => (
-                <Tooltip key={option.value} content={option.hint}>
+                <Tooltip key={option.value} content={L(option.hint)}>
                   <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--settings-border)] bg-[var(--settings-surface)] px-2 py-1 text-[11px] text-secondary-text">
                     <input
                       type="checkbox"
@@ -888,7 +888,7 @@ const ChannelRow: React.FC<ChannelRowProps> = ({
                     <Tooltip key={option.value} content={result.message}>
                       <span className="inline-flex">
                         <Badge variant={getCapabilityResultVariant(result.status)}>
-                          {option.label} {CAPABILITY_STATUS_LABELS[result.status]}
+                          {option.label} {L(CAPABILITY_STATUS_LABELS[result.status])}
                         </Badge>
                       </span>
                     </Tooltip>
@@ -2414,7 +2414,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
                 <h4 className="text-sm font-medium text-foreground">{L("快速添加渠道")}</h4>
                 <p className="mt-1 text-xs text-secondary-text">{L("先选择预设服务商，再一键创建配置草稿。")}</p>
               </div>
-              <Badge variant="default" className="border-[var(--settings-border)] bg-[var(--settings-surface-hover)] text-muted-text">{channels.length} 个渠道</Badge>
+              <Badge variant="default" className="border-[var(--settings-border)] bg-[var(--settings-surface-hover)] text-muted-text">{channels.length} {language === 'zh' ? '个渠道' : language === 'tr' ? 'kanal' : 'channels'}</Badge>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="settings-primary" className="whitespace-nowrap" disabled={busy} onClick={addChannel}>
@@ -2426,7 +2426,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
                   onChange={setAddPreset}
                   options={LLM_PROVIDER_TEMPLATES.map((preset) => ({
                     value: preset.channelId,
-                    label: preset.label,
+                    label: L(preset.label),
                   }))}
                   disabled={busy}
                   placeholder={L("选择服务商")}
@@ -2450,7 +2450,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-medium uppercase tracking-wider text-muted-text">{L("渠道列表")}</span>
               {channels.length > 0 ? (
-                <span className="text-[10px] text-muted-text">{channels.filter((c) => c.enabled).length}/{channels.length} 已启用</span>
+                <span className="text-[10px] text-muted-text">{channels.filter((c) => c.enabled).length}/{channels.length} {language === 'zh' ? '已启用' : language === 'tr' ? 'etkin' : 'enabled'}</span>
               ) : null}
             </div>
 
