@@ -12,7 +12,7 @@ import { useUiLanguage } from '../contexts/UiLanguageContext';
 import { formatUiText, type UiLanguage } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
 import type { FxRefreshFeedback } from '../utils/portfolioFormat';
-import { formatTryDisplay } from '../utils/portfolioTryDisplay';
+import { formatTryDisplay, formatPortfolioSnapshotTry } from '../utils/portfolioTryDisplay';
 import {
   buildFxRefreshFeedback,
   formatBrokerLabel,
@@ -754,8 +754,15 @@ const PortfolioPage: React.FC = () => {
   const hasAccounts = accounts.length > 0;
   const snapshotCurrency = snapshot?.currency || 'CNY';
   const snapshotFxStale = snapshot?.fxStale !== false;
-  const showTry = (value: number | null | undefined) => formatTryDisplay(value, snapshotCurrency, tryDisplayRates, snapshotFxStale);
-  const tryRateReady = tryDisplayRates?.status === 'current' && !snapshotFxStale && showTry(1) !== '—';
+  // The historical backend aggregation may contain stale 1:1 currency fallbacks.
+  // Only account-native balances are used for the main TRY figures.
+  const showAccountTotalTry = (field: 'totalEquity' | 'totalMarketValue' | 'totalCash') =>
+    formatPortfolioSnapshotTry(snapshot, field, tryDisplayRates);
+  const safelyAggregatedCny = !snapshotFxStale && (snapshot?.accounts.length || 0) > 0
+    && snapshot?.accounts.every((account) =>
+      account.baseCurrency.toUpperCase() === 'CNY' && !account.fxStale && account.dataQuality !== 'partial') === true;
+  const showExposureTry = (amount: number) => formatTryDisplay(amount, snapshotCurrency, tryDisplayRates, !safelyAggregatedCny);
+  const tryRateReady = showAccountTotalTry('totalEquity') !== '—';
   const writableAccount = selectedAccount === 'all' ? undefined : accounts.find((item) => item.id === selectedAccount);
   const writableAccountId = writableAccount?.id;
   const writeBlocked = !writableAccountId;
@@ -1666,15 +1673,15 @@ const PortfolioPage: React.FC = () => {
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalEquity}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{showTry(snapshot?.totalEquity)}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{showAccountTotalTry('totalEquity')}</p>
         </Card>
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalMarketValue}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{showTry(snapshot?.totalMarketValue)}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{showAccountTotalTry('totalMarketValue')}</p>
         </Card>
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalCash}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{showTry(snapshot?.totalCash)}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{showAccountTotalTry('totalCash')}</p>
         </Card>
         <Card variant="gradient" padding="md">
           <div className="flex items-start justify-between gap-3">
@@ -1721,7 +1728,7 @@ const PortfolioPage: React.FC = () => {
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-secondary">
               <span>{riskDashboardText.positions}: {positionCount}</span>
-              <span>{text.totalMarketValue}: {showTry(exposureTotal)}</span>
+              <span>{text.totalMarketValue}: {showExposureTry(exposureTotal)}</span>
             </div>
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
@@ -1746,7 +1753,7 @@ const PortfolioPage: React.FC = () => {
                 rows={marketExposureRows}
                 currency={snapshotCurrency}
                 fxRates={tryDisplayRates}
-                fxStale={snapshotFxStale}
+                fxStale={!safelyAggregatedCny}
                 emptyLabel={exposureEmptyLabel}
                 positionLabel={riskDashboardText.positions}
               />
@@ -1755,7 +1762,7 @@ const PortfolioPage: React.FC = () => {
                 rows={currencyExposureRows}
                 currency={snapshotCurrency}
                 fxRates={tryDisplayRates}
-                fxStale={snapshotFxStale}
+                fxStale={!safelyAggregatedCny}
                 emptyLabel={exposureEmptyLabel}
                 positionLabel={riskDashboardText.positions}
               />
@@ -1817,7 +1824,7 @@ const PortfolioPage: React.FC = () => {
                       <td className="py-2 pr-2 text-secondary">{row.accountName}</td>
                       <td className="py-2 pr-2 font-mono text-foreground">{row.symbol}</td>
                       <td className="py-2 pr-2 text-right">{row.quantity.toFixed(2)}</td>
-                      <td className="py-2 pr-2 text-right">{row.avgCost.toFixed(4)}</td>
+                      <td className="py-2 pr-2 text-right">{formatTryDisplay(row.avgCost, row.currency, tryDisplayRates)}</td>
                       <td className="py-2 pr-2 text-right">
                         <div>{hasPositionPrice(row) ? formatTryDisplay(row.lastPrice, row.currency, tryDisplayRates) : '—'}</div>
                         <div className={`text-[11px] ${hasPositionPrice(row) ? 'text-secondary' : 'text-warning'}`}>
