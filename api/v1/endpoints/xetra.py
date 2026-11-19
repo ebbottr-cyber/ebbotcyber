@@ -98,7 +98,7 @@ def get_inventory(
     rows = _manifest()
     term = query.strip().upper()
     # Only search official source codes, not arbitrary market identifiers.
-    selected = [code for code in sorted(rows) if term in code][:limit]
+    selected = [code for code in sorted(rows) if term in code or term in rows[code]["isin"]][:limit]
     latest, age = _source_date(rows)
     return {
         "status": "CANDIDATE_INVENTORY_ONLY",
