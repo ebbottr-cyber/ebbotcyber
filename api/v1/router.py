@@ -25,11 +25,11 @@ from api.v1.endpoints import (
     history,
     intelligence,
     meme_coin,
-    meme_coins,
     portfolio,
     stocks,
     system_config,
     usage,
+    xetra,
 )
 
 # 创建 v1 版本主路由。
@@ -127,6 +127,13 @@ router.include_router(
 )
 
 router.include_router(
+    xetra.router,
+    prefix="/xetra",
+    tags=["XetraResearch"],
+)
+
+
+router.include_router(
     intelligence.router,
     prefix="/intelligence",
     tags=["Intelligence"]
@@ -135,10 +142,4 @@ router.include_router(
 router.include_router(
     health.router,
     tags=["Health"]
-)
-
-router.include_router(
-    meme_coins.router,
-    prefix="/meme-coins",
-    tags=["MemeCoins"]
 )
