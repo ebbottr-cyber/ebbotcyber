@@ -823,7 +823,7 @@ const PortfolioPage: React.FC = () => {
         setSelectedBroker(FALLBACK_BROKERS[0].broker);
       }
     }
-  }, [selectedBroker]);
+  }, [selectedBroker, ledger.brokerEmpty, ledger.brokerUnavailable]);
 
   const loadSnapshotAndRisk = useCallback(async () => {
     setIsLoading(true);
@@ -856,7 +856,7 @@ const PortfolioPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [queryAccountId, costMethod]);
+  }, [queryAccountId, costMethod, ledger.riskUnavailable]);
 
   const loadEventsPage = useCallback(async (page: number) => {
     setEventLoading(true);
@@ -1425,7 +1425,7 @@ const PortfolioPage: React.FC = () => {
       setError(getParsedApiError(err));
       return false;
     }
-  }, []);
+  }, [ledger.riskUnavailable]);
 
   const handleRefreshFx = async () => {
     if (!hasAccounts || isLoading || fxRefreshing) {
