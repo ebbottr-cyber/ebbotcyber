@@ -389,7 +389,8 @@ function submitCurrentStock(value: string) {
 }
 
 async function persistReassessFromFirstSignal() {
-  await screen.findByText('贵州茅台');
+  // The same stock may appear in both latest-signal and timeline views.
+  await screen.findAllByText('贵州茅台');
   fireEvent.click(screen.getAllByRole('button', { name: '查看 贵州茅台 AI 建议详情' })[0]);
   fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '生成预览' }));
   fireEvent.click(await screen.findByRole('button', { name: '确认保存' }));
