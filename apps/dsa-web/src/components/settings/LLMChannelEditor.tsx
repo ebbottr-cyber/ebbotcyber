@@ -19,6 +19,7 @@ import {
 import { SettingsHelpButton } from './SettingsHelpButton';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import { llmUiText } from './llmChannelI18n';
+import type { UiLanguage } from '../../i18n/uiText';
 
 const PROTOCOL_OPTIONS: Array<{ value: ChannelProtocol; label: string }> = [
   { value: 'openai', label: 'OpenAI Compatible' },
@@ -1220,12 +1221,12 @@ const LLM_REASON_HINTS: Record<string, string> = {
   capability_unsupported: '当前模型或兼容层不支持该能力；这不影响基础文本连接，可换模型或关闭该能力依赖。',
 };
 
-function getLlmStageLabel(stage?: string | null): string {
-  return LLM_STAGE_LABELS[stage || ''] || '连接测试';
+function getLlmStageLabel(stage: string | null | undefined, language: UiLanguage): string {
+  return llmUiText(LLM_STAGE_LABELS[stage || ''] || '连接测试', language);
 }
 
-function getLlmErrorCodeLabel(code?: string | null): string {
-  return LLM_ERROR_LABELS[code || ''] || '测试失败';
+function getLlmErrorCodeLabel(code: string | null | undefined, language: UiLanguage): string {
+  return llmUiText(LLM_ERROR_LABELS[code || ''] || '测试失败', language);
 }
 
 function getLlmTroubleshootingHint(
@@ -1233,20 +1234,21 @@ function getLlmTroubleshootingHint(
   stage?: string | null,
   context: 'test' | 'discovery' = 'test',
   details?: Record<string, unknown>,
+  language: UiLanguage = 'zh',
 ): string | undefined {
   const reason = typeof details?.reason === 'string' ? details.reason : '';
   if (reason && LLM_REASON_HINTS[reason]) {
-    return LLM_REASON_HINTS[reason];
+    return llmUiText(LLM_REASON_HINTS[reason], language);
   }
   if (code === 'format_error') {
-    return context === 'discovery' || stage === 'model_discovery'
+    return llmUiText(context === 'discovery' || stage === 'model_discovery'
       ? '该渠道返回的 /models 响应格式不兼容，请改为手动填写模型列表。'
-      : '返回结构与预期不一致，请确认该渠道兼容 Chat Completions 接口。';
+      : '返回结构与预期不一致，请确认该渠道兼容 Chat Completions 接口。', language);
   }
   if (code === 'empty_response' && (context === 'discovery' || stage === 'model_discovery')) {
-    return '该渠道的 /models 接口未返回可用模型 ID；请检查 Base URL 是否指向兼容的模型列表接口，或改为手动填写模型列表。';
+    return llmUiText('该渠道的 /models 接口未返回可用模型 ID；请检查 Base URL 是否指向兼容的模型列表接口，或改为手动填写模型列表。', language);
   }
-  return LLM_TROUBLESHOOTING_HINTS[code || ''];
+  return LLM_TROUBLESHOOTING_HINTS[code || ''] ? llmUiText(LLM_TROUBLESHOOTING_HINTS[code || ''], language) : undefined;
 }
 
 function buildLlmTestHint(result: {
@@ -1254,19 +1256,19 @@ function buildLlmTestHint(result: {
   stage?: string | null;
   details?: Record<string, unknown>;
   resolvedModel?: string | null;
-}): string | undefined {
+}, language: UiLanguage = 'zh'): string | undefined {
   const reason = typeof result.details?.reason === 'string' ? result.details.reason : '';
   const detailsModel = typeof result.details?.model === 'string' ? result.details.model : '';
   const testedModel = result.resolvedModel || detailsModel;
-  const modelHint = testedModel ? `本次测试模型：${testedModel}。` : '';
-  const scopeInfo = '基础连接测试默认只测试模型列表中的第一个模型。';
+  const modelHint = testedModel ? `${llmUiText('本次测试模型：', language)}${testedModel}${language === 'zh' ? '。' : '.'}` : '';
+  const scopeInfo = llmUiText('基础连接测试默认只测试模型列表中的第一个模型。', language);
   const shouldSuggestModelListChange = reason === 'model_access_denied'
     || reason === 'model_not_found'
     || (result.errorCode === 'model_not_found' && !reason);
   const modelActionHint = shouldSuggestModelListChange
-    ? '若该模型不可用，请调整模型顺序或移除不可用模型后重试。'
+    ? llmUiText('若该模型不可用，请调整模型顺序或移除不可用模型后重试。', language)
     : '';
-  const troubleshootingHint = getLlmTroubleshootingHint(result.errorCode, result.stage, 'test', result.details);
+  const troubleshootingHint = getLlmTroubleshootingHint(result.errorCode, result.stage, 'test', result.details, language);
   return [modelHint, scopeInfo, modelActionHint, troubleshootingHint].filter(Boolean).join(' ') || undefined;
 }
 
@@ -1275,13 +1277,13 @@ function buildLlmFailureText(result: {
   error?: string | null;
   stage?: string | null;
   errorCode?: string | null;
-}): string {
-  const prefix = `${getLlmStageLabel(result.stage)} · ${getLlmErrorCodeLabel(result.errorCode)}`;
-  const summary = result.message || '测试失败';
+}, language: UiLanguage = 'zh'): string {
+  const prefix = `${getLlmStageLabel(result.stage, language)} · ${getLlmErrorCodeLabel(result.errorCode, language)}`;
+  const summary = result.message || llmUiText('测试失败', language);
   if (result.error && result.error !== result.message) {
-    return `${prefix}：${summary}（原始摘要：${result.error}）`;
+    return `${prefix}: ${summary} (${llmUiText('原始摘要：', language)}${result.error})`;
   }
-  return `${prefix}：${summary}`;
+  return `${prefix}: ${summary}`;
 }
 
 function getCapabilityResultVariant(status: LLMCapabilityCheckResult['status']): 'success' | 'danger' | 'warning' {
@@ -1290,20 +1292,23 @@ function getCapabilityResultVariant(status: LLMCapabilityCheckResult['status']):
   return 'danger';
 }
 
-function summarizeCapabilityResults(results: Partial<Record<LLMCapabilityCheck, LLMCapabilityCheckResult>>): string {
+function summarizeCapabilityResults(results: Partial<Record<LLMCapabilityCheck, LLMCapabilityCheckResult>>, language: UiLanguage = 'zh'): string {
   const values = Object.values(results);
   const passed = values.filter((result) => result?.status === 'passed').length;
   const failed = values.filter((result) => result?.status === 'failed').length;
   const skipped = values.filter((result) => result?.status === 'skipped').length;
-  return `能力检测完成：${passed} 通过 / ${failed} 失败 / ${skipped} 跳过`;
+  return language === 'zh'
+    ? `能力检测完成：${passed} 通过 / ${failed} 失败 / ${skipped} 跳过`
+    : `${llmUiText('能力检测完成：', language)}${passed} ${llmUiText('通过', language)} / ${failed} ${llmUiText('失败', language)} / ${skipped} ${llmUiText('跳过', language)}`;
 }
 
 function getFirstCapabilityHint(
   results: Partial<Record<LLMCapabilityCheck, LLMCapabilityCheckResult>>,
+  language: UiLanguage = 'zh',
 ): string | undefined {
   for (const result of Object.values(results)) {
     if (!result || result.status === 'passed') continue;
-    const hint = getLlmTroubleshootingHint(result.errorCode, result.stage, 'test', result.details);
+    const hint = getLlmTroubleshootingHint(result.errorCode, result.stage, 'test', result.details, language);
     if (hint) return hint;
   }
   return undefined;
@@ -2141,7 +2146,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
     if (hasRuntimeOnlyMaskedHermesSecret(channel, maskToken, hasPersistedHermesSecret(channel))) {
       setTestStates((previous) => ({
         ...previous,
-        [index]: { status: 'error', text: RUNTIME_ONLY_HERMES_SECRET_MESSAGE },
+        [index]: { status: 'error', text: L(RUNTIME_ONLY_HERMES_SECRET_MESSAGE) },
       }));
       return;
     }
@@ -2165,8 +2170,8 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
 
       const text = result.success
         ? `连接成功${result.resolvedModel ? ` · ${result.resolvedModel}` : ''}${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
-        : buildLlmFailureText(result);
-      const hint = result.success ? undefined : buildLlmTestHint(result);
+        : buildLlmFailureText(result, language);
+      const hint = result.success ? undefined : buildLlmTestHint(result, language);
 
       setTestStates((previous) => ({
         ...previous,
@@ -2191,7 +2196,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
         ...previous,
         [channel.id]: {
           status: 'error',
-          text: RUNTIME_ONLY_HERMES_SECRET_MESSAGE,
+          text: L(RUNTIME_ONLY_HERMES_SECRET_MESSAGE),
           hint: undefined,
           models: previous[channel.id]?.models || [],
         },
@@ -2232,8 +2237,8 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
           status: result.success ? 'success' : 'error',
           text: result.success
             ? `已获取 ${result.models.length} 个模型${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
-            : buildLlmFailureText(result),
-          hint: result.success ? undefined : getLlmTroubleshootingHint(result.errorCode, result.stage, 'discovery', result.details),
+            : buildLlmFailureText(result, language),
+          hint: result.success ? undefined : getLlmTroubleshootingHint(result.errorCode, result.stage, 'discovery', result.details, language),
           models: result.success ? result.models : (previous[channel.id]?.models || []),
         },
       }));
@@ -2285,7 +2290,7 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
         [channel.id]: {
           selected,
           status: 'error',
-          text: RUNTIME_ONLY_HERMES_SECRET_MESSAGE,
+          text: L(RUNTIME_ONLY_HERMES_SECRET_MESSAGE),
           hint: undefined,
           results: {},
         },
@@ -2333,12 +2338,12 @@ export const LLMChannelEditor: React.FC<LLMChannelEditorProps> = ({
           selected,
           status: hasFailure || hasSkipped || !result.success ? 'error' : 'success',
           text: Object.keys(capabilityResults).length > 0
-            ? summarizeCapabilityResults(capabilityResults)
+            ? summarizeCapabilityResults(capabilityResults, language)
             : result.success
               ? L("未返回能力检测结果")
-              : buildLlmFailureText(result),
-          hint: getFirstCapabilityHint(capabilityResults)
-            || (!result.success ? buildLlmTestHint(result) : undefined),
+              : buildLlmFailureText(result, language),
+          hint: getFirstCapabilityHint(capabilityResults, language)
+            || (!result.success ? buildLlmTestHint(result, language) : undefined),
           results: capabilityResults,
         },
       }));
