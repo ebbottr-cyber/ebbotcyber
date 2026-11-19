@@ -1,0 +1,47 @@
+name: EBBot PR57 safe main sync (review branch ONLY)
+
+on:
+  push:
+    branches:
+      - fix/pr57-main-sync-20261119
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-review-only-merge:
+    if: ${{ github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'merge: PR57 main synchronization') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify audited upstream and merge without a main/PR57 write
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'EBBot Conflict Review'
+          git config user.email 'ebbot-review@example.invalid'
+          git fetch origin main
+          expected_main=6be70ec2ed5cc29a3612646b9d5eda370cc3c49b
+          test "$(git rev-parse origin/main)" = "$expected_main"
+          test "$(git branch --show-current)" = 'fix/pr57-main-sync-20261119'
+          set +e
+          git merge --no-commit --no-ff origin/main
+          status=$?
+          set -e
+          test "$status" -ne 0
+          python .github/scripts/resolve_pr57_main.py
+          git add -A
+          test -z "$(git ls-files -u)"
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'merge: PR57 main synchronization (review only)'
+          git push origin HEAD:refs/heads/fix/pr57-main-sync-20261119
+          echo 'PUSHED_REVIEW_BRANCH_ONLY=true'
+          echo 'NO_MAIN_OR_PR57_WRITES=true'
