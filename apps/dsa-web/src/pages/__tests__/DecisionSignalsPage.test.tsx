@@ -757,6 +757,9 @@ describe('DecisionSignalsPage', () => {
   it('reports an expired signal refresh separately and refreshes active views', async () => {
     const refreshedItem = makeSignal({
       id: 90,
+      // Keep this test signal inside the default 30-day timeline window.
+      // Fixed historical fixture dates eventually age out and hide this item.
+      createdAt: new Date().toISOString(),
       decisionProfile: 'balanced',
       sourceAgent: null,
       triggerSource: 'api',
