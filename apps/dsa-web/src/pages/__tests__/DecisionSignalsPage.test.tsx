@@ -790,6 +790,9 @@ describe('DecisionSignalsPage', () => {
     renderPage();
     await screen.findByText('贵州茅台');
     submitCurrentStock('600519');
+    // Wait for the initial timeline to establish its applied filter context before
+    // asserting that a persisted reassessment refreshes the active timeline.
+    await screen.findByTestId('timeline-click-7');
     await persistReassessFromFirstSignal();
 
     expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();
