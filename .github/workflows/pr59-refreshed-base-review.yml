@@ -1,0 +1,79 @@
+name: EBBot PR59 updated-base offline audit (review only)
+
+on:
+  push:
+    branches: [integration/pr59-four-markets-sync-20261119]
+  pull_request:
+    branches: [feat/all-markets-paper-universe-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  four-markets-pr58-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SCHEDULE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/pr59-four-markets-sync-20261119
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pin updated PR58 ancestor, check source tree identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feat/all-markets-paper-universe-v1
+          expected=f943f02403c010a156dd0d26438e783e07b5fd32
+          test "$(git rev-parse origin/feat/all-markets-paper-universe-v1)" = "$expected"
+          git merge-base --is-ancestor "$expected" HEAD
+          echo "PR58_HEAD_SHA=$expected"
+          echo "PR58_BASE_TREE_SHA=$(git rev-parse "$expected^{tree}")"
+          echo "PR59_REVIEW_HEAD_SHA=$(git rev-parse HEAD)"
+          echo "NO_BRANCH_WRITES=true"
+      - name: Audit all four markets and parent inventory tests (offline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_four_market_equities.py' -v
+          python -m unittest discover -s tests -p 'test_paper_universe_inventory.py' -v
+          python -m unittest discover -s tests -p 'test_paper_universe_sources.py' -v
+          python -m unittest discover -s tests -p 'test_binance_futures_catalog.py' -v
+          python -m unittest discover -s tests -p 'test_paper_market_data_quality.py' -v
+          python -m scripts.audit_four_market_equities > /tmp/four_market_audit.json
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          manifest = Path('data/market_snapshots/de/xetra-candidates.csv')
+          with manifest.open(encoding='utf-8', newline='') as handle:
+              rows = list(csv.DictReader(handle))
+          assert len(rows) == 1749, f'Unexpected Xetra candidate count: {len(rows)}'
+          assert len(set(r['symbol'] for r in rows)) == len(rows)
+          assert all(
+              r['market'] == 'de'
+              and r['source'] == 'deutsche_boerse_xetra_t7'
+              and r['kind'] == 'stock'
+              and r['source_as_of_date'] == '2026-11-18'
+              and r['price_symbol_verified'] == 'false'
+              for r in rows
+          )
+          data = json.loads(Path('/tmp/four_market_audit.json').read_text())
+          assert data['selected_markets'] == ['tr', 'us', 'de', 'hk']
+          assert data['candidate_stocks_by_market']['de'] == 1749
+          assert data['price_symbols_verified'] is False
+          assert data['live_trading_enabled'] is False
+          assert data['paper_trading_enabled'] is False
+          assert data['network_requests'] == 0
+          assert data['orders'] == 0
+          assert data['fixed_top_n_cap'] is False
+          print('FOUR_MARKETS_OFFLINE_REVIEW_PASS=true')
+          print('XETRA_OFFICIAL_CANDIDATES=1749')
+          print('CANDIDATES_NOT_PRICES=true')
+          print('NO_TRADING=true')
+          PY
