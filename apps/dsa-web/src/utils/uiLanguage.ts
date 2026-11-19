@@ -1,19 +1,18 @@
 import type { UiLanguage } from '../i18n/uiText';
 
+/** Keep legacy translation tables for compatibility, but ship a Turkish-only user interface. */
 export const UI_LANGUAGE_STORAGE_KEY = 'dsa.uiLanguage';
 
 export function normalizeUiLanguage(value?: string | null): UiLanguage | null {
-  if (value === 'zh' || value === 'en' || value === 'tr') {
-    return value;
+  if (value === 'tr' || value === 'zh' || value === 'en') {
+    // Previously selected English or Chinese must never leak back into the operator UI.
+    return 'tr';
   }
   return null;
 }
 
 function getStoredUiLanguage(storage?: Storage | null): UiLanguage | null {
-  if (!storage) {
-    return null;
-  }
-
+  if (!storage) return null;
   try {
     return normalizeUiLanguage(storage.getItem(UI_LANGUAGE_STORAGE_KEY));
   } catch {
@@ -22,10 +21,7 @@ function getStoredUiLanguage(storage?: Storage | null): UiLanguage | null {
 }
 
 export function getUiLanguageStorage(): Storage | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
+  if (typeof window === 'undefined') return null;
   try {
     return window.localStorage;
   } catch {
@@ -34,59 +30,26 @@ export function getUiLanguageStorage(): Storage | null {
 }
 
 export function persistUiLanguage(storage: Storage | null, language: UiLanguage): void {
-  if (!storage) {
-    return;
-  }
-
+  if (!storage) return;
   try {
-    storage.setItem(UI_LANGUAGE_STORAGE_KEY, language);
+    storage.setItem(UI_LANGUAGE_STORAGE_KEY, normalizeUiLanguage(language) ?? 'tr');
   } catch {
-    // Ignore storage failures; in-memory language still updates.
+    // In-memory Turkish UI continues even if localStorage is unavailable.
   }
-}
-
-function getBrowserUiLanguage(navigatorLike?: Pick<Navigator, 'language' | 'languages'> | null): UiLanguage {
-  const languageCandidates = [
-    ...(Array.isArray(navigatorLike?.languages) ? navigatorLike?.languages ?? [] : []),
-    navigatorLike?.language,
-  ].filter((language): language is string => Boolean(language));
-
-  for (const candidate of languageCandidates) {
-    const normalized = candidate.toLowerCase();
-    if (normalized.startsWith('tr')) {
-      return 'tr';
-    }
-    if (normalized.startsWith('zh')) {
-      return 'tr';
-    }
-    if (normalized.startsWith('en')) {
-      return 'en';
-    }
-  }
-
-  return 'tr';
 }
 
 export function resolveInitialUiLanguage({
   storage,
-  navigatorLike,
 }: {
   storage?: Storage | null;
+  // Kept in the public signature for existing callers; browser preference is ignored.
   navigatorLike?: Pick<Navigator, 'language' | 'languages'> | null;
 } = {}): UiLanguage {
-  const stored = getStoredUiLanguage(storage);
-  if (stored) {
-    return stored;
-  }
-
-  return getBrowserUiLanguage(navigatorLike);
+  return getStoredUiLanguage(storage) ?? 'tr';
 }
 
 export function getRuntimeInitialLanguage(): UiLanguage {
-  if (typeof window === 'undefined') {
-    return 'tr';
-  }
-
+  if (typeof window === 'undefined') return 'tr';
   return resolveInitialUiLanguage({
     storage: getUiLanguageStorage(),
     navigatorLike: window.navigator,
