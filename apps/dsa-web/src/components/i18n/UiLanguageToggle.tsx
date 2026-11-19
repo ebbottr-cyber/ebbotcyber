@@ -1,5 +1,7 @@
 import type React from 'react';
 import { Languages } from 'lucide-react';
+import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import { shouldForceTurkishUi } from '../../utils/uiLanguage';
 import { cn } from '../../utils/cn';
 
 type UiLanguageToggleVariant = 'default' | 'nav' | 'rail';
@@ -14,7 +16,6 @@ interface UiLanguageToggleProps {
   labelClassName?: string;
 }
 
-/** Read-only language indicator. The EBBot operator interface is Turkish-only. */
 export const UiLanguageToggle: React.FC<UiLanguageToggleProps> = ({
   variant = 'default',
   collapsed = false,
@@ -24,35 +25,74 @@ export const UiLanguageToggle: React.FC<UiLanguageToggleProps> = ({
   iconClassName,
   labelClassName,
 }) => {
+  const { language, setLanguage, t } = useUiLanguage();
+  if (shouldForceTurkishUi()) {
+    const isRailVariant = variant === 'rail';
+    const isNavVariant = variant === 'nav';
+    return (
+      <div className={cn('relative', isRailVariant ? 'w-full' : '', wrapperClassName)}>
+        <span
+          role="status"
+          aria-label="Arayüz dili: Türkçe"
+          title="Arayüz dili: Türkçe"
+          className={cn(
+            triggerClassName
+              ? triggerClassName
+              : isRailVariant
+                ? 'flex h-[var(--nav-item-height)] w-full items-center justify-center gap-2.5 rounded-2xl border border-transparent px-2 text-sm leading-none text-secondary-text'
+                : isNavVariant
+                  ? 'group relative flex h-12 w-full select-none items-center gap-3 rounded-[1.35rem] border border-transparent px-4 text-sm text-secondary-text'
+                  : 'inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-card/80 px-3 text-sm text-secondary-text shadow-soft-card',
+            triggerActiveClassName,
+            isNavVariant && collapsed ? 'justify-center px-2' : '',
+          )}
+        >
+          <Languages className={iconClassName ?? cn('shrink-0', isRailVariant ? 'h-[18px] w-[18px]' : isNavVariant ? 'h-5 w-5' : 'h-4 w-4')} />
+          {isRailVariant ? (
+            <span className={labelClassName}>TR</span>
+          ) : isNavVariant ? (
+            collapsed ? null : <span className="truncate text-[1.02rem] font-medium">Türkçe</span>
+          ) : (
+            <span className="hidden sm:inline">Türkçe</span>
+          )}
+        </span>
+      </div>
+    );
+  }
+
+  const nextLanguage = language === 'tr' ? 'en' : language === 'en' ? 'zh' : 'tr';
   const isNavVariant = variant === 'nav';
   const isRailVariant = variant === 'rail';
+  const label = language === 'tr' ? 'Türkçe' : language === 'en' ? 'English' : '中文';
+
   return (
     <div className={cn('relative', isRailVariant ? 'w-full' : '', wrapperClassName)}>
-      <span
-        role="status"
-        aria-label="Arayüz dili: Türkçe"
-        title="Arayüz dili: Türkçe"
+      <button
+        type="button"
+        onClick={() => setLanguage(nextLanguage)}
         className={cn(
           triggerClassName
             ? triggerClassName
             : isRailVariant
-              ? 'flex h-[var(--nav-item-height)] w-full items-center justify-center gap-2.5 rounded-2xl border border-transparent px-2 text-sm leading-none text-secondary-text'
+              ? 'flex h-[var(--nav-item-height)] w-full items-center justify-center gap-2.5 rounded-2xl border border-transparent px-2 text-sm leading-none text-secondary-text transition-all hover:bg-[var(--nav-hover-bg)] hover:text-foreground'
               : isNavVariant
-                ? 'group relative flex h-12 w-full select-none items-center gap-3 rounded-[1.35rem] border border-transparent px-4 text-sm text-secondary-text'
-                : 'inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-card/80 px-3 text-sm text-secondary-text shadow-soft-card',
+                ? 'group relative flex h-12 w-full select-none items-center gap-3 rounded-[1.35rem] border border-transparent px-4 text-sm text-secondary-text transition-all duration-300 hover:bg-hover hover:text-foreground'
+                : 'inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-card/80 px-3 text-sm text-secondary-text shadow-soft-card transition-colors hover:bg-hover hover:text-foreground',
           triggerActiveClassName,
-          isNavVariant && collapsed ? 'justify-center px-2' : '',
+          isNavVariant && collapsed ? 'justify-center px-2' : ''
         )}
+        aria-label={t('language.toggle')}
+        title={t('language.toggle')}
       >
         <Languages className={iconClassName ?? cn('shrink-0', isRailVariant ? 'h-[18px] w-[18px]' : isNavVariant ? 'h-5 w-5' : 'h-4 w-4')} />
         {isRailVariant ? (
-          <span className={labelClassName}>TR</span>
+          <span className={labelClassName}>{language === 'tr' ? 'TR' : language === 'zh' ? '中' : 'EN'}</span>
         ) : isNavVariant ? (
-          collapsed ? null : <span className="truncate text-[1.02rem] font-medium">Türkçe</span>
+          collapsed ? null : <span className="truncate text-[1.02rem] font-medium">{label}</span>
         ) : (
-          <span className="hidden sm:inline">Türkçe</span>
+          <span className="hidden sm:inline">{label}</span>
         )}
-      </span>
+      </button>
     </div>
   );
 };
