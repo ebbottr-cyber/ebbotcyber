@@ -1472,7 +1472,7 @@ const StockScreeningPage: React.FC = () => {
 
         <div className="inline-flex w-fit items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-4 py-2 text-sm shadow-soft-card">
           <span className={`h-2.5 w-2.5 rounded-full ${isScreeningEnabled ? 'bg-success' : 'bg-warning'}`} />
-          <span className="font-medium text-secondary-text">{statusText}</span>
+          <span className="font-medium text-secondary-text">{L(statusText)}</span>
         </div>
       </div>
 
@@ -1555,7 +1555,7 @@ const StockScreeningPage: React.FC = () => {
               ) : null}
             </div>
             {hotspotsUpdatedAt ? (
-              <p className="text-xs text-secondary-text">更新于 {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
+              <p className="text-xs text-secondary-text">{L("更新于")} {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
             ) : null}
           </div>
         </div>
@@ -1613,8 +1613,8 @@ const StockScreeningPage: React.FC = () => {
                 </div>
                 <div className="mt-4 grid max-w-[72%] gap-1 text-[11px] text-secondary-text">
                   <span>{L("涨跌幅")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.changePct)}%</strong></span>
-                  <span>{L("趋势")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.trendScore)}</strong> · 持续 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.persistenceScore)}</strong></span>
-                  <span>{getHotspotSampleText(item)} · 龙头 {getHotspotLeadersText(item)}</span>
+                  <span>{L("趋势")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.trendScore)}</strong> · {L("持续")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.persistenceScore)}</strong></span>
+                  <span>{getHotspotSampleText(item)} · {L("龙头")} {getHotspotLeadersText(item)}</span>
                 </div>
                 <div className="absolute bottom-3 right-3 opacity-95 transition-transform group-hover:scale-105">
                   <MiniSparkline score={item.heatScore} selected={selected} />
@@ -1640,7 +1640,7 @@ const StockScreeningPage: React.FC = () => {
                       : L("点击题材查看发酵路线与概念股。")}
                 </p>
                 {hotspotDetail?.canonicalTopic && hotspotDetail.canonicalTopic !== selectedHotspotTopic ? (
-                  <p className="mt-1 text-[11px] text-secondary-text">标准题材：{hotspotDetail.canonicalTopic}</p>
+                  <p className="mt-1 text-[11px] text-secondary-text">{L("标准题材：")}{hotspotDetail.canonicalTopic}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1662,7 +1662,7 @@ const StockScreeningPage: React.FC = () => {
                 ) : null}
                 {hotspotDetail?.qualityStatus ? (
                   <span className="w-fit rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning">
-                    质量 {L(getHotspotQualityLabel(hotspotDetail.qualityStatus))}
+                    {L("质量")} {L(getHotspotQualityLabel(hotspotDetail.qualityStatus))}
                   </span>
                 ) : null}
                 {hotspotDetail?.fallbackUsed || hotspotDetail?.stale ? (
@@ -1672,7 +1672,7 @@ const StockScreeningPage: React.FC = () => {
                 ) : null}
                 {hotspotDetail?.stockCount != null ? (
                   <span className="w-fit rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-500">
-                    概念股 {hotspotDetail.stockCount}
+                    {L("概念股")} {hotspotDetail.stockCount}
                   </span>
                 ) : null}
               </div>
@@ -1689,7 +1689,7 @@ const StockScreeningPage: React.FC = () => {
                 <summary className="cursor-pointer font-semibold">{L("详情数据已降级，展开查看原因")}</summary>
                 <div className="mt-2 space-y-1 leading-5">
                   {(hotspotDetail.missingFields || []).length > 0 ? (
-                    <p>暂缺：{getHotspotMissingFieldLabels(hotspotDetail.missingFields).join('、')}</p>
+                    <p>{L("暂缺：")}{getHotspotMissingFieldLabels(hotspotDetail.missingFields).map(L).join(language === "zh" ? "、" : ", ")}</p>
                   ) : null}
                   {getHotspotDiagnosticMessages(hotspotDetail.sourceErrors).map((message, index) => (
                     <p key={`${message}-${index}`}>{message}</p>
@@ -1745,7 +1745,7 @@ const StockScreeningPage: React.FC = () => {
                             {stock.code ? (
                               <button
                                 type="button"
-                                aria-label={`分析 ${stock.name || stock.code}`}
+                                aria-label={`${L("分析")} ${stock.name || stock.code}`}
                                 className="inline-flex h-7 items-center gap-1 rounded-full border border-cyan/30 bg-cyan/10 px-2 text-[11px] font-semibold text-cyan transition-colors hover:border-cyan hover:bg-cyan/15 hover:text-foreground"
                                 onClick={() => handleAnalyzeHotspotStock(stock)}
                               >
@@ -1756,7 +1756,7 @@ const StockScreeningPage: React.FC = () => {
                           </div>
                         </div>
                         <p className="mt-2 text-[11px] text-secondary-text">
-                          涨跌幅 {formatStockChangeText(stock.changePct)} · 热度 {formatNumber(stock.hotStockScore, 0)}
+                          {L("涨跌幅")} {formatStockChangeText(stock.changePct)} · {L("热度")} {formatNumber(stock.hotStockScore, 0)}
                         </p>
                       </div>
                     ))}
@@ -1775,7 +1775,7 @@ const StockScreeningPage: React.FC = () => {
             {L("运行选股")}
           </div>
           <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">
-            {selectedStrategyTag}
+            {L(selectedStrategyTag)}
           </span>
         </div>
 
@@ -1885,26 +1885,26 @@ const StockScreeningPage: React.FC = () => {
           <details className="mt-3 border-t border-border/70 pt-3 text-xs text-secondary-text">
             <summary className="w-fit cursor-pointer font-medium text-secondary-text">{L("运行详情")}</summary>
             <div className="mt-2 grid gap-1">
-              <span>任务：{activeTaskId ? activeTaskId.slice(0, 12) : '-'}</span>
+              <span>{L("任务：")}{activeTaskId ? activeTaskId.slice(0, 12) : '-'}</span>
               <span>Run ID：{screenMeta?.runId || '-'}</span>
               <span>
-                快照 {screenMeta?.snapshotCount ?? '-'} · 过滤后 {screenMeta?.afterFilterCount ?? '-'} · 候选 {screenMeta?.candidateCount ?? candidates.length}
+                {L("快照")} {screenMeta?.snapshotCount ?? '-'} · {L("过滤后")} {screenMeta?.afterFilterCount ?? '-'} · {L("候选")} {screenMeta?.candidateCount ?? candidates.length}
               </span>
               <span>
-                排序：{screenMeta?.llmRanked ? L("智能重排") : screenMeta ? L("确定性因子") : '-'}
+                {L("排序：")}{screenMeta?.llmRanked ? L("智能重排") : screenMeta ? L("确定性因子") : '-'}
                 {screenMeta?.llmModelUsed ? ` · ${screenMeta.llmModelUsed}` : ''}
-                {screenMeta?.llmCoverage != null ? ` · 覆盖 ${formatPercent(screenMeta.llmCoverage)}` : ''}
+                {screenMeta?.llmCoverage != null ? ` · ${L("覆盖")} ${formatPercent(screenMeta.llmCoverage)}` : ''}
               </span>
               {screenMeta?.resultVariantPoolSize ? (
                 <span>
-                  候选差异：近分池 {screenMeta.resultVariantPoolSize} ·{' '}
+                  {L("候选差异：近分池")} {screenMeta.resultVariantPoolSize} ·{' '}
                   {screenMeta.resultVariantApplied
-                    ? `本次替换 ${screenMeta.resultVariantRotatedSlots ?? 0} 位`
+                    ? `${L("本次替换")} ${screenMeta.resultVariantRotatedSlots ?? 0}`
                     : L("本次保持基准")}
                 </span>
               ) : null}
               <span>
-                深度补充：{screenMeta?.dsaEnrichment?.enrichedCount ?? '-'} / {screenMeta?.dsaEnrichment?.requestedCount ?? '-'}
+                {L("深度补充：")}{screenMeta?.dsaEnrichment?.enrichedCount ?? '-'} / {screenMeta?.dsaEnrichment?.requestedCount ?? '-'}
               </span>
             </div>
           </details>
@@ -1998,14 +1998,14 @@ const StockScreeningPage: React.FC = () => {
                                     <p className="text-xs font-semibold text-cyan">{L("为什么入选")}</p>
                                     <ExplanationItems items={selectionExplanations} emptyText={L("暂无可验证的入选解释")} />
                                     {selectionExplanations.length > 0 ? (
-                                      <p className="mt-2 text-xs text-secondary-text">综合质量：{selectionQuality}</p>
+                                      <p className="mt-2 text-xs text-secondary-text">{L("综合质量：")}{selectionQuality}</p>
                                     ) : null}
                                   </div>
                                   <div className="rounded-xl border border-orange-400/25 bg-orange-500/5 px-3 py-2.5">
                                     <p className="text-xs font-semibold text-orange-500">{L("为什么现在")}</p>
                                     <ExplanationItems items={item.whyNow} emptyText={L("暂无带来源的价格、消息或事件证据")} />
                                     {item.whyNow?.length ? (
-                                      <p className="mt-2 text-xs text-secondary-text">综合质量：{item.explanationQuality?.whyNow || 'unknown'}</p>
+                                      <p className="mt-2 text-xs text-secondary-text">{L("综合质量：")}{item.explanationQuality?.whyNow || 'unknown'}</p>
                                     ) : null}
                                   </div>
                                 </div>
@@ -2037,7 +2037,7 @@ const StockScreeningPage: React.FC = () => {
                                     <p className="text-xs font-semibold text-secondary-text">{L("智能判断")}</p>
                                     <p className="mt-1 text-sm leading-6 text-foreground">{item.llmThesis || item.reason}</p>
                                     <p className="mt-1 text-xs text-secondary-text">
-                                      板块 {item.llmSector || '-'} · 主题 {item.llmTheme || '-'} · 置信度 {formatPercent(item.llmConfidence)}
+                                      {L("板块")} {item.llmSector || '-'} · {L("主题")} {item.llmTheme || '-'} · {L("置信度")} {formatPercent(item.llmConfidence)}
                                     </p>
                                   </div>
                                 ) : null}
@@ -2177,8 +2177,8 @@ const StockScreeningPage: React.FC = () => {
                   </span>
                   <span className="mt-0.5 block text-xs text-secondary-text">
                     {L('返回')} {run.candidateCount ?? 0} {L('只')}
-                    {run.snapshotCount != null ? ` · 快照 ${run.snapshotCount}` : ''}
-                    {run.llmRanked ? ' · 智能重排' : ''}
+                    {run.snapshotCount != null ? ` · ${L("快照")} ${run.snapshotCount}` : ''}
+                    {run.llmRanked ? ` · ${L('智能重排')}` : ''}
                   </span>
                 </span>
                 <span className="shrink-0 text-xs text-secondary-text">
