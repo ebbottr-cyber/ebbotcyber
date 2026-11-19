@@ -1,5 +1,6 @@
 import type React from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor, within, type RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { decisionSignalsApi } from '../../api/decisionSignals';
 import { createApiError, createParsedApiError } from '../../api/error';
@@ -7,6 +8,11 @@ import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import type { DecisionSignalItem } from '../../types/decisionSignals';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import PortfolioPage from '../PortfolioPage';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
 
 const {
   getAccounts,
