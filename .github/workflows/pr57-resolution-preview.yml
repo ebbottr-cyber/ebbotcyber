@@ -43,8 +43,8 @@ jobs:
           from pathlib import Path
           import subprocess
           paths = subprocess.check_output(
-              ["git", "diff", "--cached", "--name-only", "-z"]
-          ).decode().rstrip("\\x00").split("\\x00")
+              ["git", "diff", "--cached", "--name-only"], text=True
+          ).splitlines()
           for path in paths:
               if not path:
                   continue
