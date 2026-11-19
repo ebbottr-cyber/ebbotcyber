@@ -1,0 +1,72 @@
+name: EBBot PR62 refreshed-base offline quote verification
+
+on:
+  push:
+    branches: [integration/pr62-xetra-quote-sync-20261119]
+  pull_request:
+    branches: [feat/four-market-equity-audit-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  xetra-quote-guard-and-inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SCHEDULE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/pr62-xetra-quote-sync-20261119
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Pin refreshed PR59 reference inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feat/four-market-equity-audit-v1
+          expected=89ad671fe686ab5ae084745fd5d8af26a96bc02c
+          test "$(git rev-parse origin/feat/four-market-equity-audit-v1)" = "$expected"
+          git merge-base --is-ancestor "$expected" HEAD
+          echo "PR59_HEAD_SHA=$expected"
+          echo "PR59_BASE_TREE_SHA=$(git rev-parse "$expected^{tree}")"
+          echo "PR62_REVIEW_HEAD_SHA=$(git rev-parse HEAD)"
+          echo "NO_BRANCH_WRITES=true"
+      - name: Offline Xetra quote/inventory and parent markets tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_xetra_quote_guard.py' -v
+          python -m unittest discover -s tests -p 'test_four_market_equities.py' -v
+          python -m unittest discover -s tests -p 'test_paper_universe_inventory.py' -v
+          python -m unittest discover -s tests -p 'test_paper_universe_sources.py' -v
+          python -m unittest discover -s tests -p 'test_binance_futures_catalog.py' -v
+          python -m unittest discover -s tests -p 'test_paper_market_data_quality.py' -v
+          python -m scripts.verify_xetra_quotes > /tmp/xetra-disabled.json
+          python - <<'PY'
+          import csv
+          import hashlib
+          import json
+          from pathlib import Path
+          path = Path('data/market_snapshots/de/xetra-candidates.csv')
+          raw = path.read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == (
+              '9e19abebcc9bbf956111fbf54c380978377407d7fcb43c1a8d064b370aaa9c6a'
+          )
+          with path.open(encoding='utf-8', newline='') as handle:
+              entries = list(csv.DictReader(handle))
+          assert len(entries) == 1750
+          assert all(x['source_as_of_date'] == '2026-11-19'
+                     and x['price_symbol_verified'] == 'false' for x in entries)
+          disabled = json.loads(Path('/tmp/xetra-disabled.json').read_text())
+          assert disabled['status'] == 'DISABLED'
+          assert disabled['network_requests'] == 0
+          assert disabled['orders'] == 0
+          assert disabled['paper_trading_enabled'] is False
+          assert disabled['live_trading_enabled'] is False
+          print('XETRA_1750_REVIEW_SUCCESS=true')
+          print('NO_NETWORK_OR_TRADES=true')
+          PY
