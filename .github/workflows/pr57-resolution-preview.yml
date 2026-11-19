@@ -37,4 +37,32 @@ jobs:
           echo RESOLUTION_STAGED_AND_VALID=true
           echo NO_REF_OR_BRANCH_WAS_CHANGED=true
           git diff --cached --stat
+          python - <<'PY'
+          import base64
+          import json
+          from pathlib import Path
+          import subprocess
+          paths = subprocess.check_output(
+              ["git", "diff", "--cached", "--name-only", "-z"]
+          ).decode().rstrip("\\x00").split("\\x00")
+          for path in paths:
+              if not path:
+                  continue
+              mode_entry = subprocess.check_output(
+                  ["git", "ls-files", "-s", "--", path], text=True,
+              ).split()
+              file = Path(path)
+              if file.is_file() and mode_entry:
+                  entry = {
+                      "path": path,
+                      "mode": mode_entry[0],
+                      "content_base64": base64.b64encode(file.read_bytes()).decode(),
+                  }
+              elif not file.exists():
+                  entry = {"path": path, "delete": True}
+              else:
+                  raise RuntimeError("unsupported export file type " + path)
+              print("TREE_BLOB_EXPORT=" + json.dumps(entry, separators=(",", ":")))
+          print("TREE_EXPORT_COMPLETE=true")
+          PY
           git merge --abort
