@@ -6,10 +6,17 @@ simulation, scheduled polling, deployment, or any live brokerage action.
 
 ## Safety invariant
 
-The canonical 18 November 2026 Xetra reference list contains 1,749
+The canonical 19 November 2026 Xetra reference list contains 1,750
 official active common-stock *candidates* in
 `data/market_snapshots/de/xetra-candidates.csv`. A candidate mnemonic
 with `.DE` does not prove that a price-provider symbol is correct.
+
+The 19-Nov official snapshot has one additional candidate, `1ANT.DE` (ISIN
+`US03703U1079`), compared with 18-Nov. Existing 1,749 symbols and ISIN
+identities did not change, and `price_symbol_verified=false` remains true
+for **all 1,750** entries. New symbol inclusion is **not** a validated
+Yahoo price feed or approval to trade.
+
 
 The quote guard permits at most 20 explicit symbols per manual call.
 They must already exist in the dated Xetra candidate inventory; arbitrary
@@ -50,7 +57,7 @@ python -m scripts.verify_xetra_quotes --fetch --symbol SAP.DE --output "$HOME\EB
 ```
 
 No API keys or account credentials are necessary. Do not run unattended
-provider sweeps or exhaust all 1,749 candidates; bulk pricing requires a
+provider sweeps or exhaust all 1,750 candidates; bulk pricing requires a
 properly licensed and reliability-checked feed. Results are not auto-
 imported into the EBBot UI, prices database, journal or paper ledger.
 
@@ -62,7 +69,7 @@ at 20:51:53 UTC. Both matched Yahoo's XETRA/EUR/EQUITY metadata.
 The returned **delayed** regular-market values were SAP 193.92 EUR
 (16:37:40 UTC) and SIE 266.00 EUR (16:38:55 UTC).
 These are timestamped historical *samples*, not current prices, exchange
-licensed real-time quotes or proof of ISIN identity. The remaining 1,747
+licensed real-time quotes or proof of ISIN identity. The remaining 1,748
 candidate symbols have not been validated. No scan of all shares occurred.
 
 Automatic trigger of the live-sample workflow was removed after the check;

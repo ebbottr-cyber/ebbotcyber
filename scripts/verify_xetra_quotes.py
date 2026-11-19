@@ -3,12 +3,12 @@
 Examples:
   python -m scripts.verify_xetra_quotes
   python -m scripts.verify_xetra_quotes --fetch --symbol SAP.DE --symbol SIE.DE
-No background polling, schedule, trades, or auto-validation of 1749 shares.
+No background polling, schedule, trades, or auto-validation of any shares.
 """
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -46,6 +46,13 @@ def run(args: argparse.Namespace) -> int:
         ):
             raise ValueError("output_requires_new_path_in_existing_directory")
         manifest = read_xetra_manifest(args.manifest)
+        dates = {row["source_as_of_date"] for row in manifest.values()}
+        if len(dates) != 1:
+            raise ValueError("mixed_xetra_snapshot_dates")
+        source_age_days = (datetime.now(timezone.utc).date()
+                           - date.fromisoformat(next(iter(dates)))).days
+        if not 0 <= source_age_days <= 7:
+            raise ValueError("stale_or_future_xetra_snapshot")
         report = check_symbols(
             manifest, args.symbol, fetch_yahoo_chart, now=datetime.now(timezone.utc),
         )

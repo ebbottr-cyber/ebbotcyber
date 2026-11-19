@@ -81,3 +81,83 @@ farklı kontratlar olarak tutulur; delist/settled kontratlar ayrı statüde kal�
 Aktiflik sadece API'deki TRADING durumudur; ülkenizde Futures işlem hakkı,
 marjin, likidasyon, funding, risk ve PnL hesabı doğrulanmış sayılmaz.
 Henüz bu kaynaktan gerçek sayılar indirilmedi; GitHub testleri sentetiktir.
+
+## V4.1 — Futures sembol doğrulaması
+
+Binance Futures sözleşme sembolleri dar ASCII hisse/sembol kalıbı
+ile sınırlandırılmaz: kaynakta bulunan **görünür UTF-8 karakterler**
+ve noktalama korunur. En fazla 128 karakter, boş olmayan,
+kenarları boşluksuz ve kontrol karakteri içermeyen semboller kabul
+edilir. Hatalı kayıt atlanıp eksik pazar oluşturulmaz; kaynak satır
+numarası ve kısaltılmış hatalı değerle işlem BLOKLANIR.
+Stok envanter kontrolü aynı kuralla uyumlu kalır.
+Gerçek emir, sanal fill, cüzdan veya kaldıraç açılmaz.
+
+
+## V5 — Fiyat kaynaklarını doğrulama (yalnızca araştırma)
+
+Yeni modül, mevcut **tüm aktif Binance Spot çiftlerini** ve **tüm aktif USDⓈ-M / COIN-M sözleşmelerini** fiyat kaynaklarına karşı kontrol eder; 3, 50 veya 100 örnek varlık seçmez.
+
+- Spot: Binance public Spot exchangeInfo ile /api/v3/ticker/24hr verilerini karşılaştırır. Son fiyatın pozitifliği denetlenir, kayıp/kötü veri sayılır. 24h ticker closeTime **son işlemin zamanı değildir**; bu nedenle Spot anlık işlem fiyatı doğrulanmış sayılmaz.
+- Futures: /fapi/v1/premiumIndex ve /dapi/v1/premiumIndex işaret fiyatlarının pozitifliği, eksik kayıtlar ve kaynak time alanına göre 120 saniyelik eskime kontrolü yapılır. Mark fiyatları emir gerçekleşme fiyatı değildir. Funding, marjin, kaldıraç, likidasyon, kontrat büyüklüğü için iş modeli henüz doğrulanmadı.
+- BIST: KAP şirket dizinindeki bütün semboller sayılır. KAP şirket kodu fiyat değildir. Lisanslı günlük kapanış dosyası verilmezse 803 BIST adayı için fiyat durumu **missing** kalır. İsteğe bağlı dosya: symbol,close,as_of,source,currency alanlı CSV. Tarih son 7 takvim günü içinde olsa da kesin işlem takvimi veya anlık işlem kotasyonu kanıtlanmaz.
+- Çıktı, her piyasa için ayrıntılı **adetler ve hata/kapsam nedenleri** sunar; fiyatların kendisini, alım-satım talimatını ya da sanal PnL'yi oluşturmaz.
+
+PowerShell (mevcut dört snapshot dosyası, public API için açık opt-in):
+
+    python -m scripts.audit_paper_quote_sources --fetch --stocks "$HOME\\EBBotPaperData\\kap-bist-all.csv" --spot "$HOME\\EBBotPaperData\\binance-spot-all.json" --usdm "$HOME\\EBBotPaperData\\binance-usdm-futures.json" --coinm "$HOME\\EBBotPaperData\\binance-coinm-futures.json"
+
+Yalnızca 4 sabit Binance public GET çağrısı vardır. API anahtarı, cüzdan, pozisyon, disk raporu veya zamanlayıcı yoktur. Testler sentetik fixture'larla internetsiz çalışır; gerçek kaynakların güncelliği bilgisayarda ayrıca doğrulanmalıdır.
+
+
+## V5.1 — Spot 24 saat fiyat sorunlarının sınıflandırılması
+
+Binance 24 saatlik ticker kaydındaki `count`, o kayan 24 saatlik
+pencerenin işlem sayısıdır; **son işlem zamanının** kanıtı değildir.
+Denetim artık her geçersiz Spot çifti için `invalid_price_reasons`
+döndürür: sıfır/negatif fiyat, sayısal olmayan fiyat, boş fiyat,
+son 24 saatte işlem olmamasıyla birlikte sıfır fiyat veya
+geçersiz işlem sayısı. Ayrıca `zero_trades_24h_symbols` listesi,
+**pozitif son fiyat olsa bile**, o dönemde 0 işlem bildiren çiftleri
+gösterir. Tüm eşleşmeler taranır, Top-N veya sessiz ayıklama yoktur.
+Bu uyarılar delist kararı değil, veri sağlayıcısının verdiği
+24 saatlik özet istatistiklerin teşhisidir.
+
+18 Kasım 2026 Windows denetiminde geçersiz fiyatla dönen 9 çift:
+`ARBU`, `LTCUSD1`, `ORDIU`, `PLUMETHB`, `TRBJPY`,
+`TRXUSD1`, `UIDR`, `WLDU`, `XLMUSD1`.
+Sembol adları kullanıcı çıktısıdır; **kesin hata nedenleri**
+bir sonraki gerçek API denetiminde `invalid_price_reasons`
+alanından görülecek. `paper_ready=false` ve gerçek emirler kapalı.
+
+
+## V5.2 — Spot araştırma adayları için kapalı-varsayılan kalite kapısı
+
+Binance 24h ticker `lastPrice > 0` ve `count > 0` birlikte
+görülmedikçe Spot işlem çifti **fiyat araştırması adayı** bile sayılmaz.
+`count` eksikse güvenli tarafta kalınır (missing_24h_trade_count).
+Tüm çiftler envanterde kalır: bir işlem çiftinin fiyat kalitesi
+uygun değilse delist varsayılmaz ve kaydı silinmez.
+
+Rapor: `indicative_quote_review_candidate_count` ve isimler,
+`quote_review_blocked_pair_count` ve tüm çiftlerin neden kodları.
+Bunlar **emir izni değildir**: fiyat araştırması adayı için dahi
+ayrı, güncel order book (alış/satış), spread, likidite, timestamp,
+API erişim ve piyasa/ülke izin denetimleri gereklidir.
+Mevcut `paper_ready=false`, `executable_prices=0`,
+gerçek emir ve sanal alım satım kapalıdır.
+
+
+## V5.3 — PowerShell 5.1 / Windows charmap korumasi
+
+Gercek Binance Spot sembolleri ASCII disi Unicode karakterler
+icerebilir. Windows PowerShell 5.1 eski konsol kod sayfasinda
+`'charmap' codec can't encode characters` hatasi verebilir.
+`scripts.audit_paper_quote_sources` artik hem raporu hem de hata
+JSON'unu `ensure_ascii=True` ile **kayipsiz Unicode escape** olarak
+yazdirir. JSON parse edildiginde tum semboller eski hallerine doner;
+`ConvertFrom-Json` ve filtreler calismaya devam eder.
+
+Bu duzeltme envanter kayitlarini degistirmez, sorunlu ciftleri silmez,
+API anahtari gerektirmez; fiyat incelemesi sirasinda emir, sanal
+fill, zamanlayici, kaldirac ve gercek trading kapali kalir.

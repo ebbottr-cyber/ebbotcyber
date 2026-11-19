@@ -16,8 +16,8 @@ const base = {
   status: 'CANDIDATE_INVENTORY_ONLY',
   market: 'XETR',
   currencyExpected: 'EUR',
-  candidateCount: 1749,
-  sourceAsOfDate: '2026-11-18',
+  candidateCount: 1750,
+  sourceAsOfDate: '2026-11-19',
   snapshotAgeDays: 0,
   sourceStale: false,
   items: [
@@ -42,7 +42,7 @@ describe('GermanyMarketPage', () => {
   it('shows Xetra candidates without requesting a quote automatically', async () => {
     render(<UiLanguageProvider><GermanyMarketPage /></UiLanguageProvider>);
     expect(await screen.findByRole('heading', { name: 'Almanya (Xetra)' })).toBeInTheDocument();
-    expect(await screen.findByText('1.749')).toBeInTheDocument();
+    expect(await screen.findByText('1.750')).toBeInTheDocument();
     expect(screen.getByText('DE0007164600')).toBeInTheDocument();
     expect(screen.getByText(/Alım-satım kapalı/)).toBeInTheDocument();
     expect(checkQuotes).not.toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe('GermanyMarketPage', () => {
     getInventory.mockResolvedValue({ ...base, manualQuoteCheckEnabled: true });
     checkQuotes.mockResolvedValue({
       status: 'QUOTE_METADATA_SAMPLE_ONLY',
-      candidateCountInManifest: 1749, requestedSymbols: 2,
+      candidateCountInManifest: 1750, requestedSymbols: 2,
       quoteMetadataMatches: 1, blockedCount: 1,
       observedAtUtc: '2026-11-18T20:51:54Z',
       allIsinMappingsVerified: false, allMarketPricesVerified: false,
@@ -107,10 +107,21 @@ describe('GermanyMarketPage', () => {
     expect(checkQuotes).not.toHaveBeenCalled();
   });
 
+  it('disables quotes for a future-dated snapshot and never calls provider', async () => {
+    getInventory.mockResolvedValue({
+      ...base, sourceStale: true, snapshotAgeDays: -1,
+      sourceAsOfDate: '2099-01-01', manualQuoteCheckEnabled: false,
+    });
+    render(<UiLanguageProvider><GermanyMarketPage /></UiLanguageProvider>);
+    expect(await screen.findByText(/Kaynak listesi eski veya ileri tarihli/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fiyatları kontrol et' })).toBeDisabled();
+    expect(checkQuotes).not.toHaveBeenCalled();
+  });
+
   it('signals that the underlying reference snapshot can be stale', async () => {
     getInventory.mockResolvedValue({ ...base, sourceStale: true, snapshotAgeDays: 12 });
     render(<UiLanguageProvider><GermanyMarketPage /></UiLanguageProvider>);
-    expect(await screen.findByText(/Kaynak listesi 7 günden eski/)).toBeInTheDocument();
+    expect(await screen.findByText(/Kaynak listesi eski veya ileri tarihli/)).toBeInTheDocument();
     expect(checkQuotes).not.toHaveBeenCalled();
   });
 });

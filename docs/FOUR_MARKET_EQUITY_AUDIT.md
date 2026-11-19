@@ -10,18 +10,29 @@ proved exhaustive listings, broker permissions, quote availability, or live
 trading signals. No scheduled scan, external request, price check, journal,
 paper fill or real order is performed by this feature.
 
-## Verified Xetra stock inventory imported on 18 November 2026
+## Verified Xetra stock inventory refreshed on 19 November 2026
 
 The source-derived snapshot is checked in at
 `data/market_snapshots/de/xetra-candidates.csv`. The offline
 `python -m scripts.audit_four_market_equities` command automatically reads
-this dated manifest (1,749 unique active XETR common-stock candidates). The
+this dated manifest (1,750 unique active XETR common-stock candidates). The
 official raw Xetra CSV was retrieved and validated by the read-only GitHub
-Actions source check. The snapshot remains historical after 18 November 2026;
+Actions source check. The snapshot remains historical after 19 November 2026;
 it does NOT update automatically and cannot prove current exchange listing,
 real-time stock prices, valid Yahoo symbols, market-data redistribution rights,
 or Turkish broker access. The remaining BIST inventory must still be provided
 as an operator KAP CSV in order to complete all four-market counts.
+
+The official GitHub Actions source validation run
+[44477377201](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44477377201)
+retrieved the 19-Nov-2026 T7 reference source: 1,750 common-stock candidates.
+Compared with the checked-in 18-Nov snapshot, the only additional record
+was `1ANT.DE` (ISIN `US03703U1079`); there were no removed records
+and no ISIN changes for the existing 1,749 candidates. File SHA256:
+`9e19abebcc9bbf956111fbf54c380978377407d7fcb43c1a8d064b370aaa9c6a`.
+This checksum describes the derived candidate manifest, not the full T7
+source CSV. The 1,750 total must never be described as 1,750 verified
+Yahoo price symbols or real-time quotes.
 
 Never enable live or simulated orders based only on these candidate symbols.
 Do not confuse the snapshot with a verified price feed.

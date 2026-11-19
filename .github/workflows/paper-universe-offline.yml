@@ -8,6 +8,9 @@ on:
     paths:
       - 'src/services/paper_universe_inventory.py'
       - 'src/services/paper_universe_sources.py'
+      - 'src/services/paper_market_data_quality.py'
+      - 'scripts/audit_paper_quote_sources.py'
+      - 'tests/test_paper_market_data_quality.py'
       - 'src/services/binance_futures_catalog.py'
       - 'tests/test_binance_futures_catalog.py'
       - 'scripts/refresh_paper_universe_sources.py'
@@ -36,5 +39,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_paper_universe_sources.py' -v
       - name: Futures-only offline tests (no network or leverage)
         run: python -m unittest discover -s tests -p 'test_binance_futures_catalog.py' -v
+      - name: Offline price provenance and freshness tests (no API calls)
+        run: python -m unittest discover -s tests -p 'test_paper_market_data_quality.py' -v
       - name: Print all-market offline audit counts
         run: python -m scripts.audit_paper_universe

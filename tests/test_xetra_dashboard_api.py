@@ -10,8 +10,8 @@ from api.v1.endpoints import xetra as api
 from src.services.xetra_quote_guard import check_symbols
 
 INVENTORY = {
-    "SAP.DE": {"isin": "DE0007164600", "source_as_of_date": "2026-11-18"},
-    "SIE.DE": {"isin": "DE0007236101", "source_as_of_date": "2026-11-18"},
+    "SAP.DE": {"isin": "DE0007164600", "source_as_of_date": datetime.now(timezone.utc).date().isoformat()},
+    "SIE.DE": {"isin": "DE0007236101", "source_as_of_date": datetime.now(timezone.utc).date().isoformat()},
 }
 
 
@@ -19,6 +19,44 @@ class GermanyPanelApiTests(TestCase):
     def setUp(self):
         # Requests in separate tests must not share the global safety cooldown.
         api._quote_gate = api._ManualQuoteGate()
+
+    def test_current_official_manifest_reports_1750_candidates_without_quotes(self):
+        with (patch.object(api, "is_auth_enabled", return_value=False),
+              patch.object(api, "fetch_yahoo_chart") as fetch):
+            result = api.get_inventory(Response(), query="1ANT", limit=20)
+        self.assertEqual(result["candidate_count"], 1750)
+        self.assertEqual(result["source_as_of_date"], "2026-11-19")
+        self.assertEqual(
+            [(item["symbol"], item["isin"], item["price_symbol_verified"])
+             for item in result["items"]],
+            [("1ANT.DE", "US03703U1079", False)],
+        )
+        self.assertFalse(result["quotes_auto_loaded"])
+        self.assertFalse(result["manual_quote_check_enabled"])
+        self.assertFalse(result["paper_trading_enabled"])
+        self.assertFalse(result["live_trading_enabled"])
+        self.assertEqual(result["orders"], 0)
+        fetch.assert_not_called()
+
+    def test_future_snapshot_is_stale_in_inventory_and_blocks_provider(self):
+        future = {
+            code: {**row, "source_as_of_date": (
+                datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()}
+            for code, row in INVENTORY.items()
+        }
+        with (patch.object(api, "read_xetra_manifest", return_value=future),
+              patch.object(api, "is_auth_enabled", return_value=True),
+              patch.object(api.os, "getenv", return_value="true"),
+              patch.object(api, "fetch_yahoo_chart") as fetch):
+            listing = api.get_inventory(Response(), query="", limit=20)
+            self.assertEqual(listing["snapshot_age_days"], -1)
+            self.assertTrue(listing["source_stale"])
+            self.assertFalse(listing["manual_quote_check_enabled"])
+            with self.assertRaises(HTTPException) as exc:
+                api.check_xetra_quotes(
+                    api.XetraQuoteCheckRequest(symbols=["SAP.DE"]), Response())
+            self.assertEqual(exc.exception.status_code, 409)
+            fetch.assert_not_called()
 
     def test_get_inventory_lists_official_candidates_without_provider_call(self):
         with (patch.object(api, "read_xetra_manifest", return_value=INVENTORY),

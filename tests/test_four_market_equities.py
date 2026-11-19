@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from datetime import date
+import csv
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -25,6 +27,36 @@ OTHER = "Active;Active;OTHER;DE0000000003;OTHER;XFRA;CS"
 
 
 class FourMarketEquityTests(unittest.TestCase):
+    def test_stored_2026_11_19_xetra_manifest_matches_official_snapshot(self):
+        manifest = Path(__file__).resolve().parents[1] / (
+            "data/market_snapshots/de/xetra-candidates.csv"
+        )
+        content = manifest.read_bytes()
+        self.assertEqual(
+            hashlib.sha256(content).hexdigest(),
+            "9e19abebcc9bbf956111fbf54c380978377407d7fcb43c1a8d064b370aaa9c6a",
+        )
+        with manifest.open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual(len(rows), 1750)
+        self.assertEqual(len({row["symbol"] for row in rows}), 1750)
+        self.assertEqual(
+            sorted(row["symbol"] for row in rows),
+            [row["symbol"] for row in rows],
+        )
+        self.assertTrue(all(
+            row["market"] == "de"
+            and row["source"] == "deutsche_boerse_xetra_t7"
+            and row["kind"] == "stock"
+            and row["source_as_of_date"] == "2026-11-19"
+            and row["price_symbol_verified"] == "false"
+            for row in rows
+        ))
+        self.assertEqual(
+            [row["isin"] for row in rows if row["symbol"] == "1ANT.DE"],
+            ["US03703U1079"],
+        )
+
     def test_xetra_selects_only_active_common_stocks(self):
         csv_text, audit = xetra_equities_to_manifest(
             xetra(SAP, DAX_ETF, OLD, OTHER), today=date(2026, 11, 18))

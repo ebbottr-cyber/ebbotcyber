@@ -30,7 +30,7 @@ const copy = {
     time: 'Fiyatın tarihi',
     source: 'Veri: Yahoo Finance / Xetra. Gerçek zamanlı, işlem yapılabilir kotasyon değildir.',
     delayed: 'Gecikmeli olabilir',
-    stale: 'Kaynak listesi 7 günden eski; güncel liste gereklidir.',
+    stale: 'Kaynak listesi eski veya ileri tarihli; güncel ve doğru tarihli liste gereklidir.',
     unknownError: 'Fiyat kontrolü başarısız; doğrulanmamış fiyat gösterilmiyor.',
     refresh: 'Listeyi yenile',
     footer: 'Sinyal, portföy emri veya sanal alım-satım oluşturulmaz.',
@@ -60,7 +60,7 @@ const copy = {
     time: 'Quote timestamp',
     source: 'Source: Yahoo Finance / Xetra. Not a real-time or executable quote.',
     delayed: 'May be delayed',
-    stale: 'Source inventory older than 7 days; refresh required.',
+    stale: 'Source inventory is stale or future-dated; a valid dated snapshot is required.',
     unknownError: 'Quote validation failed; no unverified price shown.',
     refresh: 'Reload list',
     footer: 'No trade signals, portfolio orders or paper fills.',
@@ -90,7 +90,7 @@ const copy = {
     time: '报价时间',
     source: '来源：Yahoo Finance / Xetra。非实时或可成交报价。',
     delayed: '可能延迟',
-    stale: '来源清单已超过 7 天，需要更新。',
+    stale: '来源清单已过期或日期在未来，需要有效日期的数据。',
     unknownError: '价格核验失败，不显示未经核验的价格。',
     refresh: '刷新清单',
     footer: '不生成交易信号、真实订单或模拟成交。',
@@ -126,6 +126,8 @@ const GermanyMarketPage: React.FC = () => {
     const id = ++generation.current;
     setLoading(true);
     setError(false);
+    setReport(null);
+    setQuoteError(false);
     try {
       const data = await xetraApi.getInventory(term);
       if (id === generation.current) setInventory(data);

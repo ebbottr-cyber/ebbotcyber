@@ -8,10 +8,10 @@ Bu çalışma, [PR #62](https://github.com/ebbottr-cyber/ebbotcyber/pull/62)
 - Web/pano yan menüsünde **Almanya (Xetra)** bağlantısı: `/germany`.
 - Ekran ilk açılışta yalnızca `GET /api/v1/xetra/inventory` çağırır.
   Yerel kayıt `data/market_snapshots/de/xetra-candidates.csv` içinden tüm
-  1.749 kaynaklı hisse adayının sayısı, kaynak tarihi, sembol/ISIN araması gelir.
+  1.750 kaynaklı hisse adayının sayısı, kaynak tarihi, sembol/ISIN araması gelir.
   Varsayılan 30 aday listelenir; API'de sayım kesilmez.
 - Hisse listesi bir *piyasa referansı*, fiyat akışı veya emir listesi değildir.
-  Kaynak 7 günden eskiyse açık uyarı görünür ve manuel sorgu kapatılır.
+  Kaynak 7 günden eski veya geleceğe tarihlenmişse açık uyarı görünür ve manuel sorgu kapatılır.
 - Kullanıcı seçtiği en fazla 5 sembol için **Fiyatları kontrol et** düğmesine
   basınca `POST /api/v1/xetra/quote-check` çağrılır.
 - Hatalı, eski, yanlış sembol/borsa/döviz sonucu fiyat olarak gösterilmez.
@@ -46,7 +46,7 @@ kapalıysa HTTP 403, limit doluysa HTTP 429 döner.
 
 yalnızca sabit Yahoo Finance HTTPS GET uç noktası, her sembol için ağ zaman aşımı.
 Sunucuda zamanlanmış tarama veya otomatik veri tabanı kaydı yapılmaz.
-Panel fiyat kontrolü henüz 1.749 hisseye toplu veri sağlayıcısı veya
+Panel fiyat kontrolü henüz 1.750 hisseye toplu veri sağlayıcısı veya
 analiz/backtest stratejisi bağlantısı değildir. Güncel fiyat hizmeti için
 veri lisansı ve ISIN eşleştirmesi ayrıca doğrulanmalıdır.
 
@@ -63,10 +63,11 @@ npm run build
 
 Yeni ekran ve API PR inceleme dalındadır; PR #57, #58, #59, #62 zincirindeki
 bağımlılıklar birleştirilmeden kullanıcıya yayınlanmış sayılamaz.
-19 Kasım 2026 incelemesinde PR #57 GitHub tarafından **mergeable=false**
-olarak bildirildi. 199 dosyalık büyük entegrasyon taslağının çatışmaları
-ve bağımsız yayın güvenliği çözülmeden diğer PR'lar ana dala
-birleştirilmemelidir. Almanya fiyat ekranı ayrı olarak 31 temel backend
-ve frontend testinden geçirilmektedir; bu testler tek başına yayın
-izni sayılmaz. Mevcut
-kripto, meme, futures ve canlı/paper trade koduna dokunulmadı.
+19 Kasım 2026'da PR #57'nin ana dal çatışmaları giderildi ve
+PR #58, #59, #62 güncel tabanlarına senkronlandı; bu PR'lar hâlâ taslak
+ve ana dala alınmış değiller. PR #59'daki resmî kaynak listesi 19 Kasım
+tarihli, **1.750 benzersiz Xetra ortak hisse adayı** içerir; önceki
+18 Kasım listesindeki 1.749 kayda `1ANT.DE` eklendi. Liste fiyat/ISIN
+eşleşmesi, lisans veya broker erişimi kanıtı değildir. PR #64 bu yeni
+tabanda yalnızca read-only testlerle incelenir; ana sürüme doğrudan
+birleştirilmez. Gerçek ve sanal işlemler kapalıdır.
