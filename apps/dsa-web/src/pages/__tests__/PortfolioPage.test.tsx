@@ -345,6 +345,25 @@ describe('PortfolioPage FX refresh', () => {
     );
   }
 
+  it('shows the ledger forms and broker names in Turkish without changing trade IDs', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    render(
+      <UiLanguageProvider>
+        <PortfolioPage />
+      </UiLanguageProvider>,
+    );
+    await waitForInitialLoad();
+    expect(screen.getByText('Elle Kayıt: Alım-Satım')).toBeInTheDocument();
+    expect(screen.getByText('Elle Kayıt: Nakit Hareketi')).toBeInTheDocument();
+    expect(screen.getByText('Elle Kayıt: Şirket İşlemi')).toBeInTheDocument();
+    expect(screen.getByText('Aracı Kurum CSV Aktarımı')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Hisse kodu (örn. AAPL)')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Alış' })).toHaveValue('buy');
+    expect(screen.getByRole('option', { name: 'Satış' })).toHaveValue('sell');
+    expect(screen.getByRole('option', { name: 'huatai (Huatai)' })).toHaveValue('huatai');
+    expect(screen.queryByText('手工录入：交易')).not.toBeInTheDocument();
+  });
+
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
     render(<PortfolioPage />);
 
