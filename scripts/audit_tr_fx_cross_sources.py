@@ -14,6 +14,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from src.services.tr_market_overview_service import SOURCE as MARKET_SOURCE
+
 
 # Not an execution/risk threshold: only flag a large *indicative* discrepancy
 # for manual review. The sources have different methodologies/timestamps.
@@ -26,13 +28,16 @@ FX_PAIRS = (
     ("EUR", "eurtry", "EURTRY=X"),
 )
 BIST_KEYS = ("bist100", "bist30")
-MARKET_SOURCE = "Yahoo Finance \N{BULLET} g\N{LATIN SMALL LETTER U WITH DIAERESIS}nl\N{LATIN SMALL LETTER U WITH DIAERESIS}k veri (gecikmeli)"
+
 
 
 def _finite_positive(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    v = float(value)
+    try:
+        v = float(value)
+    except (OverflowError, TypeError, ValueError):
+        return None
     return v if math.isfinite(v) and v > 0 else None
 
 
@@ -143,6 +148,9 @@ def compare_observations(report: Any) -> dict[str, Any]:
                               else "difference_recorded_not_validation")
                     if delta > DIAGNOSTIC_REVIEW_DIFFERENCE_PCT:
                         alerts.append(f"{currency}_indicative_difference_review")
+                else:
+                    status = "difference_uncomputable"
+                    alerts.append(f"{currency}_difference_uncomputable")
         else:
             alerts.append(f"{currency}_comparison_unavailable")
 
