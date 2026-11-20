@@ -356,8 +356,8 @@ export interface PortfolioDisplayFxRates {
   krwTry?: number | null;
   twdTry?: number | null;
   /** Per-currency validity: global status is retained for legacy CNY clients. */
-  pairStatus?: Partial<Record<'USD' | 'CNY' | 'HKD' | 'JPY' | 'KRW' | 'TWD', 'current' | 'stale' | 'unavailable'>>;
-  pairAsOf?: Partial<Record<'USD' | 'CNY' | 'HKD' | 'JPY' | 'KRW' | 'TWD', string>>;
+  pairStatus?: Partial<Record<'usd' | 'cny' | 'hkd' | 'jpy' | 'krw' | 'twd', 'current' | 'stale' | 'unavailable'>>;
+  pairAsOf?: Partial<Record<'usd' | 'cny' | 'hkd' | 'jpy' | 'krw' | 'twd', string>>;
   asOf: string | null;
   source: string;
 }
