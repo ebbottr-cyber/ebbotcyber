@@ -7,19 +7,29 @@ on:
       - fix/turkish-ui-chat-20261118
       - feature/portfolio-try-multicurrency-fx-20261120
       - fix/portfolio-stored-usd-cross-risk-20261120
+      - fix/portfolio-historical-fx-source-date-20261120
     paths:
       - 'apps/dsa-web/**'
       - 'src/services/portfolio_service.py'
+      - 'src/services/portfolio_historical_fx.py'
       - 'src/services/portfolio_risk_service.py'
       - 'tests/test_portfolio_service.py'
       - 'tests/test_portfolio_pr2.py'
+      - 'tests/test_portfolio_historical_fx.py'
+      - 'scripts/probe_portfolio_historical_fx_live.py'
       - '.github/workflows/ebbot-turkish-ui.yml'
   push:
     branches:
       - fix/turkish-ui-chat-20261118
       - feature/portfolio-try-multicurrency-fx-20261120
+      - test/portfolio-historical-fx-live-calendar-20261120
     paths:
       - 'apps/dsa-web/**'
+      - 'src/services/portfolio_service.py'
+      - 'src/services/portfolio_historical_fx.py'
+      - 'tests/test_portfolio_pr2.py'
+      - 'tests/test_portfolio_historical_fx.py'
+      - 'scripts/probe_portfolio_historical_fx_live.py'
       - '.github/workflows/ebbot-turkish-ui.yml'
 
 permissions:
@@ -77,7 +87,7 @@ jobs:
       - name: Install backend CI dependencies
         run: python -m pip install -r .github/requirements-ci.txt
       - name: Verify complete portfolio service, risk and API regressions
-        run: python -m pytest -q --tb=short tests/test_portfolio_service.py tests/test_portfolio_pr2.py tests/test_portfolio_api.py
+        run: python -m pytest -q --tb=short tests/test_portfolio_service.py tests/test_portfolio_pr2.py tests/test_portfolio_api.py tests/test_portfolio_historical_fx.py
 
   # Diagnostic only: the external quote provider can be late, blocked or closed.
   # This job never writes FX rates or enables portfolio/trading workflows.
@@ -107,4 +117,35 @@ jobs:
           else
             echo "### LIVE FX NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
             echo "One or more Yahoo quotes were unavailable, stale, misaligned or the provider failed. This diagnostic must not authorize valuation or trading." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # A purely observational run on the review branch. A Yahoo outage, holiday
+  # gap or stale source must be visible but cannot block offline correctness
+  # gates, modify the portfolio DB or authorize any trading action.
+  portfolio-historical-fx-live-observation:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test/portfolio-historical-fx-live-calendar-20261120'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated Yahoo Finance client only
+        run: python -m pip install 'yfinance==0.2.66'
+      - name: Inspect historical Yahoo source dates for current, Sunday and New Year
+        id: dated_fx
+        continue-on-error: true
+        run: python scripts/probe_portfolio_historical_fx_live.py
+      - name: Record whether real provider evidence was complete
+        if: always()
+        env:
+          FX_OUTCOME: ${{ steps.dated_fx.outcome }}
+        run: |
+          if [ "$FX_OUTCOME" = "success" ]; then
+            echo "### HISTORICAL FX PROVIDER VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "Every observed quote supplied a valid original source date; old market-closure bars were classified as stale, not relabeled." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### HISTORICAL FX PROVIDER NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "One or more Yahoo historical quotes were unavailable or unverified. Review console evidence; never treat missing or old rates as fresh." >> "$GITHUB_STEP_SUMMARY"
           fi
