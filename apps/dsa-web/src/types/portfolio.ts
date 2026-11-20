@@ -345,7 +345,7 @@ export interface PortfolioFxRefreshResponse {
 }
 
 
-/** Read-only, indicative FX quotes; only status=current may be used for TRY display. */
+/** Read-only indicative FX quotes; use pairStatus + pairAsOf per currency. */
 export interface PortfolioDisplayFxRates {
   status: 'current' | 'stale' | 'unavailable';
   usdTry: number | null;
