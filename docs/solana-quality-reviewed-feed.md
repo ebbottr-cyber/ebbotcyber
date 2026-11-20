@@ -26,6 +26,18 @@ Yalnızca `solana-quality-candidate-requires-pr-review` adlı GitHub Actions art
 
 Arşivler zamanla silinebileceği için artifact bulunamazsa işlem başarısız olur; son başarılı sayılar otomatik tekrar kullanılmaz. Script doğrudan yayımlanmış JSON adıyla dosya oluşturmaya izin vermez.
 
+## Yeni veri yayımlama öncesi anti-replay ve kaynak denetimi
+
+`solana-quality-promotion-gate.yml` adlı PR işi, `apps/dsa-web/public/solana-quality-reviewed.json` değiştiğinde otomatik olarak **yalnızca GitHub PR doğrulaması** yapar. Bu bir piyasa tarayıcısı, fiyat indirme servisi veya otomatik rapor yayımlayıcı değildir.
+
+- `scripts/check_solana_quality_promotion.py` önce mevcut yayımlanan JSON ile önerilen JSON'un şemasını, kaynak sayımlarını, strateji risk toplamlarını ve bütün güvenlik bayraklarını offline kontrol eder. Audit ID'si ve UTC denetim zamanı mutlaka artmalı; bütün gözlem çalışmaları önceki rapordan daha yeni olmalıdır. Eski gözlem çalışması yeni tarih ile tekrar yayımlanamaz. Geleceğe tarihlenmiş raporlar da reddedilir.
+- Sonra GitHub'a yalnızca **kaynak meta verilerini doğrulamak amacıyla** read-only istek yapılır. Yeni denetim çalışması `main` dalında `workflow_dispatch` ile manuel çalıştırılmış, `Solana review-only quality report candidate (NO orders)` isimli başarılı iş akışı olmalıdır.
+- Denetimden üretilmiş `solana-quality-candidate-requires-pr-review` artifact dosyası indirilir ve önerilen JSON ile tam içerik eşitliği kontrol edilir. Her gözlem çalışmasının workflow adı ve `passed/success` ya da `degraded/failure` eşleşmesi tekrar doğrulanır.
+- Denetim artifact'ı süresi dolmuşsa veya GitHub'da bulunmuyorsa PR kontrolü başarısız olur: eski veriler, elle değiştirilmiş sayılar veya kaynağı belirsiz raporlar otomatik kabul edilmez. Yeni manuel denetim gerekir.
+- Bu kontrol **başarıyla geçtiğinde bile** PR incelemesi ve `main` birleştirmesi **otomatik değildir**. Kaynak iş akışı başarısızlığının gerçek nedeni, risk/fiyat notları ve veri lisansları ayrıca incelenmelidir. Başka yollarla ana dala doğrudan yazılmasını engellemek için GitHub branch protection/ruleset gerekir.
+
+Şu an geçerli kaynak `44779967482` / `44777830658` aynı tarihlidir. Yeni doğrulanmış arşiv yokken `solana-quality-reviewed.json` değiştirilmemelidir. İzleme onayı bir işlem izni değildir.
+
 ## Bozuk veya bulunamayan rapor
 
 Rapor yüklenemezse, şema geçersizse, çalışmanın ID'si yinelenirse, ham gözlem sayıları uyuşmazsa, kaynak durumları tutarsızsa veya cüzdan / gerçek işlem / kârlılık hesaplama bayrağı `true` olursa panel **hiçbir sayaç göstermez**. Yeni bir rapor devreye alınsa bile önceki sayılara sessizce geri dönmez.
