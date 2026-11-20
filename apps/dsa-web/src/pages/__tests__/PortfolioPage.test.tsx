@@ -69,7 +69,7 @@ vi.mock('../../api/portfolio', () => ({
     getSnapshot,
     getRisk,
     getTryDisplayRates,
-    refreshFx:
+    refreshFx,
     listImportBrokers,
     listTrades,
     listCashLedger,
