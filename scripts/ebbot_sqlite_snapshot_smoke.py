@@ -7,6 +7,7 @@ It does NOT launch the app/server, execute market jobs, or touch user files.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -22,11 +23,12 @@ def smoke(executable: Path) -> dict:
         folder = Path(root)
         source = folder / "stock_analysis.db"
         target = folder / "stock_analysis.snapshot.db"
-        with sqlite3.connect(source) as writer:
+        with closing(sqlite3.connect(source)) as writer:
             if writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] != "wal":
                 raise AssertionError("Synthetic source could not use WAL")
             writer.execute("CREATE TABLE integrity_probe (item TEXT NOT NULL)")
             writer.execute("INSERT INTO integrity_probe VALUES ('committed')")
+            writer.commit()
         live_writer = sqlite3.connect(source)
         try:
             live_writer.execute("BEGIN IMMEDIATE")
@@ -43,7 +45,7 @@ def smoke(executable: Path) -> dict:
                 raise AssertionError("Frozen snapshot did not return blocked offline success")
             if report.get("method") != "sqlite3.Connection.backup":
                 raise AssertionError("Expected SQLite's transactional backup API")
-            with sqlite3.connect(target) as checked:
+            with closing(sqlite3.connect(target)) as checked:
                 if checked.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                     raise AssertionError("Frozen SQLite snapshot has failed integrity_check")
                 if checked.execute("SELECT COUNT(*) FROM integrity_probe").fetchone() != (1,):
