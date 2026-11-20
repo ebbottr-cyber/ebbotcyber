@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "data_origin": "synthetic",
+  "scenario": "synthetic_downward_gap",
+  "mint": "99999999999999999999999999999999999999999999",
+  "snapshots": [
+    {
+      "timestamp_ms": 1800000000000,
+      "source": "geckoterminal",
+      "price_usd": "0.100000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 30,
+      "sells_m5": 5,
+      "change_m5_pct": 4,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    },
+    {
+      "timestamp_ms": 1800000060000,
+      "source": "geckoterminal",
+      "price_usd": "0.099000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 30,
+      "sells_m5": 5,
+      "change_m5_pct": 3,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    },
+    {
+      "timestamp_ms": 1800000120000,
+      "source": "geckoterminal",
+      "price_usd": "0.090000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 30,
+      "sells_m5": 5,
+      "change_m5_pct": 2,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    },
+    {
+      "timestamp_ms": 1800000180000,
+      "source": "geckoterminal",
+      "price_usd": "0.075000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 30,
+      "sells_m5": 5,
+      "change_m5_pct": -5,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    },
+    {
+      "timestamp_ms": 1800000240000,
+      "source": "geckoterminal",
+      "price_usd": "0.070000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 30,
+      "sells_m5": 5,
+      "change_m5_pct": -10,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    },
+    {
+      "timestamp_ms": 1800000300000,
+      "source": "geckoterminal",
+      "price_usd": "0.073000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 10,
+      "sells_m5": 5,
+      "change_m5_pct": -8,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    },
+    {
+      "timestamp_ms": 1800000360000,
+      "source": "geckoterminal",
+      "price_usd": "0.072000",
+      "liquidity_usd": 32000,
+      "volume_h24_usd": 150000,
+      "buys_m5": 10,
+      "sells_m5": 5,
+      "change_m5_pct": -2,
+      "pool_created_at_ms": 1799998200000,
+      "security": {
+        "mintable": {
+          "status": "0"
+        },
+        "freezable": {
+          "status": "0"
+        },
+        "closable": {
+          "status": "0"
+        },
+        "non_transferable": {
+          "status": "0"
+        },
+        "transfer_hook": {
+          "status": "0"
+        }
+      }
+    }
+  ]
+}
