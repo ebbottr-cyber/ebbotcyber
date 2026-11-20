@@ -23,26 +23,67 @@ NOW = datetime(2026, 11, 20, 20, 0, 0, tzinfo=timezone.utc)
 
 
 def published():
+    """Frozen synthetic baseline, independent of mutable public report data.
+
+    Run IDs are invented fixture identifiers, never real market observations.
+    """
+    return {
+        "schema_version": 1,
+        "mode": "reviewed_github_actions_archive_quality",
+        "audited_at_utc": "2026-11-20T18:00:00Z",
+        "audit_run_id": "90000099",
+        "quality_result": "degraded_capture_data",
+        "capture_count": 2,
+        "total_priced_rows": 9,
+        "total_missing_rows": 3,
+        "blocked_assessments": 18,
+        "watch_assessments": 0,
+        "trading_enabled": False,
+        "wallet_enabled": False,
+        "performance_calculated": False,
+        "ready_for_verified_paper_performance": False,
+        "captures": [
+            {"run_id": "90000001", "priced_rows": 6, "missing_rows": 0, "result": "passed"},
+            {"run_id": "90000002", "priced_rows": 3, "missing_rows": 3, "result": "degraded"},
+        ],
+    }
+
+
+def current_published():
+    """Production JSON is checked separately without hardcoded totals or dates."""
     return json.loads(BASE_FILE.read_text(encoding="utf-8"))
 
 
 def synthetic_next():
     """Invented IDs and counts only; never verified new GitHub observations."""
     value = deepcopy(published())
-    value["audit_run_id"] = "44811111111"
+    value["audit_run_id"] = "90000199"
     value["audited_at_utc"] = "2026-11-20T19:00:00Z"
-    value["captures"][0]["run_id"] = "44800000001"
-    value["captures"][1]["run_id"] = "44800000002"
+    value["captures"][0]["run_id"] = "90000101"
+    value["captures"][1]["run_id"] = "90000102"
     return value
 
 
-def test_existing_published_snapshot_matches_strict_gate():
+def test_synthetic_published_snapshot_matches_strict_gate():
     r = validate_report(published())
     assert r["total_priced_rows"] == 9
     assert r["total_missing_rows"] == 3
     assert r["blocked_assessments"] == 18
     assert r["watch_assessments"] == 0
     assert r["trading_enabled"] is False
+
+
+def test_actual_published_file_valid_regardless_of_fresh_counts():
+    """A legitimate next report must not break unrelated fixture tests."""
+    report = validate_report(current_published())
+    assert report["capture_count"] == len(report["captures"])
+    assert report["total_priced_rows"] == sum(c["priced_rows"] for c in report["captures"])
+    assert report["total_missing_rows"] == sum(c["missing_rows"] for c in report["captures"])
+    assert report["blocked_assessments"] + report["watch_assessments"] == 2 * report["total_priced_rows"]
+    assert report["trading_enabled"] is False
+    assert report["wallet_enabled"] is False
+    assert report["performance_calculated"] is False
+    assert report["ready_for_verified_paper_performance"] is False
 
 
 def test_new_capture_batch_is_eligible_for_review_but_not_approved():
@@ -52,14 +93,14 @@ def test_new_capture_batch_is_eligible_for_review_but_not_approved():
 
 
 @pytest.mark.parametrize("mutation", [
-    lambda x: x.update(audit_run_id="44791912581"),
-    lambda x: x.update(audit_run_id="44700000000"),
-    lambda x: x.update(audited_at_utc="2026-11-20T18:21:11Z"),
+    lambda x: x.update(audit_run_id="90000099"),
+    lambda x: x.update(audit_run_id="90000000"),
+    lambda x: x.update(audited_at_utc="2026-11-20T18:00:00Z"),
     lambda x: x.update(audited_at_utc="2026-11-19T19:00:00Z"),
-    lambda x: x["captures"][0].update(run_id="44779967482"),
-    lambda x: x["captures"][0].update(run_id="44711111111"),
-    lambda x: x["captures"][0].update(run_id="44800000002"),
-    lambda x: x["captures"][0].update(run_id="44811111111"),
+    lambda x: x["captures"][0].update(run_id="90000001"),
+    lambda x: x["captures"][0].update(run_id="90000000"),
+    lambda x: x["captures"][0].update(run_id="90000102"),
+    lambda x: x["captures"][0].update(run_id="90000199"),
     lambda x: x.update(total_priced_rows=99),
     lambda x: x.update(total_missing_rows=0),
     lambda x: x.update(blocked_assessments=0),
@@ -134,7 +175,7 @@ def test_cli_unchanged_current_snapshot_can_only_be_inspected(monkeypatch, capsy
 
 def test_cli_rejects_replayed_source_without_overwriting(monkeypatch, capsys, tmp_path):
     candidate = tmp_path / "candidate.json"
-    candidate.write_text(json.dumps(published()), encoding="utf-8")
+    candidate.write_bytes(BASE_FILE.read_bytes())
     original = candidate.read_bytes()
     monkeypatch.setattr("sys.argv", [
         "checker", "--candidate", str(candidate),
