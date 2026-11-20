@@ -611,6 +611,16 @@ class PortfolioServiceTestCase(unittest.TestCase):
             close=3000.0,
         )
 
+        # Explicit non-1:1 JPY/CNY evidence is now required to combine
+        # differently denominated accounts in the aggregate snapshot.
+        self.service.repo.save_fx_rate(
+            from_currency="JPY",
+            to_currency="CNY",
+            rate_date=date(2026, 1, 3),
+            rate=0.048,
+            source="unit-test",
+            is_stale=False,
+        )
         snapshot = self.service.get_portfolio_snapshot(
             as_of=date(2026, 1, 3),
             cost_method="fifo",
