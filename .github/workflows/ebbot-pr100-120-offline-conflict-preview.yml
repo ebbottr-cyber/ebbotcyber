@@ -1,0 +1,224 @@
+name: EBBot PR100-120 true git merge-tree conflict preflight (NO merge/trade)
+
+on:
+  push:
+    branches: [audit/pr100-120-offline-merge-preview-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-pr100-120-readonly-conflicts
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    outputs:
+      can_test: ${{ steps.preflight.outputs.can_test }}
+    env:
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_COIN_TRADING_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Offline audit parser/security tests
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_audit_pr100_120_merge_preview.py -v \
+            2>&1 | tee audit-offline-tests.log
+
+      - name: Fetch five PINNED Git heads locally (READ ONLY)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            '+refs/heads/main:refs/remotes/origin/main' \
+            '+refs/heads/release-candidate/ebbot-main-pr109-offline-20261120:refs/remotes/origin/release-candidate/ebbot-main-pr109-offline-20261120' \
+            '+refs/heads/audit/tr-fx-next-day-readonly-gate-20261120:refs/remotes/origin/audit/tr-fx-next-day-readonly-gate-20261120' \
+            '+refs/heads/test/ebbot-windows-electron-offline-package-20261120:refs/remotes/origin/test/ebbot-windows-electron-offline-package-20261120' \
+            '+refs/heads/feat/solana-reviewed-quality-candidate-20261120:refs/remotes/origin/feat/solana-reviewed-quality-candidate-20261120'
+          for sha in \
+            683bc0c272bdc8f8dd9f20fa6af15fb0b19a0be0 \
+            73e044c8c5d41a57e762b0b765569f446139cd58 \
+            ed14387552e9fe0d35a18cc1a4945bf182702215 \
+            229138e50c20f5760a89698b6f20ed66915fc89f \
+            dbc258f885ef0437680b58514a845ed7d7004ae0; do
+            git cat-file -e "$sha^{commit}"
+          done
+
+      - name: Read actual GitHub PR #100-#120 and main branch metadata
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api 'repos/ebbottr-cyber/ebbotcyber/pulls?state=all&per_page=100' > pr100-120.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/branches/main' > main-branch.json
+
+      - name: Compute real no-commit/no-push git merge-tree previews
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_pr100_120_merge_preview \
+            --prs pr100-120.json --main main-branch.json \
+            --out pr100-120-merge-preview.json \
+            | tee audit-evidence.log
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          a = json.loads(Path("pr100-120-merge-preview.json").read_text(encoding="utf-8"))
+          ready = a["core_pairwise_clean_for_ephemeral_test"] and not a["preview_error_pairs"]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"can_test={'true' if ready else 'false'}\n")
+          lines = [
+              "## EBBot actual Git merge-tree (no remote writes)",
+              "",
+              f"- Audited PRs: {a['pr_count']} — drafts open: {a['open_draft_pr_count']}, merged: {a['merged_prs']}",
+              f"- Preview result: **{a['status']}**",
+              f"- Current main protected: **{a['main_branch_protected']}**",
+              f"- Conflicting pairs: {a['conflicting_pairs']}",
+              f"- Merge preview errors: {a['preview_error_pairs']}",
+              "- Clean pair previews do not prove the combined release works.",
+              "- No PR merged, no branch moved, no wallet or trading enabled.",
+          ]
+          for p in a["previews"]:
+              lines.extend([
+                  "",
+                  f"### {p['pair']}: {p['status']}",
+                  f"Conflicted files: {', '.join(p['conflicts']) if p['conflicts'] else 'none reported'}",
+              ])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+
+      - name: Upload exact PR inventory and merge conflict evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr100-120-true-merge-preview
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            pr100-120-merge-preview.json
+            audit-evidence.log
+            audit-offline-tests.log
+
+  # Only execute real combined tests if all three relevant pairwise merge
+  # previews were clean. All commits happen in the ephemeral runner only.
+  # IMPORTANT: nothing is pushed or merged on GitHub; main remains untouched.
+  ephemeral-full-backend:
+    needs: audit
+    if: ${{ needs.audit.outputs.can_test }} == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_COIN_TRADING_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Ephemeral main + PR113 + PR120 integration (NO REMOTE PUSH)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            'refs/heads/release-candidate/ebbot-main-pr109-offline-20261120' \
+            'refs/heads/audit/tr-fx-next-day-readonly-gate-20261120'
+          git checkout --detach 683bc0c272bdc8f8dd9f20fa6af15fb0b19a0be0
+          git -c user.name=EBBot-Audit -c user.email=audit@invalid.example \
+            merge --no-ff --no-edit 73e044c8c5d41a57e762b0b765569f446139cd58
+          git -c user.name=EBBot-Audit -c user.email=audit@invalid.example \
+            merge --no-ff --no-edit ed14387552e9fe0d35a18cc1a4945bf182702215
+          git status --porcelain
+          echo 'Local detached integration only; no git push, no GitHub PR merge'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install complete backend CI requirements
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Run all offline backend tests on ephemeral combined tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q -m "not network" --tb=line --disable-warnings \
+            --timeout=120 -o timeout_method=thread -o faulthandler_timeout=300 \
+            --junitxml=combined-full-backend.xml 2>&1 | tee combined-full-backend.log
+      - name: Save backend evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr100-120-ephemeral-full-backend
+          path: |
+            combined-full-backend.xml
+            combined-full-backend.log
+          retention-days: 7
+          if-no-files-found: warn
+
+  ephemeral-full-frontend:
+    needs: audit
+    if: ${{ needs.audit.outputs.can_test }} == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_COIN_TRADING_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Ephemeral main + PR113 + PR120 integration (NO REMOTE PUSH)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            'refs/heads/release-candidate/ebbot-main-pr109-offline-20261120' \
+            'refs/heads/audit/tr-fx-next-day-readonly-gate-20261120'
+          git checkout --detach 683bc0c272bdc8f8dd9f20fa6af15fb0b19a0be0
+          git -c user.name=EBBot-Audit -c user.email=audit@invalid.example \
+            merge --no-ff --no-edit 73e044c8c5d41a57e762b0b765569f446139cd58
+          git -c user.name=EBBot-Audit -c user.email=audit@invalid.example \
+            merge --no-ff --no-edit ed14387552e9fe0d35a18cc1a4945bf182702215
+          echo 'No GitHub branches modified'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked React dependencies
+        working-directory: apps/dsa-web
+        run: npm ci --no-audit --no-fund
+      - name: Run ALL Vitest contracts
+        working-directory: apps/dsa-web
+        run: npm test -- --reporter=dot
+      - name: Lint all React code
+        working-directory: apps/dsa-web
+        run: npm run lint
+      - name: Build TypeScript and Vite
+        working-directory: apps/dsa-web
+        run: npm run build
+      - name: Offline generated PWA smoke contracts
+        working-directory: apps/dsa-web
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
