@@ -19,6 +19,8 @@ THUMBPRINT = re.compile(r"^[0-9A-F]{40}$")
 
 
 def _utc(value: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("Missing certificate validity date")
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is None:
         raise ValueError("Expected timezone-aware certificate validity date")
