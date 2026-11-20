@@ -18,6 +18,7 @@ const {
   getAccounts,
   getSnapshot,
   getRisk,
+  getDisplayFxRates,
   refreshFx,
   listImportBrokers,
   listTrades,
@@ -40,6 +41,7 @@ const {
   getAccounts: vi.fn(),
   getSnapshot: vi.fn(),
   getRisk: vi.fn(),
+  getDisplayFxRates: vi.fn(),
   refreshFx: vi.fn(),
   listImportBrokers: vi.fn(),
   listTrades: vi.fn(),
@@ -72,6 +74,7 @@ vi.mock('../../api/portfolio', () => ({
     getAccounts,
     getSnapshot,
     getRisk,
+    getDisplayFxRates,
     refreshFx,
     listImportBrokers,
     listTrades,
@@ -299,6 +302,7 @@ describe('PortfolioPage FX refresh', () => {
     getAccounts.mockResolvedValue(makeAccounts());
     getSnapshot.mockImplementation(async ({ accountId }: { accountId?: number } = {}) => makeSnapshot({ accountId, fxStale: true }));
     getRisk.mockResolvedValue(makeRisk());
+    getDisplayFxRates.mockResolvedValue(null);
     refreshFx.mockResolvedValue({
       asOf: '2026-03-19',
       accountCount: 1,
@@ -371,6 +375,78 @@ describe('PortfolioPage FX refresh', () => {
     expect(screen.getAllByRole('option', { name: 'Satış' })[0]).toHaveValue('sell');
     expect(screen.getByRole('option', { name: 'huatai (Huatai)' })).toHaveValue('huatai');
     expect(screen.queryByText('手工录入：交易')).not.toBeInTheDocument();
+  });
+
+  it('shows a Turkish provider-outage warning and hides all TRY amounts', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    getSnapshot.mockResolvedValueOnce(makeSnapshot({ fxStale: false }));
+    getDisplayFxRates.mockRejectedValueOnce(new Error('Network Error'));
+    render(<PortfolioPage />);
+    await waitForInitialLoad();
+    expect(await screen.findByText(/Kur servisine ulaşılamıyor/)).toBeInTheDocument();
+    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    expect(statusCard).not.toBeNull();
+    expect(within(statusCard as HTMLElement).getByText('Kullanılamıyor')).toBeInTheDocument();
+    const equityCard = screen.getByText('Toplam Varlık').closest('div.rounded-2xl');
+    if (equityCard) expect(within(equityCard as HTMLElement).getByText('—')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
+    expect(screen.queryByText('1 Ocak 1970')).not.toBeInTheDocument();
+  });
+
+  it('keeps TRY totals unavailable for a known stale provider response', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    getSnapshot.mockResolvedValueOnce(makeSnapshot({ fxStale: false }));
+    getDisplayFxRates.mockResolvedValueOnce({
+      status: 'stale', cnyTry: 7.0, usdTry: 50.0, usdCny: 7.0,
+      asOf: '2026-01-01T10:00:00Z', source: 'test quote',
+    });
+    render(<PortfolioPage />);
+    await waitForInitialLoad();
+    expect(await screen.findByText(/Güncel kur veya güvenilir portföy dönüşümü yok/)).toBeInTheDocument();
+    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    expect(statusCard).not.toBeNull();
+    expect(within(statusCard as HTMLElement).getByText('Kullanılamıyor')).toBeInTheDocument();
+  });
+
+  it('renders an explicit Turkish 503 FX error without fabricated snapshot totals', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    getSnapshot.mockRejectedValueOnce(createApiError(createParsedApiError({
+      title: 'Portfolio FX unavailable',
+      message: 'Missing USD/CNY quote',
+      code: 'portfolio_fx_rate_unavailable',
+      category: 'http_error',
+      status: 503,
+    })));
+    render(<PortfolioPage />);
+    await screen.findByText('Portföy Özeti Kullanılamıyor');
+    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    expect(statusCard).not.toBeNull();
+    expect(within(statusCard as HTMLElement).getByText('Kullanılamıyor')).toBeInTheDocument();
+    expect(screen.getByText('Portföy Özeti Kullanılamıyor')).toBeInTheDocument();
+    expect(getRisk).not.toHaveBeenCalled();
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
+  });
+
+  it('shows the real HKD quote timestamp when CNY is unavailable', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    const ts = new Date(Date.now() - 60_000).toISOString();
+    const snap = makeSnapshot({ fxStale: false });
+    getSnapshot.mockResolvedValueOnce({
+      ...snap,
+      accounts: [{ ...snap.accounts[0], baseCurrency: 'HKD', totalEquity: 8,
+        totalCash: 8, totalMarketValue: 0, fxStale: false }],
+    });
+    getDisplayFxRates.mockResolvedValueOnce({
+      status: 'unavailable', cnyTry: null, usdTry: 50, usdCny: null,
+      hkdTry: 6.25, asOf: null, source: 'test quote',
+      pairStatus: { hkd: 'current' }, pairAsOf: { hkd: ts },
+    });
+    render(<PortfolioPage />);
+    await waitForInitialLoad();
+    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    expect(statusCard).not.toBeNull();
+    await waitFor(() => expect(within(statusCard as HTMLElement).getByText(/Yaklaşık TL değeri/)).toBeInTheDocument());
+    expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
   });
 
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
@@ -712,7 +788,7 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboard.getByText('持仓: 0')).toBeInTheDocument();
     expect(screen.getByText('共 0 项')).toBeInTheDocument();
     expect(screen.getByText('当前无持仓数据')).toBeInTheDocument();
-    expect(screen.getByText('最新')).toBeInTheDocument();
+    expect(screen.queryByText('最新')).not.toBeInTheDocument();
     expect(dashboard.queryByText('暴露不可用')).not.toBeInTheDocument();
   });
 
@@ -1857,7 +1933,7 @@ describe('PortfolioPage FX refresh', () => {
     expect(listTrades).toHaveBeenCalledTimes(tradeCallsBeforeRefresh);
     expect(listCashLedger).not.toHaveBeenCalled();
     expect(listCorporateActions).not.toHaveBeenCalled();
-    expect(screen.getByText('最新')).toBeInTheDocument();
+    expect(screen.queryByText('最新')).not.toBeInTheDocument();
   });
 
   it('refreshes FX for the full portfolio without sending accountId and shows neutral feedback when no pair exists', async () => {
