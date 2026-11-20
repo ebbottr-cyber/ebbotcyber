@@ -549,11 +549,17 @@ function backupPackagedRuntimeState() {
     return;
   }
 
+  const backupRoot = resolveUpdateBackupRoot();
+  // A previous interrupted update may still need these bytes for recovery.
+  // Never remove or overwrite a pending backup just to start a new attempt.
+  if (fs.existsSync(backupRoot)) {
+    logLine('[update] skipped new runtime backup because a prior backup needs review');
+    return;
+  }
+
   const runtimeEntries = resolveRuntimeFileEntries();
   const backedUpFiles = [];
-
-  cleanupUpdateBackupRoot();
-  ensureDirectory(resolveUpdateBackupRoot());
+  ensureDirectory(backupRoot);
 
   runtimeEntries.forEach(({ relativePath, absolutePath, backupPath }) => {
     if (!fs.existsSync(absolutePath)) {
@@ -564,6 +570,7 @@ function backupPackagedRuntimeState() {
   });
 
   if (!backedUpFiles.length) {
+    cleanupUpdateBackupRoot();
     return;
   }
 
