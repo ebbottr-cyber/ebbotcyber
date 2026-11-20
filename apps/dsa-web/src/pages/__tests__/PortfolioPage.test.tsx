@@ -387,6 +387,39 @@ describe('PortfolioPage FX refresh', () => {
     expect(screen.getByText(/Güvenilir ve uygun tarihli TL dönüşümü mevcut değil/)).toBeInTheDocument();
   });
 
+  it('production-like Turkish mode translates portfolio account forms without changing API codes', async () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+    try {
+      getAccounts.mockResolvedValue(makeAccounts([]));
+      render(<PortfolioPage />);
+      expect(await screen.findByText('Yeni hesap')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Hesap adı (zorunlu)')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Baz para birimi (ör. CNY/USD/HKD)')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Hesap oluştur' })).toBeInTheDocument();
+      expect(screen.getByText('Manuel kayıt: Alım-satım')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'İşlemi kaydet' })).toBeDisabled();
+      expect(screen.getByText('Aracı kurum CSV içe aktarma')).toBeInTheDocument();
+      expect(screen.queryByText('新建账户')).not.toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Piyasa: ABD (us)' })).toHaveValue('us');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('legacy test mode keeps original Chinese operator strings for older test compatibility', async () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'false');
+    try {
+      getAccounts.mockResolvedValue(makeAccounts([]));
+      render(<PortfolioPage />);
+      expect(await screen.findByText('新建账户')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('账户名称（必填）')).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: '市场：美股（us）' })).toHaveValue('us');
+      expect(screen.queryByText('Yeni hesap')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
     render(<PortfolioPage />);
 
