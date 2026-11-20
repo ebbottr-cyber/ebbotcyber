@@ -713,7 +713,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
                 params={"account_id": aid, "as_of": "2026-01-02", "include_realtime": "false"},
             )
             self.assertEqual(response.status_code, 503, response.text)
-            self.assertEqual(response.json()["error"], "portfolio_fx_rate_unavailable")
+            self.assertEqual(response.json()["detail"]["error"], "portfolio_fx_rate_unavailable")
 
     def test_snapshot_does_not_trigger_online_fx_refresh(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
