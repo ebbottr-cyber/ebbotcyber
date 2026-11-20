@@ -8,6 +8,7 @@ updates. No production data or secrets are bundled or uploaded.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -54,9 +55,9 @@ def snapshot_sqlite_database(source: Path, destination: Path, *, timeout_seconds
                 raise TimeoutError("SQLite online snapshot exceeded deadline")
 
         source_uri = source.resolve().as_uri() + "?mode=ro"
-        with sqlite3.connect(source_uri, uri=True, timeout=2.0) as source_db:
+        with closing(sqlite3.connect(source_uri, uri=True, timeout=2.0)) as source_db:
             source_db.execute("PRAGMA query_only=ON")
-            with sqlite3.connect(tmp_path, timeout=2.0) as target_db:
+            with closing(sqlite3.connect(tmp_path, timeout=2.0)) as target_db:
                 source_db.backup(target_db, pages=128, progress=check_progress, sleep=0.05)
                 if target_db.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                     raise ValueError("SQLite snapshot failed integrity_check")
@@ -66,7 +67,7 @@ def snapshot_sqlite_database(source: Path, destination: Path, *, timeout_seconds
 
         # Reopen the closed snapshot to validate the actual on-disk DB, not only
         # the in-memory destination connection used by SQLite.backup().
-        with sqlite3.connect(tmp_path.resolve().as_uri() + "?mode=ro", uri=True) as verified:
+        with closing(sqlite3.connect(tmp_path.resolve().as_uri() + "?mode=ro", uri=True)) as verified:
             if verified.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                 raise ValueError("Closed SQLite snapshot failed integrity_check")
 
