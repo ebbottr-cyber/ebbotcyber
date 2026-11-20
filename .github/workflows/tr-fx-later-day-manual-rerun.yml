@@ -1,0 +1,128 @@
+name: EBBot later-weekday source continuity manual rerun gate (no trading)
+
+on:
+  push:
+    branches: [audit/tr-fx-next-day-readonly-gate-20261120]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ebbot-tr-fx-later-weekday-observation
+  cancel-in-progress: true
+
+jobs:
+  readonly-later-weekday-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+      GUARD_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend CI requirements and socket blocker
+        shell: bash
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: All offline source history, publication, and next-day safety tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
+            tests/test_audit_tr_fx_later_day.py \
+            tests/test_audit_tr_fx_archived_evidence.py \
+            tests/test_audit_tr_fx_multiday_continuity.py \
+            tests/test_audit_tr_fx_cross_sources.py \
+            tests/test_audit_tr_fx_public_sources.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_tcmb_try_display_service.py \
+            --junitxml=tr-fx-later-day-tests.xml 2>&1 | tee tr-fx-later-day-tests.log
+
+      # Baseline is a genuine 20 Nov GitHub action, not a synthetic CSV and
+      # not a newly fetched Yahoo/TCMB historical price.
+      - name: Download exact 20 Nov baseline from original successful GitHub run
+        uses: actions/download-artifact@v4
+        with:
+          repository: ebbottr-cyber/ebbotcyber
+          run-id: 44806940721
+          name: tr-fx-publication-day-evidence
+          path: baseline/44806940721
+          github-token: ${{ github.token }}
+      - name: Read origin GitHub run ID/commit/time metadata
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/ebbottr-cyber/ebbotcyber/actions/runs/44806940721" \
+            > baseline/44806940721/run-metadata.json
+
+      - name: Real-clock guard first; one public read ONLY if later eligible weekday
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The script validates the original run provenance before any GET.
+          # On Friday/Saturday/Sunday: NOT_ELIGIBLE_YET, absolutely zero GETs.
+          # On >=23 Nov weekdays: one bounded fixed-symbol Yahoo/TCMB public GET,
+          # but ONLY on intentional workflow rerun/new push, never scheduled.
+          python -m scripts.audit_tr_fx_later_day \
+            --baseline-root baseline --fetch \
+            | tee tr-fx-conditional-followup.json
+
+      - name: Ensure the report cannot suggest trading or invented market sessions
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          record = json.loads(Path("tr-fx-conditional-followup.json").read_text(encoding="utf-8"))
+          assert record["status"] != "BLOCKED", record.get("reason")
+          assert record["orders"] == 0
+          assert record["paper_fills"] == 0
+          assert record["journal_writes"] == 0
+          assert record["paper_trading_enabled"] is False
+          assert record["live_trading_enabled"] is False
+          assert record["scheduler_enabled"] is False
+          if record["status"] == "NOT_ELIGIBLE_YET":
+              assert record["public_quote_requests_allowed"] is False
+              assert record["network_requests"] == 0
+          else:
+              assert record["distinct_observation_dates"] == 2
+              assert record["long_term_reliability_proven"] is False
+              assert record["independent_bist_second_source_verified"] is False
+              assert record["prices_executable"] is False
+          lines = [
+              "## Later-day public source observation: NO scheduler or trades",
+              "",
+              f"- Result: {record['status']}",
+              "- Baseline: original successful run 44806940721, 2026-11-20",
+              "- Fresh independent provider publication NEVER inferred from a new fetch timestamp",
+              "- Real weekend/holiday calendar and trade execution status: NOT VERIFIED",
+              "- All trade actions, fills, journal updates, subscriptions: OFF",
+              "- To evaluate another genuine weekday, intentionally rerun this CI job; it does not self-schedule.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - name: Archive the result and offline tests, not baseline market prices
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tr-fx-conditional-next-day-evidence
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            tr-fx-conditional-followup.json
+            tr-fx-later-day-tests.xml
+            tr-fx-later-day-tests.log
