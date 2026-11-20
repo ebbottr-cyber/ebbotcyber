@@ -36,6 +36,7 @@ def fetch_dated_yahoo_fx_close(
         end=(as_of_date + timedelta(days=1)).isoformat(),
         interval="1d",
         auto_adjust=False,
+        timeout=8,
     )
     if history is None or history.empty or "Close" not in history:
         return None
