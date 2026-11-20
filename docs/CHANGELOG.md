@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] Add bounded read-only TCMB daily reference rate API and strictly guarded TRY display for portfolio summary; leave accounting, strategies, orders and stored currencies unchanged.
+
 - [修复] Translate portfolio operator feedback, report-type labels and desktop diagnostics into Turkish, and use Turkish number/date formatting without altering source currencies or market-day calculation.
 - [测试] Add a display-only dated TCMB-to-TRY conversion guard and offline fail-closed tests; no live FX provider, order integration, deployment or scheduler enabled.
 

@@ -13,6 +13,7 @@ import type {
   PortfolioDeleteResponse,
   PortfolioEventCreatedResponse,
   PortfolioFxRefreshResponse,
+  PortfolioTryDisplayResponse,
   PortfolioImportBrokerListResponse,
   PortfolioImportCommitResponse,
   PortfolioImportParseResponse,
@@ -153,6 +154,11 @@ export const portfolioApi = {
       params: buildSnapshotParams(query),
     });
     return toCamelCase<PortfolioRiskResponse>(response.data);
+  },
+
+  async getTryDisplayRates(): Promise<PortfolioTryDisplayResponse> {
+    const response = await apiClient.get<Record<string, unknown>>('/api/v1/portfolio/fx/try-display');
+    return toCamelCase<PortfolioTryDisplayResponse>(response.data);
   },
 
   async refreshFx(query: FxRefreshQuery = {}): Promise<PortfolioFxRefreshResponse> {

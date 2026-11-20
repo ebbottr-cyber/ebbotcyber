@@ -1,25 +1,27 @@
-# EBBot: Türkçe para görünümü için kur doğrulama sözleşmesi
+# EBBot TCMB kaynaklı tahmini TL görünümü (inceleme sürümü)
 
-## Kapsam
+## Ne değişti?
 
-Bu PR yalnızca operatör arayüzündeki Türkçe metinleri düzeltir ve **kullanıma henüz bağlanmamış** `formatTryDisplay` yardımcı işlevini tanımlar. Portföy, emir, muhasebe, performans, PnL, piyasa verisi, API sözleşmesi ve strateji hesaplamaları mevcut özgün para birimleriyle çalışmaya devam eder. Kur indirme/servis sunma veya görünür TL dönüşümü henüz devreye alınmamıştır.
+Yalnızca portföy özetindeki **toplam özkaynak, toplam piyasa değeri ve nakit** alanları, doğrulanmış güncel TCMB gösterge döviz satış kuru varsa TRY olarak sunulur. Yanında özgün USD/EUR/CNY tutarı gösterilir. Geri kalan emir, fiyat, miktar, risk, kazanç/zarar, portföy muhasebesi, strateji ve rapor hesaplamaları **özgün para birimiyle** devam eder.
 
-## Kur kaynağı ve tarih
+- Backend: `GET /api/v1/portfolio/fx/try-display` (salt okunur), `src/services/tcmb_try_display_service.py`.
+- Frontend: `apps/dsa-web/src/api/portfolio.ts` ve `PortfolioPage.tsx`; `formatTryDisplay` güvenli son kontrolü uygular.
+- Kaynak: `https://www.tcmb.gov.tr/kurlar/today.xml`. Bu feed **anlık alım-satım kotasyonu değildir**, TCMB günlük gösterge döviz satış kurudur. Bülten tarihi ayrıca görünür.
+- Yeni bir emir tetikleyicisi, API anahtarı, otomasyon, scheduler, döviz muhasebe yazma fonksiyonu veya env ayarı eklenmedi.
 
-Önerilen güvenilir veri kaynağı TCMB günlük **gösterge niteliğindeki** döviz kurlarıdır: https://www.tcmb.gov.tr/kurlar/today.xml
+## Güvenlik ve veri doğrulama
 
-Bu kurlar canlı veya anlık işlem kotasyonu değildir. TCMB iş günlerinde gösterge kurlarını 15:30 civarında yayımlar; hafta sonu ve resmi tatillerde yeni günlük bülten olmayabilir. Görünür dönüşümlerde `TCMB · bülten tarihi YYYY-MM-DD · gösterge kuru` bilgisi birlikte verilmelidir. Arşivden veya günlük bültenden gelen gerçek yayın tarihini kullanın, sistemin fetch zamanını veya bilgisayar saatini bülten tarihi olarak atamayın.
+1. Backend yalnızca sabit `https://www.tcmb.gov.tr/kurlar/today.xml` adresine istek gönderir (5 saniye zaman aşımı, yönlendirme yok, maksimum 128 KiB, 10 dakika başarılı sonuç önbelleği). URL kullanıcı girdisi olamaz.
+2. XML kökü `Tarih_Date` olmalı; `Tarih` bülten tarihi ayrıştırılır ve varsa `Date` ile eşleşmelidir. DTD/ENTITY reddedilir. `CurrencyCode`, `Kod`, `Unit` ve `ForexSelling` birlikte kontrol edilir. Kaynak birimi 1'e normalize edilir.
+3. Sadece USD, EUR ve CNY → TRY geçerlidir. Kur pozitif, sonlu ve maksimum dört takvim günü eski olmalıdır (İstanbul takvimine göre). Gelecek tarih, mükerrer kod, geçersiz/eksik bülten, ağ kesintisi ve sahte değerler dönüşüm üretmez.
+4. Endpoint doğrulanmış bülten yoksa HTTP 503 döndürür. Frontend hatayı sessizce TRY'ye dönüştürmez.
+5. Portföy `fxStale` ise, hesaplarından biri `fxStale` ise veya özetin `dataQuality` alanı `partial` ise TL dönüşümü **engellenir**. Fiyat kalitesi ve kapsamı ayrıca gerçek cihazda incelenmelidir.
+6. Envanterdeki herhangi bir para birimi orijinal veride USD/EUR/CNY dışında ise bu alanın dönüştürülmesi desteklenmez. Mevcut portföyün toplulaştırılmış para birimi değiştirilmez.
 
-## Güvenli kullanım sözleşmesi
+## Sınırlar / kabul koşulları
 
-- Döviz kuru yalnızca güvenilir backend servisi tarafından TCMB XML'den alınmalı, her bir `CurrencyCode` ve `Unit` alanı doğru ayrıştırılmalıdır. Bu frontend yardımcı işlevi URL çağrısı yapmaz.
-- Sadece `USD`, `EUR` ve `CNY` → `TRY` için izin vardır. Her kayıtta `source: 'TCMB'`, `targetCurrency: 'TRY'`, `sourceUnit: 1`, `asOfDate` (gerçek bülten tarihi) ve sonlu, pozitif `tryPerUnit` olmalıdır.
-- Kur tarihi İstanbul tarihinden ileride olamaz; dört takvim gününden daha eskiyse dönüşüm yapılamaz. Uzun tatillerde bu, orijinal para birimini gösteren güvenli bir düşüşe yol açabilir.
-- Eşleşmeyen, eksik, tarih biçimi bozuk, güncel olmayan, sıfır/negatif veya sonlu olmayan kurlarda özgün tutar ve döviz kodu korunur. **Uydurma TL hesabı veya sessiz CNY→TRY etiket değişimi yasaktır.**
-- `TRY` cinsinden özgün tutar doğrudan görünür; herhangi bir döviz kuru gerekli değildir.
-- Fiyat, emir, risk, bakiye, FX exposure ve muhasebe veri katmanında bu dönüştürülmüş çıktı kullanılmaz. Sadece ekrandaki bilgilendirici gösterim alanlarında kullanılabilir.
-- Kur hizmeti hazırlanıp gerçek kaynak-tarih/birim testi ile doğrulanana kadar `formatTryDisplay` hiçbir sayfaya bağlanmamalıdır.
-
-## Doğrulama ve yayımlama engelleri
-
-`apps/dsa-web/src/utils/__tests__/tryDisplayFx.test.ts` yok/eskimiş/gelecek tarihli ve eşleşmeyen kur senaryolarını kontrol eder. Geniş React testlerindeki eski başarısızlıklar bu PR ile giderilmiş sayılmaz; tam test ve gerçek cihaz denetimi ayrı gerekir. Canlı piyasada emir, otomatik görev, deploy veya `main` birleştirmesi bu çalışmanın parçası değildir.
+- Resmi TCMB kuru gün içinde bir kez yayımlanır; intraday veya işlem yapılabilir fiyat değildir.
+- Hafta sonu veya uzun tatillerde dört günü geçen tarih yüzünden orijinal para birimi korunur.
+- Gerçek TCMB ağından end-to-end erişim, veri lisansı/kullanım koşulları, tarayıcı ekran görüntüleri ve cihaz üstü Türkçe kontrolleri henüz onaylanmamıştır.
+- Mevcut 359 geniş React test hatası bu çalışma tarafından çözüldü sayılmamalıdır. Taslak PR birleştirilmeye ve üretime yayına hazır değildir.
+- Geri alma: yeni taslak PR'ı kapatmak veya bu PR'ın commit'lerini geri almak. Veritabanı geçişi yoktur.

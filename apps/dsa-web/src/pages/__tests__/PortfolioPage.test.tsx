@@ -12,6 +12,7 @@ const {
   getAccounts,
   getSnapshot,
   getRisk,
+  getTryDisplayRates,
   refreshFx,
   listImportBrokers,
   listTrades,
@@ -34,6 +35,7 @@ const {
   getAccounts: vi.fn(),
   getSnapshot: vi.fn(),
   getRisk: vi.fn(),
+  getTryDisplayRates: vi.fn(),
   refreshFx: vi.fn(),
   listImportBrokers: vi.fn(),
   listTrades: vi.fn(),
@@ -66,7 +68,8 @@ vi.mock('../../api/portfolio', () => ({
     getAccounts,
     getSnapshot,
     getRisk,
-    refreshFx,
+    getTryDisplayRates,
+    refreshFx:
     listImportBrokers,
     listTrades,
     listCashLedger,
@@ -292,6 +295,7 @@ describe('PortfolioPage FX refresh', () => {
     getAccounts.mockResolvedValue(makeAccounts());
     getSnapshot.mockImplementation(async ({ accountId }: { accountId?: number } = {}) => makeSnapshot({ accountId, fxStale: true }));
     getRisk.mockResolvedValue(makeRisk());
+    getTryDisplayRates.mockRejectedValue(new Error('Offline test: no TCMB rate'));
     refreshFx.mockResolvedValue({
       asOf: '2026-03-19',
       accountCount: 1,
@@ -344,6 +348,44 @@ describe('PortfolioPage FX refresh', () => {
       </UiLanguageProvider>,
     );
   }
+
+  it('TCMB TRY display: shows dated indicative conversion only beside trustworthy aggregate totals', async () => {
+    const dateToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date());
+    getSnapshot.mockResolvedValue(makeSnapshot({ fxStale: false }));
+    getTryDisplayRates.mockResolvedValue({
+      available: true,
+      source: 'TCMB',
+      rateKind: 'indicative_forex_selling',
+      asOfDate: dateToday,
+      quotes: [{
+        source: 'TCMB', sourceCurrency: 'CNY', targetCurrency: 'TRY',
+        sourceUnit: 1, tryPerUnit: 6, asOfDate: dateToday,
+      }],
+    });
+    render(<PortfolioPage />);
+    expect(await screen.findByText('TRY 18.000,00')).toBeInTheDocument();
+    expect(screen.getByText('TRY 12.000,00')).toBeInTheDocument();
+    expect(screen.getByText('TRY 6.000,00')).toBeInTheDocument();
+    expect(screen.getByText(/TCMB .* gösterge döviz satış kuruna dayanır/)).toBeInTheDocument();
+    expect(screen.getByText('Özgün tutar: CNY 3.000,00')).toBeInTheDocument();
+  });
+
+  it('TCMB TRY display: keeps original CNY when portfolio FX is stale even with a valid quote', async () => {
+    const dateToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date());
+    getSnapshot.mockResolvedValue(makeSnapshot({ fxStale: true }));
+    getTryDisplayRates.mockResolvedValue({
+      available: true, source: 'TCMB', rateKind: 'indicative_forex_selling',
+      asOfDate: dateToday,
+      quotes: [{
+        source: 'TCMB', sourceCurrency: 'CNY', targetCurrency: 'TRY',
+        sourceUnit: 1, tryPerUnit: 6, asOfDate: dateToday,
+      }],
+    });
+    render(<PortfolioPage />);
+    expect(await screen.findByText('CNY 3.000,00')).toBeInTheDocument();
+    expect(screen.queryByText('TRY 18.000,00')).not.toBeInTheDocument();
+    expect(screen.getByText(/Güvenilir ve uygun tarihli TL dönüşümü mevcut değil/)).toBeInTheDocument();
+  });
 
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
     render(<PortfolioPage />);

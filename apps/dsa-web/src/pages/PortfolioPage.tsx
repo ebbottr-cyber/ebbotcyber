@@ -4,6 +4,7 @@ import { AlertTriangle, Layers3, ShieldCheck } from 'lucide-react';
 import { Pie, PieChart, ResponsiveContainer, Tooltip, Legend, Cell } from 'recharts';
 import { decisionSignalsApi } from '../api/decisionSignals';
 import { portfolioApi } from '../api/portfolio';
+import { formatTryDisplay } from '../utils/tryDisplayFx';
 import type { ParsedApiError } from '../api/error';
 import { getParsedApiError } from '../api/error';
 import { ApiErrorAlert, Card, Badge, ConfirmDialog, EmptyState, InlineAlert, StatusDot } from '../components/common';
@@ -46,6 +47,7 @@ import type {
   PortfolioImportParseResponse,
   PortfolioPositionItem,
   PortfolioRiskResponse,
+  PortfolioTryDisplayResponse,
   PortfolioSide,
   PortfolioSnapshotResponse,
   PortfolioTradeListItem,
@@ -676,6 +678,7 @@ const PortfolioPage: React.FC = () => {
   });
   const [costMethod, setCostMethod] = useState<PortfolioCostMethod>('fifo');
   const [snapshot, setSnapshot] = useState<PortfolioSnapshotResponse | null>(null);
+  const [tryDisplayRates, setTryDisplayRates] = useState<PortfolioTryDisplayResponse | null>(null);
   const [risk, setRisk] = useState<PortfolioRiskResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fxRefreshing, setFxRefreshing] = useState(false);
@@ -842,6 +845,27 @@ const PortfolioPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [queryAccountId, costMethod]);
+
+  // This quote is independent from the portfolio's accounting FX cache.
+  // Never use it for risk, order entry, cost basis, or stored PnL.
+  useEffect(() => {
+    if (!snapshot || snapshot.fxStale !== false || snapshot.dataQuality === 'partial'
+      || snapshot.accounts.some((account) => account.fxStale !== false)
+      || !['USD', 'EUR', 'CNY'].includes(snapshot.currency)) {
+      setTryDisplayRates(null);
+      return;
+    }
+    let active = true;
+    setTryDisplayRates(null);
+    void portfolioApi.getTryDisplayRates()
+      .then((response) => {
+        if (active) setTryDisplayRates(response);
+      })
+      .catch(() => {
+        if (active) setTryDisplayRates(null);
+      });
+    return () => { active = false; };
+  }, [snapshot]);
 
   const loadEventsPage = useCallback(async (page: number) => {
     setEventLoading(true);
@@ -1441,6 +1465,20 @@ const PortfolioPage: React.FC = () => {
     }
   };
 
+  // Never convert aggregated totals when the portfolio's own FX/valuation
+  // evidence is partial or stale, even if a recent TCMB rate exists.
+  const eligibleForTryDisplay = Boolean(snapshot)
+    && snapshot?.fxStale === false
+    && snapshot?.dataQuality !== 'partial'
+    && snapshot?.accounts.every((account) => account.fxStale === false);
+  const matchingTryQuote = eligibleForTryDisplay
+    ? tryDisplayRates?.quotes.find((quote) => quote.sourceCurrency === snapshot?.currency) ?? null
+    : null;
+  const equityTryDisplay = formatTryDisplay(snapshot?.totalEquity, snapshot?.currency || 'CNY', matchingTryQuote);
+  const marketValueTryDisplay = formatTryDisplay(snapshot?.totalMarketValue, snapshot?.currency || 'CNY', matchingTryQuote);
+  const cashTryDisplay = formatTryDisplay(snapshot?.totalCash, snapshot?.currency || 'CNY', matchingTryQuote);
+  const tryRateUsed = equityTryDisplay.mode === 'converted' ? matchingTryQuote : null;
+
   const decisionSignalRiskPreviewItems = (risk?.decisionSignalRisk?.items ?? []).slice(0, 3);
   const formatDecisionSignalRiskAction = (signal: Partial<DecisionSignalItem>): string => (
     getDecisionActionLabel(
@@ -1632,6 +1670,14 @@ const PortfolioPage: React.FC = () => {
         </Card>
       ) : null}
 
+      {snapshot && ['USD', 'EUR', 'CNY'].includes(snapshot.currency) && (
+        <p className="text-xs text-secondary" role="status" aria-live="polite">
+          {tryRateUsed
+            ? `TL karşılıkları yaklaşık olup TCMB ${tryRateUsed.asOfDate} tarihli gösterge döviz satış kuruna dayanır; işlem kuru değildir.`
+            : 'Güvenilir ve uygun tarihli TL dönüşümü mevcut değil; özgün para birimi tutarları gösteriliyor.'}
+        </p>
+      )}
+
       {snapshotQualityMessage ? (
         <InlineAlert
           variant="warning"
@@ -1644,15 +1690,18 @@ const PortfolioPage: React.FC = () => {
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalEquity}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalEquity, snapshot?.currency || 'CNY')}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{equityTryDisplay.text}</p>
+          {equityTryDisplay.mode === 'converted' && <p className="mt-1 text-xs text-secondary">Özgün tutar: {formatMoney(snapshot?.totalEquity, snapshot?.currency || 'CNY')}</p>}
         </Card>
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalMarketValue}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalMarketValue, snapshot?.currency || 'CNY')}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{marketValueTryDisplay.text}</p>
+          {marketValueTryDisplay.mode === 'converted' && <p className="mt-1 text-xs text-secondary">Özgün tutar: {formatMoney(snapshot?.totalMarketValue, snapshot?.currency || 'CNY')}</p>}
         </Card>
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalCash}</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalCash, snapshot?.currency || 'CNY')}</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{cashTryDisplay.text}</p>
+          {cashTryDisplay.mode === 'converted' && <p className="mt-1 text-xs text-secondary">Özgün tutar: {formatMoney(snapshot?.totalCash, snapshot?.currency || 'CNY')}</p>}
         </Card>
         <Card variant="gradient" padding="md">
           <div className="flex items-start justify-between gap-3">
