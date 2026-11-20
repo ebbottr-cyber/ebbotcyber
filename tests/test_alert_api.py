@@ -170,6 +170,14 @@ class AlertApiTestCase(unittest.TestCase):
         # shortcut would miss the holdings entirely in the first case.
         for seed_cache in (False, True):
             if seed_cache:
+                # Background/full financial valuation is intentionally strict:
+                # it must have a genuine recorded FX rate, even in a test.
+                # The preceding no-cache iteration checks that READ-ONLY
+                # holding expansion works without ANY FX record.
+                portfolio.repo.save_fx_rate(
+                    from_currency="USD", to_currency="CNY",
+                    rate_date=date.today(), rate=7.0, source="test-fixture",
+                )
                 portfolio.get_portfolio_snapshot(account_id=account_id, include_realtime=False)
             before = stored_state()
             self.assertEqual([len(rows) for rows in before], [2, 2, 1] if seed_cache else [0, 0, 0])
