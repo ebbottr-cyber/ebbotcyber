@@ -25,7 +25,7 @@ function getChannelOptions(language: UiLanguage): Array<{ value: NotificationTes
     { value: 'gotify', label: 'Gotify' },
     { value: 'pushplus', label: 'PushPlus' },
     { value: 'serverchan3', label: 'ServerChan3' },
-    { value: 'custom', label: language !== 'zh' ? 'Custom Webhook' : '自定义 Webhook' },
+    { value: 'custom', label: language === 'tr' ? 'Özel Webhook' : language === 'en' ? 'Custom Webhook' : '自定义 Webhook' },
     { value: 'discord', label: 'Discord' },
     { value: 'slack', label: 'Slack' },
     { value: 'astrbot', label: 'AstrBot' },
