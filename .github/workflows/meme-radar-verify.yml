@@ -9,6 +9,7 @@ on:
       - 'scripts/scan_solana_meme.py'
       - 'api/v1/endpoints/meme_coins.py'
       - 'tests/test_solana_meme*.py'
+      - 'apps/dsa-web/src/components/meme/**'
       - 'apps/dsa-web/src/pages/MemeCoinsPage.tsx'
       - 'apps/dsa-web/src/pages/__tests__/MemeCoinsPage.test.tsx'
       - 'apps/dsa-web/src/api/memeRadar.ts'
@@ -47,6 +48,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run Meme Radar UI test
-        run: npx vitest run src/pages/__tests__/MemeCoinsPage.test.tsx
+        run: npx vitest run src/pages/__tests__/MemeCoinsPage.test.tsx src/components/meme/__tests__/SolanaArchiveQuality.test.tsx
       - name: Typecheck
         run: npx tsc -p tsconfig.app.json --noEmit
