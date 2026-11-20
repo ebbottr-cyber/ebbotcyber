@@ -1,0 +1,110 @@
+name: Solana review-only quality report candidate (NO orders)
+
+on:
+  workflow_dispatch:
+    inputs:
+      observation_run_ids:
+        description: 'Approved Solana observation run IDs, comma-separated (1-6)'
+        required: true
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/prepare_solana_reviewed_report.py'
+      - 'tests/test_solana_quality_candidate.py'
+      - '.github/workflows/solana-reviewed-report-candidate.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  offline-candidate-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install offline test runner
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Verify offline generator and historical validator contracts
+        run: python -m pytest -q --noconftest tests/test_solana_quality_candidate.py tests/test_solana_history_quality.py
+
+  candidate-from-existing-artifacts:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-candidate-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OBS_RUN_IDS: ${{ inputs.observation_run_ids }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify approved source runs and download existing artifacts only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$OBS_RUN_IDS" =~ ^[0-9]{6,20}(,[0-9]{6,20}){0,5}$ ]]; then
+            echo 'Only 1-6 comma-separated run IDs are accepted'
+            exit 1
+          fi
+          IFS=',' read -r -a runs <<< "$OBS_RUN_IDS"
+          declare -A seen=()
+          : > source-conclusions.txt
+          for id in "${runs[@]}"; do
+            if [[ -n "${seen[$id]:-}" ]]; then
+              echo 'Duplicate observation run rejected'
+              exit 1
+            fi
+            seen[$id]=1
+            meta=$(gh run view "$id" --repo "$GITHUB_REPOSITORY" \
+              --json workflowName,conclusion \
+              --jq '(.workflowName // "") + "|" + (.conclusion // "")')
+            if [[ "$meta" != 'Solana fixed-mint time-spaced observations (read only)|success' \
+               && "$meta" != 'Solana fixed-mint time-spaced observations (read only)|failure' ]]; then
+              echo 'Unapproved observation workflow or unsupported run outcome'
+              exit 1
+            fi
+            # Degraded samples intentionally fail the producer workflow.
+            # The converter cross-checks failure with a degraded capture.
+            printf '%s=%s\n' "$id" "${meta##*|}" >> source-conclusions.txt
+            mkdir -p "inputs/$id"
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" \
+              --name solana-public-observations-not-paper-trades \
+              --dir "inputs/$id"
+            if [[ ! -f "inputs/$id/solana-public-observations.json" ]]; then
+              echo 'Expected observation JSON not present'
+              exit 1
+            fi
+          done
+      - name: Revalidate each row and create a review-only candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS=',' read -r -a runs <<< "$OBS_RUN_IDS"
+          args=()
+          for id in "${runs[@]}"; do
+            args+=(--capture "$id=inputs/$id/solana-public-observations.json")
+          done
+          while IFS='=' read -r id outcome; do
+            args+=(--source-conclusion "$id=$outcome")
+          done < source-conclusions.txt
+          python -m scripts.prepare_solana_reviewed_report \
+            "${args[@]}" --audit-run-id "$GITHUB_RUN_ID" \
+            --output solana-reviewed-quality-candidate.json
+      - name: Store review candidate only, never modify main or the published panel
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-quality-candidate-requires-pr-review
+          path: solana-reviewed-quality-candidate.json
+          if-no-files-found: error
+          retention-days: 7
