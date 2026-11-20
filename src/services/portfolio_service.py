@@ -499,8 +499,17 @@ class PortfolioService:
         cost_method: str = "fifo",
         include_realtime: bool = True,
         read_only: bool = False,
+        holdings_only: bool = False,
     ) -> Dict[str, Any]:
-        """Replay holdings; read-only callers skip live quotes and snapshot writes."""
+        """Replay holdings; normal snapshots still require real aggregate FX.
+
+        A holdings-only read is intentionally limited to the accounts list and
+        their replayed positions. Alert symbol discovery does not need a CNY
+        valuation and must never invent a 1:1 USD/CNY rate. Full snapshots
+        keep raising PortfolioFxRateUnavailableError when evidence is absent.
+        """
+        if holdings_only and not read_only:
+            raise ValueError("holdings_only requires read_only=True")
         as_of_date = as_of or date.today()
         method = self._normalize_cost_method(cost_method)
 
@@ -557,6 +566,11 @@ class PortfolioService:
                 aggregate["limitations"],
                 account_snapshot["public"].get("limitations", []),
             )
+
+            if holdings_only:
+                # Alert symbol expansion consumes positions only. Do not read,
+                # approximate or emit a cross-currency portfolio valuation.
+                continue
 
             cash_cny, stale_cash, _ = self._convert_amount(
                 amount=account_snapshot["total_cash"],
@@ -622,6 +636,9 @@ class PortfolioService:
                     ]
                 )
             )
+
+        if holdings_only:
+            return {"accounts": accounts_payload}
 
         return {
             "as_of": as_of_date.isoformat(),
