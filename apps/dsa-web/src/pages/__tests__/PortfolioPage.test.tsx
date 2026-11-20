@@ -349,6 +349,24 @@ describe('PortfolioPage FX refresh', () => {
     );
   }
 
+  it('production Turkish operator forms show translated trade, cash, CSV and event actions', async () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+    try {
+      render(<PortfolioPage />);
+      await waitForInitialLoad();
+      expect(screen.getByText('Manuel giriş: Alım-satım')).toBeInTheDocument();
+      expect(screen.getByText('Manuel giriş: Nakit hareketi')).toBeInTheDocument();
+      expect(screen.getByText('Manuel giriş: Kurumsal işlem')).toBeInTheDocument();
+      expect(screen.getByText('Aracı kurum CSV aktarımı')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Hisse kodu (ör. 600519)')).toBeInTheDocument();
+      expect(screen.getByText('Nakit hareketini kaydet')).toBeInTheDocument();
+      expect(screen.queryByText('手工录入：交易')).not.toBeInTheDocument();
+      expect(screen.queryByText('券商 CSV 导入')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('TCMB TRY display: shows dated indicative conversion only beside trustworthy aggregate totals', async () => {
     const dateToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date());
     getSnapshot.mockResolvedValue(makeSnapshot({ fxStale: false }));
