@@ -1,0 +1,98 @@
+name: EBBot main branch protection truth (RELEASE BLOCKED / NO merge)
+
+on:
+  push:
+    branches: [audit/ebbot-main-protection-release-blocker-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-main-protection-audit-only
+  cancel-in-progress: true
+
+jobs:
+  verify-release-remains-blocked:
+    name: Read-only branch/rulesets audit (report, NOT release approval)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_COIN_TRADING_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Eight offline fail-closed security regressions (NO network)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_audit_main_release_protection.py' -v \
+            2>&1 | tee branch-security-unittest.log
+      - name: Read public repo, branch, rulesets and PR130 metadata from GitHub
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api 'repos/ebbottr-cyber/ebbotcyber' > repository-evidence.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/branches/main' > main-evidence.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/rulesets?includes_parents=true' > rulesets-evidence.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/pulls/130' > pr130-evidence.json
+      - name: Evaluate main release blockers (never grants permission)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_main_release_protection \
+            --repository repository-evidence.json \
+            --branch main-evidence.json \
+            --rulesets rulesets-evidence.json \
+            --pr130 pr130-evidence.json \
+            --out main-branch-release-blockers.json | tee main-branch-release-summary.log
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          record = json.loads(Path("main-branch-release-blockers.json").read_text(encoding="utf-8"))
+          assert record["status"].startswith("BLOCKED_")
+          assert record["approved_to_merge_main"] is False
+          assert record["production_deployment_approved"] is False
+          assert record["trading_enabled"] is False
+          assert record["paper_trading_enabled"] is False
+          assert record["live_trading_enabled"] is False
+          assert record["scheduler_enabled"] is False
+          assert record["orders"] == record["paper_fills"] == record["journal_writes"] == 0
+          lines = [
+              "## EBBot release readiness: **BLOCKED**",
+              "",
+              f"- GitHub main protection flag: **{record['main_protected_public_metadata']}**",
+              f"- Rulesets reported: {record['repository_rulesets_reported']} / active {record['active_rulesets_reported']}",
+              f"- Audit status: **{record['status']}**",
+              f"- Reasons: {', '.join(record['release_blockers'])}",
+              "- Actual effective required checks/reviews, force-push/deletion rules, bypass actors: **NOT VERIFIED**",
+              "- Repo administrator must enable and verify protection in GitHub settings.",
+              "- This job is an evidence-only PASS when it correctly flags BLOCKED; it does NOT authorize release.",
+              "- No main merge, deployment, orders, portfolio updates or scheduled scans.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - name: Archive redacted protection audit, never secrets or price feeds
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-branch-release-blockers
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            main-branch-release-blockers.json
+            main-branch-release-summary.log
+            branch-security-unittest.log
