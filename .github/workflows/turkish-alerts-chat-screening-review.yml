@@ -1,0 +1,81 @@
+name: EBBot Turkish alerts chat screening review
+
+on:
+  push:
+    branches: [fix/turkish-alerts-chat-screening-review-20261120]
+  pull_request:
+    branches: [fix/turkish-portfolio-legacy-vitest-20261120]
+
+permissions:
+  contents: read
+
+jobs:
+  operator-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Turkish production operator screens and locale policy
+        env:
+          VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+        run: |
+          npm test -- src/utils/__tests__/operatorText.test.ts src/utils/__tests__/turkishOnlyOperatorUi.test.tsx
+          npm test -- src/pages/__tests__/AlertsPage.test.tsx -t "shows Turkish alert center"
+          npm test -- src/pages/__tests__/StockScreeningPage.test.tsx -t "renders Turkish screening"
+          npm test -- src/pages/__tests__/ChatPage.test.tsx -t "uses Turkish chat headings"
+      - name: Representative legacy contracts without Turkish production override
+        run: |
+          npm test -- src/contexts/__tests__/UiLanguageContext.test.tsx
+          npm test -- src/pages/__tests__/AlertsPage.test.tsx -t "loads rules, trigger history"
+          npm test -- src/pages/__tests__/StockScreeningPage.test.tsx -t "keeps implementation attribution"
+      - name: ESLint and production build
+        run: |
+          npm run lint
+          npm run build
+      - name: PWA smoke
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  full-react-release-blocker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Full React/Vitest survey - fail until all tests pass
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=dot > full-react-review.log 2>&1
+          rc=$?
+          set -e
+          echo "=== Full React summary ==="
+          grep -E 'Test Files|      Tests ' full-react-review.log | tail -n 10 || true
+          echo "Exit code: $rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Full React suite remains a release blocker"
+          fi
+          exit "$rc"
+      - name: Preserve test logs for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alerts-chat-screening-full-react-log
+          path: apps/dsa-web/full-react-review.log
+          retention-days: 3
