@@ -59,4 +59,48 @@ describe('TRY presentation conversion', () => {
     }, 'totalEquity', fx, now)).toBe('—');
   });
 
+
+  it('converts independently verified HKD, JPY, KRW and TWD without 1:1 guesses', () => {
+    const multi: PortfolioDisplayFxRates = {
+      ...fx, status: 'unavailable', cnyTry: null, asOf: null,
+      hkdTry: 6.25, jpyTry: 0.3125, krwTry: 50 / 1400, twdTry: 1.5625,
+      pairStatus: { USD: 'current', CNY: 'unavailable', HKD: 'current', JPY: 'current', KRW: 'current', TWD: 'current' },
+      pairAsOf: Object.fromEntries(['USD', 'HKD', 'JPY', 'KRW', 'TWD'].map(code => [code, fx.asOf!])) as PortfolioDisplayFxRates['pairAsOf'],
+    };
+    expect(toTryDisplayValue(8, 'HKD', multi, false, now)).toBe(50);
+    expect(toTryDisplayValue(160, 'JPY', multi, false, now)).toBe(50);
+    expect(toTryDisplayValue(1400, 'KRW', multi, false, now)).toBeCloseTo(50);
+    expect(toTryDisplayValue(32, 'TWD', multi, false, now)).toBe(50);
+    expect(toTryDisplayValue(7, 'CNY', multi, false, now)).toBeNull();
+  });
+
+  it('rejects missing pair evidence, pair stale status and future timestamps', () => {
+    const valid: PortfolioDisplayFxRates = {
+      ...fx, hkdTry: 6.25, pairStatus: { HKD: 'current' }, pairAsOf: { HKD: fx.asOf! },
+    };
+    expect(toTryDisplayValue(8, 'HKD', valid, false, now)).toBe(50);
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, pairAsOf: {} }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, pairStatus: { HKD: 'stale' } }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, pairStatus: { HKD: 'unavailable' } }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, pairAsOf: { HKD: '2026-11-19T10:00:00Z' } }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, pairAsOf: { HKD: '2026-11-19T07:00:00Z' } }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, hkdTry: 0 }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, hkdTry: Infinity }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, hkdTry: NaN }, false, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'HKD', { ...valid, hkdTry: 6.25 }, true, now)).toBeNull();
+    expect(toTryDisplayValue(8, 'CHF', valid, false, now)).toBeNull();
+  });
+
+  it('allows a fresh HKD account in a valid snapshot while still requiring aggregate freshness', () => {
+    const snapshot = {
+      accountCount: 1, fxStale: false,
+      accounts: [{ baseCurrency: 'HKD', totalEquity: 8, totalCash: 8, totalMarketValue: 0, fxStale: false }],
+    } as PortfolioSnapshotResponse;
+    const multi: PortfolioDisplayFxRates = {
+      ...fx, hkdTry: 6.25, pairStatus: { HKD: 'current' }, pairAsOf: { HKD: fx.asOf! },
+    };
+    expect(formatPortfolioSnapshotTry(snapshot, 'totalEquity', multi, now)).toContain('50,00');
+    expect(formatPortfolioSnapshotTry(snapshot, 'totalEquity', { ...multi, pairStatus: { HKD: 'stale' } }, now)).toBe('—');
+  });
+
 });
