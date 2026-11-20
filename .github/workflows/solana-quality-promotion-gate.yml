@@ -1,0 +1,110 @@
+name: Solana reviewed quality promotion integrity (NO orders)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/dsa-web/public/solana-quality-reviewed.json'
+      - 'scripts/check_solana_quality_promotion.py'
+      - 'tests/test_solana_quality_promotion.py'
+      - '.github/workflows/solana-quality-promotion-gate.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verified-source-and-replay-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - name: Checkout reviewed PR state with baseline history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install small offline test runner
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Reject fabricated freshness and invalid Solana quality data
+        run: |
+          python -m pytest -q --noconftest tests/test_solana_quality_promotion.py
+          python -m scripts.check_solana_quality_promotion \
+            --candidate apps/dsa-web/public/solana-quality-reviewed.json
+      - name: Detect changes to the PUBLIC quality snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if git diff --quiet origin/main HEAD -- apps/dsa-web/public/solana-quality-reviewed.json; then
+            echo 'CANDIDATE_CHANGED=false' >> "$GITHUB_ENV"
+            echo 'No public report change: run offline gate only'
+          else
+            echo 'CANDIDATE_CHANGED=true' >> "$GITHUB_ENV"
+            git show origin/main:apps/dsa-web/public/solana-quality-reviewed.json \
+              > "$RUNNER_TEMP/solana-reviewed-main-baseline.json"
+          fi
+      - name: Reject old audit ID, old timestamp and replayed source IDs
+        if: env.CANDIDATE_CHANGED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.check_solana_quality_promotion \
+            --baseline "$RUNNER_TEMP/solana-reviewed-main-baseline.json" \
+            --candidate apps/dsa-web/public/solana-quality-reviewed.json
+      - name: Check trusted GitHub workflow and artifact provenance
+        if: env.CANDIDATE_CHANGED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          approved_workflow='Solana review-only quality report candidate (NO orders)'
+          candidate='apps/dsa-web/public/solana-quality-reviewed.json'
+          audit_id=$(python -c "import json;print(json.load(open('$candidate'))['audit_run_id'])")
+          metadata=$(gh run view "$audit_id" --repo "$GITHUB_REPOSITORY" \
+            --json workflowName,conclusion,headBranch,event \
+            --jq '[(.workflowName // ""),(.conclusion // ""),(.headBranch // ""),(.event // "")] | join("|")')
+          if [[ "$metadata" != "$approved_workflow|success|main|workflow_dispatch" ]]; then
+            echo 'Audit must be a successful MANUAL candidate workflow run on main'
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/solana-source-audit"
+          gh run download "$audit_id" --repo "$GITHUB_REPOSITORY" \
+            --name solana-quality-candidate-requires-pr-review \
+            --dir "$RUNNER_TEMP/solana-source-audit"
+          python - "$RUNNER_TEMP/solana-source-audit/solana-reviewed-quality-candidate.json" "$candidate" <<'PY'
+          import json,sys
+          from pathlib import Path
+          source,candidate=map(Path,sys.argv[1:])
+          if not source.is_file() or source.stat().st_size > 12_000:
+              raise SystemExit('Approved quality artifact missing or oversized')
+          if json.loads(source.read_text()) != json.loads(candidate.read_text()):
+              raise SystemExit('Proposed public report differs from the actual verified GitHub artifact')
+          print('Approved audit artifact and proposed JSON are identical; human review still required')
+          PY
+      - name: Check original observation workflow and source outcomes
+        if: env.CANDIDATE_CHANGED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$RUNNER_TEMP/source-results.tsv"
+          import json
+          r=json.load(open('apps/dsa-web/public/solana-quality-reviewed.json'))
+          for c in r['captures']:
+              print(c['run_id']+'\t'+('success' if c['result']=='passed' else 'failure'))
+          PY
+          while IFS=$'\t' read -r run_id expected; do
+            meta=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" \
+              --json workflowName,conclusion \
+              --jq '[(.workflowName // ""),(.conclusion // "")] | join("|")')
+            if [[ "$meta" != "Solana fixed-mint time-spaced observations (read only)|$expected" ]]; then
+              echo 'Observation source workflow or outcome does not match verified report'
+              exit 1
+            fi
+          done < "$RUNNER_TEMP/source-results.tsv"
+          echo 'Each new observation run matches the approved producer and quality label'
