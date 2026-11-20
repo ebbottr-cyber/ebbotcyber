@@ -186,7 +186,7 @@ def test_pyinstaller_runtime_hook_disables_incompatible_nltk_guard(
     assert os.environ["NLTK_DISABLE_IMPORT_SECURITY"] == "1"
 
 
-def test_macos_unsigned_packaging_contract_is_explicit_in_archived_ci() -> None:
+def test_macos_unsigned_packaging_contract_is_explicit() -> None:
     package = json.loads(
         _read_text(REPO_ROOT / "apps" / "dsa-desktop" / "package.json")
     )

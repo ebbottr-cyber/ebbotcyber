@@ -39,11 +39,8 @@ KO_NO_CHANNEL_DISCLOSURE = (
     "⚠️ 뉴스 검색 채널이 설정되지 않아 이번 분석에는 "
     "뉴스 근거를 반영하지 않았습니다."
 )
-TR_ZERO_HIT_DISCLOSURE = "⚠️ Bu analiz için kullanılabilir haber verisi alınamadı; sonuçlarda haber kaynaklı kanıt kullanılmadı."
 TR_NO_CHANNEL_DISCLOSURE = "⚠️ Haber arama kaynağı yapılandırılmadı; bu analizde haber kaynaklı kanıt kullanılmadı."
-
 TR_ZERO_HIT_DISCLOSURE = "⚠️ Bu analiz için kullanılabilir haber verisi alınamadı; sonuçlarda haber kaynaklı kanıt kullanılmadı."
-TR_NO_CHANNEL_DISCLOSURE = "⚠️ Haber arama kaynağı yapılandırılmadı; bu analizde haber kaynaklı kanıt kullanılmadı."
 
 
 def _make_result(

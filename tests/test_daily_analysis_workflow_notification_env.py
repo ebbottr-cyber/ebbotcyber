@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Review notification mappings in the archived workflow without enabling it."""
+"""Static checks for notification env mappings in 00-daily-analysis.yml."""
 
 from pathlib import Path
 

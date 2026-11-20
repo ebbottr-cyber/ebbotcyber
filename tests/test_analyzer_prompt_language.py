@@ -23,6 +23,7 @@ except ModuleNotFoundError:
 
 from src.agent.skills.defaults import CORE_TRADING_SKILL_POLICY_EN, CORE_TRADING_SKILL_POLICY_ZH
 from src.analyzer import GeminiAnalyzer, _legacy_audit_marker_specs
+from src.market_context import get_market_guidelines, get_market_role
 
 # CJK ideographs plus full-width punctuation/forms. Hangul is intentionally not
 # matched so the Korean output directive does not count as Chinese template text.
@@ -202,14 +203,21 @@ class EnglishStockPromptTemplateTestCase(unittest.TestCase):
         self.assertEqual(_cjk_chars(tr_user), "")
         self.assertEqual(_cjk_chars(tr_system), "")
         self.assertIn("# Decision Dashboard Analysis Request", tr_user)
-        self.assertIn("All human-readable JSON values must be in Turkish (Türkçe)", tr_user)
+        self.assertIn("All human-readable JSON values must be in Turkish (Türkçe).", tr_user)
         self.assertIn("Write all human-readable JSON values", tr_system)
         self.assertIn("in Turkish (Türkçe).", tr_system)
-        self.assertIn("US stock", tr_system)
         self.assertEqual(
             re.findall(r"^#{1,4} .+$", tr_user, re.MULTILINE),
             re.findall(r"^#{1,4} .+$", en_user, re.MULTILINE),
         )
+
+    def test_turkish_market_roles_and_guidelines_do_not_leak_chinese(self) -> None:
+        for stock_code in ("600519", "AAPL", "hk00700"):
+            with self.subTest(stock_code=stock_code):
+                self.assertEqual(get_market_role(stock_code, "tr"), get_market_role(stock_code, "en"))
+                self.assertEqual(get_market_guidelines(stock_code, "tr"), get_market_guidelines(stock_code, "en"))
+                self.assertEqual(_cjk_chars(get_market_role(stock_code, "tr")), "")
+                self.assertEqual(_cjk_chars(get_market_guidelines(stock_code, "tr")), "")
 
     def test_chinese_prompt_keeps_chinese_template(self) -> None:
         analyzer = _make_analyzer(legacy=True)

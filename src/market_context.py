@@ -154,7 +154,7 @@ def get_market_role(stock_code: Optional[str], lang: str = "zh") -> str:
 
     Args:
         stock_code: The stock code being analyzed.
-        lang: 'zh', 'en', 'ko', or 'tr'.
+        lang: 'zh', 'en', 'ko', or 'tr' (non-Chinese languages use English scaffolding).
 
     Returns:
         Role string like 'A 股投资分析' or 'US stock investment analysis'.
@@ -169,7 +169,7 @@ def get_market_guidelines(stock_code: Optional[str], lang: str = "zh") -> str:
 
     Args:
         stock_code: The stock code being analyzed.
-        lang: 'zh' or 'en'.
+        lang: 'zh', 'en', 'ko', or 'tr' (non-Chinese languages use English scaffolding).
 
     Returns:
         Multi-line string with market-specific guidelines.
