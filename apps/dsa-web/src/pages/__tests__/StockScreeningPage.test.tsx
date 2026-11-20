@@ -111,6 +111,23 @@ function createDeferred<T>() {
 }
 
 describe('StockScreeningPage', () => {
+  it('renders Turkish screening controls in production-only mode', async () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+    try {
+      getScreeningStatus.mockResolvedValue({ enabled: true, available: true });
+      render(<StockScreeningPage />);
+      expect(screen.getByRole('heading', { name: 'Hisse Tarama' })).toBeInTheDocument();
+      expect(screen.getByText('Öne çıkan temalar')).toBeInTheDocument();
+      expect(screen.getAllByText('Taramayı başlat').length).toBeGreaterThan(0);
+      expect(screen.getByText('Tarama geçmişi')).toBeInTheDocument();
+      expect(await screen.findByText('Çin A hisseleri')).toBeInTheDocument();
+      expect(screen.queryByText('选股')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+
   beforeEach(() => {
     enableScreening.mockReset();
     getHistory.mockReset();
