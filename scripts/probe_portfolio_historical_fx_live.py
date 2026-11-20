@@ -12,7 +12,7 @@ use the portfolio's max three CALENDAR days; this observation never stores FX.
 from __future__ import annotations
 
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -26,7 +26,7 @@ from src.services.portfolio_historical_fx import (
 
 # Observed reference dates, not claims that individual exchange markets closed.
 DATES = (
-    ("most-recent-day", date.today()),
+    ("most-recent-day", datetime.now(timezone.utc).date()),
     ("known-Sunday", date(2026, 11, 15)),
     ("New-Year-day", date(2026, 1, 1)),
 )
@@ -38,6 +38,8 @@ def main() -> int:
     unavailable = 0
     stale = 0
     future = 0
+    unclosed = 0
+    print("POLICY current UTC daily candle is unverified and excluded; last completed source bar only", flush=True)
     for label, target_date in DATES:
         print(f"CASE {label} request_date={target_date.isoformat()}", flush=True)
         for origin, target in CURRENCY_PAIRS:
@@ -64,6 +66,10 @@ def main() -> int:
                 future += 1
                 print(f"  {pair} UNSAFE_FUTURE source_date={source_date}", flush=True)
                 continue
+            if label == "most-recent-day" and source_date >= target_date:
+                unclosed += 1
+                print(f"  {pair} UNSAFE_UNFINALIZED_DAILY_BAR source_date={source_date}", flush=True)
+                continue
             state = "CURRENT_FOR_HISTORICAL_VALUATION" if age <= MAX_HISTORICAL_FX_RATE_AGE_DAYS else "STALE_FOR_RISK"
             print(
                 f"  {pair} source_date={source_date.isoformat()} "
@@ -78,12 +84,13 @@ def main() -> int:
     total = len(DATES) * len(CURRENCY_PAIRS)
     print(
         f"SUMMARY examined={total} date_verified={valid_observations} "
-        f"expected_stale={stale} unavailable={unavailable} unsafe_future={future}",
+        f"expected_stale={stale} unavailable={unavailable} "
+        f"unsafe_future={future} unsafe_unclosed={unclosed}",
         flush=True,
     )
     # Outages and provider gaps mean NOT VERIFIED, never a risk authorization.
     # Stale but properly dated source bars ARE evidence of safe age handling.
-    return 0 if valid_observations == total and future == 0 else 1
+    return 0 if valid_observations == total and future == 0 and unclosed == 0 else 1
 
 
 if __name__ == "__main__":
