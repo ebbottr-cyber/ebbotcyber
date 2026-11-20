@@ -28,7 +28,7 @@ def _compile_method(filename: str, class_name: str, method: str, namespace: dict
 
 
 def _fx_components():
-    ns = {"date": date, "math": math, "Tuple": Tuple, "EPS": 1e-8}
+    ns = {"date": date, "math": math, "Tuple": Tuple, "EPS": 1e-8, "MAX_PORTFOLIO_FX_RATE_AGE_DAYS": 3}
     module = ast.parse((ROOT / "src/services/portfolio_service.py").read_text(encoding="utf-8"))
     cls = next(node for node in module.body if isinstance(node, ast.ClassDef) and node.name == "PortfolioFxRateUnavailableError")
     exec(compile(ast.Module(body=[cls], type_ignores=[]), "portfolio_service.py", "exec"), ns)
@@ -79,10 +79,10 @@ def test_zero_and_identity_need_no_conversion_quote():
 
 
 def test_valid_direct_inverse_and_stale_rates_are_explicit():
-    direct = SimpleNamespace(rate=7.0, is_stale=False)
+    direct = SimpleNamespace(rate=7.0, is_stale=False, rate_date=date(2026, 11, 20))
     converter, _, _ = _fake_fx_service(direct=direct)
     assert converter(10) == (70.0, False, "direct_rate")
-    stale = SimpleNamespace(rate=0.14, is_stale=True)
+    stale = SimpleNamespace(rate=0.14, is_stale=True, rate_date=date(2026, 11, 20))
     converter, _, _ = _fake_fx_service(inverse=stale)
     actual, flagged, kind = converter(7)
     assert abs(actual - 50) < 1e-9
@@ -90,13 +90,23 @@ def test_valid_direct_inverse_and_stale_rates_are_explicit():
 
 
 def test_invalid_nan_rate_does_not_create_a_portfolio_amount():
-    converter, error, _ = _fake_fx_service(direct=SimpleNamespace(rate=float("nan"), is_stale=False))
+    converter, error, _ = _fake_fx_service(direct=SimpleNamespace(rate=float("nan"), is_stale=False, rate_date=date(2026, 11, 20)))
     try:
         converter(25)
     except error:
         pass
     else:
         raise AssertionError("Invalid NaN rate was accepted")
+
+
+def test_old_cached_rate_is_marked_stale_even_if_database_flag_is_false():
+    converter, _, _ = _fake_fx_service(direct=SimpleNamespace(
+        rate=7.0, is_stale=False, rate_date=date(2026, 11, 10),
+    ))
+    converted, is_stale, origin = converter(100)
+    assert converted == 700.0
+    assert is_stale is True
+    assert origin == "direct_rate"
 
 
 def _risk_method(name):
