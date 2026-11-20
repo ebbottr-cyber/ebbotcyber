@@ -299,6 +299,24 @@ class PortfolioRiskResponse(BaseModel):
     decision_signal_risk: PortfolioDecisionSignalRiskBlock = Field(default_factory=PortfolioDecisionSignalRiskBlock)
 
 
+class PortfolioTryDisplayQuote(BaseModel):
+    """Official per-unit TCMB ForexSelling, never an executable quote."""
+    source: Literal["TCMB"]
+    source_currency: Literal["USD", "EUR", "CNY"]
+    target_currency: Literal["TRY"]
+    source_unit: Literal[1]
+    try_per_unit: float = Field(..., gt=0)
+    as_of_date: str
+
+
+class PortfolioTryDisplayResponse(BaseModel):
+    available: Literal[True]
+    source: Literal["TCMB"]
+    rate_kind: Literal["indicative_forex_selling"]
+    as_of_date: str
+    quotes: List[PortfolioTryDisplayQuote] = Field(default_factory=list)
+
+
 class PortfolioDisplayFxResponse(BaseModel):
     """Indicative TRY display rates with independent per-currency quote quality."""
 
