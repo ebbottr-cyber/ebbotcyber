@@ -797,7 +797,7 @@ describe('DecisionSignalsPage', () => {
     // A refreshed signal keeps its original creation timestamp. This fixture
     // predates the default 90-day timeline window, so refresh must not
     // resurrect an out-of-range point. The active/latest view still reloads.
-    expect(new Date(refreshedItem.createdAt).getTime()).toBeLessThan(Date.now() - 90 * 86_400_000);
+    expect(new Date(refreshedItem.createdAt ?? '').getTime()).toBeLessThan(Date.now() - 90 * 86_400_000);
     await waitFor(() => expect(decisionSignalsApi.getLatest).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('timeline-click-90')).not.toBeInTheDocument();
     // The refreshed item is outside the default 90-day range: no extra
