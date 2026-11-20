@@ -4,6 +4,7 @@ import { RefreshCw, ShieldAlert } from 'lucide-react';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { UiLanguage } from '../i18n/uiText';
 import { memeRadarApi, type MemeRadarStatus, type MemeScanResponse, type MemeStrategy } from '../api/memeRadar';
+import SolanaArchiveQuality from '../components/meme/SolanaArchiveQuality';
 
 const COPY: Record<UiLanguage, Record<string, string>> = {
   tr: {
@@ -128,6 +129,7 @@ const MemeCoinsPage: React.FC = () => {
         <h1 className="mt-1 text-2xl font-bold text-foreground">{copy.title}</h1>
         <p className="mt-2 text-sm text-secondary-text">{copy.description}</p>
       </header>
+      <SolanaArchiveQuality />
       <section className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="text-sm text-secondary-text">
