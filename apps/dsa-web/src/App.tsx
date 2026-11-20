@@ -21,6 +21,7 @@ import './App.css';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const DashboardOverviewPage = lazy(() => import('./pages/DashboardOverviewPage'));
 const MemeCoinPage = lazy(() => import('./pages/MemeCoinPage'));
+const MemeCoinsPage = lazy(() => import('./pages/MemeCoinsPage'));
 const BacktestPage = lazy(() => import('./pages/BacktestPage'));
 const StrategyLabPage = lazy(() => import('./pages/StrategyLabPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -97,6 +98,7 @@ const routeChildren = [
   { path: '/portfolio', element: <PortfolioPage /> },
   { path: '/decision-signals', element: <DecisionSignalsPage /> },
   { path: '/meme-coins', element: <MemeCoinPage /> },
+  { path: '/meme-radar', element: <MemeCoinsPage /> },
   { path: '/screening', element: <StockScreeningPage /> },
   { path: '/data', element: <DataCenterPage /> },
   { path: '/backtest', element: <BacktestPage /> },
