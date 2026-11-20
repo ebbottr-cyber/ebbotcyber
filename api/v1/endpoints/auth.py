@@ -462,6 +462,17 @@ async def auth_change_password(body: ChangePasswordRequest):
             status_code=400,
             content={"error": "invalid_password", "message": err},
         )
+    # Revoke all existing signed sessions when the administrator changes the
+    # password; the current browser must sign in again.
+    if not rotate_session_secret():
+        logger.error("Admin password changed, but existing sessions could not be invalidated")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "session_invalidation_failed",
+                "message": "Password changed, but existing sessions could not be revoked",
+            },
+        )
     return Response(status_code=204)
 
 
