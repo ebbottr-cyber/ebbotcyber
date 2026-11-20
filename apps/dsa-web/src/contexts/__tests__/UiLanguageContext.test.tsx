@@ -94,7 +94,7 @@ describe('UiLanguageContext', () => {
     });
 
     try {
-      expect(getRuntimeInitialLanguage()).toBe('en');
+      expect(getRuntimeInitialLanguage()).toBe('zh');
     } finally {
       if (originalDescriptor) {
         Object.defineProperty(window, 'localStorage', originalDescriptor);
