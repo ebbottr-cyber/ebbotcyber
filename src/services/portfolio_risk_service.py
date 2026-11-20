@@ -289,6 +289,19 @@ class PortfolioRiskService:
         return max(window_start, min(first_activity_candidates))
 
     def _build_concentration(self, snapshot: Dict[str, Any], threshold_pct: float, *, as_of_date: date) -> Dict[str, Any]:
+        # A stale account/portfolio FX rate cannot establish cross-currency
+        # weights, even if an older rate produced a numeric snapshot value.
+        if snapshot.get("fx_stale") or any(
+            account.get("fx_stale") for account in snapshot.get("accounts", [])
+        ):
+            return {
+                "available": False,
+                "fx_stale": True,
+                "total_market_value": None,
+                "top_weight_pct": None,
+                "alert": None,
+                "top_positions": [],
+            }
         total_mv = float(snapshot.get("total_market_value", 0.0) or 0.0)
         exposure_by_symbol: Dict[str, float] = {}
         for account in snapshot.get("accounts", []):
@@ -334,6 +347,19 @@ class PortfolioRiskService:
         *,
         as_of_date: date,
     ) -> Dict[str, Any]:
+        if snapshot.get("fx_stale") or any(
+            account.get("fx_stale") for account in snapshot.get("accounts", [])
+        ):
+            return {
+                "available": False,
+                "fx_stale": True,
+                "total_market_value": None,
+                "top_weight_pct": None,
+                "alert": None,
+                "top_sectors": [],
+                "coverage": {"classified_count": 0, "unclassified_count": 0, "failed_count": 0},
+                "errors": ["fx_rate_stale"],
+            }
         total_mv = float(snapshot.get("total_market_value", 0.0) or 0.0)
         sector_exposure: Dict[str, float] = {}
         sector_symbols: Dict[str, set] = {}
@@ -532,6 +558,16 @@ class PortfolioRiskService:
             stale_flag = stale_flag or stale or bool(row.fx_stale)
 
         series: List[Tuple[str, float]] = sorted(grouped.items(), key=lambda item: item[0])
+        if stale_flag:
+            # Suppress potentially misleading historical drawdown percentages
+            # rather than treating the last known FX quote as current evidence.
+            return {
+                "series_points": len(series),
+                "max_drawdown_pct": None,
+                "current_drawdown_pct": None,
+                "alert": None,
+                "fx_stale": True,
+            }
         peak = 0.0
         max_drawdown = 0.0
         current_drawdown = 0.0
