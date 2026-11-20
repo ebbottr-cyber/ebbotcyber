@@ -18,9 +18,12 @@ type PortfolioProps = {
 
 export function PortfolioSummaryContent({ snapshot, loading, failed }: PortfolioProps) {
   const data = !loading && !failed ? snapshot : null;
-  const validEquity = data && Number.isFinite(data.totalEquity) ? data.totalEquity : null;
-  const validCash = data && Number.isFinite(data.totalCash) ? data.totalCash : null;
-  const validHoldings = data && Number.isFinite(data.totalMarketValue) ? data.totalMarketValue : null;
+  // The backend may mark a mixed-currency snapshot as stale. Its historic
+  // aggregate could include a cached FX value; do not promote that to a
+  // current balance in the dashboard.
+  const validEquity = data && !data.fxStale && Number.isFinite(data.totalEquity) ? data.totalEquity : null;
+  const validCash = data && !data.fxStale && Number.isFinite(data.totalCash) ? data.totalCash : null;
+  const validHoldings = data && !data.fxStale && Number.isFinite(data.totalMarketValue) ? data.totalMarketValue : null;
   const partial = Boolean(data && (data.fxStale || (data.dataQuality && data.dataQuality !== 'ok') || (data.limitations?.length ?? 0) > 0));
   const cashPct = validEquity !== null && validCash !== null && validEquity > 0 && validCash >= 0
     ? Math.min(100, validCash / validEquity * 100) : null;
@@ -78,7 +81,7 @@ type RiskProps = {
   loading: boolean;
   failed: boolean;
 };
-type RiskMetricProps = { label: string; value: number | null | undefined; alert: boolean | undefined };
+type RiskMetricProps = { label: string; value: number | null | undefined; alert: boolean | null | undefined };
 
 function RiskMetric({ label, value, alert }: RiskMetricProps) {
   const usable = typeof value === 'number' && Number.isFinite(value);
@@ -103,13 +106,20 @@ function RiskMetric({ label, value, alert }: RiskMetricProps) {
 export function RiskSummaryContent({ risk, loading, failed }: RiskProps) {
   const data = !loading && !failed ? risk : null;
   const alert = Boolean(data && (data.concentration?.alert || data.drawdown?.alert || data.stopLoss?.nearAlert));
+  const fxRiskUnavailable = Boolean(data && (
+    data.concentration?.available === false
+    || data.sectorConcentration?.available === false
+    || data.drawdown?.fxStale === true
+  ));
   return (
     <div data-testid="risk-summary-content" className="min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[11px] text-[#7990ac]">
           {data && !alert ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
           {loading ? 'Kontroller yükleniyor…' : failed || !data ? 'Risk verisi yok'
-            : alert ? 'Limit uyarısı mevcut' : 'Mevcut ölçümlerde limit uyarısı yok'}
+            : alert ? 'Limit uyarısı mevcut'
+            : fxRiskUnavailable ? 'Kur verisi gecikmiş; bazı risk ölçümleri kullanılamıyor'
+            : 'Mevcut ölçümlerde limit uyarısı yok'}
         </span>
         {data && <span className={'rounded-full px-2 py-1 text-[10px] font-semibold ' +
           (alert ? 'bg-[#fff3dc] text-[#99681d]' : 'bg-[#eaf5fd] text-[#2467a2]')}>
