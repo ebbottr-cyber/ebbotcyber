@@ -883,10 +883,10 @@ const StockScreeningPage: React.FC = () => {
   const [strategyLoadError, setStrategyLoadError] = useState('');
   const [activeTaskId, setActiveTaskId] = useState<string | null>(restoredTask?.taskId ?? null);
   const [taskProgress, setTaskProgress] = useState(restoredTask?.taskId ? 10 : 0);
-  const [taskMessage, setTaskMessage] = useState(restoredTask?.taskId ? '正在恢复选股任务状态...' : '');
+  const [taskMessage, setTaskMessage] = useState(restoredTask?.taskId ? operatorText("正在恢复选股任务状态...", "Tarama görevi durumu geri yükleniyor...") : '');
 
   const selectedStrategy = useMemo(() => strategies.find((item) => item.id === strategy), [strategies, strategy]);
-  const selectedStrategyTitle = selectedStrategy?.name || selectedStrategy?.title || '自定义策略';
+  const selectedStrategyTitle = selectedStrategy?.name || selectedStrategy?.title || operatorText("自定义策略", "Özel strateji");
   const selectedStrategyTag = formatStrategyCategory(
     selectedStrategy?.category || selectedStrategy?.tag || selectedStrategy?.tags?.[0],
   );
@@ -905,12 +905,12 @@ const StockScreeningPage: React.FC = () => {
     : screenMessages;
   const isScreeningEnabled = statusState === 'ready' && enabled && available;
   const statusText = statusState === 'loading'
-    ? '正在检查选股状态'
+    ? operatorText("正在检查选股状态", "Tarama durumu kontrol ediliyor")
     : statusState === 'error'
-      ? '选股状态未知'
+      ? operatorText("选股状态未知", "Tarama durumu bilinmiyor")
       : !enabled
-        ? '选股未开启'
-        : available ? '选股已开启' : '选股功能不可用';
+        ? operatorText("选股未开启", "Hisse tarama kapalı")
+        : available ? operatorText("选股已开启", "Hisse tarama etkin") : operatorText("选股功能不可用", "Hisse tarama kullanılamıyor");
 
   const applyScreenResult = useCallback((result: ScreeningScreenResponse) => {
     const nextCandidates = result.candidates || [];
@@ -1449,11 +1449,11 @@ const StockScreeningPage: React.FC = () => {
       });
       setActiveTaskId(task.taskId);
       setTaskProgress(0);
-      setTaskMessage(task.message || '选股任务已提交');
+      setTaskMessage(task.message || operatorText("选股任务已提交", "Tarama görevi gönderildi"));
     } catch (err) {
       setCandidates([]);
       setLoading(false);
-      setError(toApiErrorMessage(err, '选股任务提交失败，请稍后重试。'));
+      setError(toApiErrorMessage(err, operatorText("选股任务提交失败，请稍后重试。", "Tarama görevi gönderilemedi; yeniden deneyin.")));
     }
   };
 
@@ -1552,7 +1552,7 @@ const StockScreeningPage: React.FC = () => {
               ) : null}
             </div>
             {hotspotsUpdatedAt ? (
-              <p className="text-xs text-secondary-text">更新于 {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
+              <p className="text-xs text-secondary-text">{operatorText("更新于", "Güncellendi: ")} {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
             ) : null}
           </div>
         </div>
@@ -1609,9 +1609,9 @@ const StockScreeningPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="mt-4 grid max-w-[72%] gap-1 text-[11px] text-secondary-text">
-                  <span>涨跌幅 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.changePct)}%</strong></span>
-                  <span>趋势 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.trendScore)}</strong> · 持续 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.persistenceScore)}</strong></span>
-                  <span>{getHotspotSampleText(item)} · 龙头 {getHotspotLeadersText(item)}</span>
+                  <span>{operatorText("涨跌幅", "Değişim")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.changePct)}%</strong></span>
+                  <span>{operatorText("趋势", "Trend")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.trendScore)}</strong> · {operatorText("持续", "Süreklilik")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.persistenceScore)}</strong></span>
+                  <span>{getHotspotSampleText(item)} · {operatorText("龙头", "Liderler")} {getHotspotLeadersText(item)}</span>
                 </div>
                 <div className="absolute bottom-3 right-3 opacity-95 transition-transform group-hover:scale-105">
                   <MiniSparkline score={item.heatScore} selected={selected} />
@@ -1637,7 +1637,7 @@ const StockScreeningPage: React.FC = () => {
                       : '点击题材查看发酵路线与概念股。'}
                 </p>
                 {hotspotDetail?.canonicalTopic && hotspotDetail.canonicalTopic !== selectedHotspotTopic ? (
-                  <p className="mt-1 text-[11px] text-secondary-text">标准题材：{hotspotDetail.canonicalTopic}</p>
+                  <p className="mt-1 text-[11px] text-secondary-text">{operatorText("标准题材：", "Temel tema: ")}{hotspotDetail.canonicalTopic}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1659,7 +1659,7 @@ const StockScreeningPage: React.FC = () => {
                 ) : null}
                 {hotspotDetail?.qualityStatus ? (
                   <span className="w-fit rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning">
-                    质量 {getHotspotQualityLabel(hotspotDetail.qualityStatus)}
+                    {operatorText("质量", "Kalite")} {getHotspotQualityLabel(hotspotDetail.qualityStatus)}
                   </span>
                 ) : null}
                 {hotspotDetail?.fallbackUsed || hotspotDetail?.stale ? (
@@ -1669,7 +1669,7 @@ const StockScreeningPage: React.FC = () => {
                 ) : null}
                 {hotspotDetail?.stockCount != null ? (
                   <span className="w-fit rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-500">
-                    概念股 {hotspotDetail.stockCount}
+                    {operatorText("概念股", "Tema hissesi")} {hotspotDetail.stockCount}
                   </span>
                 ) : null}
               </div>
@@ -1686,7 +1686,7 @@ const StockScreeningPage: React.FC = () => {
                 <summary className="cursor-pointer font-semibold">{operatorText("详情数据已降级，展开查看原因", "Veri kapsamı kısıtlandı; nedenlerini göster")}</summary>
                 <div className="mt-2 space-y-1 leading-5">
                   {(hotspotDetail.missingFields || []).length > 0 ? (
-                    <p>暂缺：{getHotspotMissingFieldLabels(hotspotDetail.missingFields).join('、')}</p>
+                    <p>{operatorText("暂缺：", "Eksik: ")}{getHotspotMissingFieldLabels(hotspotDetail.missingFields).join(' / ')}</p>
                   ) : null}
                   {getHotspotDiagnosticMessages(hotspotDetail.sourceErrors).map((message, index) => (
                     <p key={`${message}-${index}`}>{message}</p>
@@ -1753,7 +1753,7 @@ const StockScreeningPage: React.FC = () => {
                           </div>
                         </div>
                         <p className="mt-2 text-[11px] text-secondary-text">
-                          涨跌幅 {formatStockChangeText(stock.changePct)} · 热度 {formatNumber(stock.hotStockScore, 0)}
+                          {operatorText("涨跌幅", "Değişim")} {formatStockChangeText(stock.changePct)} · {operatorText("热度", "İlgi puanı")} {formatNumber(stock.hotStockScore, 0)}
                         </p>
                       </div>
                     ))}
@@ -1872,7 +1872,7 @@ const StockScreeningPage: React.FC = () => {
                 <h2 className="text-sm font-semibold text-foreground">{loading ? operatorText("选股运行中", "Tarama çalışıyor") : operatorText("选股完成", "Tarama tamamlandı")}</h2>
                 <p className="mt-1 text-xs text-secondary-text">
                   {loading
-                    ? `${taskMessage || '正在执行选股'} · ${taskProgress}%`
+                    ? `${taskMessage || operatorText("正在执行选股", "Tarama çalışıyor")} · ${taskProgress}%`
                     : `${displayedStrategy} · ${MARKETS.find((item) => item.id === market)?.label}`}
                 </p>
               </div>
@@ -1882,13 +1882,13 @@ const StockScreeningPage: React.FC = () => {
           <details className="mt-3 border-t border-border/70 pt-3 text-xs text-secondary-text">
             <summary className="w-fit cursor-pointer font-medium text-secondary-text">{operatorText("运行详情", "Çalışma ayrıntıları")}</summary>
             <div className="mt-2 grid gap-1">
-              <span>任务：{activeTaskId ? activeTaskId.slice(0, 12) : '-'}</span>
+              <span>{operatorText("任务：", "Görev: ")}{activeTaskId ? activeTaskId.slice(0, 12) : '-'}</span>
               <span>Run ID：{screenMeta?.runId || '-'}</span>
               <span>
-                快照 {screenMeta?.snapshotCount ?? '-'} · 过滤后 {screenMeta?.afterFilterCount ?? '-'} · 候选 {screenMeta?.candidateCount ?? candidates.length}
+                {operatorText("快照", "Anlık veri")} {screenMeta?.snapshotCount ?? '-'} · {operatorText("过滤后", "Filtre sonrası")} {screenMeta?.afterFilterCount ?? '-'} · {operatorText("候选", "Aday")} {screenMeta?.candidateCount ?? candidates.length}
               </span>
               <span>
-                排序：{screenMeta?.llmRanked ? '智能重排' : screenMeta ? '确定性因子' : '-'}
+                {operatorText("排序：", "Sıralama: ")}{screenMeta?.llmRanked ? operatorText("智能重排", "AI sıralaması") : screenMeta ? operatorText("确定性因子", "Faktör sıralaması") : '-'}
                 {screenMeta?.llmModelUsed ? ` · ${screenMeta.llmModelUsed}` : ''}
                 {screenMeta?.llmCoverage != null ? ` · 覆盖 ${formatPercent(screenMeta.llmCoverage)}` : ''}
               </span>
@@ -1922,7 +1922,7 @@ const StockScreeningPage: React.FC = () => {
             <h2 className="text-base font-semibold text-foreground">{operatorText("选股结果", "Tarama sonuçları")}</h2>
           <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-xs text-secondary-text">
             <Search className="h-4 w-4 text-cyan" />
-            {candidates.length} 条候选
+            {candidates.length} {operatorText("条候选", "aday")}
           </div>
           </div>
 
@@ -1995,14 +1995,14 @@ const StockScreeningPage: React.FC = () => {
                                     <p className="text-xs font-semibold text-cyan">{operatorText("为什么入选", "Neden seçildi?")}</p>
                                     <ExplanationItems items={selectionExplanations} emptyText={operatorText("暂无可验证的入选解释", "Doğrulanabilir seçim açıklaması yok")} />
                                     {selectionExplanations.length > 0 ? (
-                                      <p className="mt-2 text-xs text-secondary-text">综合质量：{selectionQuality}</p>
+                                      <p className="mt-2 text-xs text-secondary-text">{operatorText("综合质量：", "Genel kalite: ")}{selectionQuality}</p>
                                     ) : null}
                                   </div>
                                   <div className="rounded-xl border border-orange-400/25 bg-orange-500/5 px-3 py-2.5">
                                     <p className="text-xs font-semibold text-orange-500">{operatorText("为什么现在", "Neden şimdi?")}</p>
                                     <ExplanationItems items={item.whyNow} emptyText={operatorText("暂无带来源的价格、消息或事件证据", "Kaynaklı fiyat, haber veya olay kanıtı bulunmuyor")} />
                                     {item.whyNow?.length ? (
-                                      <p className="mt-2 text-xs text-secondary-text">综合质量：{item.explanationQuality?.whyNow || 'unknown'}</p>
+                                      <p className="mt-2 text-xs text-secondary-text">{operatorText("综合质量：", "Genel kalite: ")}{item.explanationQuality?.whyNow || 'unknown'}</p>
                                     ) : null}
                                   </div>
                                 </div>
@@ -2034,7 +2034,7 @@ const StockScreeningPage: React.FC = () => {
                                     <p className="text-xs font-semibold text-secondary-text">{operatorText("智能判断", "AI değerlendirmesi")}</p>
                                     <p className="mt-1 text-sm leading-6 text-foreground">{item.llmThesis || item.reason}</p>
                                     <p className="mt-1 text-xs text-secondary-text">
-                                      板块 {item.llmSector || '-'} · 主题 {item.llmTheme || '-'} · 置信度 {formatPercent(item.llmConfidence)}
+                                      {operatorText("板块", "Sektör")} {item.llmSector || '-'} · {operatorText("主题", "Tema")} {item.llmTheme || '-'} · {operatorText("置信度", "Güven")} {formatPercent(item.llmConfidence)}
                                     </p>
                                   </div>
                                 ) : null}
@@ -2173,7 +2173,7 @@ const StockScreeningPage: React.FC = () => {
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs text-secondary-text">
-                    返回 {run.candidateCount ?? 0} 只
+                    {operatorText("返回", "Sonuç")} {run.candidateCount ?? 0}
                     {run.snapshotCount != null ? ` · 快照 ${run.snapshotCount}` : ''}
                     {run.llmRanked ? ' · 智能重排' : ''}
                   </span>
