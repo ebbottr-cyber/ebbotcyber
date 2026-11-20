@@ -1,0 +1,75 @@
+name: EBBot real FastAPI + Chromium read-only HTTP review (NO deployment)
+
+on:
+  push:
+    branches: [audit/backend-http-browser-readonly-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-backend-http-readonly-review
+  cancel-in-progress: true
+
+jobs:
+  real-http-auth-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+      PYTHONUNBUFFERED: '1'
+      GUARD_ENABLED: 'false'
+      CORS_ALLOW_ALL: 'false'
+      TRUST_X_FORWARDED_FOR: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Prepare isolated empty database and auth-required configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ebbot-http"
+          printf '%s\n' \
+            'ADMIN_AUTH_ENABLED=true' \
+            'SCHEDULE_ENABLED=false' \
+            'MEME_COIN_DISCOVERY_ENABLED=false' \
+            'MEME_RADAR_LIVE_ENABLED=false' \
+            'EBBOT_XETRA_QUOTES_UI_ENABLED=false' \
+            > "$RUNNER_TEMP/ebbot-http/.env"
+          echo "ENV_FILE=$RUNNER_TEMP/ebbot-http/.env" >> "$GITHUB_ENV"
+          echo "DATABASE_PATH=$RUNNER_TEMP/ebbot-http/test.db" >> "$GITHUB_ENV"
+      - name: Install offline review dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Install frontend from lockfile
+        working-directory: apps/dsa-web
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: apps/dsa-web
+        run: npx playwright install --with-deps chromium
+      - name: Verify actual FastAPI through Chromium, with no writes
+        working-directory: apps/dsa-web
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test --config=playwright.backend-http.config.ts 2>&1 | tee playwright-backend-http.log
+      - name: Keep failed trace, screenshots and full output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-real-backend-http-review
+          path: |
+            apps/dsa-web/test-results/backend-integration/**
+            apps/dsa-web/playwright-backend-http.log
+          if-no-files-found: warn
+          retention-days: 7
