@@ -26,7 +26,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Previously failing React tests + policy guards
         run: |
-          npm test -- src/pages/__tests__/MemeCoinsPage.test.tsx src/pages/__tests__/DecisionSignalsPage.test.tsx src/components/layout/__tests__/SidebarNav.test.tsx src/components/settings/__tests__/NotificationTestPanel.test.tsx tests/index.theme-bootstrap.test.ts tests/ui_governance.test.ts
+          npm test -- src/pages/__tests__/MemeCoinsPage.test.tsx src/pages/__tests__/DecisionSignalsPage.test.tsx src/components/layout/__tests__/SidebarNav.test.tsx src/components/layout/__tests__/DesktopUpdateIndicator.test.tsx src/components/settings/__tests__/NotificationTestPanel.test.tsx tests/index.theme-bootstrap.test.ts tests/ui_governance.test.ts
       - name: Portfolio and Turkish locale regression tests
         run: |
           npm test -- src/pages/__tests__/PortfolioPage.test.tsx
