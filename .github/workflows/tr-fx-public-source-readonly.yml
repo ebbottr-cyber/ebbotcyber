@@ -32,11 +32,12 @@ jobs:
         run: |
           python -m pip install -r .github/requirements-ci.txt
           python -m pip install pytest-socket
-      - name: Offline tests must not access sockets
+      # FastAPI TestClient needs a local Unix socketpair; IPv4/IPv6 remain blocked.
+      - name: Offline tests forbid external sockets (local Unix TestClient allowed)
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest -q --disable-socket --tb=short \
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
             tests/test_audit_tr_fx_public_sources.py \
             tests/test_tr_market_overview_service.py \
             tests/test_tcmb_try_display_service.py \
