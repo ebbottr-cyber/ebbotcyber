@@ -1,0 +1,71 @@
+name: EBBot portfolio FX Turkish test review
+
+on:
+  push:
+    branches: [fix/portfolio-turkish-fx-test-contract-20261120]
+  pull_request:
+    branches: [fix/ui-language-fallback-react-contracts-20261120]
+
+permissions:
+  contents: read
+
+jobs:
+  portfolio-fx-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Portfolio FX and TCMB TRY presentation contracts
+        run: |
+          npm test -- src/pages/__tests__/PortfolioPage.test.tsx
+          npm test -- src/utils/__tests__/operatorText.test.ts
+      - name: ESLint and TypeScript production build
+        run: |
+          npm run lint
+          npm run build
+      - name: PWA using Node test runner
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  full-react-release-blocker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: All Vitest tests — fail until fully green
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=dot > portfolio-fx-full-react.log 2>&1
+          rc=$?
+          set -e
+          grep -E 'Test Files|      Tests ' portfolio-fx-full-react.log | tail -n 8 || true
+          echo "Exit code: $rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Full React regression suite remains a release blocker"
+          fi
+          exit "$rc"
+      - name: Preserve entire regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-fx-full-react-log
+          path: apps/dsa-web/portfolio-fx-full-react.log
+          retention-days: 3
