@@ -26,10 +26,10 @@ def successful_jobs():
 
 
 class MainPrRequiredChecksTest(TestCase):
-    def test_valid_three_real_job_results_are_only_review_evidence(self):
+    def test_valid_four_real_job_results_are_only_review_evidence(self):
         report = validate_required_jobs(successful_jobs())
         self.assertTrue(report["all_required_jobs_success"])
-        self.assertEqual(set(report["jobs"]), {"policy", "backend", "frontend"})
+        self.assertEqual(set(report["jobs"]), {"policy", "backend", "frontend", "frontend-build"})
         self.assertFalse(report["approved_to_merge_main"])
         self.assertFalse(report["production_deployment_approved"])
         self.assertFalse(report["live_trading_enabled"])
@@ -108,35 +108,43 @@ class MainPrRequiredChecksTest(TestCase):
         self.assertNotIn("secrets.", yaml)
         self.assertNotIn("git push", yaml)
         self.assertNotIn("gh pr merge", yaml)
-        self.assertEqual(yaml.count("persist-credentials: false"), 4)
+        self.assertEqual(yaml.count("persist-credentials: false"), 5)
         self.assertIn("  SCHEDULE_ENABLED: 'false'", yaml)
         self.assertIn("  MEME_COIN_TRADING_ENABLED: 'false'", yaml)
         self.assertIn("  MEME_RADAR_LIVE_ENABLED: 'false'", yaml)
 
-    def test_one_stable_unskippable_aggregator_requires_three_real_jobs(self):
+    def test_one_stable_unskippable_aggregator_requires_four_real_jobs(self):
         yaml = CI.read_text(encoding="utf-8")
-        for job in ("policy:", "backend:", "frontend:", "merge-gate:"):
+        for job in ("policy:", "backend:", "frontend:", "frontend-build:", "merge-gate:"):
             self.assertIn("\n  " + job + "\n", yaml)
         self.assertIn("name: EBBot PR / merge gate", yaml)
-        self.assertIn("needs: [policy, backend, frontend]", yaml)
+        self.assertIn("needs: [policy, backend, frontend, frontend-build]", yaml)
         self.assertIn("    if: ${{ always() }}", yaml)
         self.assertIn("EBBOT_REQUIRED_JOB_RESULTS_JSON: ${{ toJSON(needs) }}", yaml)
         self.assertIn("python -m scripts.validate_main_pr_check_results", yaml)
 
-    def test_backend_and_frontend_both_run_without_needs_or_path_skips(self):
+    def test_backend_and_react_test_build_jobs_do_not_skip_one_another(self):
         yaml = CI.read_text(encoding="utf-8")
         sections = yaml.split("\n  backend:\n")
         self.assertEqual(len(sections), 2)
-        backend, frontend_and_gate = sections[1].split("\n  frontend:\n", 1)
-        frontend, _ = frontend_and_gate.split("\n  merge-gate:\n", 1)
-        self.assertNotIn("\n    if:", backend)
-        self.assertNotIn("\n    if:", frontend)
+        backend, right = sections[1].split("\n  frontend:\n", 1)
+        frontend, right = right.split("\n  frontend-build:\n", 1)
+        frontend_build, _ = right.split("\n  merge-gate:\n", 1)
+        for job in (backend, frontend, frontend_build):
+            self.assertNotIn("\n    if:", job)
+            self.assertNotIn("\n    needs:", job)
         self.assertIn('python -m pytest -q -m "not network"', backend)
         self.assertIn("--disable-socket --allow-unix-socket", backend)
         self.assertIn("npm ci --no-audit --no-fund", frontend)
-        self.assertIn("npm test -- --reporter=dot", frontend)
-        self.assertIn("npm run lint", frontend)
-        self.assertIn("npm run build", frontend)
+        self.assertIn("npm test -- --reporter=dot --reporter=junit", frontend)
+        self.assertIn("--outputFile.junit=vitest-results.xml", frontend)
+        self.assertIn("exit 1", frontend)
+        self.assertIn("Upload complete React test evidence even when failed", frontend)
+        self.assertIn("if: always()", frontend)
+        self.assertIn("npm run lint", frontend_build)
+        self.assertIn("npm run build", frontend_build)
+        self.assertNotIn("npm run lint", frontend)
+        self.assertNotIn("npm run build", frontend)
 
 
 if __name__ == "__main__":
