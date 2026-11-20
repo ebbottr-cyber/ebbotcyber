@@ -487,6 +487,62 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertIn("AAPL", positions)
         self.assertAlmostEqual(positions["AAPL"]["market_value_base"], 700.0, places=6)
 
+    def test_stored_usd_cross_supports_multi_market_risk_weights(self) -> None:
+        as_of = date(2026, 1, 2)
+        self.service.repo.save_fx_rate(
+            from_currency="HKD", to_currency="USD", rate_date=as_of,
+            rate=0.125, source="unit-test", is_stale=False,
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY", rate_date=as_of,
+            rate=7.0, source="unit-test", is_stale=False,
+        )
+        snapshot = {
+            "fx_stale": False, "total_market_value": 875.0,
+            "accounts": [
+                {"base_currency": "HKD", "market": "hk", "fx_stale": False,
+                 "positions": [{"symbol": "HK00700", "market_value_base": 500.0,
+                                "valuation_currency": "HKD"}]},
+                {"base_currency": "USD", "market": "us", "fx_stale": False,
+                 "positions": [{"symbol": "AAPL", "market_value_base": 62.5,
+                                "valuation_currency": "USD"}]},
+            ],
+        }
+        block = self.risk_service._build_concentration(snapshot, 35.0, as_of_date=as_of)
+        positions = {item["symbol"]: item for item in block["top_positions"]}
+        self.assertEqual(set(positions), {"HK00700", "AAPL"})
+        for item in positions.values():
+            self.assertAlmostEqual(item["market_value_base"], 437.5)
+            self.assertAlmostEqual(item["weight_pct"], 50.0)
+
+    def test_position_level_stale_cross_suppresses_risk_flags(self) -> None:
+        as_of = date(2026, 1, 5)
+        self.service.repo.save_fx_rate(
+            from_currency="HKD", to_currency="USD", rate_date=as_of,
+            rate=0.125, source="unit-test", is_stale=False,
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY", rate_date=date(2026, 1, 1),
+            rate=7.0, source="unit-test", is_stale=False,
+        )
+        # The aggregate flag is deliberately wrong: inspect per-position FX.
+        snapshot = {
+            "fx_stale": False, "total_market_value": 700.0,
+            "accounts": [{
+                "base_currency": "HKD", "market": "hk", "fx_stale": False,
+                "positions": [{"symbol": "HK00700", "market_value_base": 800.0,
+                               "valuation_currency": "HKD"}],
+            }],
+        }
+        for block in (
+            self.risk_service._build_concentration(snapshot, 35.0, as_of_date=as_of),
+            self.risk_service._build_sector_concentration(snapshot, 35.0, as_of_date=as_of),
+        ):
+            self.assertFalse(block["available"])
+            self.assertTrue(block["fx_stale"])
+            self.assertIsNone(block["top_weight_pct"])
+            self.assertIsNone(block["alert"])
+
     def test_stale_fx_blocks_cross_currency_risk_percentages(self) -> None:
         account = self.service.create_account(
             name="US", broker="Demo", market="us", base_currency="USD"
