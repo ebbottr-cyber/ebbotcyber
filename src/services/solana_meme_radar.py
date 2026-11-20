@@ -30,17 +30,59 @@ def _flag_status(value: Any) -> bool | None:
     return None
 
 
+def _hook_status(value: Any) -> bool | None:
+    """Parse GoPlus Solana transfer hooks (address metadata OR status flag).
+
+    A nonempty hook program address means the hook can affect transfers,
+    even when the API omits the optional 'status' field.
+    """
+    if isinstance(value, dict):
+        status = _flag_status(value)
+        if status is True:
+            return True
+        if "address" in value:
+            address = value["address"]
+            if isinstance(address, str):
+                return bool(address.strip())  # empty address explicitly means no hook
+            return None
+        return status
+    return _flag_status(value)
+
+
 def security_reasons(record: dict[str, Any] | None) -> list[str]:
-    """Unknown security fields are never silently treated as clean."""
+    """Do not approve a watchlist candidate with unknown core risk flags."""
     if not record:
         return ["security_unknown"]
-    risks = []
-    for field in ("mintable", "freezable", "closable", "non_transferable", "transfer_hook"):
+    risks: list[str] = []
+    # These core flags must be explicitly known. Unknown is not "safe".
+    for field in ("mintable", "freezable", "closable", "non_transferable"):
         state = _flag_status(record.get(field))
         if state is True:
             risks.append(field)
         if state is None:
             risks.append(f"{field}_unknown")
+    hook = _hook_status(record.get("transfer_hook"))
+    if hook is True:
+        risks.append("transfer_hook")
+    elif hook is None:
+        risks.append("transfer_hook_unknown")
+
+    # GoPlus exposes extra authority and upgrade flags on supported tokens.
+    # Check these when present; preserve the separate "unknown" state if
+    # the provider returned an unrecognized representation.
+    for field in (
+        "metadata_mutable",
+        "transfer_fee_upgradable",
+        "default_account_state_upgradable",
+        "balance_mutable_authority",
+        "transfer_hook_upgradable",
+    ):
+        if field in record:
+            state = _flag_status(record.get(field))
+            if state is True:
+                risks.append(field)
+            elif state is None:
+                risks.append(f"{field}_unknown")
     default_state = record.get("default_account_state")
     if default_state is not None and str(default_state) != "1":
         risks.append("default_account_not_initialized")

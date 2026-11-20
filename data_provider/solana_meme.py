@@ -140,18 +140,33 @@ def _gecko_quotes(document: Any, now_ms: int) -> list[MemeQuote]:
     data = _obj(document).get("data")
     if not isinstance(data, list):
         raise MarketDataError("GeckoTerminal pools: invalid data")
+    # Token symbols are supplied by JSON:API 'included' objects, not the
+    # pool's 'name' (which can contain a base/quote pair).
+    included = _obj(document).get("included", [])
+    token_symbols: dict[str, str] = {}
+    if isinstance(included, list):
+        for item in included:
+            token = _obj(item)
+            token_id = token.get("id")
+            token_symbol = _obj(token.get("attributes")).get("symbol")
+            if (token.get("type") == "token" and isinstance(token_id, str)
+                    and isinstance(token_symbol, str) and token_symbol.strip()):
+                token_symbols[token_id] = token_symbol.strip()[:24]
     quotes = []
     for raw in data:
         pool = _obj(raw)
         attrs = _obj(pool.get("attributes"))
-        mint = _mint_from_relationship(_obj(pool.get("relationships")).get("base_token"))
+        base_token_relationship = _obj(_obj(pool.get("relationships")).get("base_token"))
+        mint = _mint_from_relationship(base_token_relationship)
+        base_token_id = _obj(base_token_relationship.get("data")).get("id")
+        symbol = token_symbols.get(base_token_id, "?") if isinstance(base_token_id, str) else "?"
         pool_id = pool.get("id")
         if not mint or not isinstance(pool_id, str) or not pool_id.startswith("solana_"):
             continue
         changes = _obj(attrs.get("price_change_percentage"))
         transactions = _obj(_obj(attrs.get("transactions")).get("m5"))
         quotes.append(MemeQuote(
-            mint=mint, symbol=str(attrs.get("name") or "?")[:24], source="geckoterminal",
+            mint=mint, symbol=symbol, source="geckoterminal",
             pool_id=pool_id, price_usd=_nonnegative(attrs.get("base_token_price_usd")),
             liquidity_usd=_nonnegative(attrs.get("reserve_in_usd")),
             volume_h24_usd=_nonnegative(_obj(attrs.get("volume_usd")).get("h24")),
@@ -168,7 +183,7 @@ class SolanaMemeFeed:
 
     def new_pools(self, now_ms: int) -> list[MemeQuote]:
         """New *pools* (not token mints); geared to early discovery."""
-        data = self.transport("https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=1")
+        data = self.transport("https://api.geckoterminal.com/api/v2/networks/solana/new_pools?page=1&include=base_token")
         return _gecko_quotes(data, now_ms)
 
     def latest_profiles(self, now_ms: int, limit: int = 8) -> list[MemeQuote]:
