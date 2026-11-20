@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - integration/ebbot-pr63-pr103-react100-audit-20261120
+      - fix/ebbot-integration-full-backend-fx-20261120
   pull_request:
     branches:
       - test/github-windows-portfolio-http-smoke-20261120
+      - integration/ebbot-pr63-pr103-react100-audit-20261120
 
 permissions:
   contents: read
@@ -35,6 +37,8 @@ jobs:
           cache-dependency-path: .github/requirements-ci.txt
       - name: Install full offline backend test dependencies
         run: python -m pip install -r .github/requirements-ci.txt
+      - name: First verify Alert API and OpenAPI regression blockers
+        run: python -m pytest -q --tb=short tests/test_alert_api.py tests/test_api_schema_pydantic.py
       - name: Run ALL offline backend tests without hiding failures
         run: |
           python -m pytest -q -m "not network" --tb=line --disable-warnings \
