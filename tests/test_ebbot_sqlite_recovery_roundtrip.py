@@ -64,34 +64,46 @@ class SQLiteRealWALRecoveryRehearsalTests(unittest.TestCase):
         self.database = self.root / DB
         self.snapshot = self.root / "snapshot.db"
 
-        writer = sqlite3.connect(self.database)
-        try:
-            self.assertEqual(writer.execute("PRAGMA journal_mode=WAL").fetchone(), ("wal",))
-            writer.execute("CREATE TABLE observations (name TEXT NOT NULL)")
-            writer.execute("INSERT INTO observations VALUES ('before-wal')")
-            writer.commit()
-            writer.execute("INSERT INTO observations VALUES ('committed-in-wal')")
-            writer.commit()
-            writer.execute("BEGIN IMMEDIATE")
-            writer.execute("INSERT INTO observations VALUES ('uncommitted-do-not-restore')")
+        # On Windows SQLite may deny raw reads of live WAL/SHM files while
+        # its VFS owns them. Instead, emulate a crashed writer in an isolated
+        # child process. os._exit bypasses sqlite3.close()/checkpoint so
+        # committed WAL frames survive on disk and the OS releases locks.
+        writer_script = """
+import os
+import sqlite3
+import sys
+writer = sqlite3.connect(sys.argv[1])
+assert writer.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+writer.execute("CREATE TABLE observations (name TEXT NOT NULL)")
+writer.execute("INSERT INTO observations VALUES ('before-wal')")
+writer.commit()
+writer.execute("INSERT INTO observations VALUES ('committed-in-wal')")
+writer.commit()
+writer.execute("BEGIN IMMEDIATE")
+writer.execute("INSERT INTO observations VALUES ('uncommitted-do-not-restore')")
+os._exit(0)
+"""
+        import sys
+        writer_run = subprocess.run(
+            [sys.executable, "-c", writer_script, str(self.database)],
+            cwd=ROOT, capture_output=True, text=True, timeout=15, check=False,
+        )
+        self.assertEqual(writer_run.returncode, 0, writer_run.stderr)
 
-            # The original DB/WAL/SHM are captured while SQLite keeps the
-            # WAL alive; this is a controlled fixture with NO concurrent write.
-            original = {}
-            for name, suffix in (("originalDb", ""), ("originalWal", "-wal"),
-                                 ("originalShm", "-shm")):
-                location = Path(str(self.database) + suffix)
-                self.assertTrue(location.is_file(), name + " missing")
-                original[name] = base64.b64encode(location.read_bytes()).decode("ascii")
+        # The writer is GONE before any raw DB/WAL/SHM bytes are read.
+        # Neither the fixture creation nor snapshot opens installed EBBot DBs.
+        original = {}
+        for name, suffix in (("originalDb", ""), ("originalWal", "-wal"),
+                             ("originalShm", "-shm")):
+            location = Path(str(self.database) + suffix)
+            self.assertTrue(location.is_file(), name + " missing")
+            original[name] = base64.b64encode(location.read_bytes()).decode("ascii")
 
-            report = snapshot_sqlite_database(self.database, self.snapshot)
-            self.assertEqual(report["status"], "PASSED")
-            self.assertEqual(report["release_status"], "BLOCKED")
-            original["snapshotDb"] = base64.b64encode(self.snapshot.read_bytes()).decode("ascii")
-            self.payload = json.dumps(original)
-        finally:
-            writer.rollback()
-            writer.close()
+        report = snapshot_sqlite_database(self.database, self.snapshot)
+        self.assertEqual(report["status"], "PASSED")
+        self.assertEqual(report["release_status"], "BLOCKED")
+        original["snapshotDb"] = base64.b64encode(self.snapshot.read_bytes()).decode("ascii")
+        self.payload = json.dumps(original)
 
         # This module accepts only tiny synthetic Buffers; deliberately keep
         # this test well below its 64 KiB per-file bound.
