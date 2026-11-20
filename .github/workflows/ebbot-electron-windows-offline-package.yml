@@ -137,7 +137,7 @@ jobs:
           $version = (Get-Content apps/dsa-desktop/package.json -Raw | ConvertFrom-Json).version
           & ./scripts/collect_ebbot_windows_signatures.ps1 -Dist apps/dsa-desktop/dist -Version $version -Output desktop-signature-observation.json
           if ($LASTEXITCODE -ne 0) { throw "Windows signature observation failed" }
-          python scripts/audit_ebbot_desktop_signing.py --observation desktop-signature-observation.json --json > desktop-signature-audit.json
+          python scripts/audit_ebbot_desktop_signing.py --observation desktop-signature-observation.json --enforce-ci-contracts --json > desktop-signature-audit.json
           if ($LASTEXITCODE -ne 0) { throw "Windows signing policy audit failed to run" }
           $signatureAudit = Get-Content desktop-signature-audit.json -Raw | ConvertFrom-Json
           if ($signatureAudit.release_status -ne 'BLOCKED') { throw "Release must always remain blocked" }
