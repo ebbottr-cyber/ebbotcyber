@@ -97,6 +97,12 @@ def source_audit(root: Path) -> dict:
     files = build.get("files", [])
     _check(checks, "electron_bridge", "main.js" in files and "preload.js" in files,
            "Electron main and preload must both be packaged")
+    bridge = desktop / "sqliteSnapshotBridge.js"
+    _check(checks, "sqlite_offline_bridge_packaged",
+           "sqliteSnapshotBridge.js" in files and bridge.is_file()
+           and "sqliteSnapshotBridge" in js
+           and (bridge.is_file() and "stageSnapshotRestoreCandidate" in bridge.read_text(encoding="utf-8")),
+           "The offline no-clobber SQLite staging bridge must be included in Electron ASAR")
     resources = build.get("extraResources", [])
     has_backend = any(x.get("from") == "../../dist/backend/stock_analysis" and
                       x.get("to") == "backend/stock_analysis"

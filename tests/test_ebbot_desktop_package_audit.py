@@ -27,7 +27,7 @@ class DesktopPackageAuditTests(unittest.TestCase):
                 "win": {"target": "nsis", "artifactName": "EBBot-windows-installer-v${version}.${ext}", "publish": [
                     {"provider": "github", "owner": "ebbottr-cyber", "repo": "ebbotcyber"}
                 ]},
-                "files": ["main.js", "preload.js"],
+                "files": ["main.js", "preload.js", "sqliteSnapshotBridge.js"],
                 "extraResources": [
                     {"from": "../../dist/backend/stock_analysis", "to": "backend/stock_analysis"}
                 ],
@@ -37,8 +37,13 @@ class DesktopPackageAuditTests(unittest.TestCase):
             "const GITHUB_OWNER = 'ebbottr-cyber';\n"
             "const GITHUB_REPO = 'ebbotcyber';\n"
             "const DESKTOP_UPDATES_ENABLED = false;\n"
+            "const sqliteSnapshotBridge = require('./sqliteSnapshotBridge');\n"
             "function a() { if (!DESKTOP_UPDATES_ENABLED) {} }\n"
             "function b() { if (!DESKTOP_UPDATES_ENABLED) {} }\n",
+            encoding="utf-8",
+        )
+        (desktop / "sqliteSnapshotBridge.js").write_text(
+            "function stageSnapshotRestoreCandidate() {}\n",
             encoding="utf-8",
         )
         loading = desktop / "renderer/loading.html"
@@ -79,6 +84,13 @@ class DesktopPackageAuditTests(unittest.TestCase):
                             for x in result["checks"]))
         self.assertTrue(any("code-signing" in x for x in result["release_blockers"]))
         self.assertEqual(audit(self.root)["release_status"], "BLOCKED")
+
+    def test_offline_sqlite_bridge_must_be_packaged(self):
+        desktop = self.root / "apps/dsa-desktop"
+        (desktop / "sqliteSnapshotBridge.js").unlink()
+        result = source_audit(self.root)
+        self.assertFalse(next(check["passed"] for check in result["checks"]
+                              if check["name"] == "sqlite_offline_bridge_packaged"))
 
     def test_legacy_loading_screen_fails_source_audit(self):
         loading = self.root / "apps/dsa-desktop/renderer/loading.html"
