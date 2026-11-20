@@ -31,10 +31,19 @@ def _error(provider: str, error: Exception | None = None) -> dict[str, str]:
     return {"provider": provider, "error_class": type(error).__name__ if error else "MissingData"}
 
 
-def _eligible(quote: MemeQuote) -> bool:
+def _priced(quote: MemeQuote) -> bool:
+    # At later observations, a genuine price remains valuable even after
+    # liquidity falls. Insufficient liquidity is a risk, not missing price.
     return (
         is_solana_address(quote.mint)
         and quote.price_usd is not None and quote.price_usd > 0
+    )
+
+
+def _eligible(quote: MemeQuote) -> bool:
+    # Liquidity threshold is for initial discovery ONLY.
+    return (
+        _priced(quote)
         and quote.liquidity_usd is not None and quote.liquidity_usd >= 10_000
     )
 
@@ -124,7 +133,7 @@ def collect(
                 url = "https://api.dexscreener.com/tokens/v1/solana/" + ",".join(fixed)
                 items = _dex_quotes(feed.transport(url), now_ms)
                 for mint in fixed:
-                    quoted = [q for q in items if q.mint == mint and _eligible(q)]
+                    quoted = [q for q in items if q.mint == mint and _priced(q)]
                     if quoted:
                         preferred = fixed[mint].pool_id
                         prices[mint] = max(
@@ -158,7 +167,7 @@ def collect(
                 }, now_ms)
                 valid = [quote for quote in normalized
                          if quote.mint == mint and quote.pool_id == original.pool_id
-                         and _eligible(quote)]
+                         and _priced(quote)]
                 if valid:
                     prices[mint] = valid[0]
             except (MarketDataError, ValueError) as exc:

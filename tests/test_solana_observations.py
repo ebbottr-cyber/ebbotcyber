@@ -28,12 +28,14 @@ def initial(mint, source, liquidity=22000):
 
 class FakeFeed:
     def __init__(self, *, missing_price=False, failed_security=False,
-                 missing_gecko_dex_price=False, wrong_gecko_pool=False):
+                 missing_gecko_dex_price=False, wrong_gecko_pool=False,
+                 illiquid_followup=False):
         self.urls = []
         self.missing_price = missing_price
         self.failed_security = failed_security
         self.missing_gecko_dex_price = missing_gecko_dex_price
         self.wrong_gecko_pool = wrong_gecko_pool
+        self.illiquid_followup = illiquid_followup
         self.security_calls = []
 
     def new_pools(self, now_ms):
@@ -66,7 +68,7 @@ class FakeFeed:
             data.append({
                 "chainId": "solana", "pairAddress": "pair_"+mint,
                 "baseToken": {"address": mint, "symbol": "EX"},
-                "priceUsd": ".1", "liquidity": {"usd": 25000},
+                "priceUsd": ".1", "liquidity": {"usd": 300 if mint == MINT2 and self.illiquid_followup else 25000},
                 "volume": {"h24": 100000},
                 "txns": {"m5": {"buys": 40, "sells": 10}},
                 "priceChange": {"m5": 7.0},
@@ -200,3 +202,20 @@ def test_gecko_pool_fallback_rejects_pool_identity_mismatch():
     assert out["summary"]["valid_price_observations"] == 3
     missing = [r for r in out["observations"] if r.get("status") == "missing_price"]
     assert len(missing) == 3 and all(r["mint"] == MINT1 for r in missing)
+
+
+def test_liquidity_drop_preserves_real_price_and_blocks_candidate():
+    feed = FakeFeed(illiquid_followup=True)
+    out, _ = run(feed)
+    assert out["summary"]["result"] == "passed"
+    assert out["summary"]["valid_price_observations"] == 6
+    low_liquidity = [r for r in out["observations"] if r["mint"] == MINT2]
+    assert len(low_liquidity) == 3
+    assert all(r["price_source"] == "dexscreener" for r in low_liquidity)
+    assert all(r["price_usd"] == "0.1" and r["liquidity_usd"] == "300.0"
+               for r in low_liquidity)
+    assert all(r["strategies"]["momentum_watcher"]["status"] == "blocked"
+               for r in low_liquidity)
+    assert all("liquidity_below_10000_or_unknown" in
+               r["strategies"]["momentum_watcher"]["reasons"]
+               for r in low_liquidity)
