@@ -39,6 +39,9 @@ VALID_CASH_DIRECTIONS = {"in", "out"}
 VALID_CORPORATE_ACTIONS = {"cash_dividend", "split_adjustment"}
 PORTFOLIO_FX_REFRESH_DISABLED_REASON = "portfolio_fx_update_disabled"
 PORTFOLIO_REALTIME_QUOTE_MAX_WORKERS = 4
+# Risk and portfolio valuation: treat quotes older than a long weekend as stale.
+# Indicative TL display has its own stricter 30-minute requirement.
+MAX_PORTFOLIO_FX_RATE_AGE_DAYS = 3
 
 
 def _portfolio_limitations_for_market(market: str) -> List[str]:
@@ -1476,7 +1479,10 @@ class PortfolioService:
             as_of=as_of_date,
         )
         if direct is not None and math.isfinite(float(direct.rate)) and float(direct.rate) > 0:
-            return float(amount) * float(direct.rate), bool(direct.is_stale), "direct_rate"
+            direct_date = getattr(direct, "rate_date", None)
+            direct_age = (as_of_date - direct_date).days if isinstance(direct_date, date) else None
+            stale = bool(direct.is_stale) or direct_age is None or not (0 <= direct_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
+            return float(amount) * float(direct.rate), stale, "direct_rate"
 
         inverse = self.repo.get_latest_fx_rate(
             from_currency=to_norm,
@@ -1484,7 +1490,10 @@ class PortfolioService:
             as_of=as_of_date,
         )
         if inverse is not None and math.isfinite(float(inverse.rate)) and float(inverse.rate) > 0:
-            return float(amount) / float(inverse.rate), bool(inverse.is_stale), "inverse_rate"
+            inverse_date = getattr(inverse, "rate_date", None)
+            inverse_age = (as_of_date - inverse_date).days if isinstance(inverse_date, date) else None
+            stale = bool(inverse.is_stale) or inverse_age is None or not (0 <= inverse_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
+            return float(amount) / float(inverse.rate), stale, "inverse_rate"
 
         # A missing currency pair has no meaningful conversion rate. Earlier
         # versions returned the unchanged amount, silently treating FX as 1:1.
