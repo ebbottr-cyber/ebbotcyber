@@ -393,6 +393,25 @@ describe('PortfolioPage FX refresh', () => {
     expect(screen.queryByText('1 Ocak 1970')).not.toBeInTheDocument();
   });
 
+  it('retries read-only TRY FX immediately from the manual refresh after an outage', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    getSnapshot.mockImplementation(async () => makeSnapshot({ fxStale: false }));
+    getDisplayFxRates.mockRejectedValueOnce(new Error('Network Error')).mockResolvedValueOnce({
+      status: 'current', usdTry: 50, usdCny: 7,
+      cnyTry: 50 / 7, asOf: new Date(Date.now() - 30_000).toISOString(),
+      source: 'test quote',
+    });
+    render(<PortfolioPage />);
+    await waitForInitialLoad();
+    expect(await screen.findByText(/Kur servisine ulaşılamıyor/)).toBeInTheDocument();
+    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    expect(statusCard).not.toBeNull();
+    fireEvent.click(within(statusCard as HTMLElement).getByRole('button'));
+    await waitFor(() => expect(getDisplayFxRates).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(within(statusCard as HTMLElement).getByText(/Yaklaşık TL değeri/)).toBeInTheDocument());
+    expect(screen.queryByText(/Kur servisine ulaşılamıyor/)).not.toBeInTheDocument();
+  });
+
   it('keeps TRY totals unavailable for a known stale provider response', async () => {
     window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
     getSnapshot.mockResolvedValueOnce(makeSnapshot({ fxStale: false }));
