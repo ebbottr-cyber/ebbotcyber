@@ -120,7 +120,7 @@ describe('StockScreeningPage', () => {
       expect(screen.getByText('Öne çıkan temalar')).toBeInTheDocument();
       expect(screen.getAllByText('Taramayı başlat').length).toBeGreaterThan(0);
       expect(screen.getByText('Tarama geçmişi')).toBeInTheDocument();
-      expect(await screen.findByText('Çin A hisseleri')).toBeInTheDocument();
+      expect(await screen.findByText('Hisse tarama etkin')).toBeInTheDocument();
       expect(screen.queryByText('选股')).not.toBeInTheDocument();
     } finally {
       vi.unstubAllEnvs();
