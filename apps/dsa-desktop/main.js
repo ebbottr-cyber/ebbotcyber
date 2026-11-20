@@ -549,36 +549,80 @@ function backupPackagedRuntimeState() {
     return;
   }
 
+  // SQLite databases with WAL/SHM may be changing while the managed backend
+  // is alive. Never treat a plain filesystem copy as a live SQLite snapshot.
+  if (backendProcess && backendProcess.exitCode == null && !backendProcess.signalCode) {
+    throw new Error('Cannot safely back up SQLite while desktop backend is running');
+  }
+
   const backupRoot = resolveUpdateBackupRoot();
-  // A previous interrupted update may still need these bytes for recovery.
-  // Never remove or overwrite a pending backup just to start a new attempt.
   if (fs.existsSync(backupRoot)) {
+    // An interrupted update may still need this copy for recovery.
     logLine('[update] skipped new runtime backup because a prior backup needs review');
     return;
   }
 
   const runtimeEntries = resolveRuntimeFileEntries();
-  const backedUpFiles = [];
-  ensureDirectory(backupRoot);
-
-  runtimeEntries.forEach(({ relativePath, absolutePath, backupPath }) => {
-    if (!fs.existsSync(absolutePath)) {
+  const sqliteFiles = [
+    path.join('data', 'stock_analysis.db'),
+    path.join('data', 'stock_analysis.db-wal'),
+    path.join('data', 'stock_analysis.db-shm'),
+  ];
+  const sqlitePaths = sqliteFiles.map((relativePath) => path.join(resolveAppDir(), relativePath));
+  const getSqliteState = () => sqlitePaths.map((file) => {
+    if (!fs.existsSync(file)) {
+      return null;
+    }
+    const stat = fs.lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error('SQLite runtime path is not a regular file');
+    }
+    return { size: stat.size, mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs };
+  });
+  // These stat checks detect changed files; they do NOT replace SQLite's
+  // online backup API or guarantee a transactionally consistent snapshot.
+  const beforeSqliteState = getSqliteState();
+  ensureDirectory(path.dirname(backupRoot));
+  const stageRoot = fs.mkdtempSync(path.join(path.dirname(backupRoot), '.ebbot-runtime-stage-'));
+  let published = false;
+  try {
+    const backedUpFiles = [];
+    runtimeEntries.forEach(({ relativePath, absolutePath }) => {
+      if (!fs.existsSync(absolutePath)) {
+        return;
+      }
+      copyRuntimeStatePathSync(absolutePath, path.join(stageRoot, relativePath));
+      backedUpFiles.push(relativePath);
+    });
+    if (!backedUpFiles.length) {
       return;
     }
-    copyRuntimeStatePathSync(absolutePath, backupPath);
-    backedUpFiles.push(relativePath);
-  });
-
-  if (!backedUpFiles.length) {
-    cleanupUpdateBackupRoot();
-    return;
+    if (JSON.stringify(beforeSqliteState) !== JSON.stringify(getSqliteState())) {
+      throw new Error('SQLite database/WAL/SHM changed during backup; snapshot discarded');
+    }
+    fs.writeFileSync(
+      path.join(stageRoot, DESKTOP_UPDATE_BACKUP_MANIFEST_FILE),
+      JSON.stringify({
+        backedAt: new Date().toISOString(),
+        appVersion: resolveDesktopVersion(),
+        files: backedUpFiles,
+      }, null, 2),
+      'utf-8'
+    );
+    if (fs.existsSync(backupRoot)) {
+      throw new Error('A runtime recovery backup already exists; refusing replacement');
+    }
+    fs.renameSync(stageRoot, backupRoot);
+    published = true;
+  } finally {
+    if (!published) {
+      try {
+        fs.rmSync(stageRoot, { recursive: true, force: true });
+      } catch (_error) {
+        logLine('[update] incomplete runtime staging directory cleanup failed');
+      }
+    }
   }
-
-  writeUpdateBackupManifest({
-    backedAt: new Date().toISOString(),
-    appVersion: resolveDesktopVersion(),
-    files: backedUpFiles,
-  });
 }
 
 function restorePackagedRuntimeStateFromBackup() {
@@ -1670,7 +1714,9 @@ async function installDownloadedUpdate() {
     logLine('[update] stop backend and backup runtime data before install');
     await stopBackend();
     backupRoot = resolveUpdateBackupRoot();
-    cleanupUpdateBackupRoot();
+    if (fs.existsSync(backupRoot)) {
+      throw new Error('Unresolved recovery backup exists; update installation blocked');
+    }
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
@@ -1698,10 +1744,9 @@ async function installDownloadedUpdate() {
     updater.quitAndInstall(true, true);
     return true;
   } catch (error) {
-    if (backupRoot) {
-      cleanupUpdateBackupRoot();
-    }
-    logLine(`[update] install downloaded update failed: ${error instanceof Error ? error.message : String(error)}`);
+    // Never delete a completed recovery snapshot when the NSIS launcher fails.
+    // The next startup/recovery path may need it to restore user data.
+    logLine(`[update] install downloaded update failed; recovery copy retained: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
