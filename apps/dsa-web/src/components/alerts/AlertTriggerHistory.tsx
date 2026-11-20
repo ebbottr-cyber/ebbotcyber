@@ -4,12 +4,14 @@ import { Badge, Card, EmptyState, Loading } from '../common';
 import type { AlertTriggerItem } from '../../types/alerts';
 import { formatDateTime } from '../../utils/format';
 import { getMarketPhaseSummaryLabel } from '../../utils/marketPhase';
+import { operatorText } from '../../utils/operatorText';
+import { shouldForceTurkishUi } from '../../utils/uiLanguage';
 
 const statusLabel: Record<string, string> = {
-  triggered: '已触发',
-  skipped: '已跳过',
-  degraded: '降级',
-  failed: '失败',
+  triggered: operatorText("已触发", "Tetiklendi"),
+  skipped: operatorText("已跳过", "Atlandı"),
+  degraded: operatorText("降级", "Kısıtlı"),
+  failed: operatorText("失败", "Başarısız"),
 };
 
 function statusVariant(status: string): 'success' | 'warning' | 'danger' | 'default' {
@@ -25,7 +27,7 @@ function formatNullable(value?: string | number | null): string {
 }
 
 function renderPhaseQuality(trigger: AlertTriggerItem): React.ReactNode {
-  const phase = getMarketPhaseSummaryLabel(trigger.marketPhaseSummary, 'zh');
+  const phase = getMarketPhaseSummaryLabel(trigger.marketPhaseSummary, shouldForceTurkishUi() ? 'tr' : 'zh');
   const quality = trigger.analysisContextPackOverview?.dataQuality?.level;
   const limitations = trigger.analysisContextPackOverview?.dataQuality?.limitations?.slice(0, 2) ?? [];
   if (!phase && !quality && limitations.length === 0) {
@@ -34,7 +36,7 @@ function renderPhaseQuality(trigger: AlertTriggerItem): React.ReactNode {
   return (
     <div className="space-y-1">
       {phase ? <Badge variant="default">{phase.replace('市场阶段: ', '').replace('市场阶段：', '')}</Badge> : null}
-      {quality ? <div className="text-xs text-secondary-text">质量：{quality}</div> : null}
+      {quality ? <div className="text-xs text-secondary-text">{operatorText("质量：", "Kalite: ")}{quality}</div> : null}
       {limitations.length ? (
         <div className="max-w-[180px] text-xs text-muted-text">{limitations.join('；')}</div>
       ) : null}
@@ -49,13 +51,13 @@ interface AlertTriggerHistoryProps {
 
 export const AlertTriggerHistory: React.FC<AlertTriggerHistoryProps> = ({ triggers, isLoading = false }) => {
   return (
-    <Card title="触发历史" subtitle="评估记录" variant="bordered" padding="md">
-      {isLoading ? <Loading label="正在加载触发历史" /> : null}
+    <Card title={operatorText("触发历史", "Tetiklenme geçmişi")} subtitle={operatorText("评估记录", "Değerlendirme kayıtları")} variant="bordered" padding="md">
+      {isLoading ? <Loading label={operatorText("正在加载触发历史", "Tetiklenme geçmişi yükleniyor")} /> : null}
       {!isLoading && triggers.length === 0 ? (
         <EmptyState
           icon={<Activity className="h-6 w-6" />}
-          title="暂无触发历史"
-          description="后台评估会记录 triggered、skipped、degraded 和 failed 状态；正常未触发不会写入历史。"
+          title={operatorText("暂无触发历史", "Henüz tetiklenme kaydı yok")}
+          description={operatorText("后台评估会记录 triggered、skipped、degraded 和 failed 状态；正常未触发不会写入历史。", "Arka plan değerlendirmesi tetiklenen, atlanan, kısıtlı veya başarısız durumları kaydeder; gerçekleşmeyen uyarılar geçmişe yazılmaz.")}
         />
       ) : null}
       {!isLoading && triggers.length > 0 ? (
@@ -63,14 +65,14 @@ export const AlertTriggerHistory: React.FC<AlertTriggerHistoryProps> = ({ trigge
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="border-b border-border/60 text-xs uppercase text-muted-text">
               <tr>
-                <th className="px-3 py-2 font-medium">状态</th>
-                <th className="px-3 py-2 font-medium">阶段 / 质量</th>
-                <th className="px-3 py-2 font-medium">目标</th>
-                <th className="px-3 py-2 font-medium">观察值</th>
-                <th className="px-3 py-2 font-medium">阈值</th>
-                <th className="px-3 py-2 font-medium">数据源</th>
-                <th className="px-3 py-2 font-medium">数据时间</th>
-                <th className="px-3 py-2 font-medium">原因</th>
+                <th className="px-3 py-2 font-medium">{operatorText("状态", "Durum")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("阶段 / 质量", "Evresi / kalite")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("目标", "Hedef")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("观察值", "Gözlem")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("阈值", "Eşik")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("数据源", "Veri kaynağı")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("数据时间", "Veri zamanı")}</th>
+                <th className="px-3 py-2 font-medium">{operatorText("原因", "Neden")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40">
