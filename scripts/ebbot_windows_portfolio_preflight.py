@@ -237,7 +237,18 @@ def summary(checks: list[Check]) -> str:
     return "PASSED_READ_ONLY"
 
 
+def _configure_utf8_console() -> None:
+    """Windows PowerShell/cp1252 cannot encode Turkish status text by default."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _configure_utf8_console()
     parser = argparse.ArgumentParser(
         description="EBBot salt-okunur Windows portföy hazırlık kontrolü. İşlem veya kurulum yapmaz.",
     )
