@@ -329,6 +329,23 @@ export interface PortfolioImportBrokerListResponse {
   brokers: PortfolioImportBrokerItem[];
 }
 
+export interface PortfolioTryDisplayQuote {
+  source: 'TCMB';
+  sourceCurrency: 'USD' | 'EUR' | 'CNY';
+  targetCurrency: 'TRY';
+  sourceUnit: 1;
+  tryPerUnit: number;
+  asOfDate: string;
+}
+
+export interface PortfolioTryDisplayResponse {
+  available: true;
+  source: 'TCMB';
+  rateKind: 'indicative_forex_selling';
+  asOfDate: string;
+  quotes: PortfolioTryDisplayQuote[];
+}
+
 export interface PortfolioFxRefreshResponse {
   asOf: string;
   accountCount: number;
