@@ -17,9 +17,9 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
 }
 
 $targets = [ordered]@{
-    nsis_installer = Join-Path $distRoot ("EBBot-windows-installer-v" + $Version + ".exe")
-    electron_app = Join-Path $distRoot 'win-unpacked\EBBot.exe'
-    python_backend = Join-Path $distRoot 'win-unpacked\resources\backend\stock_analysis\stock_analysis.exe'
+    nsis_installer = (Join-Path $distRoot ("EBBot-windows-installer-v" + $Version + ".exe"))
+    electron_app = (Join-Path $distRoot 'win-unpacked\EBBot.exe')
+    python_backend = (Join-Path $distRoot 'win-unpacked\resources\backend\stock_analysis\stock_analysis.exe')
 }
 $observations = [ordered]@{}
 
