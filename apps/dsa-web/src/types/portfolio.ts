@@ -345,12 +345,19 @@ export interface PortfolioFxRefreshResponse {
 }
 
 
-/** Read-only, indicative FX quotes; only status=current may be used for TRY display. */
+/** Read-only indicative FX quotes; use pairStatus + pairAsOf per currency. */
 export interface PortfolioDisplayFxRates {
   status: 'current' | 'stale' | 'unavailable';
   usdTry: number | null;
   usdCny: number | null;
   cnyTry: number | null;
+  hkdTry?: number | null;
+  jpyTry?: number | null;
+  krwTry?: number | null;
+  twdTry?: number | null;
+  /** Per-currency validity: global status is retained for legacy CNY clients. */
+  pairStatus?: Record<string, 'current' | 'stale' | 'unavailable'>;
+  pairAsOf?: Record<string, string>;
   asOf: string | null;
   source: string;
 }

@@ -11,12 +11,28 @@ export function toTryDisplayValue(
   if (amount == null || !Number.isFinite(amount) || sourceFxStale) return null;
   const code = currency.trim().toUpperCase();
   if (code === 'TRY') return amount;
-  if (!fx || fx.status !== 'current' || !fx.asOf) return null;
-  const quoteTime = Date.parse(fx.asOf);
+  if (!fx) return null;
+  const factors: Record<string, number | null | undefined> = {
+    USD: fx.usdTry,
+    CNY: fx.cnyTry,
+    HKD: fx.hkdTry,
+    JPY: fx.jpyTry,
+    KRW: fx.krwTry,
+    TWD: fx.twdTry,
+  };
+  if (!Object.prototype.hasOwnProperty.call(factors, code)) return null;
+  // A present pairStatus map is authoritative: never let a missing per-pair
+  // timestamp inherit another currency's (possibly fresher) global timestamp.
+  const asOf = fx.pairStatus
+    ? fx.pairStatus[code.toLowerCase()] === 'current' && fx.pairAsOf?.[code.toLowerCase()]
+    : (code === 'USD' || code === 'CNY') && fx.status === 'current' && fx.asOf;
+  if (!asOf || typeof asOf !== 'string') return null;
+  const quoteTime = Date.parse(asOf);
   if (!Number.isFinite(quoteTime) || now < quoteTime || now - quoteTime > 1_800_000) return null;
-  const factor = code === 'USD' ? fx.usdTry : code === 'CNY' ? fx.cnyTry : null;
+  const factor = factors[code];
   if (factor == null || !Number.isFinite(factor) || factor <= 0) return null;
-  return amount * factor;
+  const converted = amount * factor;
+  return Number.isFinite(converted) ? converted : null;
 }
 
 /** Unknown or stale rates never silently produce a TRY value. */

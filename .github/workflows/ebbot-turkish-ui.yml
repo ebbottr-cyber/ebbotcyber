@@ -4,12 +4,14 @@ on:
   pull_request:
     branches:
       - review/ebbot-3lu-entegrasyon-20261118
+      - fix/turkish-ui-chat-20261118
     paths:
       - 'apps/dsa-web/**'
       - '.github/workflows/ebbot-turkish-ui.yml'
   push:
     branches:
       - fix/turkish-ui-chat-20261118
+      - feature/portfolio-try-multicurrency-fx-20261120
     paths:
       - 'apps/dsa-web/**'
       - '.github/workflows/ebbot-turkish-ui.yml'
@@ -70,3 +72,33 @@ jobs:
         run: python -m pip install -r .github/requirements-ci.txt
       - name: Verify complete portfolio service, risk and API regressions
         run: python -m pytest -q --tb=short tests/test_portfolio_service.py tests/test_portfolio_pr2.py tests/test_portfolio_api.py
+
+  # Diagnostic only: the external quote provider can be late, blocked or closed.
+  # This job never writes FX rates or enables portfolio/trading workflows.
+  portfolio-live-fx-observation:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/portfolio-try-multicurrency-fx-20261120'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated read-only Yahoo FX client
+        run: python -m pip install 'yfinance==0.2.66'
+      - name: Read and validate live FX pairs (no writes)
+        id: live_fx
+        continue-on-error: true
+        run: python scripts/probe_portfolio_try_fx_live.py
+      - name: Publish explicit provider status
+        if: always()
+        env:
+          FX_OUTCOME: ${{ steps.live_fx.outcome }}
+        run: |
+          if [ "$FX_OUTCOME" = "success" ]; then
+            echo "### LIVE FX VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "Six fresh USD-referenced TRY quotes verified from Yahoo Finance at this run time." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### LIVE FX NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "One or more Yahoo quotes were unavailable, stale, misaligned or the provider failed. This diagnostic must not authorize valuation or trading." >> "$GITHUB_STEP_SUMMARY"
+          fi
