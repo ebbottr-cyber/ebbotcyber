@@ -25,6 +25,7 @@ from api.v1.endpoints import (
     history,
     intelligence,
     meme_coin,
+    meme_coins,
     portfolio,
     stocks,
     system_config,
@@ -111,6 +112,14 @@ router.include_router(
     meme_coin.router,
     prefix="/meme-coins",
     tags=["MemeCoin"]
+)
+
+# Independent main-branch Solana Radar; do not shadow the existing
+# /meme-coins strategy service. Scans require explicit server opt-in.
+router.include_router(
+    meme_coins.router,
+    prefix="/meme-radar",
+    tags=["SolanaMemeRadar"],
 )
 
 router.include_router(
