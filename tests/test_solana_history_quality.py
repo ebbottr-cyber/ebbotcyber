@@ -158,3 +158,14 @@ def test_future_or_nonfinite_values_never_accepted():
     x['observations'][1]['change_m5_pct'] = float('inf')
     with pytest.raises(ObservationValidationError, match='Nonfinite'):
         validate_document(x)
+
+
+def test_legacy_missing_price_preserves_attempted_provider_but_not_fake_price():
+    # First real-data run recorded the attempted DEX provider on missing rows.
+    x = fixture(missing=True)
+    for row in x['observations']:
+        if row['status'] == 'missing_price':
+            row['price_source'] = 'dexscreener'
+    result = validate_history([x])
+    assert result['quality_result'] == 'degraded_capture_data'
+    assert result['total_missing_rows'] == 3
