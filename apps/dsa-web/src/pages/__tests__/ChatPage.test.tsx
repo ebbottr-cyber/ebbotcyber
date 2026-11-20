@@ -287,6 +287,21 @@ beforeEach(() => {
 });
 
 describe('ChatPage', () => {
+  it('uses Turkish chat headings, history controls and message input in production mode', async () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+    try {
+      render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+      expect(screen.getByText('Hisse Analizi')).toBeInTheDocument();
+      expect(screen.getByText('Sohbet geçmişi')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Yeni sohbet başlat' })).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Örnek: 600519 hissesini analiz et/)).toBeInTheDocument();
+      expect(screen.queryByText('问股')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+
 
   it('keeps the existing waiting state for LiteLLM without offering a false stop', async () => {
     mockStoreState.loading = true;
