@@ -103,6 +103,79 @@ test('failed rollback leaves original and candidate available for manual retry',
   assert.deepEqual(bytes(root, 'candidate-quarantine'), fixture.candidateDb);
 });
 
+test('Windows EBUSY before first swap preserves original DB WAL and SHM', (t) => {
+  const root = make(t);
+  const originalRename = fs.renameSync;
+  fs.renameSync = (from, to) => {
+    if (from === path.join(root, 'active') && to === path.join(root, 'previous')) {
+      const error = new Error('Windows SQLite directory locked');
+      error.code = 'EBUSY';
+      throw error;
+    }
+    return originalRename(from, to);
+  };
+  try {
+    assert.throws(() => rehearseSqlitePromotion(root), /directory locked/);
+  } finally {
+    fs.renameSync = originalRename;
+  }
+  assertOriginal(root);
+  assert.deepEqual(bytes(root, 'candidate'), fixture.candidateDb);
+  assert.equal(fs.existsSync(path.join(root, 'previous')), false);
+});
+
+test('two blocked rename attempts retain previous DB WAL SHM for startup retry', (t) => {
+  const root = make(t);
+  const realRename = fs.renameSync;
+  const active = path.join(root, 'active');
+  const candidate = path.join(root, 'candidate');
+  const previous = path.join(root, 'previous');
+  fs.renameSync = (from, to) => {
+    if ((from === candidate && to === active) ||
+        (from === previous && to === active)) {
+      const error = new Error('simulated Windows file-lock after moving old bundle');
+      error.code = 'EBUSY';
+      throw error;
+    }
+    return realRename(from, to);
+  };
+  try {
+    assert.throws(() => rehearseSqlitePromotion(root), /file-lock/);
+  } finally {
+    fs.renameSync = realRename;
+  }
+  assert.equal(fs.existsSync(active), false);
+  assertOriginal(root, 'previous');
+  assert.deepEqual(bytes(root, 'candidate'), fixture.candidateDb);
+  assert.equal(recoverInterruptedSqlitePromotion(root).status, 'ORIGINAL_RECOVERED');
+  assertOriginal(root);
+});
+
+test('startup recovery also fails closed if Windows keeps previous bundle locked', (t) => {
+  const root = make(t);
+  const active = path.join(root, 'active');
+  const previous = path.join(root, 'previous');
+  fs.renameSync(active, previous);
+  const realRename = fs.renameSync;
+  fs.renameSync = (from, to) => {
+    if (from === previous && to === active) {
+      const error = new Error('startup retry still blocked by Windows file lock');
+      error.code = 'EACCES';
+      throw error;
+    }
+    return realRename(from, to);
+  };
+  try {
+    assert.throws(() => recoverInterruptedSqlitePromotion(root), /still blocked/);
+  } finally {
+    fs.renameSync = realRename;
+  }
+  assert.equal(fs.existsSync(active), false);
+  assertOriginal(root, 'previous');
+  assert.equal(recoverInterruptedSqlitePromotion(root).status, 'ORIGINAL_RECOVERED');
+  assertOriginal(root);
+});
+
 test('corrupt or unexpected WAL replacement candidate is rejected before moving old data', (t) => {
   const root = make(t);
   fs.writeFileSync(path.join(root, 'candidate', db + '-wal'), 'unapproved new WAL');
