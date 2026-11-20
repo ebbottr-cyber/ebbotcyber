@@ -19,7 +19,7 @@ function getChannelOptions(language: UiLanguage): Array<{ value: NotificationTes
     { value: 'feishu', label: language !== 'zh' ? 'Feishu Webhook' : '飞书 Webhook' },
     { value: 'dingtalk', label: language !== 'zh' ? 'DingTalk' : '钉钉' },
     { value: 'telegram', label: 'Telegram' },
-    { value: 'email', label: language !== 'zh' ? 'Email' : '邮件' },
+    { value: 'email', label: language === 'tr' ? 'E-posta' : language === 'en' ? 'Email' : '邮件' },
     { value: 'pushover', label: 'Pushover' },
     { value: 'ntfy', label: 'ntfy' },
     { value: 'gotify', label: 'Gotify' },
