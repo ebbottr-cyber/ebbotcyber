@@ -15,3 +15,12 @@ Tüm klasörler `os.tmpdir()` altındaki `ebbot-sqlite-rehearsal-*` adlarında, 
 **Kanıt sınırı:** `process.exit` ile süreç kapanışını taklit etmek gerçek elektrik kesintisini, NTFS journal dayanıklılığını, `TerminateProcess` semantiğini, Windows kullanıcı izinlerini, kilitli SQLite veritabanı davranışını veya gerçek NSIS yükseltmesini doğrulamaz. Kullanıcıya dağıtım izni değildir.
 
 **Test komutu (CI):** `npm test` (Windows 2022 üzerinde). Gerçek PyInstaller/NSIS işleri ayrı `push` koşulu altında `--publish never` ile yapılır. Dağıtım/yükleme yapılmaz. Geri alma: PR'ı kapatmak yeterlidir; uygulamanın üretim yolu etkilenmez.
+
+## Ek çapraz dil SQLite tutarlılık doğrulaması
+
+`tests/test_ebbot_sqlite_recovery_roundtrip.py` iki gerçek **sentetik SQLite veritabanı** testi içerir. Python'un `sqlite3` modülüyle WAL modunda iki kayıt commit edilir; üçüncü kayıt commit edilmeden bekletilir. Canlı WAL/SHM'nin sentetik dosya baytları ile `sqlite3.Connection.backup` snapshot'ı üretilir. Bu baytlar yalnızca JSON/Base64 üzerinden ayrı Node işlemlerinin geçici çalışma klasörlerine aktarılır.
+
+1. Yeni snapshot bir DB olarak aktive edildiğinde yalnız iki commit edilmiş kayıt görünür. Eski DB/WAL/SHM topluca `previous/` altında tutulur; geri alma sonrasında eski dosyalardan açılan veritabanının `PRAGMA integrity_check` ve iki commit edilmiş kaydı doğrulanır.
+2. Eski DB/WAL/SHM klasör olarak ayrıldıktan sonra Node alt işlemi hiçbir `finally` çalıştırmadan çıkış kodu 71 ile sonlanır. Ayrı kurtarma işlemi eski üçlüyü geri getirir; hem eski DB hem yeni aday SQLite tarafından ayrı ayrı açılarak doğrulanır.
+
+Bu testler, önceki 3 çökme provasından **ayrıdır**; artık toplam 5 yeni test bulunmaktadır (3 Node, 2 Python+Node). Bunlar gerçek Windows kullanıcı dosyası, NTFS güç kesintisi, imza veya installer testi değildir. CI üzerinde sadece sentetik geçici SQLite verileri kullanılır.
