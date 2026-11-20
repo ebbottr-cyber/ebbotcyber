@@ -1,0 +1,96 @@
+name: EBBot FX source difference and latency diagnostics (NO trading)
+
+on:
+  push:
+    branches: [audit/tr-fx-cross-source-staleness-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-tr-fx-cross-source-20261120
+  cancel-in-progress: true
+
+jobs:
+  sources-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+      GUARD_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install normal backend CI dependencies and test socket protection
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: All regression tests (no public network; ASGI Unix TestClient only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
+            tests/test_audit_tr_fx_cross_sources.py \
+            tests/test_audit_tr_fx_public_sources.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_tcmb_try_display_service.py \
+            --junitxml=tr-fx-source-diagnostics-tests.xml 2>&1 | tee tr-fx-source-diagnostics-tests.log
+      - name: Fetch one-off allowed public BIST FX daily and TCMB bulletin (no orders)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_tr_fx_public_sources --fetch | tee tr-fx-readonly-observation.json
+      - name: Offline comparison, age checks, independent BIST coverage warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_tr_fx_cross_sources --input tr-fx-readonly-observation.json \
+            | tee tr-fx-comparison-diagnostics.json
+      - name: Publish observational coverage and review flags (NOT trading readiness)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          raw = json.loads(Path("tr-fx-readonly-observation.json").read_text(encoding="utf-8"))
+          data = json.loads(Path("tr-fx-comparison-diagnostics.json").read_text(encoding="utf-8"))
+          lines = [
+              "## EBBot Turkey / FX read-only sources",
+              "",
+              "These are **indicative/lagged** sources with different quote kinds, NOT executable prices.",
+              "",
+              f"- Original data observation: {raw['status']}",
+              f"- Yahoo daily series observed: {raw['market_daily']['verified_delayed_quotes']}/4",
+              f"- Official TCMB daily ForexSelling observed: {raw['official_tcmb']['verified_indicative_rates']}/3",
+              f"- Informational difference diagnostics: {data['status']}",
+              f"- Alerts: {', '.join(data['alerts']) if data['alerts'] else 'none'}",
+              "- BIST 100/30 independent second source: **not configured**",
+              "- CNY independent second source: **not configured**",
+              "- Gram gold TRY/g: **no validated source**",
+              "- Orders/paper fills/journal changes: **0**; deployment and trading disabled",
+              "",
+              "Review both JSON artifacts for date-specific observations and percentage calculations.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - name: Keep source and comparison JSONs with test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-tr-fx-cross-source-audit
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            tr-fx-readonly-observation.json
+            tr-fx-comparison-diagnostics.json
+            tr-fx-source-diagnostics-tests.xml
+            tr-fx-source-diagnostics-tests.log
