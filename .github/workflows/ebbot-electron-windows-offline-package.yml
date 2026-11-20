@@ -12,6 +12,7 @@ on:
       - security/ebbot-desktop-sqlite-online-snapshot-20261120
       - security/ebbot-sqlite-electron-restore-staging-20261120
       - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
+      - test/ebbot-sqlite-crash-recovery-offline-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -23,6 +24,7 @@ on:
       - security/ebbot-desktop-sqlite-backup-atomic-20261120
       - security/ebbot-desktop-sqlite-online-snapshot-20261120
       - security/ebbot-sqlite-electron-restore-staging-20261120
+      - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
 
 permissions:
   contents: read
@@ -64,6 +66,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Unsigned desktop release policy unit tests failed" }
           python -m unittest discover -s tests -p test_ebbot_sqlite_snapshot.py -v
           if ($LASTEXITCODE -ne 0) { throw "Offline WAL-consistent SQLite snapshot tests failed" }
+          python -m unittest discover -s tests -p test_ebbot_sqlite_recovery_roundtrip.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Synthetic real-SQLite WAL rollback and child-process crash tests failed" }
       - name: Regression - signing collector ignores stale native exit code (synthetic exe only)
         shell: pwsh
         run: |
