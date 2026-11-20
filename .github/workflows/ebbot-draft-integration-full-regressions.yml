@@ -1,0 +1,96 @@
+name: EBBot draft integration full offline regressions (NO MERGE OR TRADING)
+
+on:
+  push:
+    branches:
+      - integration/ebbot-pr63-pr103-react100-audit-20261120
+  pull_request:
+    branches:
+      - test/github-windows-portfolio-http-smoke-20261120
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-draft-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-backend:
+    name: Entire offline backend pytest (release blocking)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      PYTHONUNBUFFERED: '1'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install full offline backend test dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Run ALL offline backend tests without hiding failures
+        run: |
+          python -m pytest -q -m "not network" --tb=line --disable-warnings \
+            --timeout=120 -o timeout_method=thread -o faulthandler_timeout=300 \
+            --junitxml=integration-full-backend.xml
+      - name: Upload backend JUnit report even if there are failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-integration-full-backend-junit
+          path: integration-full-backend.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  full-frontend:
+    name: Entire frontend Vitest plus Node PWA and TypeScript
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install frontend dependencies exactly from lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Full React/Vitest regression suite without test filters
+        run: npm test -- --reporter=dot
+      - name: Frontend ESLint
+        run: npm run lint
+      - name: Production TypeScript and Vite build
+        run: npm run build
+      - name: Separate native Node PWA tests against built assets
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  focused-portfolio-and-security:
+    name: Portfolio FX, Windows preflight and PR100 regression contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend service test dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Portfolio service, risk, API and historical FX regressions
+        run: python -m pytest -q --tb=short tests/test_portfolio_service.py tests/test_portfolio_pr2.py tests/test_portfolio_api.py tests/test_portfolio_historical_fx.py
+      - name: Fail-closed independent display FX
+        run: python -m pytest -q scripts/test_portfolio_display_fx_standalone.py scripts/test_portfolio_fx_fail_closed_standalone.py
+      - name: Test the Windows preflight CLI's safety contracts (no network)
+        run: python -m unittest discover -s tests -p test_windows_portfolio_preflight.py -v
