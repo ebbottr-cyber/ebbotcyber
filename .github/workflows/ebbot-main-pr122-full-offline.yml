@@ -1,0 +1,224 @@
+name: EBBot current main plus PR122 pinned ephemeral full offline verification (NO merge)
+
+on:
+  push:
+    branches: [audit/ebbot-pr122-main-full-offline-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-current-main-pr122-full-ephemeral
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  PYTHONUNBUFFERED: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  preflight:
+    name: Pin GitHub main and PR122, no-commit merge-tree, NO release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    outputs:
+      can_test: ${{ steps.verify.outputs.can_test }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Strict offline metadata and git preview regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_audit_pr122_main_ephemeral.py -v \
+            2>&1 | tee ephemeral-main-provenance-tests.log
+      - name: Fetch exact latest main and vetted PR122 refs (READ-ONLY)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            '+refs/heads/main:refs/remotes/origin/main' \
+            '+refs/heads/integration/ebbot-pr113-tr-data-safety-20261120:refs/remotes/origin/integration/ebbot-pr113-tr-data-safety-20261120'
+          test "$(git rev-parse refs/remotes/origin/main)" = 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          test "$(git rev-parse refs/remotes/origin/integration/ebbot-pr113-tr-data-safety-20261120)" = f73ce5d7fcea9255822239420ed61d12521e3493
+      - name: Get current GitHub main and PR122 metadata (READ-ONLY)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api 'repos/ebbottr-cyber/ebbotcyber/branches/main' > current-main.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/pulls/122' > current-pr122.json
+      - name: Refuse moving branches, then compute real Git merge-tree
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_pr122_main_ephemeral \
+            --main-json current-main.json \
+            --pr-json current-pr122.json \
+            --output main-pr122-merge-evidence.json \
+            | tee main-pr122-preview.log
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          record = json.loads(Path("main-pr122-merge-evidence.json").read_text(encoding="utf-8"))
+          clean = record["eligible_for_ephemeral_combined_tests"]
+          assert record["approved_to_merge_main"] is False
+          assert record["production_deployment_approved"] is False
+          assert record["main_unprotected_is_release_blocker"] is True
+          assert record["orders"] == record["paper_fills"] == record["journal_writes"] == 0
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"can_test={'true' if clean else 'false'}\n")
+          lines = [
+              "## main + PR122: PINNED offline merge preflight",
+              "",
+              f"- main: {record['main_sha']}",
+              f"- PR122: {record['pr122_sha']}",
+              f"- actual merge-tree: **{record['status']}**",
+              "- main protected: FALSE — **release BLOCKER**",
+              "- Freshly joined backend/frontend tests: await downstream job results",
+              "- No remote merge, PR update, deployment, schedule or trades.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+      - name: Preserve exact provenance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr122-main-ephemeral-merge-proof
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            main-pr122-merge-evidence.json
+            main-pr122-preview.log
+            ephemeral-main-provenance-tests.log
+
+  combined-backend:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.can_test == 'true' }}
+    name: FULL backend on actual ephemeral main plus PR122 joined code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize detached LOCAL merged tree, verify exact two parents
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            '+refs/heads/main:refs/remotes/origin/main' \
+            '+refs/heads/integration/ebbot-pr113-tr-data-safety-20261120:refs/remotes/origin/integration/ebbot-pr113-tr-data-safety-20261120'
+          test "$(git rev-parse refs/remotes/origin/main)" = 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          test "$(git rev-parse refs/remotes/origin/integration/ebbot-pr113-tr-data-safety-20261120)" = f73ce5d7fcea9255822239420ed61d12521e3493
+          git checkout --detach 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          git -c user.name=EBBot-Local-Audit -c user.email=audit@invalid.example \
+            merge --no-ff --no-edit f73ce5d7fcea9255822239420ed61d12521e3493
+          test "$(git rev-parse HEAD^1)" = 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          test "$(git rev-parse HEAD^2)" = f73ce5d7fcea9255822239420ed61d12521e3493
+          echo 'LOCAL merge only. No push, PR merge, release, deployment or trade.'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install locked/backend CI dependencies and test socket blocker
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: Offline critical joint portfolio, Solana and TR source guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
+            tests/test_tr_fx_pr113_surgical_integration.py \
+            tests/test_solana_quality_candidate.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_tcmb_try_display_service.py \
+            tests/test_audit_tr_fx_archived_evidence.py \
+            tests/test_audit_tr_fx_cross_sources.py \
+            tests/test_audit_tr_fx_later_day.py \
+            tests/test_audit_tr_fx_multiday_continuity.py \
+            tests/test_audit_tr_fx_public_sources.py \
+            --junitxml=main-joined-source-tests.xml 2>&1 | tee main-joined-source-tests.log
+      - name: Full backend regression on actual joined code, no network-marked tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q -m "not network" --tb=line --disable-warnings \
+            --timeout=120 -o timeout_method=thread -o faulthandler_timeout=300 \
+            --junitxml=main-joined-full-backend.xml 2>&1 | tee main-joined-full-backend.log
+      - name: Save backend evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr122-current-main-full-backend
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            main-joined-source-tests.xml
+            main-joined-source-tests.log
+            main-joined-full-backend.xml
+            main-joined-full-backend.log
+
+  combined-frontend:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.can_test == 'true' }}
+    name: FULL React/PWA on actual ephemeral main plus PR122 joined code
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize detached LOCAL joined React tree (never push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            '+refs/heads/main:refs/remotes/origin/main' \
+            '+refs/heads/integration/ebbot-pr113-tr-data-safety-20261120:refs/remotes/origin/integration/ebbot-pr113-tr-data-safety-20261120'
+          test "$(git rev-parse refs/remotes/origin/main)" = 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          test "$(git rev-parse refs/remotes/origin/integration/ebbot-pr113-tr-data-safety-20261120)" = f73ce5d7fcea9255822239420ed61d12521e3493
+          git checkout --detach 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          git -c user.name=EBBot-Local-Audit -c user.email=audit@invalid.example \
+            merge --no-ff --no-edit f73ce5d7fcea9255822239420ed61d12521e3493
+          test "$(git rev-parse HEAD^1)" = 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1
+          test "$(git rev-parse HEAD^2)" = f73ce5d7fcea9255822239420ed61d12521e3493
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install exactly locked React dependencies
+        working-directory: apps/dsa-web
+        run: npm ci --no-audit --no-fund
+      - name: Full React Vitest
+        working-directory: apps/dsa-web
+        run: npm test -- --reporter=dot
+      - name: React ESLint
+        working-directory: apps/dsa-web
+        run: npm run lint
+      - name: Production TypeScript and Vite build
+        working-directory: apps/dsa-web
+        run: npm run build
+      - name: Built asset PWA smoke tests
+        working-directory: apps/dsa-web
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
