@@ -1,0 +1,142 @@
+name: EBBot Windows Electron OFFLINE packaging verification (no release)
+
+on:
+  push:
+    branches:
+      - test/ebbot-windows-electron-offline-package-20261120
+  pull_request:
+    branches:
+      - release-candidate/ebbot-main-pr109-offline-20261120
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-electron-offline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-security-contracts:
+    name: Desktop unit tests + fail-closed release audit
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-desktop/package-lock.json
+      - name: Offline source and release audit unit tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_ebbot_desktop_package_audit.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Source audit unit tests failed" }
+          python scripts/audit_ebbot_desktop_package.py --strict-source --json
+          if ($LASTEXITCODE -ne 0) { throw "Desktop source structure invalid" }
+      - name: Install exact Electron dependency lockfile
+        working-directory: apps/dsa-desktop
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+      - name: Run all Electron main/preload unit tests WITHOUT starting desktop
+        working-directory: apps/dsa-desktop
+        shell: pwsh
+        run: npm test
+      - name: Verify bundled updater metadata contracts
+        shell: pwsh
+        run: |
+          # The repository's tests/conftest.py requires FastAPI/AnyIO/HTTPX.
+          # Use the same locked CI dependencies as our successful backend gates
+          # rather than installing pytest alone and failing during collection.
+          python -m pip install -r .github/requirements-ci.txt
+          if ($LASTEXITCODE -ne 0) { throw "Install desktop contract dependencies failed" }
+          python -m pytest -q tests/test_desktop_installer_config.py tests/test_desktop_packaging_assets.py
+          if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
+
+  real-windows-nsis-package:
+    name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
+    if: github.event_name == 'push'
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      ELECTRON_BUILDER_ALLOW_UNRESOLVED_SYMLINKS: 'true'
+      ELECTRON_BUILDER_PUBLISH: 'never'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            apps/dsa-web/package-lock.json
+            apps/dsa-desktop/package-lock.json
+      - name: Install web and Electron exact lockfiles
+        shell: pwsh
+        run: |
+          npm ci --prefix apps/dsa-web --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "Web npm ci failed" }
+          npm ci --prefix apps/dsa-desktop --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "Electron npm ci failed" }
+      - name: Build actual PyInstaller Windows backend and verify imports
+        shell: pwsh
+        run: |
+          & ./scripts/build-backend.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Backend build failed" }
+          if (!(Test-Path 'dist/backend/stock_analysis/stock_analysis.exe')) {
+            throw "No packaged backend executable; cannot build real Electron package."
+          }
+      - name: Build actual Windows NSIS installer locally WITHOUT publishing
+        working-directory: apps/dsa-desktop
+        shell: pwsh
+        run: |
+          npx --no-install electron-builder --win nsis --publish never
+          if ($LASTEXITCODE -ne 0) { throw "Electron NSIS build failed" }
+      - name: Verify package metadata, backend, React, ASAR and absence of private .env
+        shell: pwsh
+        run: |
+          python scripts/audit_ebbot_desktop_package.py --strict-package --dist apps/dsa-desktop/dist --json > desktop-package-audit.json
+          if ($LASTEXITCODE -ne 0) { throw "Unshippable/incomplete Windows package structure" }
+          $report = Get-Content desktop-package-audit.json -Raw | ConvertFrom-Json
+          if ($report.release_status -ne "BLOCKED") { throw "Release must remain blocked pending review" }
+          Write-Host "Packaged Windows structure verified. Release blocked. SHA256 recorded in private CI artifact."
+      - name: Upload audit JSON ONLY (never upload installer, backend, .env or updater files)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-windows-electron-package-audit
+          path: desktop-package-audit.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Release remains explicitly blocked
+        if: always()
+        shell: pwsh
+        run: |
+          "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
+          "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
+          "Upstream Electron product identity and upstream auto-update URL remain open release blockers." >> $env:GITHUB_STEP_SUMMARY
+          "Code signing, SmartScreen, real Windows user installation, backend startup and update/uninstall data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY
