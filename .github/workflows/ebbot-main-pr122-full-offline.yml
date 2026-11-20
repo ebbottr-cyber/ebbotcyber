@@ -109,7 +109,7 @@ jobs:
 
   combined-backend:
     needs: preflight
-    if: ${{ needs.preflight.outputs.can_test }} == 'true'
+    if: ${{ needs.preflight.outputs.can_test == 'true' }}
     name: FULL backend on actual ephemeral main plus PR122 joined code
     runs-on: ubuntu-24.04
     timeout-minutes: 55
@@ -179,7 +179,7 @@ jobs:
 
   combined-frontend:
     needs: preflight
-    if: ${{ needs.preflight.outputs.can_test }} == 'true'
+    if: ${{ needs.preflight.outputs.can_test == 'true' }}
     name: FULL React/PWA on actual ephemeral main plus PR122 joined code
     runs-on: ubuntu-24.04
     timeout-minutes: 35
