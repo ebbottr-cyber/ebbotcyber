@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Translate production alert center, alert history, chat controls, screening primary results and 404 UI into Turkish without changing market identifiers or trading behavior.
+- [测试] Add production Turkish-only screen/bridge assertions alongside legacy compatibility fixtures.
+
 - [修复] Localize hard-coded portfolio account, CSV and transaction controls for Turkish-only production UI, preserving legacy test compatibility without changing trading or accounting.
 - [测试] Restore isolated multilingual Vitest browser fixture and add operator-form regression; classify unresolved full React failure baseline separately.
 
