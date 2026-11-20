@@ -975,6 +975,47 @@ class PortfolioPr2TestCase(unittest.TestCase):
                 from_currency="USD", to_currency="CNY", as_of_date=date(2026, 1, 3),
             ))
 
+    def test_weekend_refresh_records_friday_rate_and_tuesday_marks_it_stale(self) -> None:
+        friday, sunday, tuesday = date(2026, 1, 2), date(2026, 1, 4), date(2026, 1, 6)
+        account = self.service.create_account(name="USD", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=friday,
+            direction="in", amount=100.0, currency="USD",
+        )
+
+        # A Sunday refresh may legitimately return a Friday close.
+        with patch.object(
+            PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=(7.1, friday),
+        ):
+            sunday_summary = self.service.refresh_fx_rates(account_id=aid, as_of=sunday)
+        self.assertEqual(sunday_summary["updated_count"], 1)
+        self.assertEqual(sunday_summary["stale_count"], 0)
+        recorded = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=sunday,
+        )
+        self.assertEqual(recorded.rate_date, friday)
+        value, is_stale, _ = self.service.convert_amount(
+            amount=100.0, from_currency="USD", to_currency="CNY", as_of_date=sunday,
+        )
+        self.assertAlmostEqual(value, 710.0)
+        self.assertFalse(is_stale)
+
+        # On Tuesday, that very same Friday rate is four calendar days old.
+        with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=None):
+            tuesday_summary = self.service.refresh_fx_rates(account_id=aid, as_of=tuesday)
+        self.assertEqual(tuesday_summary["updated_count"], 0)
+        self.assertEqual(tuesday_summary["stale_count"], 1)
+        latest = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=tuesday,
+        )
+        self.assertEqual(latest.rate_date, friday)
+        value, is_stale, _ = self.service.convert_amount(
+            amount=100.0, from_currency="USD", to_currency="CNY", as_of_date=tuesday,
+        )
+        self.assertAlmostEqual(value, 710.0)
+        self.assertTrue(is_stale)
+
     def test_fx_refresh_disabled_returns_real_pair_count_without_fetching(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
         aid = account["id"]
