@@ -847,7 +847,7 @@ const PortfolioPage: React.FC = () => {
       } catch (riskErr) {
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || ledger.riskUnavailable);
+        setRiskWarning(parsed.code === 'portfolio_fx_rate_unavailable' ? ledger.fxErrorMessage : parsed.message || ledger.riskUnavailable);
       }
     } catch (err) {
       setSnapshot(null);
@@ -1413,7 +1413,7 @@ const PortfolioPage: React.FC = () => {
         }
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || ledger.riskUnavailable);
+        setRiskWarning(parsed.code === 'portfolio_fx_rate_unavailable' ? ledger.fxErrorMessage : parsed.message || ledger.riskUnavailable);
       }
       return true;
     } catch (err) {
@@ -1566,7 +1566,14 @@ const PortfolioPage: React.FC = () => {
         )}
       </section>
 
-      {error ? <ApiErrorAlert error={error} onDismiss={() => setError(null)} /> : null}
+      {error ? (
+        <ApiErrorAlert
+          error={error.code === 'portfolio_fx_rate_unavailable'
+            ? { ...error, title: ledger.fxErrorTitle, message: ledger.fxErrorMessage }
+            : error}
+          onDismiss={() => setError(null)}
+        />
+      ) : null}
       {riskWarning ? (
         <InlineAlert
           variant="warning"
