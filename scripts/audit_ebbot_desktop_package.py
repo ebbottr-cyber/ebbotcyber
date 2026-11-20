@@ -15,6 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM = ("ZhuLinsen", "daily_stock_analysis")
+OWN_REPO = ("ebbottr-cyber", "ebbotcyber")
 
 
 def _check(checks: list[dict], name: str, okay: bool, detail: str) -> None:
@@ -57,7 +58,29 @@ def source_audit(root: Path) -> dict:
            "Actual PyInstaller backend must be bundled; placeholder is forbidden")
     _check(checks, "no_release_workflow", not (root / ".github/workflows/desktop-release.yml").exists(),
            "Tag-triggered desktop-release workflow must remain disabled")
+    _check(checks, "ebbot_product_identity",
+           build.get("productName") == "EBBot" and build.get("appId") == "com.ebbot.desktop"
+           and package.get("name") == "ebbot-desktop",
+           "Desktop identity and product name must belong to EBBot")
+    _check(checks, "ebbot_installer_name",
+           build.get("win", {}).get("artifactName") == "EBBot-windows-installer-v${version}.${ext}",
+           "Installer artifact must be EBBot-branded")
+    _check(checks, "updater_runtime_disabled",
+           "const DESKTOP_UPDATES_ENABLED = false;" in js
+           and js.count("if (!DESKTOP_UPDATES_ENABLED) {") >= 2,
+           "Unapproved desktop update checks and installations must remain disabled")
+    _check(checks, "ebbot_update_references",
+           all(f"const GITHUB_{name} = '{value}';" in js
+               for name, value in zip(("OWNER", "REPO"), OWN_REPO)),
+           "Runtime update repository must be EBBot-owned")
+    _check(checks, "no_upstream_runtime_refs",
+           not any(value in js or value in manifest.read_text(encoding="utf-8")
+                   for value in UPSTREAM),
+           "Packaged Electron files must not reference the original GitHub repository")
     pub = build.get("win", {}).get("publish", [])
+    _check(checks, "ebbot_publish_target",
+           pub == [{"provider": "github", "owner": OWN_REPO[0], "repo": OWN_REPO[1]}],
+           "Electron publish must target EBBot only")
     if any(isinstance(x, dict) and
            (x.get("owner"), x.get("repo")) == UPSTREAM for x in pub):
         blockers.append("Electron win.publish targets the original upstream GitHub repository")
@@ -74,7 +97,7 @@ def source_audit(root: Path) -> dict:
 def package_audit(root: Path, dist: Path, version: str) -> dict:
     checks: list[dict] = []
     hashes: dict[str, str] = {}
-    expected = f"daily-stock-analysis-windows-installer-v{version}.exe"
+    expected = f"EBBot-windows-installer-v{version}.exe"
     installer = dist / expected
     blockmap = dist / (expected + ".blockmap")
     latest = dist / "latest.yml"
