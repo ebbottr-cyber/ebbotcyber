@@ -5,6 +5,7 @@ All data is synthetic. No backend service, network, scheduled scans or trades.
 from __future__ import annotations
 
 import json
+from contextlib import closing
 import os
 from pathlib import Path
 import sqlite3
@@ -27,18 +28,20 @@ class SQLiteOnlineSnapshotTests(unittest.TestCase):
         self.source = self.folder / "stock_analysis.db"
         self.destination = self.folder / "backup" / "stock_analysis.db"
         self.destination.parent.mkdir()
-        with sqlite3.connect(self.source) as database:
+        with closing(sqlite3.connect(self.source)) as database:
             database.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, label TEXT NOT NULL)")
             database.execute("INSERT INTO trades(label) VALUES (?)", ("committed-only",))
+            database.commit()
 
     def _count(self, path):
-        with sqlite3.connect(path) as database:
+        with closing(sqlite3.connect(path)) as database:
             return database.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
 
     def test_wal_uncommitted_transaction_not_in_snapshot(self):
-        with sqlite3.connect(self.source) as writer:
+        with closing(sqlite3.connect(self.source)) as writer:
             self.assertEqual(writer.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
             writer.execute("INSERT INTO trades(label) VALUES (?)", ("committed-before-snapshot",))
+            writer.commit()
         writer = sqlite3.connect(self.source, timeout=2)
         try:
             writer.execute("BEGIN IMMEDIATE")
@@ -54,7 +57,7 @@ class SQLiteOnlineSnapshotTests(unittest.TestCase):
             writer.commit()
             self.assertEqual(self._count(self.source), 3)
             self.assertEqual(self._count(self.destination), 2)
-            with sqlite3.connect(self.destination) as snapshot:
+            with closing(sqlite3.connect(self.destination)) as snapshot:
                 self.assertEqual(snapshot.execute("PRAGMA integrity_check").fetchone()[0], "ok")
                 self.assertEqual(snapshot.execute("PRAGMA journal_mode").fetchone()[0], "delete")
         finally:
