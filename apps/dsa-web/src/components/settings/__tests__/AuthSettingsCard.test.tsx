@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSettingsCard } from '../AuthSettingsCard';
 
@@ -17,6 +18,9 @@ vi.mock('../../../api/auth', () => ({
     updateSettings,
   },
 }));
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('AuthSettingsCard', () => {
   beforeEach(() => {
