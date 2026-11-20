@@ -12,7 +12,7 @@ import os
 import sys
 from typing import Any
 
-REQUIRED_JOBS = frozenset(("policy", "backend", "frontend"))
+REQUIRED_JOBS = frozenset(("policy", "backend", "frontend", "frontend-build"))
 MAX_JSON_BYTES = 16_384
 
 
