@@ -59,9 +59,9 @@ const UNCLASSIFIED_SECTOR = 'UNCLASSIFIED';
 const DEFAULT_PAGE_SIZE = 20;
 const PORTFOLIO_SIGNAL_LOOKUP_CONCURRENCY = 6;
 const FALLBACK_BROKERS: PortfolioImportBrokerItem[] = [
-  { broker: 'huatai', aliases: [], displayName: '华泰' },
-  { broker: 'citic', aliases: ['zhongxin'], displayName: '中信' },
-  { broker: 'cmb', aliases: ['cmbchina', 'zhaoshang'], displayName: '招商' },
+  { broker: 'huatai', aliases: [], displayName: 'Huatai Securities' },
+  { broker: 'citic', aliases: ['zhongxin'], displayName: 'CITIC Securities' },
+  { broker: 'cmb', aliases: ['cmbchina', 'zhaoshang'], displayName: 'China Merchants Bank' },
 ];
 
 type AccountOption = 'all' | number;
