@@ -9,10 +9,19 @@ type UiLanguageContextValue = {
   t: (key: UiTextKey, params?: UiTextParams) => string;
 };
 
+// A bare component tree has no provider. In production the fallback is always
+// Turkish; in Vitest compatibility mode it must match the old Chinese-default
+// fixture, rather than forcing unrelated component tests to expect Turkish.
+// Keep this computed at read time so tests can toggle production mode safely.
 const fallbackContext: UiLanguageContextValue = {
-  language: 'tr',
+  get language() {
+    return shouldForceTurkishUi() ? 'tr' : 'zh';
+  },
   setLanguage: () => undefined,
-  t: (key, params) => formatUiText(UI_TEXT.tr[key], params),
+  t: (key, params) => {
+    const fallbackLanguage = shouldForceTurkishUi() ? 'tr' : 'zh';
+    return formatUiText(UI_TEXT[fallbackLanguage][key], params);
+  },
 };
 
 const UiLanguageContext = createContext<UiLanguageContextValue | null>(null);
