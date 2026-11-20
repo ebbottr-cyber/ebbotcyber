@@ -1,0 +1,104 @@
+name: EBBot one-time real Solana archive E2E audit (NO ORDERS)
+
+on:
+  push:
+    branches: [audit/solana-real-artifact-e2e-20261120]
+    paths:
+      - '.github/workflows/solana-real-artifact-e2e-review.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  archived-observations-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify approved workflow identity and download archived observations only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 44779967482 44777830658; do
+            source="$(gh run view "$id" --repo "$GITHUB_REPOSITORY" --json workflowName --jq '.workflowName')"
+            if [[ "$source" != 'Solana fixed-mint time-spaced observations (read only)' ]]; then
+              echo "Source workflow is not approved for archive read"
+              exit 1
+            fi
+            mkdir -p "inputs/$id"
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" \
+              --name solana-public-observations-not-paper-trades \
+              --dir "inputs/$id"
+            test -s "inputs/$id/solana-public-observations.json"
+          done
+      - name: Check complete, degraded and combined REAL archive quality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.validate_solana_history import validate_document, validate_history
+
+          run_ids = (44779967482, 44777830658)
+          documents = [
+              json.loads(Path(f"inputs/{run_id}/solana-public-observations.json").read_text(encoding="utf-8"))
+              for run_id in run_ids
+          ]
+          complete, degraded = (validate_history([doc]) for doc in documents)
+          combined = validate_history(documents)
+          details = [validate_document(doc) for doc in documents]
+
+          assert complete["quality_result"] == "complete_captures", complete
+          assert (complete["total_priced_rows"], complete["total_missing_rows"]) == (6, 0), complete
+          assert degraded["quality_result"] == "degraded_capture_data", degraded
+          assert (degraded["total_priced_rows"], degraded["total_missing_rows"]) == (3, 3), degraded
+          assert combined["quality_result"] == "degraded_capture_data", combined
+          assert combined["input_capture_count"] == 2, combined
+          assert (combined["total_priced_rows"], combined["total_missing_rows"]) == (9, 3), combined
+          assert [item["blocked_assessments"] for item in details] == [12, 6], details
+          assert all(item["watch_assessments_not_trade_signals"] == 0 for item in details), details
+          for report in (complete, degraded, combined):
+              assert report["ready_for_verified_paper_performance"] is False, report
+              assert report["safety"]["trading_enabled"] is False, report
+              assert report["safety"]["wallet_enabled"] is False, report
+              assert report["safety"]["external_requests"] == 0, report
+              assert report["safety"]["performance_calculated"] is False, report
+
+          summary = {
+              "audit": "real_archived_observation_quality_only",
+              "source_run_ids": list(run_ids),
+              "complete": complete["quality_result"],
+              "degraded": degraded["quality_result"],
+              "combined": combined["quality_result"],
+              "combined_priced_rows": combined["total_priced_rows"],
+              "combined_missing_rows": combined["total_missing_rows"],
+              "blocked_assessments": sum(item["blocked_assessments"] for item in details),
+              "watch_assessments": 0,
+              "trading_enabled": False,
+              "performance_calculated": False,
+              "ready_for_verified_paper_performance": False,
+          }
+          Path("output").mkdir(exist_ok=True)
+          Path("output/solana-real-history-e2e.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+      - name: Archive counts only, never raw prices
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-real-history-e2e-no-trades
+          path: output/solana-real-history-e2e.json
+          if-no-files-found: warn
+          retention-days: 7
