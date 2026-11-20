@@ -46,7 +46,7 @@ describe('UiLanguageContext', () => {
     })).toBe('en');
   });
 
-  it('falls back from invalid storage to the first supported browser language and then zh', () => {
+  it('falls back from invalid storage to the first supported browser language and then Turkish', () => {
     expect(resolveInitialUiLanguage({
       storage: createStorage('fr'),
       navigatorLike: { language: 'en-US', languages: ['en-US'] },
@@ -55,12 +55,12 @@ describe('UiLanguageContext', () => {
     expect(resolveInitialUiLanguage({
       storage: createStorage('fr'),
       navigatorLike: { language: 'zh-CN', languages: ['zh-CN', 'en-US'] },
-    })).toBe('zh');
+    })).toBe('tr');
 
     expect(resolveInitialUiLanguage({
       storage: createStorage(null),
       navigatorLike: { language: 'tr-TR', languages: ['tr-TR'] },
-    })).toBe('zh');
+    })).toBe('tr');
   });
 
   it('falls back to browser language if storage getItem throws', () => {
@@ -112,12 +112,12 @@ describe('UiLanguageContext', () => {
     );
 
     const toggle = screen.getByRole('button', { name: '切换界面语言' });
-    expect(screen.getByText('界面语言')).toBeInTheDocument();
+    expect(screen.getByText('中文')).toBeInTheDocument();
 
     fireEvent.click(toggle);
 
-    expect(localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)).toBe('en');
-    expect(screen.getByRole('button', { name: 'Switch UI language' })).toBeInTheDocument();
-    expect(screen.getByText('English')).toBeInTheDocument();
+    expect(localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)).toBe('tr');
+    expect(screen.getByRole('button', { name: 'Arayüz dilini değiştir' })).toBeInTheDocument();
+    expect(screen.getByText('Türkçe')).toBeInTheDocument();
   });
 });
