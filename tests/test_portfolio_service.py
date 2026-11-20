@@ -89,6 +89,15 @@ class PortfolioServiceTestCase(unittest.TestCase):
     ) -> int:
         account = self.service.create_account(name=f"{market}-account", broker="Demo", market=market, base_currency=currency)
         aid = account["id"]
+        # Fixture only: non-CNY accounts require actual conversion evidence to
+        # enter CNY-denominated aggregate snapshots. Do not rely on 1:1.
+        fixture_rates = {"USD": 7.0, "HKD": 0.9, "JPY": 0.048, "KRW": 0.005, "TWD": 0.22}
+        if currency in fixture_rates:
+            self.service.repo.save_fx_rate(
+                from_currency=currency, to_currency="CNY",
+                rate_date=date(2026, 1, 1), rate=fixture_rates[currency],
+                source="test-fixture", is_stale=False,
+            )
         self.service.record_cash_ledger(
             account_id=aid,
             event_date=date(2026, 1, 1),
@@ -611,16 +620,6 @@ class PortfolioServiceTestCase(unittest.TestCase):
             close=3000.0,
         )
 
-        # Explicit non-1:1 JPY/CNY evidence is now required to combine
-        # differently denominated accounts in the aggregate snapshot.
-        self.service.repo.save_fx_rate(
-            from_currency="JPY",
-            to_currency="CNY",
-            rate_date=date(2026, 1, 3),
-            rate=0.048,
-            source="unit-test",
-            is_stale=False,
-        )
         snapshot = self.service.get_portfolio_snapshot(
             as_of=date(2026, 1, 3),
             cost_method="fifo",
