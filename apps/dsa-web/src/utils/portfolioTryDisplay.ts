@@ -24,7 +24,7 @@ export function toTryDisplayValue(
   // A present pairStatus map is authoritative: never let a missing per-pair
   // timestamp inherit another currency's (possibly fresher) global timestamp.
   const asOf = fx.pairStatus
-    ? fx.pairStatus[code] === 'current' && fx.pairAsOf?.[code]
+    ? fx.pairStatus[code.toLowerCase()] === 'current' && fx.pairAsOf?.[code.toLowerCase()]
     : (code === 'USD' || code === 'CNY') && fx.status === 'current' && fx.asOf;
   if (!asOf || typeof asOf !== 'string') return null;
   const quoteTime = Date.parse(asOf);
