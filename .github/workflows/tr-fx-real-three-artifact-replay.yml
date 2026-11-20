@@ -1,0 +1,134 @@
+name: EBBot verify 3 genuine historical GitHub FX observations (NO network to providers)
+
+on:
+  push:
+    branches: [audit/tr-fx-three-real-artifacts-20261120]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ebbot-real-three-artifact-proof
+  cancel-in-progress: true
+
+jobs:
+  pinned-three-archive-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Stdlib-only offline run provenance and observation tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_audit_tr_fx_archived_evidence.py' -v \
+            2>&1 | tee archived-evidence-unittest.log
+
+      # Pinned historic run IDs / artifact names. Artifacts have a 7-day TTL.
+      # This is intentionally a ONE-TIME research gate, not a permanent CI.
+      - name: Retrieve successful PR 112 observation from its GitHub run
+        uses: actions/download-artifact@v4
+        with:
+          repository: ebbottr-cyber/ebbotcyber
+          run-id: 44798315574
+          name: ebbot-tr-fx-cross-source-audit
+          path: evidence/44798315574
+          github-token: ${{ github.token }}
+      - name: Retrieve successful PR 114 observation from its GitHub run
+        uses: actions/download-artifact@v4
+        with:
+          repository: ebbottr-cyber/ebbotcyber
+          run-id: 44799531473
+          name: ebbot-tr-fx-real-multiday-evidence
+          path: evidence/44799531473
+          github-token: ${{ github.token }}
+      - name: Retrieve successful PR 116 observation from its GitHub run
+        uses: actions/download-artifact@v4
+        with:
+          repository: ebbottr-cyber/ebbotcyber
+          run-id: 44806940721
+          name: tr-fx-publication-day-evidence
+          path: evidence/44806940721
+          github-token: ${{ github.token }}
+      - name: Independently fetch exact original run metadata from GitHub
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for run_id in 44798315574 44799531473 44806940721; do
+            gh api "repos/ebbottr-cyber/ebbotcyber/actions/runs/$run_id" \
+              > "evidence/$run_id/run-metadata.json"
+          done
+      - name: Prove 3 genuinely saved runs but only 1 distinct market-observation day
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_tr_fx_archived_evidence --evidence-root evidence \
+            | tee tr-fx-three-real-runs-continuity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("tr-fx-three-real-runs-continuity.json").read_text(encoding="utf-8"))
+          audit = report["continuity"]
+          assert report["status"] == "ARCHIVED_EVIDENCE_CHECKED"
+          assert report["pinned_run_count"] == 3
+          assert report["independently_observed_github_run_count"] == 3
+          assert audit["total_observations"] == 3
+          assert audit["distinct_observation_dates"] == 1
+          assert audit["status"] == "INSUFFICIENT_DISTINCT_DATES"
+          assert not audit["provider_publication_days_all_advanced"]
+          assert all(p["distinct_publication_dates"] == 1
+                     for p in audit["provider_publication_evidence"].values())
+          assert audit["observed_dates"] == ["2026-11-20"]
+          assert not audit["long_term_reliability_proven"]
+          assert not audit["independent_bist_second_source_verified"]
+          assert not audit["licensed_non_display_market_data_access_verified"]
+          assert report["orders"] == report["paper_fills"] == report["journal_writes"] == 0
+          assert not report["prices_executable"]
+          PY
+      - name: Publish reproducible evidence limit
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads(Path("tr-fx-three-real-runs-continuity.json").read_text(encoding="utf-8"))
+          audit = report["continuity"]
+          lines = [
+              "## Replayed THREE genuine GitHub run artifacts without fetching new public prices",
+              "",
+              "- Pinned successful runs: 44798315574, 44799531473, 44806940721",
+              f"- Distinct observations: {audit['total_observations']}",
+              f"- Distinct local observation days: {audit['distinct_observation_dates']}",
+              f"- Continuity result: **{audit['status']}**",
+              "- Independent BIST second source: **not verified**",
+              "- Market price publish-day progression: **not proven**",
+              "- Actions artifacts are short-lived and this is a one-off historical replay",
+              "- Providers were NOT contacted. Orders, paper fills, deployments, cron: OFF",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - name: Save summary and tests only (no secrets or trade values)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-three-real-run-history-proof
+          path: |
+            tr-fx-three-real-runs-continuity.json
+            archived-evidence-unittest.log
+          retention-days: 7
+          if-no-files-found: warn
