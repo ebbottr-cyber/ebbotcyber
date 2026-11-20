@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Translate portfolio operator feedback, report-type labels and desktop diagnostics into Turkish, and use Turkish number/date formatting without altering source currencies or market-day calculation.
+- [测试] Add a display-only dated TCMB-to-TRY conversion guard and offline fail-closed tests; no live FX provider, order integration, deployment or scheduler enabled.
+
 - [安全] Block weekend/pre-close backdated prospective ETF paper commits and restore safe V10 offline status mode; add focused pre-merge safety regression checks.
 
 - [修复] Resolve Turkish report prompt market-context language selection and restore explicit Turkish empty-news disclosure test coverage without enabling automated analysis or altering trading logic.
