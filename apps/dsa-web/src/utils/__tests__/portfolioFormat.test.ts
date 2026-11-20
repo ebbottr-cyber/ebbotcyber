@@ -6,6 +6,9 @@ import {
   formatPositionMoney,
   formatPositionPrice,
   formatSignedPct,
+  formatCashDirectionLabel,
+  formatCorporateActionLabel,
+  formatSideLabel,
   getCsvCommitVariant,
   getCsvParseVariant,
   getPositionPriceLabel,
@@ -31,7 +34,7 @@ const pricedPosition: PortfolioPositionItem = {
 
 describe('portfolioFormat', () => {
   it('formats money and signed percentages consistently', () => {
-    expect(formatMoney(1234.5, 'USD')).toBe('USD 1,234.50');
+    expect(formatMoney(1234.5, 'USD')).toBe('USD 1.234,50');
     expect(formatMoney(null)).toBe('--');
     expect(formatSignedPct(3.456)).toBe('+3.46%');
     expect(formatSignedPct(-1.2)).toBe('-1.20%');
@@ -39,20 +42,30 @@ describe('portfolioFormat', () => {
 
   it('formats position price fields based on price availability', () => {
     expect(formatPositionPrice(pricedPosition)).toBe('321.1234');
-    expect(formatPositionMoney(123, pricedPosition)).toBe('CNY 123.00');
-    expect(getPositionPriceLabel(pricedPosition)).toBe('实时价 · longbridge');
+    expect(formatPositionMoney(123, pricedPosition)).toBe('CNY 123,00');
+    expect(getPositionPriceLabel(pricedPosition)).toBe('Güncel fiyat · longbridge');
 
     const missingPosition = { ...pricedPosition, priceAvailable: false, priceSource: 'missing' };
     expect(formatPositionPrice(missingPosition)).toBe('--');
     expect(formatPositionMoney(123, missingPosition)).toBe('--');
-    expect(getPositionPriceLabel(missingPosition)).toBe('缺价');
+    expect(getPositionPriceLabel(missingPosition)).toBe('Fiyat yok');
   });
 
   it('formats broker labels and CSV result variants', () => {
-    expect(formatBrokerLabel('huatai')).toBe('huatai（华泰）');
-    expect(formatBrokerLabel('custom', ' 自定义 ')).toBe('custom（自定义）');
+    expect(formatBrokerLabel('huatai')).toBe('huatai (Huatai Securities)');
+    expect(formatBrokerLabel('custom', ' Özel kurum ')).toBe('custom (Özel kurum)');
     expect(getCsvParseVariant({ broker: 'huatai', recordCount: 1, skippedCount: 1, errorCount: 0, records: [], errors: [] })).toBe('warning');
     expect(getCsvCommitVariant({ accountId: 1, recordCount: 1, insertedCount: 1, duplicateCount: 0, failedCount: 0, dryRun: false, errors: [] }, false)).toBe('success');
+  });
+
+  it('uses Turkish labels while keeping broker codes and source currencies unchanged', () => {
+    expect(formatSideLabel('buy')).toBe('Alış');
+    expect(formatSideLabel('sell')).toBe('Satış');
+    expect(formatCashDirectionLabel('in')).toBe('Para girişi');
+    expect(formatCashDirectionLabel('out')).toBe('Para çıkışı');
+    expect(formatCorporateActionLabel('cash_dividend')).toBe('Nakit temettü');
+    expect(formatBrokerLabel('citic', '中信')).toBe('citic (CITIC Securities)');
+    expect(formatMoney(Number.POSITIVE_INFINITY, 'USD')).toBe('--');
   });
 
   it('builds FX refresh feedback from refresh outcomes', () => {
@@ -65,7 +78,7 @@ describe('portfolioFormat', () => {
       updatedCount: 0,
       staleCount: 0,
       errorCount: 0,
-    })).toMatchObject({ tone: 'neutral' });
+    })).toMatchObject({ tone: 'neutral', text: 'Çevrimiçi döviz kuru yenileme kapalı.' });
 
     expect(buildFxRefreshFeedback({
       asOf: '2026-03-19',
@@ -76,6 +89,6 @@ describe('portfolioFormat', () => {
       updatedCount: 1,
       staleCount: 0,
       errorCount: 0,
-    })).toMatchObject({ tone: 'success' });
+    })).toMatchObject({ tone: 'success', text: 'Döviz kurları yenilendi: 1 çift.' });
   });
 });

@@ -1,0 +1,37 @@
+name: EBBot Turkish text and TRY display regression (review only)
+
+on:
+  push:
+    branches: [fix/turkish-visible-text-fx-review-20261120]
+  pull_request:
+    branches: [fix/turkish-only-ui-review-20261119]
+
+permissions:
+  contents: read
+
+jobs:
+  operator-display-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Turkish operator, portfolio and guarded TRY tests
+        env:
+          VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+        run: |
+          npm test -- src/utils/__tests__/portfolioFormat.test.ts src/utils/__tests__/formatLocalization.test.ts src/utils/__tests__/tryDisplayFx.test.ts src/utils/__tests__/turkishOnlyOperatorUi.test.tsx src/pages/__tests__/GermanyMarketPage.test.tsx src/pages/__tests__/MemeCoinsPage.test.tsx src/utils/__tests__/systemConfigLanguage.test.ts
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript and production build
+        run: npm run build
+      - name: PWA smoke
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
