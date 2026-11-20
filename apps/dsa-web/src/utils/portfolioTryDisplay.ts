@@ -75,3 +75,35 @@ export function formatPortfolioSnapshotTry(
   }
   return formatTryDisplay(total, 'TRY', null, false, now);
 }
+
+/**
+ * The oldest verified quote used by the displayed account-native TRY total.
+ * The API's top-level asOf describes CNY only; never show that timestamp for
+ * an HKD/JPY/KRW/TWD-only portfolio. Null means no verified FX timestamp.
+ */
+export function getPortfolioTryQuoteAsOf(
+  snapshot: PortfolioSnapshotResponse | null,
+  fx: PortfolioDisplayFxRates | null,
+  now = Date.now(),
+): string | null {
+  if (!snapshot || !Array.isArray(snapshot.accounts) ||
+      snapshot.accountCount !== snapshot.accounts.length ||
+      snapshot.fxStale || snapshot.accounts.length === 0) return null;
+
+  let oldest: number | null = null;
+  for (const account of snapshot.accounts) {
+    if (account.fxStale || account.dataQuality === 'partial') return null;
+    const code = String(account.baseCurrency || '').trim().toUpperCase();
+    if (code === 'TRY') continue;
+    if (toTryDisplayValue(account.totalEquity, code, fx, false, now) === null || !fx) return null;
+    const key = code.toLowerCase();
+    const timestamp = fx.pairStatus
+      ? fx.pairAsOf?.[key]
+      : (code === 'USD' || code === 'CNY') && fx.status === 'current' ? fx.asOf : null;
+    if (typeof timestamp !== 'string') return null;
+    const parsed = Date.parse(timestamp);
+    if (!Number.isFinite(parsed) || parsed > now || now - parsed > 1_800_000) return null;
+    oldest = oldest === null ? parsed : Math.min(oldest, parsed);
+  }
+  return oldest === null ? null : new Date(oldest).toISOString();
+}
