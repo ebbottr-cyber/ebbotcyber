@@ -55,7 +55,11 @@ jobs:
       - name: Verify bundled updater metadata contracts
         shell: pwsh
         run: |
-          python -m pip install pytest
+          # The repository's tests/conftest.py requires FastAPI/AnyIO/HTTPX.
+          # Use the same locked CI dependencies as our successful backend gates
+          # rather than installing pytest alone and failing during collection.
+          python -m pip install -r .github/requirements-ci.txt
+          if ($LASTEXITCODE -ne 0) { throw "Install desktop contract dependencies failed" }
           python -m pytest -q tests/test_desktop_installer_config.py tests/test_desktop_packaging_assets.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
 
