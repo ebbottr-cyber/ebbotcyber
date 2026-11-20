@@ -3,6 +3,8 @@ import type { UiLanguage } from '../i18n/uiText';
 /** Presentation-only strings; API identifiers and portfolio ledger values are never translated. */
 export const PORTFOLIO_LEDGER_TEXT = {
   "zh": {
+    "fxErrorTitle": "汇率数据不可用",
+    "fxErrorMessage": "缺少可验证的汇率，暂不计算组合估值和相关风险。请先刷新账户汇率。",
     "accountCreateTitle": "新建账户",
     "collapse": "收起",
     "accountAutoSwitch": "创建后自动切换到该账户",
@@ -96,6 +98,8 @@ export const PORTFOLIO_LEDGER_TEXT = {
     "cancel": "取消"
   },
   "tr": {
+    "fxErrorTitle": "Döviz kuru bulunamadı",
+    "fxErrorMessage": "Güvenilir döviz kuru bulunamadığı için portföy değerlemesi ve ilgili risk hesapları durduruldu. Önce döviz kurlarını yenileyin.",
     "accountCreateTitle": "Yeni Hesap",
     "collapse": "Daralt",
     "accountAutoSwitch": "Oluşturulduktan sonra yeni hesaba geçilir",
@@ -189,6 +193,8 @@ export const PORTFOLIO_LEDGER_TEXT = {
     "cancel": "İptal"
   },
   "en": {
+    "fxErrorTitle": "Exchange rate unavailable",
+    "fxErrorMessage": "Portfolio valuation and related risk calculations were stopped because a reliable exchange rate is missing. Refresh account FX rates first.",
     "accountCreateTitle": "New Account",
     "collapse": "Collapse",
     "accountAutoSwitch": "Switch to the new account after creation",
