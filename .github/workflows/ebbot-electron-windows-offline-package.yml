@@ -68,6 +68,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
           $dir = Join-Path $env:RUNNER_TEMP 'ebbot-signing-collector-synthetic'
           New-Item -ItemType Directory -Force -Path "$dir/win-unpacked/resources/backend/stock_analysis" | Out-Null
           $exeNames = @(
