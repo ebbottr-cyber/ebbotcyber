@@ -10,6 +10,7 @@ on:
       - security/ebbot-desktop-safe-restore-20261120
       - security/ebbot-desktop-sqlite-backup-atomic-20261120
       - security/ebbot-desktop-sqlite-online-snapshot-20261120
+      - security/ebbot-sqlite-electron-restore-staging-20261120
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -19,6 +20,7 @@ on:
       - security/ebbot-desktop-signature-readiness-20261120
       - security/ebbot-desktop-safe-restore-20261120
       - security/ebbot-desktop-sqlite-backup-atomic-20261120
+      - security/ebbot-desktop-sqlite-online-snapshot-20261120
 
 permissions:
   contents: read
