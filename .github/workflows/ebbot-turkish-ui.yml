@@ -5,13 +5,13 @@ on:
     branches:
       - review/ebbot-3lu-entegrasyon-20261118
       - fix/turkish-ui-chat-20261118
-      - feature/portfolio-try-multicurrency-fx-20261120
     paths:
       - 'apps/dsa-web/**'
       - '.github/workflows/ebbot-turkish-ui.yml'
   push:
     branches:
       - fix/turkish-ui-chat-20261118
+      - feature/portfolio-try-multicurrency-fx-20261120
     paths:
       - 'apps/dsa-web/**'
       - '.github/workflows/ebbot-turkish-ui.yml'
