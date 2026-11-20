@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   UiLanguageProvider,
+  useUiLanguage,
 } from '../UiLanguageContext';
 import {
   getRuntimeInitialLanguage,
@@ -33,7 +34,39 @@ function createStorage(value: string | null): Storage {
   };
 }
 
+function BareContextLanguage() {
+  const { language, t } = useUiLanguage();
+  return (
+    <>
+      <span data-testid="bare-context-language">{language}</span>
+      <span data-testid="bare-context-label">{t('language.toggle')}</span>
+    </>
+  );
+}
+
 describe('UiLanguageContext', () => {
+  it('keeps no-provider legacy test fixtures in the original Chinese language', () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'false');
+    try {
+      render(<BareContextLanguage />);
+      expect(screen.getByTestId('bare-context-language')).toHaveTextContent('zh');
+      expect(screen.getByTestId('bare-context-label')).toHaveTextContent('切换界面语言');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps no-provider production UI locked to Turkish', () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+    try {
+      render(<BareContextLanguage />);
+      expect(screen.getByTestId('bare-context-language')).toHaveTextContent('tr');
+      expect(screen.getByTestId('bare-context-label')).toHaveTextContent('Arayüz dilini değiştir');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('resolves explicit storage choice before browser language', () => {
     expect(resolveInitialUiLanguage({
       storage: createStorage('zh'),
