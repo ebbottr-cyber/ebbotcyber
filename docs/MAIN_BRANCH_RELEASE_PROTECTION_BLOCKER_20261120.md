@@ -36,3 +36,25 @@ A moved \`main\` commit or PR #130 head produces \`BLOCKED_PINNED_SOURCE_MOVED\`
 ### Remaining blockers beyond GitHub protection
 
 A licensed independently verified BIST second market-data source is not connected; multiple real independent market publication dates and long-term data reliability are not proved; Windows installation packaging and release signing have their own gates. Even after policy configuration, treat prices as indicative/delayed rather than executable.
+
+
+## Exact integration CI evidence verified independently
+
+The successful, **completed** main+PR122 integration GitHub Actions run is:
+
+- https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44813551015
+- \`head_branch=audit/ebbot-main-pr122-solana-replay-full-20261120\`
+- \`head_sha=f5c6dbe9a201d7f3a7df94b600697f869514c70c\`
+- Under-test \`main=68f9d1652f81a3edf70784526d18578c772fe922\`, PR #122 head \`f73ce5d7fcea9255822239420ed61d12521e3493\`.
+
+The run completed successfully and its three original jobs completed successfully:
+
+1. \`Pin GitHub main and PR122, no-commit merge-tree, NO release\` (merge-tree and metadata preflight).
+2. \`FULL React/PWA on actual ephemeral main plus PR122 joined code\` (1,524 passed, 2 skipped; lint, TypeScript/Vite build and 9 PWA passed).
+3. \`FULL backend on actual ephemeral main plus PR122 joined code\` (150 focused passed; 9,327 full offline pytest passed, 4 deselected).
+
+\`scripts/audit_pinned_integration_ci_evidence.py\` uses original, read-only GitHub REST run + jobs + PR122 + PR130 + \`main\` evidence. It enforces *exact* pinned run ID, head SHA, PR state, branch, run attempt, and the three job and critical test-step completions. A successful \`actions/runs\` record is not sufficient if any of the critical jobs were skipped, failed, cancelled, duplicated or run at another SHA. The audit fails closed on bad evidence.
+
+The GitHub workflow is **an audit-only push workflow for a feature branch**. Its job names should **NOT be blindly marked as required main-PR status checks**: they may not be produced for each prospective merge commit. An administrator should identify or create a persistent, read-only CI workflow that runs on every PR targeting \`main\`, then select its real observed stable job names as required checks. Enforce these alongside code review, force-push and bypass safeguards in GitHub Settings.
+
+**Critical distinction:** These verified tests say that the *pinned code combination* passed an offline test suite. They do not prove actual branch protection, licensed BIST data access, live quote accuracy, executable prices, packaged Windows installer, portfolio performance, or readiness to place any trades. Production release and all paper/live trading remain blocked.
