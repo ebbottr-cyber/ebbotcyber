@@ -37,6 +37,6 @@ test('unauthenticated portfolio HTTP access fails closed and private UI redirect
   expect((await protectedResponse.json()).error).toBe('unauthorized');
 
   await page.goto('/portfolio');
-  await expect(page).toHaveURL(/\\/login(?:\\?|$)/);
+  await expect(page).toHaveURL((url) => url.pathname === '/login');
   await expect(page.locator('#password')).toBeVisible();
 });
