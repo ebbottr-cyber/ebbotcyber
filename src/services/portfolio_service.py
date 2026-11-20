@@ -605,16 +605,18 @@ class PortfolioService:
             aggregate["unrealized_pnl"] += unrealized_cny
             aggregate["fee_total"] += fee_cny
             aggregate["tax_total"] += tax_cny
-            aggregate["fx_stale"] = aggregate["fx_stale"] or any(
-                [
-                    stale_cash,
+            aggregate["fx_stale"] = (
+                aggregate["fx_stale"] or bool(account_snapshot["fx_stale"]) or any(
+                    [
+                        stale_cash,
                     stale_mv,
                     stale_eq,
                     stale_realized,
                     stale_unrealized,
                     stale_fee,
                     stale_tax,
-                ]
+                    ]
+                )
             )
 
         return {
