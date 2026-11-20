@@ -39,6 +39,9 @@ class DesktopPackageAuditTests(unittest.TestCase):
             "function b() { if (!DESKTOP_UPDATES_ENABLED) {} }\n",
             encoding="utf-8",
         )
+        loading = desktop / "renderer/loading.html"
+        loading.parent.mkdir(parents=True)
+        loading.write_text('<title>EBBot</title><h1 class="title">EBBot</h1>', encoding="utf-8")
         self.dist = desktop / "dist"
 
     def _create_sample_package(self):
@@ -71,6 +74,13 @@ class DesktopPackageAuditTests(unittest.TestCase):
                             for x in result["checks"]))
         self.assertTrue(any("code-signing" in x for x in result["release_blockers"]))
         self.assertEqual(audit(self.root)["release_status"], "BLOCKED")
+
+    def test_legacy_loading_screen_fails_source_audit(self):
+        loading = self.root / "apps/dsa-desktop/renderer/loading.html"
+        loading.write_text('<title>Daily Stock Analysis</title><h1 class="title">Daily Stock Analysis</h1>',
+                           encoding="utf-8")
+        self.assertFalse(next(x["passed"] for x in source_audit(self.root)["checks"]
+                              if x["name"] == "ebbot_loading_window"))
 
     def test_upstream_or_enabled_updater_fails_strict_source(self):
         desktop = self.root / "apps/dsa-desktop"
