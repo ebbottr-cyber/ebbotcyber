@@ -300,7 +300,7 @@ class PortfolioRiskResponse(BaseModel):
 
 
 class PortfolioDisplayFxResponse(BaseModel):
-    """Indicative TRY display rates; unavailable when either quote is stale."""
+    """Indicative TRY display rates with independent per-currency quote quality."""
 
     status: Literal["current", "stale", "unavailable"]
     usd_try: Optional[float] = None
