@@ -872,7 +872,7 @@ test('blocked updater never downloads or installs an NSIS update', async (t) => 
   });
 });
 
-test('offline runtime backup preserves Screening hotspot detail directories without updater', (t) => {
+test('offline runtime backup preserves Screening hotspot detail directories without updater', async (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot offline backup details '));
   const exeDir = path.join(tempRoot, 'app');
   const userDataDir = path.join(tempRoot, 'userData');
