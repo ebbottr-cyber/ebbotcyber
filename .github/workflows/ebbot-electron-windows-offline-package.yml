@@ -6,11 +6,13 @@ on:
       - test/ebbot-windows-electron-offline-package-20261120
       - security/ebbot-desktop-identity-updater-block-20261120
       - security/ebbot-desktop-update-integrity-20261120
+      - security/ebbot-desktop-signature-readiness-20261120
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
       - test/ebbot-windows-electron-offline-package-20261120
       - security/ebbot-desktop-identity-updater-block-20261120
+      - security/ebbot-desktop-update-integrity-20261120
 
 permissions:
   contents: read
@@ -48,6 +50,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Source audit unit tests failed" }
           python scripts/audit_ebbot_desktop_package.py --strict-source --json
           if ($LASTEXITCODE -ne 0) { throw "Desktop source structure invalid" }
+          python -m unittest discover -s tests -p test_ebbot_desktop_signing_policy.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Unsigned desktop release policy unit tests failed" }
       - name: Install exact Electron dependency lockfile
         working-directory: apps/dsa-desktop
         shell: pwsh
@@ -127,12 +131,26 @@ jobs:
           $report = Get-Content desktop-package-audit.json -Raw | ConvertFrom-Json
           if ($report.release_status -ne "BLOCKED") { throw "Release must remain blocked pending review" }
           Write-Host "Packaged Windows structure verified. Release blocked. SHA256 recorded in private CI artifact."
+      - name: Inspect local Authenticode signatures (unsigned stays BLOCKED)
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/dsa-desktop/package.json -Raw | ConvertFrom-Json).version
+          & ./scripts/collect_ebbot_windows_signatures.ps1 -Dist apps/dsa-desktop/dist -Version $version -Output desktop-signature-observation.json
+          if ($LASTEXITCODE -ne 0) { throw "Windows signature observation failed" }
+          python scripts/audit_ebbot_desktop_signing.py --observation desktop-signature-observation.json --json > desktop-signature-audit.json
+          if ($LASTEXITCODE -ne 0) { throw "Windows signing policy audit failed to run" }
+          $signatureAudit = Get-Content desktop-signature-audit.json -Raw | ConvertFrom-Json
+          if ($signatureAudit.release_status -ne 'BLOCKED') { throw "Release must always remain blocked" }
+          if ($signatureAudit.signing_validation -notin @('BLOCKED', 'PASSED')) { throw "Invalid signing audit result" }
+          Write-Host "Authenticode inspected locally, without sign/install/publish. Signing status $($signatureAudit.signing_validation). Release BLOCKED."
       - name: Upload audit JSON ONLY (never upload installer, backend, .env or updater files)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ebbot-windows-electron-package-audit
-          path: desktop-package-audit.json
+          path: |
+            desktop-package-audit.json
+            desktop-signature-audit.json
           if-no-files-found: warn
           retention-days: 7
       - name: Release remains explicitly blocked
