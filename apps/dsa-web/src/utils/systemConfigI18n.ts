@@ -24,7 +24,7 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
   },
   tr: {
     base: 'Temel Ayarlar',
-    data_source: 'Veri Kaynakları',
+    data_source: 'Veri kaynakları',
     ai_model: 'Yapay Zekâ Modelleri',
     notification: 'Bildirimler',
     system: 'Sistem',
