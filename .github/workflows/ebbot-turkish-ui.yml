@@ -10,6 +10,7 @@ on:
       - fix/portfolio-historical-fx-source-date-20261120
       - test/portfolio-historical-fx-live-calendar-20261120
       - fix/portfolio-reject-unclosed-daily-fx-20261120
+      - fix/portfolio-try-fx-outage-feedback-20261120
     paths:
       - 'apps/dsa-web/**'
       - 'src/services/portfolio_service.py'
@@ -19,6 +20,9 @@ on:
       - 'tests/test_portfolio_pr2.py'
       - 'tests/test_portfolio_historical_fx.py'
       - 'scripts/probe_portfolio_historical_fx_live.py'
+      - 'scripts/ebbot_windows_portfolio_preflight.py'
+      - 'tests/test_windows_portfolio_preflight.py'
+      - 'docs/EBBOT_WINDOWS_PORTFOLIO_PREFLIGHT_TR.md'
       - '.github/workflows/ebbot-turkish-ui.yml'
   push:
     branches:
@@ -152,3 +156,23 @@ jobs:
             echo "### HISTORICAL FX PROVIDER NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
             echo "One or more Yahoo historical quotes were unavailable or unverified. Review console evidence; never treat missing or old rates as fresh." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # This Windows runner tests the same read-only CLI intended for a local PC.
+  # It never launches Electron, writes .env/DB, enables trading or deploys.
+  windows-portfolio-readonly-preflight:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test offline preflight validation and local network restrictions
+        run: python -m unittest discover -s tests -p test_windows_portfolio_preflight.py -v
+      - name: Inspect checked-out Windows source prerequisites without network
+        run: python scripts/ebbot_windows_portfolio_preflight.py --mode source --json
+      - name: Compile read-only Windows preflight
+        run: python -m py_compile scripts/ebbot_windows_portfolio_preflight.py
