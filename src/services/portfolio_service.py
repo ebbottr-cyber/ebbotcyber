@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from data_provider.base import canonical_stock_code, normalize_stock_code
 from src.config import get_config
+from src.services.portfolio_historical_fx import MAX_HISTORICAL_FX_RATE_AGE_DAYS, fetch_dated_yahoo_fx_close
 from src.repositories.portfolio_repo import (
     DuplicateTradeDedupHashError,
     DuplicateTradeUidError,
@@ -41,7 +42,7 @@ PORTFOLIO_FX_REFRESH_DISABLED_REASON = "portfolio_fx_update_disabled"
 PORTFOLIO_REALTIME_QUOTE_MAX_WORKERS = 4
 # Risk and portfolio valuation: treat quotes older than a long weekend as stale.
 # Indicative TL display has its own stricter 30-minute requirement.
-MAX_PORTFOLIO_FX_RATE_AGE_DAYS = 3
+MAX_PORTFOLIO_FX_RATE_AGE_DAYS = MAX_HISTORICAL_FX_RATE_AGE_DAYS
 
 
 def _portfolio_limitations_for_market(market: str) -> List[str]:
@@ -1670,35 +1671,13 @@ class PortfolioService:
         to_currency: str,
         as_of_date: date,
     ) -> Optional[Tuple[float, date]]:
-        """Return the actual daily close date with the price, never a bare rate."""
-        if yf is None:
-            return None
-        symbol = f"{from_currency}{to_currency}=X"
-        ticker = yf.Ticker(symbol)
-        history = ticker.history(
-            start=(as_of_date - timedelta(days=7)).isoformat(),
-            end=(as_of_date + timedelta(days=1)).isoformat(),
-            interval="1d",
-            auto_adjust=False,
+        """Use the same source-date reader as the read-only live probe."""
+        return fetch_dated_yahoo_fx_close(
+            from_currency=from_currency,
+            to_currency=to_currency,
+            as_of_date=as_of_date,
+            provider=yf,
         )
-        if history is None or history.empty or "Close" not in history:
-            return None
-        closes = history["Close"].dropna().sort_index()
-        if closes.empty:
-            return None
-        value = float(closes.iloc[-1])
-        timestamp = closes.index[-1]
-        if hasattr(timestamp, "to_pydatetime"):
-            timestamp = timestamp.to_pydatetime()
-        if isinstance(timestamp, datetime):
-            quote_date = timestamp.date()
-        elif type(timestamp) is date:
-            quote_date = timestamp
-        else:
-            return None
-        if not math.isfinite(value) or value <= 0 or quote_date > as_of_date:
-            return None
-        return value, quote_date
 
     def _require_active_account(self, account_id: int) -> Any:
         account = self.repo.get_account(account_id, include_inactive=False)
