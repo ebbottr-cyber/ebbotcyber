@@ -23,6 +23,7 @@ import type {
   AlertType,
 } from '../types/alerts';
 import { formatDateTime } from '../utils/format';
+import { operatorText } from '../utils/operatorText';
 
 const PAGE_SIZE = 20;
 
@@ -47,16 +48,16 @@ function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode
     <div className="space-y-2">
       <div>
         {result.message}
-        {' · 状态：'}
+        {' · '}{operatorText("状态：", "Durum: ")}
         {result.status}
-        {' · 触发：'}
-        {result.triggered ? '是' : '否'}
-        {' · 观察值：'}
+        {' · '}{operatorText("触发：", "Tetiklendi: ")}
+        {result.triggered ? operatorText("是", "Evet") : operatorText("否", "Hayır")}
+        {' · '}{operatorText("观察值：", "Gözlem: ")}
         {result.observedValue == null ? '--' : String(result.observedValue)}
       </div>
       {result.evaluatedCount != null && result.evaluatedCount > 1 ? (
         <div className="text-xs">
-          评估 {result.evaluatedCount} · 触发 {result.triggeredCount ?? 0} · 降级 {result.degradedCount ?? 0} · 跳过 {result.skippedCount ?? 0}
+          {operatorText("评估", "Değerlendirilen")} {result.evaluatedCount} · {operatorText("触发", "Tetiklenen")} {result.triggeredCount ?? 0} · {operatorText("降级", "Kısıtlı")} {result.degradedCount ?? 0} · {operatorText("跳过", "Atlanan")} {result.skippedCount ?? 0}
         </div>
       ) : null}
       {targetResults.length > 1 ? (
@@ -77,12 +78,12 @@ function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode
 }
 
 const notificationChannelLabel: Record<string, string> = {
-  __cooldown__: '业务冷却',
-  __cooldown_read_failed__: '冷却读取失败',
-  __noise_suppressed__: '通知降噪',
-  __no_channel__: '无可用渠道',
-  __dispatch__: '通知调度',
-  __context__: '会话渠道',
+  __cooldown__: operatorText("业务冷却", "Kural bekleme süresi"),
+  __cooldown_read_failed__: operatorText("冷却读取失败", "Bekleme durumu alınamadı"),
+  __noise_suppressed__: operatorText("通知降噪", "Bildirim azaltma"),
+  __no_channel__: operatorText("无可用渠道", "Kullanılabilir kanal yok"),
+  __dispatch__: operatorText("通知调度", "Bildirim yönlendirme"),
+  __context__: operatorText("会话渠道", "Oturum kanalı"),
 };
 
 function formatNotificationChannel(channel: string): string {
@@ -90,17 +91,17 @@ function formatNotificationChannel(channel: string): string {
 }
 
 function formatNotificationStatus(notification: AlertNotificationItem): string {
-  if (notification.success) return '成功';
-  if (notification.errorCode === 'cooldown_active') return '冷却抑制';
-  if (notification.errorCode === 'cooldown_read_failed') return '冷却读取失败';
-  if (notification.errorCode === 'noise_suppressed') return '降噪抑制';
-  if (notification.errorCode === 'no_channel') return '无渠道';
-  return '失败';
+  if (notification.success) return operatorText("成功", "Başarılı");
+  if (notification.errorCode === 'cooldown_active') return operatorText("冷却抑制", "Bekleme süresi etkin");
+  if (notification.errorCode === 'cooldown_read_failed') return operatorText("冷却读取失败", "Bekleme durumu alınamadı");
+  if (notification.errorCode === 'noise_suppressed') return operatorText("降噪抑制", "Bildirim azaltıldı");
+  if (notification.errorCode === 'no_channel') return operatorText("无渠道", "Kanal yok");
+  return operatorText("失败", "Başarısız");
 }
 
 const AlertsPage: React.FC = () => {
   useEffect(() => {
-    document.title = '告警中心 - DSA';
+    document.title = operatorText("告警中心 - DSA", "Uyarı Merkezi - EBBot");
   }, []);
 
   const [rules, setRules] = useState<AlertRuleItem[]>([]);
@@ -208,7 +209,7 @@ const AlertsPage: React.FC = () => {
     setCreateSuccess(null);
     try {
       const created = await alertsApi.createRule(payload);
-      setCreateSuccess(`已创建告警规则「${created.name}」`);
+      setCreateSuccess(operatorText(`已创建告警规则「${created.name}」`, `Uyarı kuralı oluşturuldu: ${created.name}`));
       setRulesPage(1);
       setRulesRefreshKey((value) => value + 1);
       return true;
@@ -264,20 +265,20 @@ const AlertsPage: React.FC = () => {
   return (
     <AppPage className="space-y-5">
       <PageHeader
-        eyebrow="Alert Center"
-        title="告警中心"
-        description="管理事件告警、日线技术指标、自选股、持仓/账户联动和大盘红绿灯规则，执行一次性测试，并查看后台评估任务记录的触发历史。"
+        eyebrow={operatorText("Alert Center", "Uyarı Merkezi")}
+        title={operatorText("告警中心", "Uyarı Merkezi")}
+        description={operatorText("管理事件告警、日线技术指标、自选股、持仓/账户联动和大盘红绿灯规则，执行一次性测试，并查看后台评估任务记录的触发历史。", "Uyarı kurallarını yönetin, denemeler yapın ve tetiklenme ile bildirim geçmişini inceleyin.")}
       />
 
       {createError ? <ApiErrorAlert error={createError} onDismiss={() => setCreateError(null)} /> : null}
       {createSuccess ? (
         <InlineAlert
-          title="创建成功"
+          title={operatorText("创建成功", "Oluşturuldu")}
           message={createSuccess}
           variant="success"
           action={(
             <button type="button" className="text-sm underline" onClick={() => setCreateSuccess(null)}>
-              关闭
+              {operatorText('关闭', 'Kapat')}
             </button>
           )}
         />
@@ -285,9 +286,12 @@ const AlertsPage: React.FC = () => {
       {rulesError ? <ApiErrorAlert error={rulesError} onDismiss={() => setRulesError(null)} /> : null}
       {!rulesError && ruleSources && ruleSources.legacyConfigured > 0 ? (
         <InlineAlert
-          title="存在环境变量告警规则"
+          title={operatorText("存在环境变量告警规则", "Ortam değişkeninden gelen uyarı kuralları")}
           variant="warning"
-          message={`环境变量配置了 ${ruleSources.legacyConfigured} 条有效规则，按当前启用的页面规则去重后有 ${ruleSources.legacyEffective} 条可供后台轮询。此数量不受页面筛选影响，也不表示后台轮询已启动。页面仅管理数据库规则；删除或禁用页面规则不会停用环境规则。若需停用，请在部署配置中修改 AGENT_EVENT_ALERT_RULES_JSON 并重新加载配置。`}
+          message={operatorText(
+             `环境变量配置了 ${ruleSources.legacyConfigured} 条有效规则，按当前启用的页面规则去重后有 ${ruleSources.legacyEffective} 条可供后台轮询。此数量不受页面筛选影响，也不表示后台轮询已启动。页面仅管理数据库规则；删除或禁用页面规则不会停用环境规则。若需停用，请在部署配置中修改 AGENT_EVENT_ALERT_RULES_JSON 并重新加载配置。`,
+             `Ortam değişkeninde ${ruleSources.legacyConfigured} geçerli kural var; sayfa kurallarıyla tekrarlar çıkarıldığında arka plan değerlendirmesi için ${ruleSources.legacyEffective} kural kalıyor. Bu sayı sayfa filtrelerinden bağımsızdır ve değerlendirmenin başlatıldığı anlamına gelmez. Bu ekran yalnızca veritabanı kurallarını yönetir. Ekrandaki kuralları silmek veya devre dışı bırakmak ortam kurallarını kapatmaz; bunları kapatmak için dağıtım yapılandırmasındaki AGENT_EVENT_ALERT_RULES_JSON değerini güncelleyin ve yapılandırmayı yeniden yükleyin.`,
+           )}
         />
       ) : null}
 
@@ -319,7 +323,7 @@ const AlertsPage: React.FC = () => {
           />
           {testResult ? (
             <InlineAlert
-              title="测试结果"
+              title={operatorText("测试结果", "Test sonucu")}
               variant={testVariant(testResult)}
               message={renderTestResultMessage(testResult)}
             />
@@ -331,13 +335,13 @@ const AlertsPage: React.FC = () => {
       <AlertTriggerHistory triggers={triggers} isLoading={triggersLoading} />
 
       {notificationsError ? <ApiErrorAlert error={notificationsError} onDismiss={() => setNotificationsError(null)} /> : null}
-      <Card title="通知尝试记录" subtitle="通知结果" variant="bordered" padding="md">
-        {notificationsLoading ? <Loading label="正在加载通知尝试记录" /> : null}
+      <Card title={operatorText("通知尝试记录", "Bildirim denemeleri")} subtitle={operatorText("通知结果", "Bildirim sonuçları")} variant="bordered" padding="md">
+        {notificationsLoading ? <Loading label={operatorText("正在加载通知尝试记录", "Bildirim denemeleri yükleniyor")} /> : null}
         {!notificationsLoading && notifications.length === 0 ? (
           <EmptyState
             icon={<BellRing className="h-6 w-6" />}
-            title="暂无通知尝试记录"
-            description="当前没有可展示的通知尝试明细；告警触发仍会按已配置通知渠道发送。"
+            title={operatorText("暂无通知尝试记录", "Henüz bildirim denemesi yok")}
+            description={operatorText("当前没有可展示的通知尝试明细；告警触发仍会按已配置通知渠道发送。", "Şu anda görüntülenecek deneme bulunmuyor; tetiklenen uyarılar tanımlı kanallara gönderilir.")}
           />
         ) : null}
         {!notificationsLoading && notifications.length > 0 ? (
@@ -345,12 +349,12 @@ const AlertsPage: React.FC = () => {
             <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="border-b border-border/60 text-xs uppercase text-muted-text">
                 <tr>
-                  <th className="px-3 py-2 font-medium">渠道</th>
-                  <th className="px-3 py-2 font-medium">状态</th>
-                  <th className="px-3 py-2 font-medium">错误码</th>
-                  <th className="px-3 py-2 font-medium">耗时</th>
-                  <th className="px-3 py-2 font-medium">时间</th>
-                  <th className="px-3 py-2 font-medium">诊断</th>
+                  <th className="px-3 py-2 font-medium">{operatorText("渠道", "Kanal")}</th>
+                  <th className="px-3 py-2 font-medium">{operatorText("状态", "Durum")}</th>
+                  <th className="px-3 py-2 font-medium">{operatorText("错误码", "Hata kodu")}</th>
+                  <th className="px-3 py-2 font-medium">{operatorText("耗时", "Süre")}</th>
+                  <th className="px-3 py-2 font-medium">{operatorText("时间", "Zaman")}</th>
+                  <th className="px-3 py-2 font-medium">{operatorText("诊断", "Tanılama")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
