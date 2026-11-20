@@ -27,8 +27,11 @@ function resolveWindowBackgroundColor() {
 const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 const appRootDev = path.resolve(__dirname, '..', '..');
-const GITHUB_OWNER = 'ZhuLinsen';
-const GITHUB_REPO = 'daily_stock_analysis';
+const GITHUB_OWNER = 'ebbottr-cyber';
+const GITHUB_REPO = 'ebbotcyber';
+// Release signing, migration and provenance must be approved before enabling updates.
+// Deliberately not configurable through env/renderer: no unverified downloads.
+const DESKTOP_UPDATES_ENABLED = false;
 const RELEASES_PAGE_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
 const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
@@ -339,7 +342,7 @@ function fetchLatestReleaseJson({
         method: 'GET',
         headers: {
           Accept: 'application/vnd.github+json',
-          'User-Agent': 'daily-stock-analysis-desktop',
+          'User-Agent': 'ebbot-desktop',
         },
       },
       (incomingResponse) => {
@@ -1462,10 +1465,13 @@ function isWindowsNsisInstalledApp() {
   }
 
   const appDir = path.dirname(app.getPath('exe'));
-  return fs.existsSync(path.join(appDir, 'Uninstall Daily Stock Analysis.exe'));
+  return fs.existsSync(path.join(appDir, 'Uninstall EBBot.exe'));
 }
 
 function getElectronAutoUpdater() {
+  if (!DESKTOP_UPDATES_ENABLED) {
+    return null;
+  }
   if (electronAutoUpdater !== undefined) {
     return electronAutoUpdater;
   }
@@ -1810,6 +1816,14 @@ async function performElectronUpdaterCheck({ manual = false } = {}) {
 }
 
 async function performDesktopUpdateCheck({ manual = false, notify = false } = {}) {
+  if (!DESKTOP_UPDATES_ENABLED) {
+    return setDesktopUpdateState({
+      status: manual ? UPDATE_STATUS.ERROR : UPDATE_STATUS.IDLE,
+      updateMode: UPDATE_MODE.MANUAL,
+      currentVersion: resolveDesktopVersion(),
+      message: 'EBBot masaüstü güncellemeleri güvenlik doğrulaması tamamlanana kadar devre dışı.',
+    });
+  }
   if (canUseElectronAutoUpdater()) {
     return performElectronUpdaterCheck({ manual, notify });
   }
@@ -1904,8 +1918,9 @@ async function createWindow() {
   setDesktopUpdateState({
     status: restoreFailed ? UPDATE_STATUS.ERROR : UPDATE_STATUS.IDLE,
     currentVersion: resolveDesktopVersion(),
-    updateMode: restoreFailed ? UPDATE_MODE.MANUAL : UPDATE_MODE.AUTO,
-    message: restoreErrorMessage,
+    updateMode: restoreFailed || !DESKTOP_UPDATES_ENABLED ? UPDATE_MODE.MANUAL : UPDATE_MODE.AUTO,
+    message: restoreErrorMessage || (!DESKTOP_UPDATES_ENABLED
+      ? 'EBBot masaüstü güncellemeleri güvenlik doğrulaması tamamlanana kadar devre dışı.' : ''),
   });
   const startupStartedAt = Date.now();
   const logStartup = (message) => {
@@ -2069,7 +2084,7 @@ async function createWindow() {
     await mainWindow.loadURL(mainPageUrl);
     logStartup(`Main page loadURL resolved in ${Date.now() - mainPageStartedAt}ms url=${mainPageUrl}`);
     logStartup(`Main UI loaded in ${Date.now() - startupStartedAt}ms`);
-    if (!restoreFailed) {
+    if (!restoreFailed && DESKTOP_UPDATES_ENABLED) {
       void performDesktopUpdateCheck({ notify: true });
     }
   } catch (error) {
@@ -2099,6 +2114,7 @@ app.on('before-quit', () => {
 });
 
 module.exports = {
+  DESKTOP_UPDATES_ENABLED,
   DEFAULT_REQUEST_TIMEOUT_MS,
   GITHUB_OWNER,
   GITHUB_REPO,

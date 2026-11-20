@@ -663,7 +663,7 @@ test('extractReleaseMetadata ignores releases without semver tags', (t) => {
   assert.equal(
     mainModule.extractReleaseMetadata({
       tag_name: 'desktop-latest',
-      html_url: 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/desktop-latest',
+      html_url: 'https://github.com/ebbottr-cyber/ebbotcyber/releases/tag/desktop-latest',
     }),
     null
   );
@@ -675,7 +675,7 @@ test('evaluateReleaseUpdate reports update-available when release is newer', (t)
     currentVersion: '3.12.0',
     release: {
       tag_name: 'v3.13.0',
-      html_url: 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0',
+      html_url: 'https://github.com/ebbottr-cyber/ebbotcyber/releases/tag/v3.13.0',
       published_at: '2026-04-25T01:00:00Z',
       name: 'v3.13.0',
     },
@@ -685,7 +685,7 @@ test('evaluateReleaseUpdate reports update-available when release is newer', (t)
   assert.equal(state.status, mainModule.UPDATE_STATUS.UPDATE_AVAILABLE);
   assert.equal(state.currentVersion, '3.12.0');
   assert.equal(state.latestVersion, '3.13.0');
-  assert.equal(state.releaseUrl, 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0');
+  assert.equal(state.releaseUrl, 'https://github.com/ebbottr-cyber/ebbotcyber/releases/tag/v3.13.0');
   assert.equal(state.checkedAt, '2026-04-25T01:02:00Z');
   assert.equal(state.publishedAt, '2026-04-25T01:00:00Z');
   assert.match(state.message, /发现新版本 3\.13\.0/);
@@ -697,14 +697,14 @@ test('evaluateReleaseUpdate reports up-to-date when version is current', (t) => 
     currentVersion: '3.13.0',
     release: {
       tag_name: 'v3.13.0',
-      html_url: 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0',
+      html_url: 'https://github.com/ebbottr-cyber/ebbotcyber/releases/tag/v3.13.0',
     },
     checkedAt: '2026-04-25T01:02:00Z',
   });
 
   assert.equal(state.status, mainModule.UPDATE_STATUS.UP_TO_DATE);
   assert.equal(state.latestVersion, '3.13.0');
-  assert.equal(state.releaseUrl, 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0');
+  assert.equal(state.releaseUrl, 'https://github.com/ebbottr-cyber/ebbotcyber/releases/tag/v3.13.0');
   assert.equal(state.checkedAt, '2026-04-25T01:02:00Z');
   assert.equal(state.publishedAt, '');
 });
@@ -715,7 +715,7 @@ test('evaluateReleaseUpdate reports error when current version is invalid', (t) 
     currentVersion: 'build-20260425',
     release: {
       tag_name: 'v3.13.0',
-      html_url: 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0',
+      html_url: 'https://github.com/ebbottr-cyber/ebbotcyber/releases/tag/v3.13.0',
     },
     checkedAt: '2026-04-25T01:02:00Z',
   });
@@ -789,13 +789,13 @@ test('fetchLatestReleaseJson rejects when response stream errors', async (t) => 
   assert.equal(destroyed, true);
 });
 
-test('auto download prompt falls back to error when install path fails', async (t) => {
+test('blocked updater never downloads or installs an NSIS update', async (t) => {
   const updaterEvents = {};
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsa desktop updater '));
   const exeDir = path.join(tempRoot, 'app');
   const userDataDir = path.join(tempRoot, 'userData');
-  const exePath = path.join(exeDir, 'Daily Stock Analysis.exe');
-  const uninstallPath = path.join(exeDir, 'Uninstall Daily Stock Analysis.exe');
+  const exePath = path.join(exeDir, 'EBBot.exe');
+  const uninstallPath = path.join(exeDir, 'Uninstall EBBot.exe');
   const envFile = path.join(exeDir, '.env');
   const backupRoot = path.join(userDataDir, '.dsa-desktop-update-backup');
   const originalRemove = fs.rmSync;
@@ -860,10 +860,10 @@ test('auto download prompt falls back to error when install path fails', async (
   }
 
   assert.equal(state.status, mainModule.UPDATE_STATUS.ERROR);
-  assert.match(state.message, /更新安装失败/);
-  assert.equal(state.updateMode, mainModule.UPDATE_MODE.AUTO);
-  assert.deepEqual(quitAndInstallArgs, [true, true]);
-  assert.equal(fakeUpdater.installDirectory, exeDir);
+  assert.match(state.message, /güncellemeleri güvenlik doğrulaması/);
+  assert.equal(state.updateMode, mainModule.UPDATE_MODE.MANUAL);
+  assert.equal(quitAndInstallArgs, null);
+  assert.equal(fakeUpdater.installDirectory, undefined);
   assert.equal(fs.existsSync(backupRoot), false);
   assert.equal(fs.existsSync(path.join(backupRoot, 'runtime-state.json')), false);
 
@@ -872,83 +872,45 @@ test('auto download prompt falls back to error when install path fails', async (
   });
 });
 
-test('auto update backup copies Screening hotspot detail directories recursively', async (t) => {
-  const updaterEvents = {};
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsa desktop updater details '));
+test('offline runtime backup preserves Screening hotspot detail directories without updater', async (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot offline backup details '));
   const exeDir = path.join(tempRoot, 'app');
   const userDataDir = path.join(tempRoot, 'userData');
-  const exePath = path.join(exeDir, 'Daily Stock Analysis.exe');
-  const uninstallPath = path.join(exeDir, 'Uninstall Daily Stock Analysis.exe');
+  const exePath = path.join(exeDir, 'EBBot.exe');
+  const uninstallPath = path.join(exeDir, 'Uninstall EBBot.exe');
   const detailRelativePath = path.join('data', 'screening', 'hotspot_details');
   const detailFileRelativePath = path.join(detailRelativePath, 'ai-compute.json');
   const detailFile = path.join(exeDir, detailFileRelativePath);
   const backupRoot = path.join(userDataDir, '.dsa-desktop-update-backup');
-  let quitAndInstallArgs = null;
-  const fakeUpdater = {
-    autoDownload: true,
-    autoInstallOnAppQuit: false,
-    on: (event, handler) => {
-      updaterEvents[event] = handler;
-    },
-    checkForUpdates: async () => {
-      if (typeof updaterEvents['update-downloaded'] === 'function') {
-        updaterEvents['update-downloaded']({
-          version: 'v3.13.0',
-          releaseDate: '2026-04-25T01:00:00Z',
-          releaseName: 'v3.13.0',
-        });
-      }
-    },
-    quitAndInstall: (...args) => {
-      quitAndInstallArgs = args;
-    },
-  };
-
+  let updaterCalls = 0;
   const mainModule = loadMainModule(t, {
-    dialog: {
-      showMessageBox: async () => ({ response: 1 }),
+    electronUpdater: {
+      checkForUpdates: async () => { updaterCalls += 1; },
+      quitAndInstall: () => { updaterCalls += 1; },
+      on: () => { updaterCalls += 1; },
     },
-    electronUpdater: fakeUpdater,
     platform: 'win32',
     app: {
       isPackaged: true,
-      getPath: (name) => {
-        if (name === 'exe') {
-          return exePath;
-        }
-        return userDataDir;
-      },
+      getPath: (name) => name === 'exe' ? exePath : userDataDir,
     },
   });
-
   fs.mkdirSync(path.dirname(detailFile), { recursive: true });
   fs.mkdirSync(userDataDir, { recursive: true });
   fs.writeFileSync(uninstallPath, '');
-  fs.writeFileSync(detailFile, '{"topic":"AI算力"}\n', 'utf-8');
-
-  mainModule.__setMainWindowForTest({
-    isDestroyed: () => false,
-    webContents: {
-      send: () => undefined,
-    },
-  });
-
-  await mainModule.__getIpcMainHandler('desktop:check-for-updates')();
-  for (let idx = 0; idx < 12 && !quitAndInstallArgs; idx += 1) {
-    await new Promise((resolve) => {
-      setTimeout(resolve, 30);
-    });
-  }
-
-  assert.deepEqual(quitAndInstallArgs, [true, true]);
-  assert.equal(fs.readFileSync(path.join(backupRoot, detailFileRelativePath), 'utf-8'), '{"topic":"AI算力"}\n');
-  assert.ok(JSON.parse(fs.readFileSync(path.join(backupRoot, 'runtime-state.json'), 'utf-8')).files.includes(detailRelativePath));
-
-  t.after(() => {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  });
+  fs.writeFileSync(detailFile, '{"topic":"AI compute"}\n', 'utf-8');
+  assert.equal(mainModule.DESKTOP_UPDATES_ENABLED, false);
+  mainModule.backupPackagedRuntimeState();
+  assert.equal(fs.readFileSync(path.join(backupRoot, detailFileRelativePath), 'utf-8'),
+    '{"topic":"AI compute"}\n');
+  const manifest = JSON.parse(fs.readFileSync(path.join(backupRoot, 'runtime-state.json'), 'utf-8'));
+  assert.ok(manifest.files.includes(detailRelativePath));
+  const updateState = await mainModule.__getIpcMainHandler('desktop:check-for-updates')();
+  assert.equal(updateState.status, mainModule.UPDATE_STATUS.ERROR);
+  assert.equal(updaterCalls, 0);
+  assert.equal(fs.readFileSync(detailFile, 'utf-8'), '{"topic":"AI compute"}\n');
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }));
 });
-
 test('desktop update backup list includes WAL and SHM artifacts', (t) => {
   const mainModule = loadMainModule(t);
   const files = mainModule.DESKTOP_UPDATE_RUNTIME_RELATIVE_FILES || [];
@@ -988,7 +950,7 @@ test('desktop update backup and restore preserve generation and Agent backend en
 
   fs.mkdirSync(appDir, { recursive: true });
   fs.mkdirSync(userDataDir, { recursive: true });
-  fs.writeFileSync(path.join(appDir, 'Uninstall Daily Stock Analysis.exe'), '');
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
   fs.writeFileSync(envPath, envContent, 'utf-8');
 
   const mainModule = loadMainModule(t, {
@@ -997,7 +959,7 @@ test('desktop update backup and restore preserve generation and Agent backend en
       isPackaged: true,
       getPath: (name) => {
         if (name === 'exe') {
-          return path.join(appDir, 'Daily Stock Analysis.exe');
+          return path.join(appDir, 'EBBot.exe');
         }
         return userDataDir;
       },
@@ -1037,7 +999,7 @@ test('desktop update backup and restore preserve Screening detail directories re
 
   fs.mkdirSync(path.dirname(nestedDetailPath), { recursive: true });
   fs.mkdirSync(userDataDir, { recursive: true });
-  fs.writeFileSync(path.join(appDir, 'Uninstall Daily Stock Analysis.exe'), '');
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
   fs.writeFileSync(topicDetailPath, '{"topic":"AI算力"}\n', 'utf-8');
   fs.writeFileSync(nestedDetailPath, '{"events":1}\n', 'utf-8');
 
@@ -1047,7 +1009,7 @@ test('desktop update backup and restore preserve Screening detail directories re
       isPackaged: true,
       getPath: (name) => {
         if (name === 'exe') {
-          return path.join(appDir, 'Daily Stock Analysis.exe');
+          return path.join(appDir, 'EBBot.exe');
         }
         return userDataDir;
       },
@@ -1178,7 +1140,7 @@ test('restorePackagedRuntimeStateFromBackup keeps backup when copy fails', (t) =
   const backupDbPath = path.join(backupRoot, 'data', 'stock_analysis.db');
   fs.mkdirSync(path.dirname(backupDbPath), { recursive: true });
   fs.mkdirSync(appDir, { recursive: true });
-  fs.writeFileSync(path.join(appDir, 'Uninstall Daily Stock Analysis.exe'), '');
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
   fs.writeFileSync(backupDbPath, 'backup-db');
   fs.writeFileSync(
     path.join(backupRoot, 'runtime-state.json'),
@@ -1192,7 +1154,7 @@ test('restorePackagedRuntimeStateFromBackup keeps backup when copy fails', (t) =
       isPackaged: true,
       getPath: (name) => {
         if (name === 'exe') {
-          return path.join(appDir, 'Daily Stock Analysis.exe');
+          return path.join(appDir, 'EBBot.exe');
         }
         return userDataDir;
       },
@@ -1236,7 +1198,7 @@ test('restorePackagedRuntimeStateFromBackup removes restored files from pending 
 
   fs.mkdirSync(path.dirname(backupDbPath), { recursive: true });
   fs.mkdirSync(appDir, { recursive: true });
-  fs.writeFileSync(path.join(appDir, 'Uninstall Daily Stock Analysis.exe'), '');
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
   fs.writeFileSync(backupEnvPath, 'backup-env\n', 'utf-8');
   fs.writeFileSync(backupDbPath, 'backup-db');
   fs.writeFileSync(targetEnvPath, 'current-env\n', 'utf-8');
@@ -1252,7 +1214,7 @@ test('restorePackagedRuntimeStateFromBackup removes restored files from pending 
       isPackaged: true,
       getPath: (name) => {
         if (name === 'exe') {
-          return path.join(appDir, 'Daily Stock Analysis.exe');
+          return path.join(appDir, 'EBBot.exe');
         }
         return userDataDir;
       },
@@ -1297,7 +1259,7 @@ test('restorePackagedRuntimeStateFromBackup skips backup when app version did no
 
   fs.mkdirSync(backupRoot, { recursive: true });
   fs.mkdirSync(appDir, { recursive: true });
-  fs.writeFileSync(path.join(appDir, 'Uninstall Daily Stock Analysis.exe'), '');
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
   fs.writeFileSync(backupEnvPath, 'pre-update-env\n', 'utf-8');
   fs.writeFileSync(targetEnvPath, 'user-change-after-aborted-install\n', 'utf-8');
   fs.writeFileSync(
@@ -1312,7 +1274,7 @@ test('restorePackagedRuntimeStateFromBackup skips backup when app version did no
       isPackaged: true,
       getPath: (name) => {
         if (name === 'exe') {
-          return path.join(appDir, 'Daily Stock Analysis.exe');
+          return path.join(appDir, 'EBBot.exe');
         }
         return userDataDir;
       },
@@ -1337,8 +1299,8 @@ test('createWindow startup path does not throw ReferenceError after restore resu
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsa-desktop-startup-'));
   const appDir = path.join(tempRoot, 'app');
   const userDataDir = path.join(tempRoot, 'userData');
-  const exePath = path.join(appDir, 'Daily Stock Analysis.exe');
-  const uninstallPath = path.join(appDir, 'Uninstall Daily Stock Analysis.exe');
+  const exePath = path.join(appDir, 'EBBot.exe');
+  const uninstallPath = path.join(appDir, 'Uninstall EBBot.exe');
   const loadedFiles = [];
   const loadedUrls = [];
   let startupError;
@@ -1484,12 +1446,12 @@ test('createWindow startup path does not throw ReferenceError after restore resu
     loadedUrls[0],
     /^http:\/\/127\.0\.0\.1:\d+\/\?desktop_version=3\.12\.0&cache_bust=\d+$/
   );
-  assert.equal(updateCheckRequested, true);
+  assert.equal(updateCheckRequested, false);
   assert.equal(startupError, undefined);
   assert.equal(fs.existsSync(backupRoot), false);
   const updateState = await mainModule.__getIpcMainHandler('desktop:get-update-state')();
   assert.notEqual(updateState.status, mainModule.UPDATE_STATUS.ERROR);
-  assert.equal(updateState.updateMode, mainModule.UPDATE_MODE.AUTO);
+  assert.equal(updateState.updateMode, mainModule.UPDATE_MODE.MANUAL);
 
   t.after(() => {
     if (originalResourcesPathDescriptor) {
@@ -1501,49 +1463,23 @@ test('createWindow startup path does not throw ReferenceError after restore resu
   });
 });
 
-test('manual desktop update check rejects overlapping in-flight requests', async (t) => {
+test('manual desktop update checks refuse network while release gate is closed', async (t) => {
   const mainModule = loadMainModule(t);
-  let releaseCheck;
-  const pendingCheck = new Promise((resolve) => {
-    releaseCheck = resolve;
+  let networkCalls = 0;
+  mainModule.__setDesktopUpdateCheckerForTest(async () => {
+    networkCalls += 1;
+    throw new Error('Unexpected update request');
   });
-  let started = 0;
-
-  mainModule.__setDesktopUpdateCheckerForTest(async ({ currentVersion }) => {
-    started += 1;
-    await pendingCheck;
-    return {
-      status: mainModule.UPDATE_STATUS.UPDATE_AVAILABLE,
-      currentVersion,
-      latestVersion: '3.13.0',
-      releaseUrl: 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0',
-    };
-  });
-
-  t.after(() => {
-    mainModule.__setDesktopUpdateCheckerForTest(null);
-  });
-
-  const checkHandler = mainModule.__getIpcMainHandler('desktop:check-for-updates');
-  const firstCheck = checkHandler();
-  const secondState = await checkHandler();
-
-  assert.equal(started, 1);
-  assert.equal(secondState.status, mainModule.UPDATE_STATUS.CHECKING);
-
-  releaseCheck({
-    status: mainModule.UPDATE_STATUS.UPDATE_AVAILABLE,
-    currentVersion: '3.12.0',
-    latestVersion: '3.13.0',
-    releaseUrl: 'https://github.com/ZhuLinsen/daily_stock_analysis/releases/tag/v3.13.0',
-  });
-
-  const firstState = await firstCheck;
-  assert.equal(started, 1);
-  assert.equal(firstState.status, mainModule.UPDATE_STATUS.UPDATE_AVAILABLE);
-  assert.equal(firstState.latestVersion, '3.13.0');
+  t.after(() => mainModule.__setDesktopUpdateCheckerForTest(null));
+  assert.equal(mainModule.DESKTOP_UPDATES_ENABLED, false);
+  assert.equal(mainModule.GITHUB_OWNER, 'ebbottr-cyber');
+  assert.equal(mainModule.GITHUB_REPO, 'ebbotcyber');
+  const state = await mainModule.__getIpcMainHandler('desktop:check-for-updates')();
+  assert.equal(networkCalls, 0);
+  assert.equal(state.status, mainModule.UPDATE_STATUS.ERROR);
+  assert.equal(state.updateMode, mainModule.UPDATE_MODE.MANUAL);
+  assert.match(state.message, /devre dışı/);
 });
-
 test('stopBackend waits for backend process exit', async (t) => {
   const mainModule = loadMainModule(t, { platform: 'linux' });
   const killSignals = [];
