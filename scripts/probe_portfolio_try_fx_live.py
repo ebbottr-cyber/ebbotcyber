@@ -11,6 +11,11 @@ during market closures; this does NOT signal an internal test failure.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+# Support direct execution from the repository root on Windows and Linux.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from src.services.portfolio_display_fx import CROSS_CURRENCIES, get_try_display_rates
 
 
