@@ -842,7 +842,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", side_effect=AssertionError("should not call")):
             self.service.get_portfolio_snapshot(account_id=aid, as_of=date(2026, 1, 1), cost_method="fifo")
 
-    def test_fx_refresh_fallback_marks_stale(self) -> None:
+    def test_fx_refresh_failure_retains_original_quote_date_without_false_recency(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
         aid = account["id"]
         self.service.record_cash_ledger(
@@ -873,8 +873,107 @@ class PortfolioPr2TestCase(unittest.TestCase):
             as_of=date(2026, 1, 2),
         )
         self.assertIsNotNone(latest)
-        self.assertTrue(bool(latest.is_stale))
+        self.assertFalse(bool(latest.is_stale))
+        self.assertEqual(latest.rate_date, date(2026, 1, 1))
+        self.assertEqual(latest.source, "manual")
         self.assertAlmostEqual(float(latest.rate), 7.0, places=6)
+        # The attempted Jan 2 refresh must not manufacture a Jan 2 quote.
+        self.assertEqual(
+            self.service.repo.get_latest_fx_rate(
+                from_currency="USD", to_currency="CNY", as_of=date(2026, 1, 1),
+            ).rate_date,
+            date(2026, 1, 1),
+        )
+
+    def test_fx_refresh_saves_yahoo_actual_source_date_not_request_date(self) -> None:
+        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=100.0, currency="USD",
+        )
+        # Jan 3 is the request; Yahoo's most recent real close was Jan 2.
+        with patch.object(
+            PortfolioService, "_fetch_fx_rate_from_yfinance",
+            return_value=(7.25, date(2026, 1, 2)),
+        ):
+            summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 3))
+        self.assertEqual(summary["updated_count"], 1)
+        self.assertEqual(summary["stale_count"], 0)
+        latest = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=date(2026, 1, 3),
+        )
+        self.assertEqual(latest.rate_date, date(2026, 1, 2))
+        self.assertEqual(latest.source, "yfinance")
+        self.assertFalse(latest.is_stale)
+        self.assertAlmostEqual(float(latest.rate), 7.25)
+        converted, stale, _ = self.service.convert_amount(
+            amount=100, from_currency="USD", to_currency="CNY",
+            as_of_date=date(2026, 1, 3),
+        )
+        self.assertAlmostEqual(converted, 725)
+        self.assertFalse(stale)
+
+    def test_fx_refresh_does_not_persist_overage_or_future_yahoo_quote(self) -> None:
+        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=100.0, currency="USD",
+        )
+        requested = date(2026, 1, 7)
+        for value, quote_date in ((7.25, date(2026, 1, 1)), (7.25, date(2026, 1, 8))):
+            with patch.object(
+                PortfolioService, "_fetch_fx_rate_from_yfinance",
+                return_value=(value, quote_date),
+            ), patch.object(self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate) as save:
+                summary = self.service.refresh_fx_rates(account_id=aid, as_of=requested)
+            self.assertEqual(summary["updated_count"], 0)
+            self.assertEqual(summary["stale_count"], 1)
+            self.assertEqual(summary["error_count"], 0)
+            save.assert_not_called()
+        self.assertIsNone(self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=requested,
+        ))
+
+    def test_fx_refresh_rejects_undated_legacy_and_nonfinite_quote(self) -> None:
+        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=100.0, currency="USD",
+        )
+        for untrusted in (7.25, (float("nan"), date(2026, 1, 2)), (0.0, date(2026, 1, 2)), (7.25, None)):
+            with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=untrusted), patch.object(
+                self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate,
+            ) as save:
+                summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 2))
+            self.assertEqual(summary["updated_count"], 0)
+            self.assertEqual(summary["error_count"], 1)
+            save.assert_not_called()
+
+    def test_yahoo_daily_quote_requires_real_source_timestamp(self) -> None:
+        with patch("src.services.portfolio_service.yf") as fake_yahoo:
+            history = pd.DataFrame(
+                {"Close": [7.0, 7.25]},
+                index=pd.DatetimeIndex(["2026-01-01", "2026-01-02"], tz="UTC"),
+            )
+            fake_yahoo.Ticker.return_value.history.return_value = history
+            quote = PortfolioService._fetch_fx_rate_from_yfinance(
+                from_currency="USD", to_currency="CNY", as_of_date=date(2026, 1, 3),
+            )
+            self.assertEqual(quote, (7.25, date(2026, 1, 2)))
+            # A dated quote beyond the requested point-in-time is unsafe.
+            self.assertIsNone(PortfolioService._fetch_fx_rate_from_yfinance(
+                from_currency="USD", to_currency="CNY", as_of_date=date(2025, 12, 31),
+            ))
+            fake_yahoo.Ticker.return_value.history.return_value = pd.DataFrame(
+                {"Close": [float("nan")]},
+                index=pd.DatetimeIndex(["2026-01-02"], tz="UTC"),
+            )
+            self.assertIsNone(PortfolioService._fetch_fx_rate_from_yfinance(
+                from_currency="USD", to_currency="CNY", as_of_date=date(2026, 1, 3),
+            ))
 
     def test_fx_refresh_disabled_returns_real_pair_count_without_fetching(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
