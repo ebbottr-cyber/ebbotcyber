@@ -173,6 +173,69 @@ class PortfolioServiceTestCase(unittest.TestCase):
         self.assertTrue(snapshot["fx_stale"])
         self.assertAlmostEqual(snapshot["total_cash"], 700.0)
 
+    def test_recorded_usd_cross_converts_hkd_and_jpy_without_live_display_quotes(self) -> None:
+        as_of = date(2026, 1, 2)
+        for from_currency, to_currency, rate in (
+            ("HKD", "USD", 0.125),
+            ("USD", "CNY", 7.0),
+            ("USD", "JPY", 150.0),
+        ):
+            self.service.repo.save_fx_rate(
+                from_currency=from_currency, to_currency=to_currency,
+                rate_date=as_of, rate=rate, source="unit-test", is_stale=False,
+            )
+        # HKD/USD is a direct leg; JPY/USD is the inverse of USD/JPY.
+        for amount, currency, expected in ((800, "HKD", 700.0), (150, "JPY", 7.0)):
+            converted, stale, source = self.service.convert_amount(
+                amount=amount, from_currency=currency,
+                to_currency="CNY", as_of_date=as_of,
+            )
+            self.assertAlmostEqual(converted, expected)
+            self.assertFalse(stale)
+            self.assertEqual(source, "usd_cross")
+
+    def test_missing_cross_leg_fails_with_original_currency_pair(self) -> None:
+        as_of = date(2026, 1, 2)
+        self.service.repo.save_fx_rate(
+            from_currency="KRW", to_currency="USD",
+            rate_date=as_of, rate=0.00075, source="unit-test", is_stale=False,
+        )
+        with self.assertRaises(PortfolioFxRateUnavailableError) as ctx:
+            self.service.convert_amount(
+                amount=1000, from_currency="KRW", to_currency="CNY", as_of_date=as_of,
+            )
+        self.assertEqual((ctx.exception.from_currency, ctx.exception.to_currency), ("KRW", "CNY"))
+        # A tiny but nonzero amount cannot bypass missing second-leg evidence.
+        with self.assertRaises(PortfolioFxRateUnavailableError):
+            self.service.convert_amount(
+                amount=0.0000001, from_currency="KRW",
+                to_currency="CNY", as_of_date=as_of,
+            )
+
+    def test_usd_cross_stale_leg_marks_portfolio_snapshot_unusable_for_risk(self) -> None:
+        as_of = date(2026, 1, 5)
+        account = self.service.create_account(
+            name="Hong Kong", broker="Demo", market="hk", base_currency="HKD",
+        )
+        self.service.record_cash_ledger(
+            account_id=account["id"], event_date=date(2026, 1, 1),
+            direction="in", amount=800, currency="HKD",
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="HKD", to_currency="USD", rate_date=as_of,
+            rate=0.125, source="unit-test", is_stale=False,
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY", rate_date=date(2026, 1, 1),
+            rate=7.0, source="unit-test", is_stale=False,
+        )
+        snapshot = self.service.get_portfolio_snapshot(
+            account_id=account["id"], as_of=as_of, include_realtime=False,
+        )
+        self.assertAlmostEqual(snapshot["total_cash"], 700.0)
+        self.assertTrue(snapshot["fx_stale"])
+        self.assertFalse(snapshot["accounts"][0]["fx_stale"])
+
     def test_current_snapshot_uses_realtime_price_when_close_missing(self) -> None:
         today = date.today()
         account = self.service.create_account(name="Main", broker="Demo", market="cn", base_currency="CNY")
