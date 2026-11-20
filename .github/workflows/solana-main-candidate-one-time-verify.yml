@@ -22,13 +22,15 @@ jobs:
     steps:
       - name: Checkout actual MAIN tool at pinned base commit
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Verify tool is unchanged from audited main baseline
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "90e9e6ce5f0659ff09c6d49bea58cc9134f879d1"
+          git merge-base --is-ancestor 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1 HEAD
           test -f scripts/prepare_solana_reviewed_report.py
-          git diff --quiet HEAD^ HEAD -- scripts/prepare_solana_reviewed_report.py scripts/validate_solana_history.py apps/dsa-web/public/solana-quality-reviewed.json
+          git diff --quiet 90e9e6ce5f0659ff09c6d49bea58cc9134f879d1 HEAD -- scripts/prepare_solana_reviewed_report.py scripts/validate_solana_history.py apps/dsa-web/public/solana-quality-reviewed.json
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
