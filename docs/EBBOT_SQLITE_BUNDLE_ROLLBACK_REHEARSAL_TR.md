@@ -18,6 +18,10 @@
 
 `rehearseSqlitePromotion()`, `recoverInterruptedSqlitePromotion()`, `rollbackCompletedSqlitePromotion()` senaryoları `node --test tests/*.test.js` içerisinde çalışır. Başarı, yarıda kesilen iki rename, kilitli hedefi taklit eden hata, önceki dosyaları kurtarma, istenmeyen WAL/SHM'yi reddetme ve mevcut kullanıcı dosyalarına erişmeme durumları ayrı test edilir.
 
+Windows kilitlenme sınırları için üç ek negatif test eklendi: ilk klasör taşıması `EBUSY` ile reddedildiğinde mevcut üçlünün yerinde kalması; ikinci taşıma ve eski klasörü geri alma işlemleri birlikte kilitlendiğinde eski üçlünün `previous/` altında korunması; yeniden başlatma kurtarmasında `EACCES` görülürse geri alma talebinin başarısız kalıp verileri silmemesi. Böylece toplam **13** sentetik Electron kurtarma senaryosu vardır.
+
+Ayrıca Windows gerçek paketleme akışındaki imza kolektörü için önceki bir native komuttan kalan `$LASTEXITCODE` kontrolü kaldırıldı. Saf PowerShell kolektörünün hatası artık PowerShell'in sonlandırıcı exception'ı ve JSON çıktısının varlığı ile denetleniyor. Kaynak CI'da önce `cmd.exe` ile bilerek sıfır olmayan bir çıkış kodu oluşturup ardından üç **sentetik, imzasız** .exe üzerinde Authenticode kolektörünün çalışması ve yayın sonucunun `BLOCKED` olması doğrulanıyor.
+
 **Gerçek kullanıcı dosyaları üzerinde bu yöntem denenmez ve mevcut yedek restore fonksiyonlarına dahil edilmez.**
 
 ## Ne kanıtlamaz?
