@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - test/ebbot-windows-electron-offline-package-20261120
+      - security/ebbot-desktop-identity-updater-block-20261120
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
+      - test/ebbot-windows-electron-offline-package-20261120
 
 permissions:
   contents: read
