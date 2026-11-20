@@ -52,6 +52,6 @@ jobs:
       - name: Install isolated FX test dependency
         run: python -m pip install pytest
       - name: Verify fail-closed TRY cross rates
-        run: python -m pytest -q scripts/test_portfolio_display_fx_standalone.py
+        run: python -m pytest -q scripts/test_portfolio_display_fx_standalone.py scripts/test_portfolio_fx_fail_closed_standalone.py
       - name: Compile Python display API modules
-        run: python -m compileall -q src/services/portfolio_display_fx.py api/v1/schemas/portfolio.py api/v1/endpoints/portfolio.py
+        run: python -m compileall -q src/services/portfolio_display_fx.py src/services/portfolio_service.py src/services/portfolio_risk_service.py api/v1/schemas/portfolio.py api/v1/endpoints/portfolio.py
