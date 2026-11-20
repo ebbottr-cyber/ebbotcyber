@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.prepare_solana_reviewed_report import main, prepare_candidate
+from scripts.prepare_solana_reviewed_report import main, prepare_candidate, verify_source_conclusions
 from scripts.validate_solana_history import ObservationValidationError
 
 MINT_A = "So11111111111111111111111111111111111111112"
@@ -204,6 +204,40 @@ def test_requires_utc_timestamp(tmp_path, timestamp):
         )
 
 
+def test_source_conclusions_are_cross_checked_and_failed_run_stays_degraded(tmp_path):
+    result = candidate(tmp_path, missing=True)
+    valid = {"44779967482": "success", "44777830658": "failure"}
+    verify_source_conclusions(result, valid)
+
+    with pytest.raises(ObservationValidationError, match="disagrees"):
+        verify_source_conclusions(result, {
+            "44779967482": "success", "44777830658": "success",
+        })
+    with pytest.raises(ObservationValidationError, match="disagrees"):
+        verify_source_conclusions(result, {
+            "44779967482": "failure", "44777830658": "failure",
+        })
+    with pytest.raises(ObservationValidationError, match="conclusion IDs"):
+        verify_source_conclusions(result, {"44779967482": "success"})
+    with pytest.raises(ObservationValidationError, match="Only completed"):
+        verify_source_conclusions(result, {
+            "44779967482": "success", "44777830658": "cancelled",
+        })
+
+
+def test_cli_rejects_mislabeled_failed_source_before_writing(monkeypatch, tmp_path):
+    path = write_json(tmp_path, "degraded.json", observation_fixture(missing=True))
+    out = tmp_path / "candidate.json"
+    monkeypatch.setattr("sys.argv", [
+        "prepare", "--capture", f"44777830658={path}",
+        "--source-conclusion", "44777830658=success",
+        "--audit-run-id", AUDIT_ID, "--audited-at-utc", DATE,
+        "--output", str(out),
+    ])
+    assert main() == 1
+    assert not out.exists()
+
+
 def test_cli_never_writes_public_report_and_invalid_input_does_not_create_file(
     monkeypatch, tmp_path,
 ):
@@ -211,6 +245,7 @@ def test_cli_never_writes_public_report_and_invalid_input_does_not_create_file(
     candidate_path = tmp_path / "candidate.json"
     monkeypatch.setattr("sys.argv", [
         "prepare", "--capture", f"44779967482={path}",
+        "--source-conclusion", "44779967482=success",
         "--audit-run-id", AUDIT_ID, "--audited-at-utc", DATE,
         "--output", str(candidate_path),
     ])
@@ -219,6 +254,7 @@ def test_cli_never_writes_public_report_and_invalid_input_does_not_create_file(
     candidate_path.unlink()
     monkeypatch.setattr("sys.argv", [
         "prepare", "--capture", "44779967482=/nonexistent/file.json",
+        "--source-conclusion", "44779967482=success",
         "--audit-run-id", AUDIT_ID, "--audited-at-utc", DATE,
         "--output", str(candidate_path),
     ])
@@ -226,6 +262,7 @@ def test_cli_never_writes_public_report_and_invalid_input_does_not_create_file(
     assert not candidate_path.exists()
     monkeypatch.setattr("sys.argv", [
         "prepare", "--capture", f"44779967482={path}",
+        "--source-conclusion", "44779967482=success",
         "--audit-run-id", AUDIT_ID, "--output",
         str(tmp_path / "solana-quality-reviewed.json"),
     ])
