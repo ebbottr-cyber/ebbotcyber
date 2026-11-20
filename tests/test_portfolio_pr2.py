@@ -508,6 +508,11 @@ class PortfolioPr2TestCase(unittest.TestCase):
             currency="USD",
         )
         self._save_close("AAPL", date(2026, 1, 1), 100.0)
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY",
+            rate_date=date(2026, 1, 1), rate=7.0,
+            source="unit-test", is_stale=False,
+        )
         report = self.risk_service.get_risk_report(account_id=us_id, as_of=date(2026, 1, 1), cost_method="fifo")
         self.assertIn("sector_concentration", report)
         sectors = report["sector_concentration"]["top_sectors"]
@@ -713,7 +718,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
                 params={"account_id": aid, "as_of": "2026-01-02", "include_realtime": "false"},
             )
             self.assertEqual(response.status_code, 503, response.text)
-            self.assertEqual(response.json()["detail"]["error"], "portfolio_fx_rate_unavailable")
+            self.assertEqual(response.json()["error"], "portfolio_fx_rate_unavailable")
 
     def test_snapshot_does_not_trigger_online_fx_refresh(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
