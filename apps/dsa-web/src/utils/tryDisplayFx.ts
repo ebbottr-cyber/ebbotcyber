@@ -65,7 +65,7 @@ export function formatTryDisplay(
     || !Number.isFinite(quote.tryPerUnit)
     || quote.tryPerUnit <= 0
     || !Number.isFinite(now.getTime())
-    || !/^\\d{4}-\\d{2}-\\d{2}$/.test(quote.asOfDate)) return fallback;
+    || !/^\d{4}-\d{2}-\d{2}$/.test(quote.asOfDate)) return fallback;
 
   const rateDayMs = Date.parse(`${quote.asOfDate}T00:00:00.000Z`);
   if (!Number.isFinite(rateDayMs)
