@@ -77,6 +77,38 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  portfolio-fx-frontend-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install frontend from lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Portfolio FX fail-closed component regressions and TypeScript
+        shell: bash
+        run: |
+          set -o pipefail
+          npx vitest run src/pages/__tests__/PortfolioPage.test.tsx 2>&1 | tee portfolio-fx-vitest.log
+          npx tsc -b --pretty false 2>&1 | tee portfolio-tsc.log
+      - name: Preserve portfolio FX regression logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-fx-frontend-pr101
+          path: |
+            apps/dsa-web/portfolio-fx-vitest.log
+            apps/dsa-web/portfolio-tsc.log
+          if-no-files-found: warn
+          retention-days: 7
+
   playwright-all-fixtures:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
