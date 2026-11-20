@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "mode": "reviewed_github_actions_archive_quality",
-  "audited_at_utc": "2026-11-20T18:21:11Z",
-  "audit_run_id": "44791912581",
+  "audited_at_utc": "2026-11-20T20:19:04Z",
+  "audit_run_id": "44810245554",
   "quality_result": "degraded_capture_data",
   "capture_count": 2,
   "total_priced_rows": 9,
