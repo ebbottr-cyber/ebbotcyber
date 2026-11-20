@@ -805,6 +805,56 @@ describe('DecisionSignalsPage', () => {
     await waitFor(() => expect(decisionSignalsApi.getLatest).toHaveBeenCalledTimes(2));
   });
 
+  it('keeps a historical refreshed signal outside the default timeline but reloads latest', async () => {
+    const refreshedItem = makeSignal({
+      id: 90,
+      // A refreshed historical creation date must not be silently rewritten to today.
+      createdAt: new Date(Date.now() - 120 * 86_400_000).toISOString(),
+      decisionProfile: 'balanced',
+      sourceAgent: null,
+      triggerSource: 'api',
+      action: 'buy',
+      status: 'active',
+      metadata: {
+        decision_profile: 'balanced',
+        profile_source: 'user_selected',
+        signal_generation_version: 'decision-profile-reassess-v1',
+      },
+    });
+    let persisted = false;
+    vi.mocked(decisionSignalsApi.reassess).mockImplementation(async (request) => {
+      if (!request.persist) return persistableReassessResponse;
+      persisted = true;
+      return {
+        preview: null,
+        item: refreshedItem,
+        created: false,
+        persistStatus: 'refreshed',
+        warnings: [],
+        blockedReason: null,
+      };
+    });
+    vi.mocked(decisionSignalsApi.list).mockImplementation(async () => (
+      listResponse(persisted ? [refreshedItem, signal] : [signal])
+    ));
+    vi.mocked(decisionSignalsApi.getLatest).mockImplementation(async () => (
+      listResponse(persisted ? [refreshedItem, signal] : [signal])
+    ));
+
+    renderPage();
+    await screen.findByText('贵州茅台');
+    submitCurrentStock('600519');
+    // Wait for the initial timeline to establish its applied filter context before
+    // asserting that a persisted reassessment refreshes the active timeline.
+    await screen.findByTestId('timeline-click-7');
+    await persistReassessFromFirstSignal();
+
+    expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();
+    expect(screen.getByText(/DecisionSignal #90 已按存储契约完成过期续期或缺失维度补齐/)).toBeInTheDocument();
+    expect(screen.queryByTestId('timeline-click-90')).not.toBeInTheDocument();
+    await waitFor(() => expect(decisionSignalsApi.getLatest).toHaveBeenCalledTimes(2));
+  });
+
   it('keeps a terminal existing item terminal and does not inject it into active views', async () => {
     const terminalItem = makeSignal({
       id: 91,
