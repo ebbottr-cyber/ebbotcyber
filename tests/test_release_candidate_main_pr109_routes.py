@@ -44,10 +44,12 @@ def test_radar_scan_is_disabled_by_default_even_when_both_panels_exist(monkeypat
 
 def test_release_candidate_environment_example_defaults_to_no_scans():
     sample = (ROOT / ".env.example").read_text(encoding="utf-8")
-    for key in ("MEME_RADAR_LIVE_ENABLED", "MEME_COIN_DISCOVERY_ENABLED", "SCHEDULE_ENABLED"):
-        assert re.search(rf"^{key}=false\s*$", sample, flags=re.MULTILINE | re.IGNORECASE), (
-            f"{key} must be disabled in the public sample"
-        )
+    # Unregistered opt-in keys are safe as commented examples, not active
+    # WebUI settings. Absence is intentionally OFF in both services.
+    for key in ("MEME_RADAR_LIVE_ENABLED", "MEME_COIN_DISCOVERY_ENABLED"):
+        assert re.search(rf"^#\s*{key}=false\s*$", sample, flags=re.MULTILINE | re.IGNORECASE)
+        assert not re.search(rf"^{key}\s*=", sample, flags=re.MULTILINE)
+    assert re.search(r"^SCHEDULE_ENABLED=false\s*$", sample, flags=re.MULTILINE | re.IGNORECASE)
     assert "LLM_MODELFLARE_PROTOCOL" in sample
     assert "LLM_MODELFLARE_BASE_URL" in sample
     assert "LLM_MODELFLARE_MODELS" in sample
