@@ -12,6 +12,7 @@ GitHub → **Actions** → **Solana fixed-mint time-spaced observations (read on
 - Her gözlemde GoPlus risk kontrolü yeniden sorgulanır. Bilgi eksikse mevcut EBBot risk motoru sonucu engeller; güvenli kabul edilmez.
 - Fiyat, likidite, hacim, beş dakikalık alım-satım sayıları, gözlem zaman damgası ve iki stratejinin izleme/engelleme nedeni kaydedilir.
 - Başarısız veya eksik fiyatlar için uydurma 0 USD fiyat konmaz; `missing_price` olarak işaretlenir. Ağ hataları `degraded` sonucuna dönüşür.
+- Asgari likidite eşiği yalnızca **ilk coin seçiminde** geçerlidir. Sonradan likidite düşerse mevcut piyasa fiyatı yine kaydedilir ancak risk motoru coini engeller; düşük likidite yanlışlıkla fiyat yok diye işaretlenmez.
 
 ## Sonuç nereye kaydediliyor?
 
