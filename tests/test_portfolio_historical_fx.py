@@ -25,10 +25,11 @@ class DatedHistoricalFxTestCase(unittest.TestCase):
             index=pd.DatetimeIndex(timestamps, tz=timezone),
         )
 
-    def fetch(self, target: date = date(2026, 1, 4)):
+    def fetch(self, target: date = date(2026, 1, 4), *, current_utc_date=None):
         return fetch_dated_yahoo_fx_close(
             from_currency="USD", to_currency="CNY",
             as_of_date=target, provider=self.provider,
+            current_utc_date=current_utc_date,
         )
 
     def test_weekend_uses_friday_source_date_instead_of_sunday(self) -> None:
@@ -65,6 +66,48 @@ class DatedHistoricalFxTestCase(unittest.TestCase):
             with self.subTest(price=price):
                 self._set_bars(["2026-01-02"], [price])
                 self.assertIsNone(self.fetch())
+
+    def test_today_daily_bar_excluded_even_with_valid_close(self) -> None:
+        today = date(2026, 11, 20)
+        self._set_bars(["2026-11-19", "2026-11-20"], [7.0, 7.5])
+        # The newest bar may still be changing even if its price is finite.
+        self.assertEqual(self.fetch(today, current_utc_date=today), (7.0, date(2026, 11, 19)))
+
+    def test_today_only_daily_candle_never_masquerades_as_final_close(self) -> None:
+        today = date(2026, 11, 20)
+        self._set_bars(["2026-11-20"], [7.5])
+        self.assertIsNone(self.fetch(today, current_utc_date=today))
+
+    def test_past_asof_date_accepts_same_date_historical_close(self) -> None:
+        today = date(2026, 11, 20)
+        self._set_bars(["2026-11-18", "2026-11-19"], [7.0, 7.3])
+        self.assertEqual(
+            self.fetch(date(2026, 11, 19), current_utc_date=today),
+            (7.3, date(2026, 11, 19)),
+        )
+
+    def test_today_market_timezone_date_is_not_converted_to_utc_date(self) -> None:
+        today = date(2026, 11, 20)
+        self._set_bars(
+            ["2026-11-19 16:00", "2026-11-20 21:00"],
+            [7.0, 7.5], timezone="America/New_York",
+        )
+        self.assertEqual(self.fetch(today, current_utc_date=today), (7.0, date(2026, 11, 19)))
+
+    def test_weekend_uses_friday_and_rejects_any_sunday_provisional_bar(self) -> None:
+        sunday = date(2026, 11, 22)
+        self._set_bars(["2026-11-20", "2026-11-22"], [7.1, 8.0])
+        self.assertEqual(self.fetch(sunday, current_utc_date=sunday), (7.1, date(2026, 11, 20)))
+
+    def test_future_bar_does_not_silently_fallback_to_older_bar(self) -> None:
+        today = date(2026, 11, 20)
+        self._set_bars(["2026-11-19", "2026-11-21"], [7.0, 7.5])
+        self.assertIsNone(self.fetch(today, current_utc_date=today))
+
+    def test_current_day_with_nonfinite_price_keeps_prior_valid_close(self) -> None:
+        today = date(2026, 11, 20)
+        self._set_bars(["2026-11-19", "2026-11-20"], [7.0, float("nan")])
+        self.assertEqual(self.fetch(today, current_utc_date=today), (7.0, date(2026, 11, 19)))
 
     def test_missing_provider_or_unverifiable_index_fails_closed(self) -> None:
         self.assertIsNone(fetch_dated_yahoo_fx_close(

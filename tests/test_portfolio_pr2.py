@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -1015,6 +1015,70 @@ class PortfolioPr2TestCase(unittest.TestCase):
         )
         self.assertAlmostEqual(value, 710.0)
         self.assertTrue(is_stale)
+
+    def test_today_yahoo_partial_daily_candle_is_not_saved_in_portfolio(self) -> None:
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+        account = self.service.create_account(
+            name="USD", broker="Demo", market="us", base_currency="CNY",
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=yesterday,
+            direction="in", amount=100.0, currency="USD",
+        )
+        # The provider advertises a newer 'Close' for today, but it has no
+        # finalized marker and must not become today's persisted FX rate.
+        history = pd.DataFrame(
+            {"Close": [7.1, 9.9]},
+            index=pd.DatetimeIndex(
+                [yesterday.isoformat(), today.isoformat()], tz="UTC",
+            ),
+        )
+        with patch("src.services.portfolio_service.yf") as fake_yahoo:
+            fake_yahoo.Ticker.return_value.history.return_value = history
+            summary = self.service.refresh_fx_rates(account_id=aid, as_of=today)
+        self.assertEqual(summary["updated_count"], 1)
+        latest = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=today,
+        )
+        self.assertIsNotNone(latest)
+        self.assertEqual(latest.rate_date, yesterday)
+        self.assertAlmostEqual(latest.rate, 7.1)
+        self.assertEqual(latest.source, "yfinance")
+        self.assertFalse(latest.is_stale)
+        value, stale, _ = self.service.convert_amount(
+            amount=100, from_currency="USD", to_currency="CNY", as_of_date=today,
+        )
+        self.assertAlmostEqual(value, 710.0)
+        self.assertFalse(stale)
+
+    def test_today_only_unclosed_bar_keeps_fx_unavailable_and_does_not_write(self) -> None:
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+        account = self.service.create_account(
+            name="USD", broker="Demo", market="us", base_currency="CNY",
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=yesterday,
+            direction="in", amount=100.0, currency="USD",
+        )
+        history = pd.DataFrame(
+            {"Close": [9.9]},
+            index=pd.DatetimeIndex([today.isoformat()], tz="UTC"),
+        )
+        with patch("src.services.portfolio_service.yf") as fake_yahoo, patch.object(
+            self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate,
+        ) as save_quote:
+            fake_yahoo.Ticker.return_value.history.return_value = history
+            summary = self.service.refresh_fx_rates(account_id=aid, as_of=today)
+            save_quote.assert_not_called()
+        self.assertEqual(summary["updated_count"], 0)
+        self.assertEqual(summary["error_count"], 1)
+        self.assertIsNone(self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=today,
+        ))
 
     def test_fx_refresh_disabled_returns_real_pair_count_without_fetching(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
