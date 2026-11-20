@@ -5,8 +5,13 @@ on:
     branches:
       - review/ebbot-3lu-entegrasyon-20261118
       - fix/turkish-ui-chat-20261118
+      - feature/portfolio-try-multicurrency-fx-20261120
     paths:
       - 'apps/dsa-web/**'
+      - 'src/services/portfolio_service.py'
+      - 'src/services/portfolio_risk_service.py'
+      - 'tests/test_portfolio_service.py'
+      - 'tests/test_portfolio_pr2.py'
       - '.github/workflows/ebbot-turkish-ui.yml'
   push:
     branches:

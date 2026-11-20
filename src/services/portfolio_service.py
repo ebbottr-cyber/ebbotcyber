@@ -1495,6 +1495,33 @@ class PortfolioService:
             stale = bool(inverse.is_stale) or inverse_age is None or not (0 <= inverse_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
             return float(amount) / float(inverse.rate), stale, "inverse_rate"
 
+        # Bridge only through *recorded*, date-qualified USD rates. The
+        # 30-minute indicative display feed never enters risk/ledger storage.
+        # Convert unit values on both legs so a very small intermediate amount
+        # cannot skip a missing quote through the zero-amount shortcut.
+        if from_norm != "USD" and to_norm != "USD":
+            try:
+                first_rate, first_stale, _ = self._convert_amount(
+                    amount=1.0,
+                    from_currency=from_norm,
+                    to_currency="USD",
+                    as_of_date=as_of_date,
+                )
+                second_rate, second_stale, _ = self._convert_amount(
+                    amount=1.0,
+                    from_currency="USD",
+                    to_currency=to_norm,
+                    as_of_date=as_of_date,
+                )
+            except PortfolioFxRateUnavailableError:
+                # Preserve requested pair in the outward-facing 503 response.
+                pass
+            else:
+                converted = float(amount) * first_rate * second_rate
+                if not math.isfinite(converted):
+                    raise ValueError("FX conversion produced a non-finite amount")
+                return converted, bool(first_stale or second_stale), "usd_cross"
+
         # A missing currency pair has no meaningful conversion rate. Earlier
         # versions returned the unchanged amount, silently treating FX as 1:1.
         # That can corrupt portfolio totals and concentration/drawdown metrics.

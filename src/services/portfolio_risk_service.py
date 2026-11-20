@@ -311,12 +311,23 @@ class PortfolioRiskService:
                     continue
                 market_value = float(pos.get("market_value_base") or 0.0)
                 valuation_currency = str(pos.get("valuation_currency") or account.get("base_currency") or "CNY")
-                converted, _, _ = self.portfolio_service.convert_amount(
+                converted, rate_stale, _ = self.portfolio_service.convert_amount(
                     amount=market_value,
                     from_currency=valuation_currency,
                     to_currency="CNY",
                     as_of_date=as_of_date,
                 )
+                if rate_stale:
+                    # Re-check position FX even when a caller marks its snapshot
+                    # fresh; never publish a misleading concentration percentage.
+                    return {
+                        "available": False,
+                        "fx_stale": True,
+                        "total_market_value": None,
+                        "top_weight_pct": None,
+                        "alert": None,
+                        "top_positions": [],
+                    }
                 exposure_by_symbol[symbol] = exposure_by_symbol.get(symbol, 0.0) + converted
 
         rows = []
@@ -380,12 +391,23 @@ class PortfolioRiskService:
 
                 market_value = float(pos.get("market_value_base") or 0.0)
                 valuation_currency = str(pos.get("valuation_currency") or account.get("base_currency") or "CNY")
-                converted, _, _ = self.portfolio_service.convert_amount(
+                converted, rate_stale, _ = self.portfolio_service.convert_amount(
                     amount=market_value,
                     from_currency=valuation_currency,
                     to_currency="CNY",
                     as_of_date=as_of_date,
                 )
+                if rate_stale:
+                    return {
+                        "available": False,
+                        "fx_stale": True,
+                        "total_market_value": None,
+                        "top_weight_pct": None,
+                        "alert": None,
+                        "top_sectors": [],
+                        "coverage": {"classified_count": 0, "unclassified_count": 0, "failed_count": 0},
+                        "errors": ["fx_rate_stale"],
+                    }
 
                 sector = self._resolve_primary_sector(
                     symbol=symbol,
