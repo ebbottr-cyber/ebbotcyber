@@ -9,6 +9,8 @@ on:
       - 'scripts/scan_solana_meme.py'
       - 'api/v1/endpoints/meme_coins.py'
       - 'tests/test_solana_meme*.py'
+      - 'apps/dsa-web/public/solana-quality-reviewed.json'
+      - 'apps/dsa-web/e2e/fixtures/solana-reviewed-quality.spec.ts'
       - 'apps/dsa-web/src/components/meme/**'
       - 'apps/dsa-web/src/pages/MemeCoinsPage.tsx'
       - 'apps/dsa-web/src/pages/__tests__/MemeCoinsPage.test.tsx'
@@ -51,3 +53,29 @@ jobs:
         run: npx vitest run src/pages/__tests__/MemeCoinsPage.test.tsx src/components/meme/__tests__/SolanaArchiveQuality.test.tsx
       - name: Typecheck
         run: npx tsc -p tsconfig.app.json --noEmit
+
+  web-quality-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Install supported Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify reviewed JSON and fail-closed UI in real browser
+        run: npx playwright test --config playwright.fixture.config.ts e2e/fixtures/solana-reviewed-quality.spec.ts
+      - name: Retain screenshots only (no raw market prices)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-reviewed-quality-browser-no-orders
+          path: apps/dsa-web/test-results/fixtures/
+          if-no-files-found: warn
+          retention-days: 7
