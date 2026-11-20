@@ -1,4 +1,4 @@
-"""One-off read-only snapshot of main + PR122 merge feasibility.
+"""One-off read-only snapshot of Solana anti-replay main + PR122 merge feasibility.
 
 This audit never merges upstream PRs, pushes a branch, starts the scheduler,
 touches a ledger or routes data to trading. The release gate is always false
@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-MAIN_SHA = "90e9e6ce5f0659ff09c6d49bea58cc9134f879d1"
+MAIN_SHA = "68f9d1652f81a3edf70784526d18578c772fe922"
 PR122_SHA = "f73ce5d7fcea9255822239420ed61d12521e3493"
 REPO = "ebbottr-cyber/ebbotcyber"
 VALID_SHA = re.compile(r"^[a-f0-9]{40}$")
