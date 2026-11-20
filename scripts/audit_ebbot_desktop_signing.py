@@ -106,10 +106,32 @@ def audit(policy: dict, observation: dict, *, at: datetime | None = None) -> dic
     }
 
 
+
+def ci_contract_violations(policy: dict, observation: dict) -> list[str]:
+    """CI must fail on missing executables, tampered policy or approved signers."""
+    issues: list[str] = []
+    if policy.get("release_enabled") is not False:
+        issues.append("Release must be disabled")
+    if policy.get("approved_signer_thumbprints") != []:
+        issues.append("Signing readiness CI must not preapprove a publisher certificate")
+    if policy.get("required_targets") != list(TARGETS):
+        issues.append("Signing policy does not require the three expected files")
+    signatures = observation.get("signatures")
+    if not isinstance(signatures, dict) or set(signatures) != set(TARGETS):
+        issues.append("Wrong or missing executable observations")
+    else:
+        for name in TARGETS:
+            if not isinstance(signatures[name], dict) or signatures[name].get("present") is not True:
+                issues.append(f"Missing executable: {name}")
+    return issues
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--observation", required=True, type=Path)
     parser.add_argument("--policy", type=Path, default=ROOT / ".github/ebbot-desktop-signing-policy.json")
+    parser.add_argument("--enforce-ci-contracts", action="store_true",
+                        help="Require all three executables and disabled/unapproved release policy")
     parser.add_argument("--strict-signature", action="store_true",
                         help="Non-zero unless all local executables have trusted pinned signatures")
     parser.add_argument("--json", action="store_true")
@@ -118,12 +140,15 @@ def main() -> int:
         policy = json.loads(args.policy.read_text(encoding="utf-8"))
         observation = json.loads(args.observation.read_text(encoding="utf-8"))
         result = audit(policy, observation)
+        result["ci_contract_violations"] = ci_contract_violations(policy, observation)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(json.dumps({"release_status": "BLOCKED", "signing_validation": "BLOCKED",
                           "inspection_error": str(exc)}, ensure_ascii=False))
         return 1
     print(json.dumps(result, indent=2, ensure_ascii=False) if args.json else
           f"Signature verification: {result['signing_validation']}; release: BLOCKED")
+    if args.enforce_ci_contracts and result["ci_contract_violations"]:
+        return 1
     return int(bool(args.strict_signature and result["signing_validation"] != "PASSED"))
 
 
