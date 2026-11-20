@@ -11,7 +11,7 @@ Source baseline: [GitHub Actions 44777662257](https://github.com/ebbottr-cyber/e
 3. **Sidebar (1)**: new Overview and Xetra links legitimately appear. The test checks the actual required relation, **Chat immediately followed by Screening**, and the continued presence of Portfolio / Decision Signals instead of relying on absolute array positions. None of the routes was removed.
 4. **Notification Test (1)**: Turkish channel label is `E-posta`, not `Email`. Test asserts correct Turkish label and absence of the English one. Notification send behavior unchanged.
 5. **Theme bootstrap (1)**: actual default `index.html` theme is light and explicitly honors saved dark/light. Test source assertion now expects the actual light default. No theme policy changed.
-6. **UI governance (1)**: native HTML `title` found in language toggle and Desktop Update indicator. Removed redundant titles from language status/toggle; desktop update retains tooltip text as accessible `aria-description` on its icon button. This passes policy without weakening the prohibited-title check.
+6. **UI governance (1)**: native HTML `title` found in language toggle and Desktop Update indicator. Removed redundant titles from language status/toggle; desktop update retains tooltip text as accessible `aria-description` on its icon button and a custom hover/focus Tooltip (tested with the 42% download-progress state). This passes policy without weakening the prohibited-title check.
 7. **Test collection**: excluded exactly the Node-only PWA smoke from Vitest's test discovery. `npm run test:pwa` is kept and executed separately; no application tests are excluded.
 
 ## Validation / release restrictions
