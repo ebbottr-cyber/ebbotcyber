@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
@@ -170,6 +171,19 @@ class WindowsPortfolioPreflightTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as captured:
             probe.main(["--mode", "desktop"])
         self.assertEqual(captured.exception.code, 2)
+
+    def test_windows_cp1252_console_still_emits_utf8_turkish_json(self):
+        output = io.BytesIO()
+        cp1252_stdout = io.TextIOWrapper(output, encoding="cp1252", write_through=True)
+        with patch.object(probe.sys, "stdout", cp1252_stdout), patch.object(
+            probe, "check_sources", return_value=[
+                probe.Check("source_files", "ok", "Türkçe doğrulandı"),
+            ],
+        ):
+            rc = probe.main(["--mode", "source", "--json"])
+            cp1252_stdout.flush()
+        self.assertEqual(rc, 0)
+        self.assertEqual(json.loads(output.getvalue().decode("utf-8"))["checks"][0]["detail"], "Türkçe doğrulandı")
 
     def test_redirect_to_external_site_is_never_followed(self):
         # No listener or actual network required: fake an HTTP redirect opener.
