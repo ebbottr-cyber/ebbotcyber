@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import apiClient from '../index';
 import { memeRadarApi } from '../memeRadar';
 
+const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('../index', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get, post },
 }));
 
 describe('read-only Radar and strategy namespaces', () => {
@@ -12,30 +12,30 @@ describe('read-only Radar and strategy namespaces', () => {
   });
 
   it('fetches only the independent Radar status endpoint', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
+    get.mockResolvedValue({
       data: {
         available: true, live_enabled: false, trading_enabled: false,
         strategies: ['new_coin_hunter', 'momentum_watcher'],
       },
     });
     const result = await memeRadarApi.status();
-    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/meme-radar/status');
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(get).toHaveBeenCalledWith('/api/v1/meme-radar/status');
+    expect(post).not.toHaveBeenCalled();
     expect(result.trading_enabled).toBe(false);
     expect(result.live_enabled).toBe(false);
   });
 
   it('only uses manual Radar scan URI and never sends trade instructions', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({
+    post.mockResolvedValue({
       data: { enabled: true, trading_enabled: false, candidates: [], errors: [] },
     });
     const result = await memeRadarApi.scan(5);
-    expect(apiClient.post).toHaveBeenCalledWith(
+    expect(post).toHaveBeenCalledWith(
       '/api/v1/meme-radar/scan',
       { limit: 5 },
       { timeout: 90000 },
     );
-    expect(apiClient.get).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
     expect(result.trading_enabled).toBe(false);
   });
 });
