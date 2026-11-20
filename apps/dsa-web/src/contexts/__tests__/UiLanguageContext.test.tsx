@@ -116,8 +116,8 @@ describe('UiLanguageContext', () => {
 
     fireEvent.click(toggle);
 
-    expect(localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)).toBe('en');
-    expect(screen.getByRole('button', { name: 'Switch UI language' })).toBeInTheDocument();
-    expect(screen.getByText('English')).toBeInTheDocument();
+    expect(localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)).toBe('tr');
+    expect(screen.getByRole('button', { name: 'Arayüz dilini değiştir' })).toBeInTheDocument();
+    expect(screen.getByText('Türkçe')).toBeInTheDocument();
   });
 });
