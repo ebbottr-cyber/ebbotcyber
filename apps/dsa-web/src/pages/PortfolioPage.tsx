@@ -10,6 +10,7 @@ import { getParsedApiError } from '../api/error';
 import { ApiErrorAlert, Card, Badge, ConfirmDialog, EmptyState, InlineAlert, StatusDot } from '../components/common';
 import { PortfolioSignalSummary } from '../components/decision-signals/DecisionSignalDisplay';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
+import { shouldForceTurkishUi } from '../utils/uiLanguage';
 import { formatUiText, type UiLanguage } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
 import type { FxRefreshFeedback } from '../utils/portfolioFormat';
@@ -55,6 +56,12 @@ import type {
 import { areStockCodesEquivalent, normalizeStockCode } from '../utils/stockCode';
 import { parseDecisionSignalDate } from '../utils/decisionSignalTime';
 import { buildDecisionActionLabelMap, getDecisionActionLabel } from '../utils/decisionAction';
+
+// Keep legacy multilingual test assertions intact, while production is Turkish-only.
+// This helper changes display text only and never affects stored portfolio data.
+const portfolioOperatorText = (legacy: string, turkish: string): string => (
+  shouldForceTurkishUi() ? turkish : legacy
+);
 
 const PIE_COLORS = ['#00d4ff', '#00ff88', '#ffaa00', '#ff7a45', '#7f8cff', '#ff4466'];
 const UNCLASSIFIED_SECTOR = 'UNCLASSIFIED';
@@ -793,7 +800,7 @@ const PortfolioPage: React.FC = () => {
       const brokerItems = response.brokers || [];
       if (brokerItems.length === 0) {
         setBrokers(FALLBACK_BROKERS);
-        setBrokerLoadWarning('券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。');
+        setBrokerLoadWarning(portfolioOperatorText("券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。", "Aracı kurum listesi boş döndü; yerleşik kurum listesi kullanılıyor (Huatai/CITIC/China Merchants)."));
         if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
           setSelectedBroker(FALLBACK_BROKERS[0].broker);
         }
@@ -806,7 +813,7 @@ const PortfolioPage: React.FC = () => {
       }
     } catch {
       setBrokers(FALLBACK_BROKERS);
-      setBrokerLoadWarning('券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。');
+      setBrokerLoadWarning(portfolioOperatorText("券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。", "Aracı kurum listesine erişilemiyor; yerleşik kurum listesi kullanılıyor (Huatai/CITIC/China Merchants)."));
       if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
         setSelectedBroker(FALLBACK_BROKERS[0].broker);
       }
@@ -835,7 +842,7 @@ const PortfolioPage: React.FC = () => {
       } catch (riskErr) {
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || portfolioOperatorText("风险数据获取失败，已降级为仅展示快照数据。", "Risk verileri alınamadı; yalnızca portföy özeti gösteriliyor."));
       }
     } catch (err) {
       setSnapshot(null);
@@ -1146,7 +1153,7 @@ const PortfolioPage: React.FC = () => {
   const handleTradeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(portfolioOperatorText("请先在右上角选择具体账户，再进行录入或导入提交。", "İşlem veya içe aktarma için önce belirli bir hesap seçin."));
       return;
     }
     try {
@@ -1173,7 +1180,7 @@ const PortfolioPage: React.FC = () => {
   const handleCashSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(portfolioOperatorText("请先在右上角选择具体账户，再进行录入或导入提交。", "İşlem veya içe aktarma için önce belirli bir hesap seçin."));
       return;
     }
     try {
@@ -1196,7 +1203,7 @@ const PortfolioPage: React.FC = () => {
   const handleCorporateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(portfolioOperatorText("请先在右上角选择具体账户，再进行录入或导入提交。", "İşlem veya içe aktarma için önce belirli bir hesap seçin."));
       return;
     }
     try {
@@ -1234,7 +1241,7 @@ const PortfolioPage: React.FC = () => {
   const handleCommitCsv = async () => {
     if (!csvFile) return;
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(portfolioOperatorText("请先在右上角选择具体账户，再进行录入或导入提交。", "İşlem veya içe aktarma için önce belirli bir hesap seçin."));
       return;
     }
     try {
@@ -1254,7 +1261,7 @@ const PortfolioPage: React.FC = () => {
 
   const openDeleteDialog = (item: PendingDelete) => {
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行删除修正。');
+      setWriteWarning(portfolioOperatorText("请先在右上角选择具体账户，再进行删除修正。", "Silme/düzeltme için önce belirli bir hesap seçin."));
       return;
     }
     setPendingDelete(item);
@@ -1262,7 +1269,7 @@ const PortfolioPage: React.FC = () => {
 
   const openAccountDeleteDialog = () => {
     if (!writableAccount) {
-      setWriteWarning('请先选择具体账户，再删除持仓账户。');
+      setWriteWarning(portfolioOperatorText("请先选择具体账户，再删除持仓账户。", "Hesabı kaldırmak için önce belirli bir hesap seçin."));
       return;
     }
     setPendingAccountDelete({
@@ -1294,7 +1301,7 @@ const PortfolioPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!pendingDelete || deleteLoading) return;
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行删除修正。');
+      setWriteWarning(portfolioOperatorText("请先在右上角选择具体账户，再进行删除修正。", "Silme/düzeltme için önce belirli bir hesap seçin."));
       setPendingDelete(null);
       return;
     }
@@ -1326,7 +1333,7 @@ const PortfolioPage: React.FC = () => {
     e.preventDefault();
     const name = accountForm.name.trim();
     if (!name) {
-      setAccountCreateError('账户名称不能为空。');
+      setAccountCreateError(portfolioOperatorText("账户名称不能为空。", "Hesap adı boş olamaz."));
       setAccountCreateSuccess(null);
       return;
     }
@@ -1350,10 +1357,10 @@ const PortfolioPage: React.FC = () => {
         market: accountForm.market,
         baseCurrency: accountForm.baseCurrency,
       });
-      setAccountCreateSuccess('账户创建成功，已自动切换到该账户。');
+      setAccountCreateSuccess(portfolioOperatorText("账户创建成功，已自动切换到该账户。", "Hesap oluşturuldu ve seçildi."));
     } catch (err) {
       const parsed = getParsedApiError(err);
-      setAccountCreateError(parsed.message || '创建账户失败，请稍后重试。');
+      setAccountCreateError(parsed.message || portfolioOperatorText("创建账户失败，请稍后重试。", "Hesap oluşturulamadı; lütfen yeniden deneyin."));
       setAccountCreateSuccess(null);
     } finally {
       setAccountCreating(false);
@@ -1406,7 +1413,7 @@ const PortfolioPage: React.FC = () => {
         }
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || portfolioOperatorText("风险数据获取失败，已降级为仅展示快照数据。", "Risk verileri alınamadı; yalnızca portföy özeti gösteriliyor."));
       }
       return true;
     } catch (err) {
@@ -1599,7 +1606,7 @@ const PortfolioPage: React.FC = () => {
       {(showCreateAccount || !hasAccounts) ? (
         <Card padding="md">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-foreground">新建账户</h2>
+            <h2 className="text-sm font-semibold text-foreground">{portfolioOperatorText("新建账户", "Yeni hesap")}</h2>
             {hasAccounts ? (
               <button
                 type="button"
@@ -1613,14 +1620,14 @@ const PortfolioPage: React.FC = () => {
                 收起
               </button>
             ) : (
-              <span className="text-xs text-secondary">创建后自动切换到该账户</span>
+              <span className="text-xs text-secondary">{portfolioOperatorText("创建后自动切换到该账户", "Oluşturulunca bu hesap seçilir")}</span>
             )}
           </div>
           {accountCreateError ? (
             <InlineAlert
               variant="danger"
               className="mt-2 rounded-lg px-2 py-1 text-xs shadow-none"
-              title="创建账户失败"
+              title={portfolioOperatorText("创建账户失败", "Hesap oluşturma başarısız")}
               message={accountCreateError}
             />
           ) : null}
@@ -1628,26 +1635,26 @@ const PortfolioPage: React.FC = () => {
             <InlineAlert
               variant="success"
               className="mt-2 rounded-lg px-2 py-1 text-xs shadow-none"
-              title="创建账户成功"
+              title={portfolioOperatorText("创建账户成功", "Hesap oluşturuldu")}
               message={accountCreateSuccess}
             />
           ) : null}
           <form className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2" onSubmit={handleCreateAccount}>
             <input
               className={`${PORTFOLIO_INPUT_CLASS} md:col-span-2`}
-              placeholder="账户名称（必填）"
+              placeholder={portfolioOperatorText("账户名称（必填）", "Hesap adı (zorunlu)")}
               value={accountForm.name}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, name: e.target.value }))}
             />
             <input
               className={PORTFOLIO_INPUT_CLASS}
-              placeholder="券商（可选，如 Demo/华泰）"
+              placeholder={portfolioOperatorText("券商（可选，如 Demo/华泰）", "Aracı kurum (isteğe bağlı; ör. Demo/Huatai)")}
               value={accountForm.broker}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, broker: e.target.value }))}
             />
             <input
               className={PORTFOLIO_INPUT_CLASS}
-              placeholder="基准币（如 CNY/USD/HKD）"
+              placeholder={portfolioOperatorText("基准币（如 CNY/USD/HKD）", "Hesap para birimi (ör. CNY/USD/HKD)")}
               value={accountForm.baseCurrency}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, baseCurrency: e.target.value.toUpperCase() }))}
             />
@@ -1656,15 +1663,15 @@ const PortfolioPage: React.FC = () => {
               value={accountForm.market}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, market: e.target.value as PortfolioAccountMarket }))}
             >
-              <option value="cn">市场：A 股（cn）</option>
-              <option value="hk">市场：港股（hk）</option>
-              <option value="us">市场：美股（us）</option>
-              <option value="jp">市场：日股（jp）</option>
-              <option value="kr">市场：韩股（kr）</option>
-              <option value="tw">市场：台股（tw）</option>
+              <option value="cn">{portfolioOperatorText("市场：A 股（cn）", "Piyasa: Çin A hisseleri (cn)")}</option>
+              <option value="hk">{portfolioOperatorText("市场：港股（hk）", "Piyasa: Hong Kong (hk)")}</option>
+              <option value="us">{portfolioOperatorText("市场：美股（us）", "Piyasa: ABD (us)")}</option>
+              <option value="jp">{portfolioOperatorText("市场：日股（jp）", "Piyasa: Japonya (jp)")}</option>
+              <option value="kr">{portfolioOperatorText("市场：韩股（kr）", "Piyasa: Güney Kore (kr)")}</option>
+              <option value="tw">{portfolioOperatorText("市场：台股（tw）", "Piyasa: Tayvan (tw)")}</option>
             </select>
             <button type="submit" className="btn-secondary text-sm" disabled={accountCreating}>
-              {accountCreating ? '创建中...' : '创建账户'}
+              {accountCreating ? portfolioOperatorText("创建中...", "Oluşturuluyor...") : portfolioOperatorText("创建账户", "Hesap oluştur")}
             </button>
           </form>
         </Card>
@@ -1980,87 +1987,87 @@ const PortfolioPage: React.FC = () => {
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
         <Card padding="md">
-          <h3 className="text-sm font-semibold text-foreground mb-3">手工录入：交易</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{portfolioOperatorText("手工录入：交易", "Manuel giriş: Alım-satım")}</h3>
           <form className="space-y-2" onSubmit={handleTradeSubmit}>
-            <input className={PORTFOLIO_INPUT_CLASS} placeholder="股票代码（例如 600519）" value={tradeForm.symbol}
+            <input className={PORTFOLIO_INPUT_CLASS} placeholder={portfolioOperatorText("股票代码（例如 600519）", "Hisse kodu (ör. 600519)")} value={tradeForm.symbol}
               onChange={(e) => setTradeForm((prev) => ({ ...prev, symbol: e.target.value }))} required />
             <div className="grid grid-cols-2 gap-2">
               <input className={PORTFOLIO_INPUT_CLASS} type="date" value={tradeForm.tradeDate}
                 onChange={(e) => setTradeForm((prev) => ({ ...prev, tradeDate: e.target.value }))} required />
               <select className={PORTFOLIO_SELECT_CLASS} value={tradeForm.side}
                 onChange={(e) => setTradeForm((prev) => ({ ...prev, side: e.target.value as PortfolioSide }))}>
-                <option value="buy">买入</option>
-                <option value="sell">卖出</option>
+                <option value="buy">{portfolioOperatorText("买入", "Alış")}</option>
+                <option value="sell">{portfolioOperatorText("卖出", "Satış")}</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder="数量（必填）" value={tradeForm.quantity}
+              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder={portfolioOperatorText("数量（必填）", "Miktar (zorunlu)")} value={tradeForm.quantity}
                 onChange={(e) => setTradeForm((prev) => ({ ...prev, quantity: e.target.value }))} required />
-              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder="成交价（必填）" value={tradeForm.price}
+              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder={portfolioOperatorText("成交价（必填）", "İşlem fiyatı (zorunlu)")} value={tradeForm.price}
                 onChange={(e) => setTradeForm((prev) => ({ ...prev, price: e.target.value }))} required />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder="手续费（可选）" value={tradeForm.fee}
+              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder={portfolioOperatorText("手续费（可选）", "Komisyon (isteğe bağlı)")} value={tradeForm.fee}
                 onChange={(e) => setTradeForm((prev) => ({ ...prev, fee: e.target.value }))} />
-              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder="税费（可选）" value={tradeForm.tax}
+              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder={portfolioOperatorText("税费（可选）", "Vergi (isteğe bağlı)")} value={tradeForm.tax}
                 onChange={(e) => setTradeForm((prev) => ({ ...prev, tax: e.target.value }))} />
             </div>
-            <p className="text-xs text-secondary">手续费和税费可留空，系统将按 0 处理。</p>
-            <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>提交交易</button>
+            <p className="text-xs text-secondary">{portfolioOperatorText("手续费和税费可留空，系统将按 0 处理。", "Komisyon ve vergi boş bırakılırsa sıfır kabul edilir.")}</p>
+            <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>{portfolioOperatorText("提交交易", "İşlemi kaydet")}</button>
           </form>
         </Card>
 
         <Card padding="md">
-          <h3 className="text-sm font-semibold text-foreground mb-3">手工录入：资金流水</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{portfolioOperatorText("手工录入：资金流水", "Manuel giriş: Nakit hareketi")}</h3>
           <form className="space-y-2" onSubmit={handleCashSubmit}>
             <div className="grid grid-cols-2 gap-2">
               <input className={PORTFOLIO_INPUT_CLASS} type="date" value={cashForm.eventDate}
                 onChange={(e) => setCashForm((prev) => ({ ...prev, eventDate: e.target.value }))} required />
               <select className={PORTFOLIO_SELECT_CLASS} value={cashForm.direction}
                 onChange={(e) => setCashForm((prev) => ({ ...prev, direction: e.target.value as PortfolioCashDirection }))}>
-                <option value="in">流入</option>
-                <option value="out">流出</option>
+                <option value="in">{portfolioOperatorText("流入", "Para girişi")}</option>
+                <option value="out">{portfolioOperatorText("流出", "Para çıkışı")}</option>
               </select>
             </div>
-            <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder="金额"
+            <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder={portfolioOperatorText("金额", "Tutar")}
               value={cashForm.amount} onChange={(e) => setCashForm((prev) => ({ ...prev, amount: e.target.value }))} required />
-            <input className={PORTFOLIO_INPUT_CLASS} placeholder={`币种（可选，默认 ${writableAccount?.baseCurrency || '账户基准币'}）`} value={cashForm.currency}
+            <input className={PORTFOLIO_INPUT_CLASS} placeholder={shouldForceTurkishUi() ? `Para birimi (isteğe bağlı, varsayılan ${writableAccount?.baseCurrency || 'hesap para birimi'})` : `币种（可选，默认 ${writableAccount?.baseCurrency || '账户基准币'}）`} value={cashForm.currency}
               onChange={(e) => setCashForm((prev) => ({ ...prev, currency: e.target.value }))} />
-            <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>提交资金流水</button>
+            <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>{portfolioOperatorText("提交资金流水", "Nakit hareketini kaydet")}</button>
           </form>
         </Card>
 
         <Card padding="md">
-          <h3 className="text-sm font-semibold text-foreground mb-3">手工录入：公司行为</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{portfolioOperatorText("手工录入：公司行为", "Manuel giriş: Kurumsal işlem")}</h3>
           <form className="space-y-2" onSubmit={handleCorporateSubmit}>
-            <input className={PORTFOLIO_INPUT_CLASS} placeholder="股票代码" value={corpForm.symbol}
+            <input className={PORTFOLIO_INPUT_CLASS} placeholder={portfolioOperatorText("股票代码", "Hisse kodu")} value={corpForm.symbol}
               onChange={(e) => setCorpForm((prev) => ({ ...prev, symbol: e.target.value }))} required />
             <div className="grid grid-cols-2 gap-2">
               <input className={PORTFOLIO_INPUT_CLASS} type="date" value={corpForm.effectiveDate}
                 onChange={(e) => setCorpForm((prev) => ({ ...prev, effectiveDate: e.target.value }))} required />
               <select className={PORTFOLIO_SELECT_CLASS} value={corpForm.actionType}
                 onChange={(e) => setCorpForm((prev) => ({ ...prev, actionType: e.target.value as PortfolioCorporateActionType }))}>
-                <option value="cash_dividend">现金分红</option>
-                <option value="split_adjustment">拆并股调整</option>
+                <option value="cash_dividend">{portfolioOperatorText("现金分红", "Nakit temettü")}</option>
+                <option value="split_adjustment">{portfolioOperatorText("拆并股调整", "Bölünme/birleşme düzeltmesi")}</option>
               </select>
             </div>
             {corpForm.actionType === 'cash_dividend' ? (
-              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.000001" placeholder="每股分红"
+              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.000001" placeholder={portfolioOperatorText("每股分红", "Hisse başı temettü")}
                 value={corpForm.cashDividendPerShare}
                 onChange={(e) => setCorpForm((prev) => ({ ...prev, cashDividendPerShare: e.target.value, splitRatio: '' }))} required />
             ) : (
-              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.000001" placeholder="拆并股比例"
+              <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.000001" placeholder={portfolioOperatorText("拆并股比例", "Bölünme/birleşme oranı")}
                 value={corpForm.splitRatio}
                 onChange={(e) => setCorpForm((prev) => ({ ...prev, splitRatio: e.target.value, cashDividendPerShare: '' }))} required />
             )}
-            <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>提交企业行为</button>
+            <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>{portfolioOperatorText("提交企业行为", "Kurumsal işlemi kaydet")}</button>
           </form>
         </Card>
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         <Card padding="md">
-          <h3 className="text-sm font-semibold text-foreground mb-3">券商 CSV 导入</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{portfolioOperatorText("券商 CSV 导入", "Aracı kurum CSV aktarımı")}</h3>
           <div className="space-y-2">
             {brokerLoadWarning ? (
               <InlineAlert
@@ -2074,7 +2081,7 @@ const PortfolioPage: React.FC = () => {
                 {brokers.length > 0 ? (
                   brokers.map((item) => <option key={item.broker} value={item.broker}>{formatBrokerLabel(item.broker, item.displayName)}</option>)
                 ) : (
-                  <option value="huatai">huatai（华泰）</option>
+                  <option value="huatai">{portfolioOperatorText("huatai（华泰）", "huatai (Huatai Securities)")}</option>
                 )}
               </select>
               <label className={PORTFOLIO_FILE_PICKER_CLASS}>
@@ -2085,21 +2092,21 @@ const PortfolioPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 text-xs text-secondary">
               <input id="csv-dry-run" type="checkbox" checked={csvDryRun} onChange={(e) => setCsvDryRun(e.target.checked)} />
-              <label htmlFor="csv-dry-run">仅预演（不写入）</label>
+              <label htmlFor="csv-dry-run">{portfolioOperatorText("仅预演（不写入）", "Yalnızca dene (kayıt yapma)")}</label>
             </div>
             <div className="flex gap-2">
               <button type="button" className="btn-secondary flex-1" disabled={!csvFile || csvParsing} onClick={() => void handleParseCsv()}>
-                {csvParsing ? '解析中...' : '解析文件'}
+                {csvParsing ? portfolioOperatorText("解析中...", "Ayrıştırılıyor...") : portfolioOperatorText("解析文件", "Dosyayı ayrıştır")}
               </button>
               <button type="button" className="btn-secondary flex-1"
                 disabled={!csvFile || !writableAccountId || csvCommitting} onClick={() => void handleCommitCsv()}>
-                {csvCommitting ? '提交中...' : '提交导入'}
+                {csvCommitting ? portfolioOperatorText("提交中...", "Kaydediliyor...") : portfolioOperatorText("提交导入", "Aktarımı kaydet")}
               </button>
             </div>
             {csvParseResult ? (
               <InlineAlert
                 variant={getCsvParseVariant(csvParseResult)}
-                title="CSV 解析结果"
+                title={portfolioOperatorText("CSV 解析结果", "CSV ayrıştırma sonucu")}
                 message={`有效 ${csvParseResult.recordCount} 条，跳过 ${csvParseResult.skippedCount} 条，错误 ${csvParseResult.errorCount} 条。`}
                 className="rounded-lg px-3 py-2 text-xs shadow-none"
               />
@@ -2116,16 +2123,16 @@ const PortfolioPage: React.FC = () => {
         </Card>
 
         <Card padding="md">
-          <h3 className="text-sm font-semibold text-foreground mb-3">事件记录</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{portfolioOperatorText("事件记录", "İşlem geçmişi")}</h3>
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <select className={PORTFOLIO_SELECT_CLASS} value={eventType} onChange={(e) => setEventType(e.target.value as EventType)}>
-                <option value="trade">交易流水</option>
-                <option value="cash">资金流水</option>
-                <option value="corporate">公司行为</option>
+                <option value="trade">{portfolioOperatorText("交易流水", "Alım-satım kayıtları")}</option>
+                <option value="cash">{portfolioOperatorText("资金流水", "Nakit hareketleri")}</option>
+                <option value="corporate">{portfolioOperatorText("公司行为", "Kurumsal işlemler")}</option>
               </select>
               <button type="button" className="btn-secondary text-sm" onClick={() => void loadEvents()} disabled={eventLoading}>
-                {eventLoading ? '加载中...' : '刷新流水'}
+                {eventLoading ? portfolioOperatorText("加载中...", "Yükleniyor...") : portfolioOperatorText("刷新流水", "Kayıtları yenile")}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -2133,30 +2140,30 @@ const PortfolioPage: React.FC = () => {
               <input className={PORTFOLIO_INPUT_CLASS} type="date" value={eventDateTo} onChange={(e) => setEventDateTo(e.target.value)} />
             </div>
             {(eventType === 'trade' || eventType === 'corporate') ? (
-              <input className={PORTFOLIO_INPUT_CLASS} placeholder="按股票代码筛选" value={eventSymbol}
+              <input className={PORTFOLIO_INPUT_CLASS} placeholder={portfolioOperatorText("按股票代码筛选", "Hisse koduna göre filtrele")} value={eventSymbol}
                 onChange={(e) => setEventSymbol(e.target.value)} />
             ) : null}
             {eventType === 'trade' ? (
               <select className={PORTFOLIO_SELECT_CLASS} value={eventSide} onChange={(e) => setEventSide(e.target.value as '' | PortfolioSide)}>
                 <option value="">全部买卖方向</option>
-                <option value="buy">买入</option>
-                <option value="sell">卖出</option>
+                <option value="buy">{portfolioOperatorText("买入", "Alış")}</option>
+                <option value="sell">{portfolioOperatorText("卖出", "Satış")}</option>
               </select>
             ) : null}
             {eventType === 'cash' ? (
               <select className={PORTFOLIO_SELECT_CLASS} value={eventDirection}
                 onChange={(e) => setEventDirection(e.target.value as '' | PortfolioCashDirection)}>
                 <option value="">全部资金方向</option>
-                <option value="in">流入</option>
-                <option value="out">流出</option>
+                <option value="in">{portfolioOperatorText("流入", "Para girişi")}</option>
+                <option value="out">{portfolioOperatorText("流出", "Para çıkışı")}</option>
               </select>
             ) : null}
             {eventType === 'corporate' ? (
               <select className={PORTFOLIO_SELECT_CLASS} value={eventActionType}
                 onChange={(e) => setEventActionType(e.target.value as '' | PortfolioCorporateActionType)}>
                 <option value="">全部公司行为</option>
-                <option value="cash_dividend">现金分红</option>
-                <option value="split_adjustment">拆并股调整</option>
+                <option value="cash_dividend">{portfolioOperatorText("现金分红", "Nakit temettü")}</option>
+                <option value="split_adjustment">{portfolioOperatorText("拆并股调整", "Bölünme/birleşme düzeltmesi")}</option>
               </select>
             ) : null}
             <div className="text-[11px] text-secondary">
@@ -2228,14 +2235,14 @@ const PortfolioPage: React.FC = () => {
                   || (eventType === 'cash' && cashEvents.length === 0)
                   || (eventType === 'corporate' && corporateEvents.length === 0)) ? (
                     <EmptyState
-                      title="暂无流水"
-                      description="调整筛选条件或先录入一笔交易、资金流水或公司行为。"
+                      title={portfolioOperatorText("暂无流水", "Henüz kayıt yok")}
+                      description={portfolioOperatorText("调整筛选条件或先录入一笔交易、资金流水或公司行为。", "Filtreleri değiştirin veya önce işlem, nakit hareketi ya da kurumsal işlem kaydedin.")}
                       className="border-none bg-transparent px-3 py-6 shadow-none"
                     />
                   ) : null}
             </div>
             <div className="flex items-center justify-between text-xs text-secondary">
-              <span>第 {eventPage} / {totalEventPages} 页</span>
+              <span>{portfolioOperatorText('第', 'Sayfa')} {eventPage} / {totalEventPages} {portfolioOperatorText('页', '')}</span>
               <div className="flex gap-2">
                 <button type="button" className="btn-secondary text-xs px-3 py-1" disabled={eventPage <= 1}
                   onClick={() => setEventPage((prev) => Math.max(1, prev - 1))}>
@@ -2252,10 +2259,10 @@ const PortfolioPage: React.FC = () => {
       </section>
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
-        title="删除错误流水"
-        message={pendingDelete?.message || '确认删除这条流水吗？'}
-        confirmText={deleteLoading ? '删除中...' : '确认删除'}
-        cancelText="取消"
+        title={portfolioOperatorText("删除错误流水", "Hatalı kaydı sil")}
+        message={pendingDelete?.message || portfolioOperatorText("确认删除这条流水吗？", "Bu kaydı silmek istediğinize emin misiniz?")}
+        confirmText={deleteLoading ? portfolioOperatorText("删除中...", "Siliniyor...") : portfolioOperatorText("确认删除", "Silmeyi onayla")}
+        cancelText={portfolioOperatorText("取消", "İptal")}
         isDanger
         onConfirm={() => void handleConfirmDelete()}
         onCancel={() => {
