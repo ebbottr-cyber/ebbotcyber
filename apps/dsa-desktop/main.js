@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const { randomBytes } = require('crypto');
 const sqliteSnapshotBridge = require('./sqliteSnapshotBridge');
+// This helper is not part of any startup, update or production restore flow.
+const sqliteRollbackRehearsal = require('./sqliteRollbackRehearsal');
 const { spawn } = require('child_process');
 const net = require('net');
 const http = require('http');
@@ -2223,6 +2225,7 @@ app.on('before-quit', () => {
 module.exports = {
   // Exposed solely for isolated offline tests; no startup/update handler calls this bridge.
   sqliteSnapshotBridge,
+  sqliteRollbackRehearsal,
   DESKTOP_UPDATES_ENABLED,
   DEFAULT_REQUEST_TIMEOUT_MS,
   GITHUB_OWNER,
