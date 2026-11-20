@@ -1,0 +1,106 @@
+name: EBBot TR FX multi-day evidence gate (read-only, no scheduler)
+
+on:
+  push:
+    branches: [audit/tr-fx-multiday-continuity-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-tr-fx-multiday-evidence
+  cancel-in-progress: true
+
+jobs:
+  multiday-readonly-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+      GUARD_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing CI requirements and socket-denial plugin
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: Offline multi-day/date-outage guards plus existing source checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
+            tests/test_audit_tr_fx_multiday_continuity.py \
+            tests/test_audit_tr_fx_cross_sources.py \
+            tests/test_audit_tr_fx_public_sources.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_tcmb_try_display_service.py \
+            --junitxml=tr-fx-multiday-evidence-tests.xml 2>&1 | tee tr-fx-multiday-evidence-tests.log
+      - name: One-off fixed public Yahoo daily / official TCMB metadata observation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_tr_fx_public_sources --fetch | tee tr-fx-real-one-day-observation.json
+      - name: Offline continuity audit cannot convert one date into two
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_tr_fx_multiday_continuity \
+            --input tr-fx-real-one-day-observation.json \
+            | tee tr-fx-real-continuity-assessment.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("tr-fx-real-continuity-assessment.json").read_text(encoding="utf-8"))
+          assert data["status"] == "INSUFFICIENT_DISTINCT_DATES"
+          assert data["distinct_observation_dates"] == 1
+          assert data["total_observations"] == 1
+          assert data["long_term_reliability_proven"] is False
+          assert data["independent_bist_second_source_verified"] is False
+          assert data["prices_executable"] is False
+          assert data["orders"] == data["paper_fills"] == 0
+          PY
+      - name: Publish explicit evidence limits
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          observation = json.loads(Path("tr-fx-real-one-day-observation.json").read_text(encoding="utf-8"))
+          audit = json.loads(Path("tr-fx-real-continuity-assessment.json").read_text(encoding="utf-8"))
+          lines = [
+              "## EBBot public source multi-day continuity",
+              "",
+              f"- One-off market data observation status: {observation['status']}",
+              f"- Source dates actually observed: {audit['distinct_observation_dates']}",
+              f"- Multi-day reliability: **{audit['status']}**",
+              "- Same-date runs never count as new distinct dates",
+              "- Unspecified weekends/holidays never fabricated as missing market sessions",
+              "- Licensed independent second BIST source: **NOT CONFIGURED**",
+              "- Licensed non-display API access: **NOT VERIFIED**",
+              "- Long-term source reliability / executable quotes / profitability: **NOT PROVEN**",
+              "- Orders, paper fills and journals: **0**; trading, deployment, scheduler: OFF",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+      - name: Save observed one-day artifact, evidence gate and tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-tr-fx-real-multiday-evidence
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            tr-fx-real-one-day-observation.json
+            tr-fx-real-continuity-assessment.json
+            tr-fx-multiday-evidence-tests.log
+            tr-fx-multiday-evidence-tests.xml
