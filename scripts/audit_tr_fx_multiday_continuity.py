@@ -66,16 +66,21 @@ def _observation_date(snapshot: Any) -> tuple[str, str]:
     return as_of, timestamp.astimezone(ISTANBUL).isoformat()
 
 
-def _source_available(doc: dict, date_str: str, source: tuple[str, str, str]) -> bool:
+def _source_observation(
+    doc: dict, date_str: str, source: tuple[str, str, str],
+) -> tuple[float, str, int] | None:
+    """Return validated (value, actual publication date, age), never a guessed bar."""
+    if doc.get("status") == "NO_VALID_PROVIDER_QUOTES":
+        return None
     key, kind, symbol = source
     today = date.fromisoformat(date_str)
     if kind == "yahoo":
         market = doc.get("market_daily")
         rows = _unique_by(market.get("checks"), "key") if isinstance(market, dict) else {}
-        return _yahoo(rows.get(key), symbol, today) is not None
+        return _yahoo(rows.get(key), symbol, today)
     official = doc.get("official_tcmb")
     rows = _unique_by(official.get("checks"), "currency") if isinstance(official, dict) else {}
-    return _tcmb(rows.get(key), symbol, today) is not None
+    return _tcmb(rows.get(key), symbol, today)
 
 
 def summarize_continuity(
@@ -117,11 +122,30 @@ def summarize_continuity(
 
     days: list[dict[str, Any]] = []
     issues: set[str] = set()
+    # A second observation day is NOT proof that the provider published new data.
+    # Keep true provider publication dates separate from the observation clock.
+    publications_by_source: dict[str, list[str | None]] = {
+        key: [] for key, _, _ in SOURCES
+    }
+    all_publication_dates: dict[str, set[str]] = {
+        key: set() for key, _, _ in SOURCES
+    }
     for d in observed_dates:
         docs = by_date[d]
         evidence: dict[str, dict[str, Any]] = {}
         for key, kind, symbol in SOURCES:
-            flags = [_source_available(doc, d, (key, kind, symbol)) for doc in docs]
+            observations = [_source_observation(doc, d, (key, kind, symbol))
+                            for doc in docs]
+            flags = [item is not None for item in observations]
+            publication_dates = sorted({
+                item[1] for item in observations if item is not None
+            })
+            all_publication_dates[key].update(publication_dates)
+            # Explicitly preserve within-day publication revisions rather than
+            # silently treating them as extra trading days.
+            publications_by_source[key].append(
+                publication_dates[-1] if publication_dates else None
+            )
             if all(flags):
                 status = "observed_indicative_only"
             elif any(flags):
@@ -134,6 +158,11 @@ def summarize_continuity(
                 "status": status,
                 "observation_count": len(flags),
                 "observed_count": sum(flags),
+                "actual_publication_dates": publication_dates,
+                "max_publication_age_calendar_days": (
+                    max(item[2] for item in observations if item is not None)
+                    if publication_dates else None
+                ),
                 "independent_second_source_verified": False,
             }
         days.append({
@@ -152,10 +181,47 @@ def summarize_continuity(
     if missing_explicit:
         issues.update(f"expected_observation_missing_{d}" for d in missing_explicit)
 
+    publication_evidence: dict[str, dict[str, Any]] = {}
+    any_regression = False
+    any_reuse = False
+    for key, _, _ in SOURCES:
+        dates_in_order = publications_by_source[key]
+        if len(dates_in_order) < 2:
+            progression = "insufficient_observation_dates"
+        elif any(d is None for d in dates_in_order):
+            progression = "incomplete_source_days"
+        elif any(a > b for a, b in zip(dates_in_order, dates_in_order[1:])):
+            progression = "publication_date_regressed"
+            any_regression = True
+            issues.add(f"{key}_publication_date_regressed")
+        elif all(a == b for a, b in zip(dates_in_order, dates_in_order[1:])):
+            progression = "same_publication_date_reused"
+            any_reuse = True
+            issues.add(f"{key}_same_publication_date_on_distinct_observation_days")
+        elif any(a == b for a, b in zip(dates_in_order, dates_in_order[1:])):
+            progression = "partially_reused_publication_date"
+            any_reuse = True
+            issues.add(f"{key}_publication_date_reused_between_observations")
+        else:
+            progression = "publication_dates_advanced"
+        publication_evidence[key] = {
+            "progression": progression,
+            "distinct_publication_dates": len(all_publication_dates[key]),
+            "actual_publication_dates": sorted(all_publication_dates[key]),
+            "latest_publication_date_by_observation_day": dict(zip(
+                observed_dates, dates_in_order,
+            )),
+            "independent_second_source_verified": False,
+        }
+
     if len(observed_dates) < 2:
         status = "INSUFFICIENT_DISTINCT_DATES"
     elif missing_explicit or any(not day["complete_indicative_source_coverage"] for day in days):
         status = "PARTIAL_OR_INTERRUPTED"
+    elif any_regression:
+        status = "PUBLICATION_DATE_REGRESSION"
+    elif any_reuse:
+        status = "MULTI_DATE_REUSED_PUBLICATION_DATES"
     else:
         status = "MULTI_DATE_INDICATIVE_OBSERVATIONS"
 
@@ -169,6 +235,13 @@ def summarize_continuity(
         "missing_expected_dates": missing_explicit,
         "market_holidays_or_weekends_inferred": False,
         "daily_evidence": days,
+        "provider_publication_evidence": publication_evidence,
+        "provider_publication_days_all_advanced": (
+            len(observed_dates) >= 2 and not any_regression and not any_reuse
+            and all(d["complete_indicative_source_coverage"] for d in days)
+            and not missing_explicit
+        ),
+        "calendar_days_not_equivalent_to_market_sessions": True,
         "issues": sorted(issues),
         "independent_bist_second_source_verified": False,
         "licensed_non_display_market_data_access_verified": False,
