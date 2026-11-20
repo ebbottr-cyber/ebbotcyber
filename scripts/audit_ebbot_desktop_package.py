@@ -58,6 +58,12 @@ def source_audit(root: Path) -> dict:
            "Actual PyInstaller backend must be bundled; placeholder is forbidden")
     _check(checks, "no_release_workflow", not (root / ".github/workflows/desktop-release.yml").exists(),
            "Tag-triggered desktop-release workflow must remain disabled")
+    loading = desktop / "renderer/loading.html"
+    _check(checks, "ebbot_loading_window",
+           loading.is_file() and "<title>EBBot</title>" in loading.read_text(encoding="utf-8")
+           and "<h1 class=\"title\">EBBot</h1>" in loading.read_text(encoding="utf-8")
+           and "Daily Stock Analysis" not in loading.read_text(encoding="utf-8"),
+           "Packaged loading window must show only the EBBot product name")
     _check(checks, "ebbot_product_identity",
            build.get("productName") == "EBBot" and build.get("appId") == "com.ebbot.desktop"
            and package.get("name") == "ebbot-desktop",
