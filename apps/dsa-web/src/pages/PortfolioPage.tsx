@@ -849,7 +849,9 @@ const PortfolioPage: React.FC = () => {
   // This quote is independent from the portfolio's accounting FX cache.
   // Never use it for risk, order entry, cost basis, or stored PnL.
   useEffect(() => {
-    if (!snapshot || !['USD', 'EUR', 'CNY'].includes(snapshot.currency)) {
+    if (!snapshot || snapshot.fxStale !== false || snapshot.dataQuality === 'partial'
+      || snapshot.accounts.some((account) => account.fxStale !== false)
+      || !['USD', 'EUR', 'CNY'].includes(snapshot.currency)) {
       setTryDisplayRates(null);
       return;
     }
