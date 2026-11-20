@@ -165,6 +165,98 @@ def test_bad_or_mismatched_expected_dates_refused(dates):
         summarize_continuity([sample("2026-11-20")], expected_dates=dates)
 
 
+def test_publication_dates_are_not_observation_dates_or_freshness_proof():
+    early = sample("2026-11-19")
+    late = sample("2026-11-20")
+    for row in late["market_daily"]["checks"]:
+        row["price_date"] = "2026-11-19"
+    for row in late["official_tcmb"]["checks"]:
+        row["bulletin_date"] = "2026-11-19"
+
+    result = summarize_continuity([early, late])
+    assert result["distinct_observation_dates"] == 2
+    assert result["status"] == "MULTI_DATE_REUSED_PUBLICATION_DATES"
+    assert not result["provider_publication_days_all_advanced"]
+    assert all(e["distinct_publication_dates"] == 1 for e in
+               result["provider_publication_evidence"].values())
+    assert all(e["progression"] == "same_publication_date_reused" for e in
+               result["provider_publication_evidence"].values())
+    assert result["daily_evidence"][1]["sources"]["usdtry"]["actual_publication_dates"] == [
+        "2026-11-19",
+    ]
+    assert result["daily_evidence"][1]["sources"]["usdtry"]["max_publication_age_calendar_days"] == 1
+    assert "bist100_same_publication_date_on_distinct_observation_days" in result["issues"]
+    assert not result["long_term_reliability_proven"]
+    assert not result["prices_executable"]
+
+
+def test_source_publication_backdating_is_reported_even_if_both_observations_exist():
+    early = sample("2026-11-20")
+    late = sample("2026-11-21")
+    late["market_daily"]["checks"][0]["price_date"] = "2026-11-19"
+    out = summarize_continuity([early, late])
+    assert out["status"] == "PUBLICATION_DATE_REGRESSION"
+    assert out["provider_publication_evidence"]["bist100"]["progression"] == "publication_date_regressed"
+    assert out["provider_publication_evidence"]["bist30"]["progression"] == "publication_dates_advanced"
+    assert "bist100_publication_date_regressed" in out["issues"]
+    assert not out["provider_publication_days_all_advanced"]
+
+
+def test_three_days_with_one_reused_publication_day_remain_unverified():
+    rows = [sample(d) for d in ("2026-11-20", "2026-11-21", "2026-11-23")]
+    for row in rows[1]["market_daily"]["checks"]:
+        row["price_date"] = "2026-11-20"
+    for row in rows[1]["official_tcmb"]["checks"]:
+        row["bulletin_date"] = "2026-11-20"
+    out = summarize_continuity(rows)
+    assert out["status"] == "MULTI_DATE_REUSED_PUBLICATION_DATES"
+    assert all(e["progression"] == "partially_reused_publication_date"
+               for e in out["provider_publication_evidence"].values())
+    assert out["market_holidays_or_weekends_inferred"] is False
+    assert out["calendar_days_not_equivalent_to_market_sessions"]
+
+
+def test_marked_no_valid_quotes_cannot_smuggle_positive_prices_into_coverage():
+    bad = sample("2026-11-20")
+    bad["status"] = "NO_VALID_PROVIDER_QUOTES"
+    out = summarize_continuity([bad])
+    assert out["status"] == "INSUFFICIENT_DISTINCT_DATES"
+    assert all(not d["complete_indicative_source_coverage"] for d in out["daily_evidence"])
+    assert all(e["distinct_publication_dates"] == 0 for e in
+               out["provider_publication_evidence"].values())
+    assert len(out["issues"]) == 7
+
+
+def test_single_day_with_multiple_publication_dates_still_counts_as_one_day():
+    first = sample("2026-11-20", hour=11)
+    second = sample("2026-11-20", hour=17)
+    first["official_tcmb"]["checks"][0]["bulletin_date"] = "2026-11-19"
+    out = summarize_continuity([first, second])
+    assert out["status"] == "INSUFFICIENT_DISTINCT_DATES"
+    assert out["distinct_observation_dates"] == 1
+    assert out["provider_publication_evidence"]["USD"]["distinct_publication_dates"] == 2
+    assert out["provider_publication_evidence"]["USD"]["progression"] == "insufficient_observation_dates"
+    assert out["daily_evidence"][0]["sources"]["USD"]["actual_publication_dates"] == [
+        "2026-11-19", "2026-11-20",
+    ]
+
+
+def test_source_lag_report_retains_real_dates_without_inventing_latest_quote():
+    first = sample("2026-11-18")
+    later = sample("2026-11-20")
+    later["market_daily"]["checks"][3]["price_date"] = "2026-11-18"
+    later["official_tcmb"]["checks"][2]["bulletin_date"] = "2026-11-18"
+    out = summarize_continuity([first, later])
+    assert out["status"] == "MULTI_DATE_REUSED_PUBLICATION_DATES"
+    assert out["provider_publication_evidence"]["eurtry"]["actual_publication_dates"] == [
+        "2026-11-18",
+    ]
+    assert out["daily_evidence"][1]["sources"]["eurtry"]["max_publication_age_calendar_days"] == 2
+    assert out["daily_evidence"][1]["sources"]["CNY"]["max_publication_age_calendar_days"] == 2
+    assert out["provider_publication_evidence"]["bist100"]["distinct_publication_dates"] == 2
+    assert not out["provider_publication_days_all_advanced"]
+
+
 def test_no_observations_or_too_many_is_blocked():
     with pytest.raises(ValueError, match="observation_count_out_of_bounds"):
         summarize_continuity([])
