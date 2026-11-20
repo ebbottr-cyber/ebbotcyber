@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PortfolioDisplayFxRates, PortfolioSnapshotResponse } from '../../types/portfolio';
-import { toTryDisplayValue, formatTryDisplay, formatPortfolioSnapshotTry } from '../portfolioTryDisplay';
+import { toTryDisplayValue, formatTryDisplay, formatPortfolioSnapshotTry, getPortfolioTryQuoteAsOf } from '../portfolioTryDisplay';
 
 const now = Date.parse('2026-11-19T09:00:00.000Z');
 const fx: PortfolioDisplayFxRates = {
@@ -89,6 +89,57 @@ describe('TRY presentation conversion', () => {
     expect(toTryDisplayValue(8, 'hkd', { ...valid, hkdTry: NaN }, false, now)).toBeNull();
     expect(toTryDisplayValue(8, 'hkd', { ...valid, hkdTry: 6.25 }, true, now)).toBeNull();
     expect(toTryDisplayValue(8, 'CHF', valid, false, now)).toBeNull();
+  });
+
+  it('shows the HKD quote time rather than missing legacy CNY time', () => {
+    const snapshot = {
+      accountCount: 1, fxStale: false,
+      accounts: [{ baseCurrency: 'HKD', totalEquity: 8, fxStale: false }],
+    } as PortfolioSnapshotResponse;
+    const multi: PortfolioDisplayFxRates = {
+      ...fx, status: 'unavailable', cnyTry: null, asOf: null,
+      hkdTry: 6.25, pairStatus: { hkd: 'current' },
+      pairAsOf: { hkd: '2026-11-19T08:55:00.000Z' },
+    };
+    expect(formatPortfolioSnapshotTry(snapshot, 'totalEquity', multi, now)).toContain('50,00');
+    expect(getPortfolioTryQuoteAsOf(snapshot, multi, now)).toBe('2026-11-19T08:55:00.000Z');
+  });
+
+  it('uses the oldest currency quote when combining multi-market TRY totals', () => {
+    const snapshot = {
+      accountCount: 2, fxStale: false,
+      accounts: [
+        { baseCurrency: 'HKD', totalEquity: 8, fxStale: false },
+        { baseCurrency: 'USD', totalEquity: 1, fxStale: false },
+      ],
+    } as PortfolioSnapshotResponse;
+    const multi: PortfolioDisplayFxRates = {
+      ...fx, status: 'unavailable', asOf: null,
+      hkdTry: 6.25,
+      pairStatus: { usd: 'current', hkd: 'current' },
+      pairAsOf: {
+        usd: '2026-11-19T08:57:00.000Z',
+        hkd: '2026-11-19T08:45:00.000Z',
+      },
+    };
+    expect(getPortfolioTryQuoteAsOf(snapshot, multi, now)).toBe('2026-11-19T08:45:00.000Z');
+    expect(getPortfolioTryQuoteAsOf(snapshot, {
+      ...multi, pairStatus: { usd: 'current', hkd: 'stale' },
+    }, now)).toBeNull();
+    expect(getPortfolioTryQuoteAsOf(snapshot, {
+      ...multi, pairAsOf: { usd: multi.pairAsOf!.usd },
+    }, now)).toBeNull();
+  });
+
+  it('never invents an FX timestamp for TRY-only or missing snapshot data', () => {
+    const direct = {
+      accountCount: 1, fxStale: false,
+      accounts: [{ baseCurrency: 'TRY', totalEquity: 1000, fxStale: false }],
+    } as PortfolioSnapshotResponse;
+    expect(formatPortfolioSnapshotTry(direct, 'totalEquity', null, now)).toContain('1.000,00');
+    expect(getPortfolioTryQuoteAsOf(direct, null, now)).toBeNull();
+    expect(getPortfolioTryQuoteAsOf({ ...direct, fxStale: true }, fx, now)).toBeNull();
+    expect(getPortfolioTryQuoteAsOf(null, fx, now)).toBeNull();
   });
 
   it('allows a fresh HKD account in a valid snapshot while still requiring aggregate freshness', () => {

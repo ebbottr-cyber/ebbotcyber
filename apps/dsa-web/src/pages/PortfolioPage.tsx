@@ -13,7 +13,7 @@ import { formatUiText, type UiLanguage } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
 import { PORTFOLIO_LEDGER_TEXT } from '../locales/portfolioLedgerText';
 import type { FxRefreshFeedback } from '../utils/portfolioFormat';
-import { formatTryDisplay, formatPortfolioSnapshotTry } from '../utils/portfolioTryDisplay';
+import { formatTryDisplay, formatPortfolioSnapshotTry, getPortfolioTryQuoteAsOf } from '../utils/portfolioTryDisplay';
 import {
   buildFxRefreshFeedback,
   formatBrokerLabel,
@@ -683,6 +683,8 @@ const PortfolioPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fxRefreshing, setFxRefreshing] = useState(false);
   const [tryDisplayRates, setTryDisplayRates] = useState<PortfolioDisplayFxRates | null>(null);
+  const [displayFxConnectionFailed, setDisplayFxConnectionFailed] = useState(false);
+  const [displayFxRetryKey, setDisplayFxRetryKey] = useState(0);
   const [fxRefreshFeedback, setFxRefreshFeedback] = useState<FxRefreshFeedback | null>(null);
   const [error, setError] = useState<ParsedApiError | null>(null);
   const [riskWarning, setRiskWarning] = useState<string | null>(null);
@@ -765,6 +767,10 @@ const PortfolioPage: React.FC = () => {
       account.baseCurrency.toUpperCase() === 'CNY' && !account.fxStale && account.dataQuality !== 'partial') === true;
   const showExposureTry = (amount: number | undefined) => formatTryDisplay(amount, snapshotCurrency, tryDisplayRates, !safelyAggregatedCny);
   const tryRateReady = showAccountTotalTry('totalEquity') !== '—';
+  const displayedTryQuoteAsOf = tryRateReady ? getPortfolioTryQuoteAsOf(snapshot, tryDisplayRates) : null;
+  const directTryOnly = tryRateReady && snapshot?.accounts.every(
+    (account) => account.baseCurrency.trim().toUpperCase() === 'TRY',
+  ) === true;
   const writableAccount = selectedAccount === 'all' ? undefined : accounts.find((item) => item.id === selectedAccount);
   const writableAccountId = writableAccount?.id;
   const writeBlocked = !writableAccountId;
@@ -936,15 +942,21 @@ const PortfolioPage: React.FC = () => {
       try {
         // Separate display quote: no positions, accounts or trade prices are modified.
         const rates = await portfolioApi.getDisplayFxRates?.();
-        if (!canceled) setTryDisplayRates(rates ?? null);
+        if (!canceled) {
+          setTryDisplayRates(rates ?? null);
+          setDisplayFxConnectionFailed(false);
+        }
       } catch {
-        if (!canceled) setTryDisplayRates(null);
+        if (!canceled) {
+          setTryDisplayRates(null);
+          setDisplayFxConnectionFailed(true);
+        }
       }
     };
     void refreshDisplayRates();
     const timer = setInterval(() => { void refreshDisplayRates(); }, 60_000);
     return () => { canceled = true; clearInterval(timer); };
-  }, []);
+  }, [displayFxRetryKey]);
 
   useEffect(() => {
     void loadEvents();
@@ -1368,6 +1380,8 @@ const PortfolioPage: React.FC = () => {
   };
 
   const handleRefresh = async () => {
+    // Retry read-only indicative FX immediately, not just the next 60s timer.
+    setDisplayFxRetryKey((value) => value + 1);
     await Promise.all([loadAccounts(), loadSnapshotAndRisk(), loadEvents(), loadBrokers()]);
     setPortfolioSignalsRefreshKey((current) => current + 1);
   };
@@ -1431,6 +1445,8 @@ const PortfolioPage: React.FC = () => {
     if (!hasAccounts || isLoading || fxRefreshing) {
       return;
     }
+    // Manual FX refresh also retries independent read-only TL display quotes.
+    setDisplayFxRetryKey((value) => value + 1);
 
     const requestedViewKey = refreshViewKey;
     const requestedAccountId = queryAccountId;
@@ -1706,15 +1722,27 @@ const PortfolioPage: React.FC = () => {
           </div>
           <div className="mt-2 text-[11px] text-secondary">
             {tryRateReady
-              ? (language === 'tr' ? 'Yaklaşık TL değeri · ' : language === 'en' ? 'Indicative TRY · ' : '参考 TRY · ') +
-                new Date(tryDisplayRates!.asOf!).toLocaleString(language === 'tr' ? 'tr-TR' : 'en-GB')
-              : language === 'tr' ? 'Güncel kur veya güvenilir portföy dönüşümü yok; TL tutarları gösterilmiyor.'
-                : language === 'en' ? 'Current FX or verified portfolio conversion unavailable; TRY amounts hidden.'
-                  : '无有效汇率或可靠估值，暂不显示 TRY 金额。'}
+              ? displayedTryQuoteAsOf
+                ? (language === 'tr' ? 'Yaklaşık TL değeri · ' : language === 'en' ? 'Indicative TRY · ' : '参考 TRY · ') +
+                  new Date(displayedTryQuoteAsOf).toLocaleString(language === 'tr' ? 'tr-TR' : 'en-GB')
+                : directTryOnly
+                  ? (language === 'tr' ? 'Hesap para birimi TL; döviz kuru gerekmiyor.'
+                    : language === 'en' ? 'Account balances are already TRY; no FX quote required.'
+                      : '账户本身以 TRY 计价，无需汇率。')
+                  : (language === 'tr' ? 'Kur tarihi doğrulanamadı; TL bilgisi kontrol edilmeli.'
+                    : language === 'en' ? 'FX quote timestamp unavailable; TRY values need verification.'
+                      : '汇率时间不可核验，TRY 数据待确认。')
+              : displayFxConnectionFailed
+                ? (language === 'tr' ? 'Kur servisine ulaşılamıyor; TL tutarları gizlendi. Bağlantıyı kontrol edip tekrar deneyin.'
+                  : language === 'en' ? 'FX provider unreachable; TRY amounts hidden. Check your connection and try again.'
+                    : '无法连接汇率服务；TRY 金额已隐藏。请检查网络并重试。')
+                : language === 'tr' ? 'Güncel kur veya güvenilir portföy dönüşümü yok; TL tutarları gösterilmiyor.'
+                  : language === 'en' ? 'Current FX or verified portfolio conversion unavailable; TRY amounts hidden.'
+                    : '无有效汇率或可靠估值，暂不显示 TRY 金额。'}
           </div>
           <div className="mt-2">{snapshot?.fxStale === true
             ? <Badge variant="warning">{text.stale}</Badge>
-            : snapshot?.fxStale === false
+            : tryRateReady
               ? <Badge variant="success">{text.latest}</Badge>
               : <Badge variant="default">{riskDashboardText.unavailable}</Badge>}</div>
           {fxRefreshFeedback ? (
