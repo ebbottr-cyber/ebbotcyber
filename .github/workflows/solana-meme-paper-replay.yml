@@ -1,0 +1,47 @@
+name: Solana synthetic paper replay (no orders)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/solana-meme-paper-replay.yml'
+      - 'src/services/solana_paper_replay.py'
+      - 'scripts/solana_meme_paper_replay.py'
+      - 'tests/test_solana_paper_replay.py'
+      - 'tests/test_solana_meme_paper_integration.py'
+      - 'tests/fixtures/solana_paper_synthetic_*.json'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-paper-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      RUN_IMMEDIATELY: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install EBBot CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify accounting, safety and Meme Radar integration
+        run: python -m pytest -q tests/test_solana_paper_replay.py tests/test_solana_meme_paper_integration.py
+      - name: Replay invented rising and falling price paths
+        run: |
+          python -m scripts.solana_meme_paper_replay --fixture tests/fixtures/solana_paper_synthetic_up.json --output paper_synthetic_up_report.json
+          python -m scripts.solana_meme_paper_replay --fixture tests/fixtures/solana_paper_synthetic_down.json --output paper_synthetic_down_report.json
+      - name: Archive clearly labeled SYNTHETIC paper results
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-synthetic-paper-replay-only
+          path: |
+            paper_synthetic_up_report.json
+            paper_synthetic_down_report.json
+          retention-days: 7
