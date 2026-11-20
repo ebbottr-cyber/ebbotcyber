@@ -66,3 +66,20 @@ if (!hasLocalStorage) {
     value: new MemoryStorageMock(),
   });
 }
+
+/**
+ * Legacy component fixtures were authored with a Chinese browser default.
+ * Preserve that independent test environment so untranslated expectations do
+ * not look like application regressions. Production does not import setupTests.
+ * Tests for the real Turkish-only policy explicitly enable it separately.
+ */
+if (typeof window !== 'undefined' && window.navigator) {
+  Object.defineProperty(window.navigator, 'language', {
+    configurable: true,
+    value: 'zh-CN',
+  });
+  Object.defineProperty(window.navigator, 'languages', {
+    configurable: true,
+    value: ['zh-CN'],
+  });
+}

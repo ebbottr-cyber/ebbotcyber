@@ -1,0 +1,76 @@
+name: EBBot Turkish portfolio and legacy React review
+
+on:
+  push:
+    branches: [fix/turkish-portfolio-legacy-vitest-20261120]
+  pull_request:
+    branches: [feat/tcmb-try-display-review-20261120]
+
+permissions:
+  contents: read
+
+jobs:
+  turkish-production-and-compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Legacy browser language contract
+        run: npm test -- src/contexts/__tests__/UiLanguageContext.test.tsx
+      - name: Turkish-only operator and portfolio forms
+        env:
+          VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+        run: |
+          npm test -- src/utils/__tests__/turkishOnlyOperatorUi.test.tsx src/utils/__tests__/tryDisplayFx.test.ts
+          npm test -- src/pages/__tests__/PortfolioPage.test.tsx -t "production Turkish operator forms"
+      - name: ESLint and production TypeScript build
+        run: |
+          npm run lint
+          npm run build
+      - name: PWA (correct Node runner, not Vitest)
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  full-react-regression-unresolved:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Complete legacy Vitest suite (intentional release blocker until green)
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=dot > full-react-review.log 2>&1
+          rc=$?
+          set -e
+          echo "=== Complete React suite summary ==="
+          grep -E 'Test Files|      Tests ' full-react-review.log | tail -n 8 || true
+          echo "Exit code: $rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Full React regressions remain; do not approve a full release"
+          fi
+          exit "$rc"
+      - name: Retain complete test failures for triage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-react-review-log
+          path: apps/dsa-web/full-react-review.log
+          retention-days: 3

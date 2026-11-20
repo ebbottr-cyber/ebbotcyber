@@ -94,7 +94,7 @@ describe('UiLanguageContext', () => {
     });
 
     try {
-      expect(getRuntimeInitialLanguage()).toBe('en');
+      expect(getRuntimeInitialLanguage()).toBe('zh');
     } finally {
       if (originalDescriptor) {
         Object.defineProperty(window, 'localStorage', originalDescriptor);
@@ -112,12 +112,12 @@ describe('UiLanguageContext', () => {
     );
 
     const toggle = screen.getByRole('button', { name: '切换界面语言' });
-    expect(screen.getByText('界面语言')).toBeInTheDocument();
+    expect(screen.getByText('中文')).toBeInTheDocument();
 
     fireEvent.click(toggle);
 
-    expect(localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)).toBe('en');
-    expect(screen.getByRole('button', { name: 'Switch UI language' })).toBeInTheDocument();
-    expect(screen.getByText('English')).toBeInTheDocument();
+    expect(localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)).toBe('tr');
+    expect(screen.getByRole('button', { name: 'Arayüz dilini değiştir' })).toBeInTheDocument();
+    expect(screen.getByText('Türkçe')).toBeInTheDocument();
   });
 });
