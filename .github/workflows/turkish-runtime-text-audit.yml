@@ -1,0 +1,40 @@
+name: EBBot Turkish portfolio text audit (review only)
+
+on:
+  push:
+    branches: [fix/turkish-portfolio-runtime-text-audit-20261120]
+  pull_request:
+    branches: [feat/tcmb-try-display-review-20261120]
+
+permissions:
+  contents: read
+
+jobs:
+  turkish-operator-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Turkish production operator text and Chinese-legacy test compatibility
+        run: npm test -- src/pages/__tests__/PortfolioPage.test.tsx -t "production-like Turkish mode|legacy test mode"
+      - name: Turkish locale and guarded portfolio money tests
+        env:
+          VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+        run: npm test -- src/utils/__tests__/turkishOnlyOperatorUi.test.tsx src/utils/__tests__/tryDisplayFx.test.ts src/utils/__tests__/portfolioFormat.test.ts
+      - name: Static portfolio Chinese string fallback guard
+        run: node --test tests/portfolio-turkish-strings.test.mjs
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript and production build
+        run: npm run build
+      - name: PWA smoke
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
