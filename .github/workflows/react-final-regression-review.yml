@@ -1,0 +1,75 @@
+name: EBBot React final regressions review
+
+on:
+  push:
+    branches: [fix/react-seven-regressions-review-20261120]
+  pull_request:
+    branches: [fix/portfolio-turkish-fx-test-contract-20261120]
+
+permissions:
+  contents: read
+
+jobs:
+  focused-frontend-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Previously failing React tests + policy guards
+        run: |
+          npm test -- src/pages/__tests__/MemeCoinsPage.test.tsx src/pages/__tests__/DecisionSignalsPage.test.tsx src/components/layout/__tests__/SidebarNav.test.tsx src/components/layout/__tests__/DesktopUpdateIndicator.test.tsx src/components/settings/__tests__/NotificationTestPanel.test.tsx tests/index.theme-bootstrap.test.ts tests/ui_governance.test.ts
+      - name: Portfolio and Turkish locale regression tests
+        run: |
+          npm test -- src/pages/__tests__/PortfolioPage.test.tsx
+          npm test -- src/contexts/__tests__/UiLanguageContext.test.tsx
+      - name: ESLint and production TypeScript + build
+        run: |
+          npm run lint
+          npm run build
+      - name: Separate native Node PWA test suite
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  full-react-release-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Entire Vitest suite — no filtering or known-failure ignores
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=dot > react-full-review.log 2>&1
+          rc=$?
+          set -e
+          echo "=== Full React results ==="
+          grep -E 'Test Files|      Tests ' react-full-review.log | tail -n 8 || true
+          echo "Exit code: $rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Full React suite fails, draft not release ready"
+          fi
+          exit "$rc"
+      - name: Keep full React log for triage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-final-seven-full-suite
+          path: apps/dsa-web/react-full-review.log
+          retention-days: 3

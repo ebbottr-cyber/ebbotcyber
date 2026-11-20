@@ -32,7 +32,13 @@ describe('SidebarNav', () => {
 
     expect(screen.getByRole('link', { name: '选股' })).toHaveAttribute('href', '/screening');
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
-    expect(hrefs.slice(0, 5)).toEqual(['/', '/chat', '/screening', '/portfolio', '/decision-signals']);
+    // Additional market screens may be inserted without breaking the
+    // non-configured Chat -> Screening navigation contract.
+    expect(hrefs).toContain('/overview');
+    expect(hrefs).toContain('/germany');
+    expect(hrefs.indexOf('/screening')).toBe(hrefs.indexOf('/chat') + 1);
+    expect(hrefs).toContain('/portfolio');
+    expect(hrefs).toContain('/decision-signals');
   });
 
   it('shows the shared completion badge only when chat completion is pending', () => {

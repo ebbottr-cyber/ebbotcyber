@@ -34,7 +34,6 @@ export const UiLanguageToggle: React.FC<UiLanguageToggleProps> = ({
         <span
           role="status"
           aria-label="Arayüz dili: Türkçe"
-          title="Arayüz dili: Türkçe"
           className={cn(
             triggerClassName
               ? triggerClassName
@@ -82,7 +81,6 @@ export const UiLanguageToggle: React.FC<UiLanguageToggleProps> = ({
           isNavVariant && collapsed ? 'justify-center px-2' : ''
         )}
         aria-label={t('language.toggle')}
-        title={t('language.toggle')}
       >
         <Languages className={iconClassName ?? cn('shrink-0', isRailVariant ? 'h-[18px] w-[18px]' : isNavVariant ? 'h-5 w-5' : 'h-4 w-4')} />
         {isRailVariant ? (

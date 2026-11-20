@@ -78,7 +78,8 @@ describe('NotificationTestPanel', () => {
       </UiLanguageProvider>,
     );
     expect(screen.getByRole('option', { name: 'DingTalk' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Email' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'E-posta' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Email' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: '钉钉' })).not.toBeInTheDocument();
   });
 
