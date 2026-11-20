@@ -122,7 +122,7 @@ jobs:
   # IMPORTANT: nothing is pushed or merged on GitHub; main remains untouched.
   ephemeral-full-backend:
     needs: audit
-    if: ${{ needs.audit.outputs.can_test }} == 'true'
+    if: ${{ needs.audit.outputs.can_test == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
@@ -177,7 +177,7 @@ jobs:
 
   ephemeral-full-frontend:
     needs: audit
-    if: ${{ needs.audit.outputs.can_test }} == 'true'
+    if: ${{ needs.audit.outputs.can_test == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
