@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] 增加手动触发的 Solana 固定币地址分时行情观测：三次相隔至少一分钟，仅写入短期 GitHub artifact，不触发交易、盈利统计或定时扫描。
 - [测试] Solana Meme Radar için yalnızca tek çalıştırmalık ve işlemsiz GitHub Actions canlı veri sağlayıcı testi eklendi; sonuç yoksa veya kaynak hatası varsa yeşil sonuç üretilmez.
 - [修复] Solana 新池识别使用 GeckoTerminal base_token 的真实代币符号，并为两类数据源均衡分配候选配额。
 - [安全] GoPlus Solana transfer_hook 地址及升级权限标志采用拒绝未知值的解析，避免风险币被误判为可观察。

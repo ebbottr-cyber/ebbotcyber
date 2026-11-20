@@ -67,3 +67,10 @@ Web UI works on a particular user's Windows PC or VPS. GitHub Actions runners
 are disposable and cannot replace a persistent paper-trading server. Provider
 rate limits or location-dependent blocking can make the smoke fail independently
 of code correctness; inspect the run output before diagnosing the cause.
+
+## Real time-spaced observation experiment
+
+A GitHub-only, one-shot, fixed-mint observation workflow is described in
+[Turkish observation guide](solana-market-observations.md). It captures three
+public quotes one minute apart for up to two mints. It does not compute
+profit, send orders, schedule scans or pretend to be historical backtesting.
