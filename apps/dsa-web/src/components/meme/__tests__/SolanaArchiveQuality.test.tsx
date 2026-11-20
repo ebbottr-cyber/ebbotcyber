@@ -99,8 +99,8 @@ describe('SolanaArchiveQuality reviewed data', () => {
     ['duplicate source runs', (data: ReturnType<typeof snapshot>) => { data.captures[1].run_id = data.captures[0].run_id; }],
     ['inconsistent capture status', (data: ReturnType<typeof snapshot>) => { data.captures[1].result = 'passed'; }],
     ['fake complete quality', (data: ReturnType<typeof snapshot>) => { data.quality_result = 'complete_captures'; }],
-    ['wrong provenance', (data: ReturnType<typeof snapshot>) => { data.mode = 'untrusted' ; }],
-  ])('rejects %s and does not render figures', async (_caseName, modify) => {
+    ['wrong provenance', (data: ReturnType<typeof snapshot>) => { data.mode = 'untrusted'; }],
+  ] as const)('rejects %s and does not render figures', async (_caseName, modify) => {
     const next = snapshot();
     modify(next);
     respondWith(next);
