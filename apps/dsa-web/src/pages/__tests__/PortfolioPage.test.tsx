@@ -12,6 +12,7 @@ const {
   getAccounts,
   getSnapshot,
   getRisk,
+  getTryDisplayRates,
   refreshFx,
   listImportBrokers,
   listTrades,
@@ -34,6 +35,7 @@ const {
   getAccounts: vi.fn(),
   getSnapshot: vi.fn(),
   getRisk: vi.fn(),
+  getTryDisplayRates: vi.fn(),
   refreshFx: vi.fn(),
   listImportBrokers: vi.fn(),
   listTrades: vi.fn(),
@@ -66,7 +68,8 @@ vi.mock('../../api/portfolio', () => ({
     getAccounts,
     getSnapshot,
     getRisk,
-    refreshFx,
+    getTryDisplayRates,
+    refreshFx:
     listImportBrokers,
     listTrades,
     listCashLedger,
@@ -292,6 +295,7 @@ describe('PortfolioPage FX refresh', () => {
     getAccounts.mockResolvedValue(makeAccounts());
     getSnapshot.mockImplementation(async ({ accountId }: { accountId?: number } = {}) => makeSnapshot({ accountId, fxStale: true }));
     getRisk.mockResolvedValue(makeRisk());
+    getTryDisplayRates.mockRejectedValue(new Error('Offline test: no TCMB rate'));
     refreshFx.mockResolvedValue({
       asOf: '2026-03-19',
       accountCount: 1,
