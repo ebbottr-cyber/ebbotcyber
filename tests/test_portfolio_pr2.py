@@ -695,6 +695,26 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertEqual(payload["decision_signal_risk"]["total"], 1)
         self.assertEqual(payload["decision_signal_risk"]["items"][0]["signal"]["action"], "sell")
 
+    def test_missing_fx_rate_returns_explicit_503_for_snapshot_and_risk(self) -> None:
+        account = self.service.create_account(
+            name="US", broker="Demo", market="us", base_currency="USD"
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid,
+            event_date=date(2026, 1, 1),
+            direction="in",
+            amount=100,
+            currency="USD",
+        )
+        for endpoint in ("snapshot", "risk"):
+            response = self.client.get(
+                f"/api/v1/portfolio/{endpoint}",
+                params={"account_id": aid, "as_of": "2026-01-02", "include_realtime": "false"},
+            )
+            self.assertEqual(response.status_code, 503, response.text)
+            self.assertEqual(response.json()["error"], "portfolio_fx_rate_unavailable")
+
     def test_snapshot_does_not_trigger_online_fx_refresh(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
         aid = account["id"]
