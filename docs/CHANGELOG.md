@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [测试] 新增 GitHub 手动 Solana 多次观测工件质量校验：检查地址、时间、池来源、流动性及风险提示，缺失报价继续降级，绝不推断收益或自动交易。
 - [修复] Solana 分时行情允许保存后续低流动性但有真实价格的观测；风险引擎仍禁止交易，未返回价格时继续标记为缺失。
 - [修复] Solana 分时观测在 DEX Screener 缺失新池报价时，仅查询 GeckoTerminal 最初发现的同一池，并校验池 ID 与 base mint，保留真实价格来源；身份不匹配继续按缺失数据处理。
 - [新功能] 增加手动触发的 Solana 固定币地址分时行情观测：三次相隔至少一分钟，仅写入短期 GitHub artifact，不触发交易、盈利统计或定时扫描.
