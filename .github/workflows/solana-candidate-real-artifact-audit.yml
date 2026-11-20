@@ -1,0 +1,80 @@
+name: EBBot one-time reviewed candidate real artifact audit (NO orders)
+
+on:
+  push:
+    branches: [audit/solana-quality-candidate-real-20261120]
+    paths:
+      - '.github/workflows/solana-candidate-real-artifact-audit.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-existing-artifacts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download existing real observations by confirmed GitHub producer workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          for id in 44779967482 44777830658; do
+            meta=$(gh run view "$id" --repo "$GITHUB_REPOSITORY" \
+              --json workflowName,conclusion \
+              --jq '(.workflowName // "") + "|" + (.conclusion // "")')
+            if [[ "$meta" != 'Solana fixed-mint time-spaced observations (read only)|success' ]]; then
+              echo 'Source is not a successful approved observation run'
+              exit 1
+            fi
+            mkdir -p "inputs/$id"
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" \
+              --name solana-public-observations-not-paper-trades \
+              --dir "inputs/$id"
+            test -f "inputs/$id/solana-public-observations.json"
+          done
+      - name: Convert real artifacts with full history validator (no PnL or trading)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.prepare_solana_reviewed_report \
+            --capture 44779967482=inputs/44779967482/solana-public-observations.json \
+            --capture 44777830658=inputs/44777830658/solana-public-observations.json \
+            --audit-run-id "$GITHUB_RUN_ID" \
+            --output solana-reviewed-quality-candidate.json
+          python - <<'PY'
+          import json, os
+          report=json.load(open('solana-reviewed-quality-candidate.json',encoding='utf-8'))
+          assert report['audit_run_id']==os.environ['GITHUB_RUN_ID']
+          assert report['quality_result']=='degraded_capture_data'
+          assert report['capture_count']==2
+          assert report['total_priced_rows']==9
+          assert report['total_missing_rows']==3
+          assert report['blocked_assessments']==18
+          assert report['watch_assessments']==0
+          assert [c['priced_rows'] for c in report['captures']]==[6,3]
+          assert [c['missing_rows'] for c in report['captures']]==[0,3]
+          assert report['trading_enabled'] is False
+          assert report['wallet_enabled'] is False
+          assert report['performance_calculated'] is False
+          assert report['ready_for_verified_paper_performance'] is False
+          assert all('price_usd' not in str(v) for v in report['captures'])
+          print('REAL_SOURCE_REVIEW_CANDIDATE_E2E_OK; 9 priced, 3 missing, 18 blocked, 0 watch, no orders')
+          PY
+      - name: Archive candidate only, not published feed nor price inputs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-solana-quality-candidate-requires-review
+          path: solana-reviewed-quality-candidate.json
+          if-no-files-found: error
+          retention-days: 7
