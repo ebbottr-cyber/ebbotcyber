@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HistoryList } from '../HistoryList';
 import type { HistoryItem } from '../../../types/analysis';
 
@@ -41,6 +42,9 @@ const longChineseNameItem: HistoryItem = {
     warnings: [],
   },
 };
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('HistoryList', () => {
   it('shows the empty state copy when no history exists', () => {

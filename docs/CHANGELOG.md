@@ -23,6 +23,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [新功能] 为 Solana Meme Radar 添加显式启用的手动只读 HTTP API 和 Web 入口，不含交易。
 - [修复] 修正土耳其语界面的时间格式化、通知渠道及系统配置分类，避免 UI 语言类型检查失败。
 - [新功能] 新增默认关闭、只读的 Solana Meme Radar 预览：DEX Screener、GeckoTerminal、GoPlus 数据适配及两种观察策略和离线测试。
+
+
+- [安全] Block weekend/pre-close backdated prospective ETF paper commits and restore safe V10 offline status mode; add focused pre-merge safety regression checks.
+
+- [修复] Resolve Turkish report prompt market-context language selection and restore explicit Turkish empty-news disclosure test coverage without enabling automated analysis or altering trading logic.
+
+- [修复] Redirect historical CI and daily-analysis contract tests to intentionally disabled workflow archives, and restore a non-secret environment template; no automation activated.
+
+
+- [测试] Add V11 read-only Strategy Lab PR-stack conflict audit and cumulative backend/frontend/full-regression release CI, with no trading or scheduling changes.
+
+- [新功能] Add opt-in V10 prospective paper journal import panel, admin-session-gated read-only inspection API, local daily health status and optional failure alerts without order or scheduler activation.
+
+- [新功能] Add manual, opt-in V9 prospective single-ETF paper observation with next-session-close simulated fills, immutable local JSONL journal and strict no-backfill/data-revision checks; no live trading or scheduling.
+
+- [新功能] Add research-only V8 fixed-parameter chronological walk-forward and reserved holdout validation for single ETF/cash timing, with explicit noninformative fold reporting and no execution wiring.
+
+- [新功能] Add an opt-in read-only V7 cross-provider ETF price consistency diagnostic comparing aligned daily returns, missing dates, and actual single-asset strategy sensitivity; no trading-path changes.
+
+- [修复] Complete Turkish UI type coverage for decision-signal timestamps, run-flow dates, system settings categories and notification channel labels; preserve Chinese and English behavior.
+
+- [新功能] Add a read-only Strategy Success Lab web panel, configured single-ETF history evaluation API, and Turkish/English/Chinese navigation; research results never affect trading decisions.
+
+- [新功能] Add an opt-in research-only adapter from historical single-asset ETF rotation trades to the random-timing benchmark; reject unsupported allocations and preserve existing live/report behavior.
+
+- [新功能] Add an opt-in read-only random timing benchmark with deterministic seeded Monte Carlo comparisons, per-side transaction costs, and unit tests; no execution or decision-signal integration.
+
 - [修复] 实时行情基准仅接受同交易日的有效日期；Yahoo 行情使用未复权价格并区分交易日与更新时间，避免除息日涨跌方向错误及误报过期。
 
 - [修复] 盘中及盘后实时行情覆盖前，仅在报价有明确行情交易日证据时将历史 `today` 平移为 `yesterday`；缺少行情时间的港股缓存报价保留原基准，避免涨跌幅、成交量比率及行情快照涨跌额被错误重算（#2517）。

@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -487,6 +487,95 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertIn("AAPL", positions)
         self.assertAlmostEqual(positions["AAPL"]["market_value_base"], 700.0, places=6)
 
+    def test_stored_usd_cross_supports_multi_market_risk_weights(self) -> None:
+        as_of = date(2026, 1, 2)
+        self.service.repo.save_fx_rate(
+            from_currency="HKD", to_currency="USD", rate_date=as_of,
+            rate=0.125, source="unit-test", is_stale=False,
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY", rate_date=as_of,
+            rate=7.0, source="unit-test", is_stale=False,
+        )
+        snapshot = {
+            "fx_stale": False, "total_market_value": 875.0,
+            "accounts": [
+                {"base_currency": "HKD", "market": "hk", "fx_stale": False,
+                 "positions": [{"symbol": "HK00700", "market_value_base": 500.0,
+                                "valuation_currency": "HKD"}]},
+                {"base_currency": "USD", "market": "us", "fx_stale": False,
+                 "positions": [{"symbol": "AAPL", "market_value_base": 62.5,
+                                "valuation_currency": "USD"}]},
+            ],
+        }
+        block = self.risk_service._build_concentration(snapshot, 35.0, as_of_date=as_of)
+        positions = {item["symbol"]: item for item in block["top_positions"]}
+        self.assertEqual(set(positions), {"HK00700", "AAPL"})
+        for item in positions.values():
+            self.assertAlmostEqual(item["market_value_base"], 437.5)
+            self.assertAlmostEqual(item["weight_pct"], 50.0)
+
+    def test_position_level_stale_cross_suppresses_risk_flags(self) -> None:
+        as_of = date(2026, 1, 5)
+        self.service.repo.save_fx_rate(
+            from_currency="HKD", to_currency="USD", rate_date=as_of,
+            rate=0.125, source="unit-test", is_stale=False,
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY", rate_date=date(2026, 1, 1),
+            rate=7.0, source="unit-test", is_stale=False,
+        )
+        # The aggregate flag is deliberately wrong: inspect per-position FX.
+        snapshot = {
+            "fx_stale": False, "total_market_value": 700.0,
+            "accounts": [{
+                "base_currency": "HKD", "market": "hk", "fx_stale": False,
+                "positions": [{"symbol": "HK00700", "market_value_base": 800.0,
+                               "valuation_currency": "HKD"}],
+            }],
+        }
+        for block in (
+            self.risk_service._build_concentration(snapshot, 35.0, as_of_date=as_of),
+            self.risk_service._build_sector_concentration(snapshot, 35.0, as_of_date=as_of),
+        ):
+            self.assertFalse(block["available"])
+            self.assertTrue(block["fx_stale"])
+            self.assertIsNone(block["top_weight_pct"])
+            self.assertIsNone(block["alert"])
+
+    def test_stale_fx_blocks_cross_currency_risk_percentages(self) -> None:
+        account = self.service.create_account(
+            name="US", broker="Demo", market="us", base_currency="USD"
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=200.0, currency="USD",
+        )
+        self.service.record_trade(
+            account_id=aid, symbol="AAPL", trade_date=date(2026, 1, 1),
+            side="buy", quantity=1, price=100.0, market="us", currency="USD",
+        )
+        self._save_close("AAPL", date(2026, 1, 1), 120.0)
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY",
+            rate_date=date(2026, 1, 1), rate=7.0,
+            source="unit-test", is_stale=True,
+        )
+        report = self.risk_service.get_risk_report(
+            account_id=aid, as_of=date(2026, 1, 2),
+            cost_method="fifo", include_realtime=False,
+        )
+        for key in ("concentration", "sector_concentration"):
+            block = report[key]
+            self.assertFalse(block["available"])
+            self.assertTrue(block["fx_stale"])
+            self.assertIsNone(block["top_weight_pct"])
+            self.assertIsNone(block["alert"])
+        self.assertTrue(report["drawdown"]["fx_stale"])
+        self.assertIsNone(report["drawdown"]["max_drawdown_pct"])
+        self.assertIsNone(report["drawdown"]["alert"])
+
     def test_sector_concentration_uses_unclassified_for_non_cn(self) -> None:
         us_account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="USD")
         us_id = us_account["id"]
@@ -508,6 +597,11 @@ class PortfolioPr2TestCase(unittest.TestCase):
             currency="USD",
         )
         self._save_close("AAPL", date(2026, 1, 1), 100.0)
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY",
+            rate_date=date(2026, 1, 1), rate=7.0,
+            source="unit-test", is_stale=False,
+        )
         report = self.risk_service.get_risk_report(account_id=us_id, as_of=date(2026, 1, 1), cost_method="fifo")
         self.assertIn("sector_concentration", report)
         sectors = report["sector_concentration"]["top_sectors"]
@@ -695,6 +789,26 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertEqual(payload["decision_signal_risk"]["total"], 1)
         self.assertEqual(payload["decision_signal_risk"]["items"][0]["signal"]["action"], "sell")
 
+    def test_missing_fx_rate_returns_explicit_503_for_snapshot_and_risk(self) -> None:
+        account = self.service.create_account(
+            name="US", broker="Demo", market="us", base_currency="USD"
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid,
+            event_date=date(2026, 1, 1),
+            direction="in",
+            amount=100,
+            currency="USD",
+        )
+        for endpoint in ("snapshot", "risk"):
+            response = self.client.get(
+                f"/api/v1/portfolio/{endpoint}",
+                params={"account_id": aid, "as_of": "2026-01-02", "include_realtime": "false"},
+            )
+            self.assertEqual(response.status_code, 503, response.text)
+            self.assertEqual(response.json()["error"], "portfolio_fx_rate_unavailable")
+
     def test_snapshot_does_not_trigger_online_fx_refresh(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
         aid = account["id"]
@@ -728,7 +842,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", side_effect=AssertionError("should not call")):
             self.service.get_portfolio_snapshot(account_id=aid, as_of=date(2026, 1, 1), cost_method="fifo")
 
-    def test_fx_refresh_fallback_marks_stale(self) -> None:
+    def test_fx_refresh_failure_retains_original_quote_date_without_false_recency(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
         aid = account["id"]
         self.service.record_cash_ledger(
@@ -759,8 +873,212 @@ class PortfolioPr2TestCase(unittest.TestCase):
             as_of=date(2026, 1, 2),
         )
         self.assertIsNotNone(latest)
-        self.assertTrue(bool(latest.is_stale))
+        self.assertFalse(bool(latest.is_stale))
+        self.assertEqual(latest.rate_date, date(2026, 1, 1))
+        self.assertEqual(latest.source, "manual")
         self.assertAlmostEqual(float(latest.rate), 7.0, places=6)
+        # The attempted Jan 2 refresh must not manufacture a Jan 2 quote.
+        self.assertEqual(
+            self.service.repo.get_latest_fx_rate(
+                from_currency="USD", to_currency="CNY", as_of=date(2026, 1, 1),
+            ).rate_date,
+            date(2026, 1, 1),
+        )
+
+    def test_fx_refresh_saves_yahoo_actual_source_date_not_request_date(self) -> None:
+        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=100.0, currency="USD",
+        )
+        # Jan 3 is the request; Yahoo's most recent real close was Jan 2.
+        with patch.object(
+            PortfolioService, "_fetch_fx_rate_from_yfinance",
+            return_value=(7.25, date(2026, 1, 2)),
+        ):
+            summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 3))
+        self.assertEqual(summary["updated_count"], 1)
+        self.assertEqual(summary["stale_count"], 0)
+        latest = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=date(2026, 1, 3),
+        )
+        self.assertEqual(latest.rate_date, date(2026, 1, 2))
+        self.assertEqual(latest.source, "yfinance")
+        self.assertFalse(latest.is_stale)
+        self.assertAlmostEqual(float(latest.rate), 7.25)
+        converted, stale, _ = self.service.convert_amount(
+            amount=100, from_currency="USD", to_currency="CNY",
+            as_of_date=date(2026, 1, 3),
+        )
+        self.assertAlmostEqual(converted, 725)
+        self.assertFalse(stale)
+
+    def test_fx_refresh_does_not_persist_overage_or_future_yahoo_quote(self) -> None:
+        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=100.0, currency="USD",
+        )
+        requested = date(2026, 1, 7)
+        for value, quote_date in ((7.25, date(2026, 1, 1)), (7.25, date(2026, 1, 8))):
+            with patch.object(
+                PortfolioService, "_fetch_fx_rate_from_yfinance",
+                return_value=(value, quote_date),
+            ), patch.object(self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate) as save:
+                summary = self.service.refresh_fx_rates(account_id=aid, as_of=requested)
+            self.assertEqual(summary["updated_count"], 0)
+            self.assertEqual(summary["stale_count"], 1)
+            self.assertEqual(summary["error_count"], 0)
+            save.assert_not_called()
+        self.assertIsNone(self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=requested,
+        ))
+
+    def test_fx_refresh_rejects_undated_legacy_and_nonfinite_quote(self) -> None:
+        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=date(2026, 1, 1),
+            direction="in", amount=100.0, currency="USD",
+        )
+        for untrusted in (7.25, (float("nan"), date(2026, 1, 2)), (0.0, date(2026, 1, 2)), (7.25, None)):
+            with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=untrusted), patch.object(
+                self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate,
+            ) as save:
+                summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 2))
+            self.assertEqual(summary["updated_count"], 0)
+            self.assertEqual(summary["error_count"], 1)
+            save.assert_not_called()
+
+    def test_yahoo_daily_quote_requires_real_source_timestamp(self) -> None:
+        with patch("src.services.portfolio_service.yf") as fake_yahoo:
+            history = pd.DataFrame(
+                {"Close": [7.0, 7.25]},
+                index=pd.DatetimeIndex(["2026-01-01", "2026-01-02"], tz="UTC"),
+            )
+            fake_yahoo.Ticker.return_value.history.return_value = history
+            quote = PortfolioService._fetch_fx_rate_from_yfinance(
+                from_currency="USD", to_currency="CNY", as_of_date=date(2026, 1, 3),
+            )
+            self.assertEqual(quote, (7.25, date(2026, 1, 2)))
+            # A dated quote beyond the requested point-in-time is unsafe.
+            self.assertIsNone(PortfolioService._fetch_fx_rate_from_yfinance(
+                from_currency="USD", to_currency="CNY", as_of_date=date(2025, 12, 31),
+            ))
+            fake_yahoo.Ticker.return_value.history.return_value = pd.DataFrame(
+                {"Close": [float("nan")]},
+                index=pd.DatetimeIndex(["2026-01-02"], tz="UTC"),
+            )
+            self.assertIsNone(PortfolioService._fetch_fx_rate_from_yfinance(
+                from_currency="USD", to_currency="CNY", as_of_date=date(2026, 1, 3),
+            ))
+
+    def test_weekend_refresh_records_friday_rate_and_tuesday_marks_it_stale(self) -> None:
+        friday, sunday, tuesday = date(2026, 1, 2), date(2026, 1, 4), date(2026, 1, 6)
+        account = self.service.create_account(name="USD", broker="Demo", market="us", base_currency="CNY")
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=friday,
+            direction="in", amount=100.0, currency="USD",
+        )
+
+        # A Sunday refresh may legitimately return a Friday close.
+        with patch.object(
+            PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=(7.1, friday),
+        ):
+            sunday_summary = self.service.refresh_fx_rates(account_id=aid, as_of=sunday)
+        self.assertEqual(sunday_summary["updated_count"], 1)
+        self.assertEqual(sunday_summary["stale_count"], 0)
+        recorded = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=sunday,
+        )
+        self.assertEqual(recorded.rate_date, friday)
+        value, is_stale, _ = self.service.convert_amount(
+            amount=100.0, from_currency="USD", to_currency="CNY", as_of_date=sunday,
+        )
+        self.assertAlmostEqual(value, 710.0)
+        self.assertFalse(is_stale)
+
+        # On Tuesday, that very same Friday rate is four calendar days old.
+        with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=None):
+            tuesday_summary = self.service.refresh_fx_rates(account_id=aid, as_of=tuesday)
+        self.assertEqual(tuesday_summary["updated_count"], 0)
+        self.assertEqual(tuesday_summary["stale_count"], 1)
+        latest = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=tuesday,
+        )
+        self.assertEqual(latest.rate_date, friday)
+        value, is_stale, _ = self.service.convert_amount(
+            amount=100.0, from_currency="USD", to_currency="CNY", as_of_date=tuesday,
+        )
+        self.assertAlmostEqual(value, 710.0)
+        self.assertTrue(is_stale)
+
+    def test_today_yahoo_partial_daily_candle_is_not_saved_in_portfolio(self) -> None:
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+        account = self.service.create_account(
+            name="USD", broker="Demo", market="us", base_currency="CNY",
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=yesterday,
+            direction="in", amount=100.0, currency="USD",
+        )
+        # The provider advertises a newer 'Close' for today, but it has no
+        # finalized marker and must not become today's persisted FX rate.
+        history = pd.DataFrame(
+            {"Close": [7.1, 9.9]},
+            index=pd.DatetimeIndex(
+                [yesterday.isoformat(), today.isoformat()], tz="UTC",
+            ),
+        )
+        with patch("src.services.portfolio_service.yf") as fake_yahoo:
+            fake_yahoo.Ticker.return_value.history.return_value = history
+            summary = self.service.refresh_fx_rates(account_id=aid, as_of=today)
+        self.assertEqual(summary["updated_count"], 1)
+        latest = self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=today,
+        )
+        self.assertIsNotNone(latest)
+        self.assertEqual(latest.rate_date, yesterday)
+        self.assertAlmostEqual(latest.rate, 7.1)
+        self.assertEqual(latest.source, "yfinance")
+        self.assertFalse(latest.is_stale)
+        value, stale, _ = self.service.convert_amount(
+            amount=100, from_currency="USD", to_currency="CNY", as_of_date=today,
+        )
+        self.assertAlmostEqual(value, 710.0)
+        self.assertFalse(stale)
+
+    def test_today_only_unclosed_bar_keeps_fx_unavailable_and_does_not_write(self) -> None:
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+        account = self.service.create_account(
+            name="USD", broker="Demo", market="us", base_currency="CNY",
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid, event_date=yesterday,
+            direction="in", amount=100.0, currency="USD",
+        )
+        history = pd.DataFrame(
+            {"Close": [9.9]},
+            index=pd.DatetimeIndex([today.isoformat()], tz="UTC"),
+        )
+        with patch("src.services.portfolio_service.yf") as fake_yahoo, patch.object(
+            self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate,
+        ) as save_quote:
+            fake_yahoo.Ticker.return_value.history.return_value = history
+            summary = self.service.refresh_fx_rates(account_id=aid, as_of=today)
+            save_quote.assert_not_called()
+        self.assertEqual(summary["updated_count"], 0)
+        self.assertEqual(summary["error_count"], 1)
+        self.assertIsNone(self.service.repo.get_latest_fx_rate(
+            from_currency="USD", to_currency="CNY", as_of=today,
+        ))
 
     def test_fx_refresh_disabled_returns_real_pair_count_without_fetching(self) -> None:
         account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertRuleList } from '../AlertRuleList';
@@ -51,6 +52,9 @@ const rules: AlertRuleItem[] = [
     updatedAt: '2026-05-18T09:30:00',
   },
 ];
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('AlertRuleList', () => {
   const onEnabledFilterChange = vi.fn();

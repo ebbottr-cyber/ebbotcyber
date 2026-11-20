@@ -1,0 +1,53 @@
+name: Strategy Lab V10 paper ops validation
+
+on:
+  pull_request:
+    branches:
+      - feat/strategy-lab-prospective-paper-v9
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-ops-v10-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  paper-ops-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR merge
+        uses: actions/checkout@v4
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI requirements
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Compile code
+        run: python -m py_compile src/services/paper_journal_reporting.py api/v1/endpoints/strategy_lab.py scripts/run_etf_paper_daily_v10.py tests/test_strategy_lab_paper_ops_v10.py
+      - name: Paper operator, auth and journal contracts
+        run: python -m pytest -q tests/test_strategy_lab_paper_ops_v10.py tests/test_prospective_paper_cli.py tests/test_prospective_paper.py
+
+  paper-ops-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - name: Checkout PR merge
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install web dependencies
+        run: npm ci
+      - name: Paper Journal and Strategy Lab tests
+        run: npx vitest run src/components/strategy-lab/__tests__/PaperJournalPanel.test.tsx src/pages/__tests__/StrategyLabPage.test.tsx
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Web production build
+        run: npm run build

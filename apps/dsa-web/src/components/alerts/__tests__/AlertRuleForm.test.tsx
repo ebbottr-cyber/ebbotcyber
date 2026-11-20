@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
@@ -13,6 +14,9 @@ vi.mock('../../../api/portfolio', () => ({
     getAccounts,
   },
 }));
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('AlertRuleForm', () => {
   const onSubmit = vi.fn();

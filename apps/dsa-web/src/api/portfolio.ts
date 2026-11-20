@@ -13,6 +13,7 @@ import type {
   PortfolioDeleteResponse,
   PortfolioEventCreatedResponse,
   PortfolioFxRefreshResponse,
+  PortfolioDisplayFxRates,
   PortfolioImportBrokerListResponse,
   PortfolioImportCommitResponse,
   PortfolioImportParseResponse,
@@ -106,6 +107,11 @@ function buildEventParams(query: EventQuery): Record<string, string | number> {
 }
 
 export const portfolioApi = {
+  async getDisplayFxRates(): Promise<PortfolioDisplayFxRates> {
+    const response = await apiClient.get<Record<string, unknown>>('/api/v1/portfolio/fx/display-rates');
+    return toCamelCase<PortfolioDisplayFxRates>(response.data);
+  },
+
   async getAccounts(includeInactive = false): Promise<PortfolioAccountListResponse> {
     const response = await apiClient.get<Record<string, unknown>>('/api/v1/portfolio/accounts', {
       params: { include_inactive: includeInactive },

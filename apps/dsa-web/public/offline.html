@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f8fc" />
+  <title>EBBot — İnternet bağlantısı yok</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #f6f8fc; color: #142442; font: 16px/1.5 system-ui, sans-serif; }
+    main { box-sizing: border-box; width: min(440px, calc(100% - 36px)); padding: 32px 28px; border-radius: 20px; background: #fff; border: 1px solid #dce6f4; box-shadow: 0 14px 36px #1e466014; text-align: center; }
+    img { width: 70px; height: 70px; } h1 { font-size: 22px; margin: 14px 0; } p { color: #526480; }
+    button { margin-top: 12px; border: 0; border-radius: 10px; padding: 12px 24px; background: #155dc6; color: white; font-size: 15px; font-weight: 600; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #7ac8ff; outline-offset: 3px; }
+  </style>
+</head>
+<body>
+<main>
+  <img src="/icons/ebbot-192.png" alt="EBBot" />
+  <h1>İnternet bağlantısı yok</h1>
+  <p>Güvenliğiniz için piyasa verileri, portföy ve oturum bilgileri çevrimdışı saklanmaz. Bağlantınız geldiğinde tekrar deneyin.</p>
+  <button type="button" onclick="location.reload()">Tekrar dene</button>
+</main>
+</body></html>
