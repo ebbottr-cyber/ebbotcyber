@@ -115,7 +115,6 @@ def test_future_and_expired_inputs_are_unavailable():
         assert all(x["yahoo_daily_date"] is None for x in out["fx_pairs"])
         assert all(x["tcmb_forex_selling_date"] is None for x in out["fx_pairs"])
         assert out["cny"]["tcmb_date"] is None
-        assert all(x["yahoo_daily_date"] is None for x in [])  # No guessed dates.
 
 
 def test_duplicate_quotes_nonfinite_numeric_and_bool_fail_closed():
@@ -145,6 +144,8 @@ def test_inf_divergence_never_serializes_nan():
     r["official_tcmb"]["checks"][0]["try_per_unit"] = 1e-300
     out = compare_observations(r)
     assert pairs(out)["USD/TRY"]["absolute_difference_pct_of_tcmb"] is None
+    assert pairs(out)["USD/TRY"]["status"] == "difference_uncomputable"
+    assert "USD_difference_uncomputable" in out["alerts"]
     json.dumps(out, allow_nan=False)
 
 
