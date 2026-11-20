@@ -18,11 +18,12 @@ class DesktopPackageAuditTests(unittest.TestCase):
         desktop.mkdir(parents=True)
         (desktop / "package.json").write_text(json.dumps({
             "version": "3.21.0",
+            "name": "ebbot-desktop",
             "build": {
-                "appId": "com.daily-stock-analysis.desktop",
-                "productName": "Daily Stock Analysis",
-                "win": {"target": "nsis", "publish": [
-                    {"provider": "github", "owner": "ZhuLinsen", "repo": "daily_stock_analysis"}
+                "appId": "com.ebbot.desktop",
+                "productName": "EBBot",
+                "win": {"target": "nsis", "artifactName": "EBBot-windows-installer-v${version}.${ext}", "publish": [
+                    {"provider": "github", "owner": "ebbottr-cyber", "repo": "ebbotcyber"}
                 ]},
                 "files": ["main.js", "preload.js"],
                 "extraResources": [
@@ -31,23 +32,26 @@ class DesktopPackageAuditTests(unittest.TestCase):
             }
         }), encoding="utf-8")
         (desktop / "main.js").write_text(
-            "const GITHUB_OWNER = 'ZhuLinsen';\n"
-            "const GITHUB_REPO = 'daily_stock_analysis';\n",
+            "const GITHUB_OWNER = 'ebbottr-cyber';\n"
+            "const GITHUB_REPO = 'ebbotcyber';\n"
+            "const DESKTOP_UPDATES_ENABLED = false;\n"
+            "function a() { if (!DESKTOP_UPDATES_ENABLED) {} }\n"
+            "function b() { if (!DESKTOP_UPDATES_ENABLED) {} }\n",
             encoding="utf-8",
         )
         self.dist = desktop / "dist"
 
     def _create_sample_package(self):
         self.dist.mkdir(parents=True, exist_ok=True)
-        installer = self.dist / "daily-stock-analysis-windows-installer-v3.21.0.exe"
+        installer = self.dist / "EBBot-windows-installer-v3.21.0.exe"
         installer.write_bytes(b"synthetic-test-installer")
         (self.dist / (installer.name + ".blockmap")).write_bytes(b"mock")
         (self.dist / "latest.yml").write_text(
             "version: 3.21.0\n"
             "files:\n"
-            "  - url: daily-stock-analysis-windows-installer-v3.21.0.exe\n"
+            "  - url: EBBot-windows-installer-v3.21.0.exe\n"
             "    sha512: synthetic\n"
-            "path: daily-stock-analysis-windows-installer-v3.21.0.exe\n"
+            "path: EBBot-windows-installer-v3.21.0.exe\n"
             "sha512: synthetic\n",
             encoding="utf-8",
         )
@@ -58,12 +62,30 @@ class DesktopPackageAuditTests(unittest.TestCase):
         (resources / ".env.example").write_text("# no secrets")
         (resources / "app.asar").write_bytes(b"fixture")
 
-    def test_source_upstream_references_block_release(self):
+    def test_source_identity_and_disabled_updater_are_checked(self):
         result = source_audit(self.root)
         self.assertTrue(all(x["passed"] for x in result["checks"]))
-        self.assertTrue(any("upstream" in x for x in result["release_blockers"]))
+        self.assertTrue(any(x["name"] == "updater_runtime_disabled" and x["passed"]
+                            for x in result["checks"]))
+        self.assertTrue(any(x["name"] == "ebbot_publish_target" and x["passed"]
+                            for x in result["checks"]))
         self.assertTrue(any("code-signing" in x for x in result["release_blockers"]))
         self.assertEqual(audit(self.root)["release_status"], "BLOCKED")
+
+    def test_upstream_or_enabled_updater_fails_strict_source(self):
+        desktop = self.root / "apps/dsa-desktop"
+        main_js = desktop / "main.js"
+        original = main_js.read_text(encoding="utf-8")
+        main_js.write_text(original.replace("const GITHUB_OWNER = 'ebbottr-cyber';",
+                                            "const GITHUB_OWNER = 'ZhuLinsen';"),
+                           encoding="utf-8")
+        self.assertFalse(next(x["passed"] for x in source_audit(self.root)["checks"]
+                              if x["name"] == "ebbot_update_references"))
+        main_js.write_text(original.replace("const DESKTOP_UPDATES_ENABLED = false;",
+                                            "const DESKTOP_UPDATES_ENABLED = true;"),
+                           encoding="utf-8")
+        self.assertFalse(next(x["passed"] for x in source_audit(self.root)["checks"]
+                              if x["name"] == "updater_runtime_disabled"))
 
     def test_missing_dist_is_not_misreported_as_passed(self):
         result = package_audit(self.root, self.dist, "3.21.0")
@@ -76,7 +98,7 @@ class DesktopPackageAuditTests(unittest.TestCase):
         self._create_sample_package()
         result = audit(self.root, self.dist)
         self.assertEqual(result["package"]["package_validation"], "PASSED")
-        self.assertIn("daily-stock-analysis-windows-installer-v3.21.0.exe",
+        self.assertIn("EBBot-windows-installer-v3.21.0.exe",
                       result["package"]["sha256"])
         self.assertEqual(result["release_status"], "BLOCKED")
         self.assertFalse(result["publishes_release"])
