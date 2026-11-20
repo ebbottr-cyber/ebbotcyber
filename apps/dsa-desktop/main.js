@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { randomBytes } = require('crypto');
 const { spawn } = require('child_process');
 const net = require('net');
 const http = require('http');
@@ -469,30 +470,78 @@ function cleanupUpdateBackupRoot() {
 }
 
 function normalizeBackupFileList(manifest) {
-  if (manifest && Array.isArray(manifest.files) && manifest.files.length) {
-    return manifest.files.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim());
+  // Never restore arbitrary paths from a potentially malformed backup manifest.
+  // An invalid/missing file list must not silently fall back to every state file.
+  if (!manifest || !Array.isArray(manifest.files) || !manifest.files.length) {
+    return null;
   }
-  return DESKTOP_UPDATE_RUNTIME_RELATIVE_FILES.slice();
+  const allowed = new Set(DESKTOP_UPDATE_RUNTIME_RELATIVE_FILES);
+  if (manifest.files.some((item) => typeof item !== 'string' || !allowed.has(item))) {
+    return null;
+  }
+  return [...new Set(manifest.files)];
 }
 
 function copyRuntimeStatePathSync(source, target) {
-  const stats = fs.statSync(source);
-  if (stats.isDirectory()) {
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.mkdirSync(target, { recursive: true });
-    fs.readdirSync(source, { withFileTypes: true }).forEach((entry) => {
-      copyRuntimeStatePathSync(path.join(source, entry.name), path.join(target, entry.name));
-    });
-    return;
-  }
-
-  if (!stats.isFile()) {
-    throw new Error(`unsupported runtime state path type: ${source}`);
-  }
+  // Stage a complete file/directory beside the target before moving the old
+  // target aside. A read/copy error must never delete the original user data.
+  const suffix = `${process.pid}-${randomBytes(8).toString('hex')}`;
+  const pending = `${target}.ebbot-pending-${suffix}`;
+  const previous = `${target}.ebbot-previous-${suffix}`;
+  const copyToEmptyPath = (from, to) => {
+    const stats = fs.lstatSync(from);
+    if (stats.isSymbolicLink()) {
+      throw new Error('runtime backup path cannot be a symbolic link');
+    }
+    if (stats.isDirectory()) {
+      fs.mkdirSync(to);
+      fs.readdirSync(from, { withFileTypes: true }).forEach((entry) => {
+        copyToEmptyPath(path.join(from, entry.name), path.join(to, entry.name));
+      });
+      return;
+    }
+    if (!stats.isFile()) {
+      throw new Error('unsupported runtime state path type');
+    }
+    fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
+  };
 
   ensureDirectory(path.dirname(target));
-  fs.rmSync(target, { recursive: true, force: true });
-  fs.copyFileSync(source, target);
+  let previousMoved = false;
+  let pendingInstalled = false;
+  try {
+    copyToEmptyPath(source, pending);
+    if (fs.existsSync(target)) {
+      fs.renameSync(target, previous);
+      previousMoved = true;
+    }
+    try {
+      fs.renameSync(pending, target);
+      pendingInstalled = true;
+    } catch (error) {
+      if (previousMoved) {
+        fs.renameSync(previous, target);
+        previousMoved = false;
+      }
+      throw error;
+    }
+    if (previousMoved) {
+      try {
+        fs.rmSync(previous, { recursive: true, force: true });
+      } catch (_error) {
+        // Never erase the restored target just because old-file cleanup failed.
+        logLine('[update] previous runtime copy cleanup failed; retaining new target');
+      }
+    }
+  } finally {
+    if (!pendingInstalled) {
+      try {
+        fs.rmSync(pending, { recursive: true, force: true });
+      } catch (_error) {
+        logLine('[update] temporary runtime copy cleanup failed');
+      }
+    }
+  }
 }
 
 function backupPackagedRuntimeState() {
@@ -500,11 +549,17 @@ function backupPackagedRuntimeState() {
     return;
   }
 
+  const backupRoot = resolveUpdateBackupRoot();
+  // A previous interrupted update may still need these bytes for recovery.
+  // Never remove or overwrite a pending backup just to start a new attempt.
+  if (fs.existsSync(backupRoot)) {
+    logLine('[update] skipped new runtime backup because a prior backup needs review');
+    return;
+  }
+
   const runtimeEntries = resolveRuntimeFileEntries();
   const backedUpFiles = [];
-
-  cleanupUpdateBackupRoot();
-  ensureDirectory(resolveUpdateBackupRoot());
+  ensureDirectory(backupRoot);
 
   runtimeEntries.forEach(({ relativePath, absolutePath, backupPath }) => {
     if (!fs.existsSync(absolutePath)) {
@@ -515,6 +570,7 @@ function backupPackagedRuntimeState() {
   });
 
   if (!backedUpFiles.length) {
+    cleanupUpdateBackupRoot();
     return;
   }
 
@@ -565,6 +621,11 @@ function restorePackagedRuntimeStateFromBackup() {
   const appDir = resolveAppDir();
   const runtimeEntries = resolveRuntimeFileEntries(appDir);
   const relativeFiles = normalizeBackupFileList(manifest);
+  if (!relativeFiles) {
+    result.failed.push('Invalid or unapproved runtime backup manifest file list');
+    logLine('[update] refused to restore unapproved runtime backup file paths');
+    return result; // Retain the backup for manual inspection/recovery.
+  }
   const failedRelativeFiles = [];
 
   try {

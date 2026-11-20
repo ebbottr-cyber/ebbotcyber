@@ -7,12 +7,14 @@ on:
       - security/ebbot-desktop-identity-updater-block-20261120
       - security/ebbot-desktop-update-integrity-20261120
       - security/ebbot-desktop-signature-readiness-20261120
+      - security/ebbot-desktop-safe-restore-20261120
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
       - test/ebbot-windows-electron-offline-package-20261120
       - security/ebbot-desktop-identity-updater-block-20261120
       - security/ebbot-desktop-update-integrity-20261120
+      - security/ebbot-desktop-signature-readiness-20261120
 
 permissions:
   contents: read
