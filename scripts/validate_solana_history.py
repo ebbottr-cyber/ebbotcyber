@@ -107,7 +107,8 @@ def validate_document(doc: Any) -> dict[str, Any]:
         if not has_price:
             missing_count += 1
             _check("price_usd" not in observation and observation.get("strategies") == {} and
-                   observation.get("price_source") is None,
+                   observation.get("price_source") in (None, "dexscreener") and
+                   "price_pair_id" not in observation,
                    "Missing quote has fabricated price or strategy")
             continue
 
