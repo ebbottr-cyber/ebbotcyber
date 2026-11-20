@@ -505,6 +505,8 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboardScope.getByText('HKD')).toBeInTheDocument();
   });
 
+  // Aggregate exposure uses backend-confirmed snapshot currency; the locale is
+  // tr-TR for display only. Tests must never reinterpret digits as an FX rate.
   it('converts single-account foreign-currency exposure values into the snapshot currency', async () => {
     getSnapshot.mockResolvedValueOnce({
       asOf: '2026-03-19',
@@ -562,8 +564,8 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboard).not.toBeNull();
     const dashboardScope = within(dashboard as HTMLElement);
     expect(dashboardScope.getByText('US')).toBeInTheDocument();
-    expect(dashboardScope.getAllByText('CNY 700.00').length).toBeGreaterThan(0);
-    expect(dashboardScope.queryByText('CNY 100.00')).not.toBeInTheDocument();
+    expect(dashboardScope.getAllByText('CNY 700,00').length).toBeGreaterThan(0);
+    expect(dashboardScope.queryByText('CNY 100,00')).not.toBeInTheDocument();
     expect(dashboardScope.getAllByText('100.00%').length).toBeGreaterThan(0);
   });
 
@@ -656,11 +658,11 @@ describe('PortfolioPage FX refresh', () => {
     for (const label of ['市场暴露', '币种暴露']) {
       const exposure = dashboardScope.getByText(label).closest('div.rounded-xl');
       const scope = within(exposure as HTMLElement);
-      expect(scope.getByText('CNY 70.00')).toBeInTheDocument();
-      expect(scope.getByText('CNY 700.00')).toBeInTheDocument();
+      expect(scope.getByText('CNY 70,00')).toBeInTheDocument();
+      expect(scope.getByText('CNY 700,00')).toBeInTheDocument();
       expect(scope.getByText('9.09%')).toBeInTheDocument();
       expect(scope.getByText('90.91%')).toBeInTheDocument();
-      expect(scope.queryByText('CNY 100.00')).not.toBeInTheDocument();
+      expect(scope.queryByText('CNY 100,00')).not.toBeInTheDocument();
     }
     expect(dashboardScope.queryByText('暴露不可用')).not.toBeInTheDocument();
   });
@@ -704,7 +706,7 @@ describe('PortfolioPage FX refresh', () => {
     }
     for (const label of ['市场暴露', '币种暴露']) {
       const exposure = within(dashboard.getByText(label).closest('div.rounded-xl') as HTMLElement);
-      for (const value of ['CNY 700.00', 'CNY 180.00', 'CNY 70.00', '73.68%', '18.95%', '7.37%']) {
+      for (const value of ['CNY 700,00', 'CNY 180,00', 'CNY 70,00', '73.68%', '18.95%', '7.37%']) {
         expect(exposure.getByText(value)).toBeInTheDocument();
       }
       if (evidence === 'zero-value-account') {
@@ -736,7 +738,7 @@ describe('PortfolioPage FX refresh', () => {
     await waitForInitialLoad();
     const dashboard = within(screen.getByText('风险与暴露看板').closest('section') as HTMLElement);
     expect(dashboard.getAllByText('暂无暴露数据')).toHaveLength(2);
-    expect(dashboard.getByText('总市值: CNY 0.00')).toBeInTheDocument();
+    expect(dashboard.getByText('总市值: CNY 0,00')).toBeInTheDocument();
     expect(dashboard.getByText('持仓: 0')).toBeInTheDocument();
     expect(screen.getByText('共 0 项')).toBeInTheDocument();
     expect(screen.getByText('当前无持仓数据')).toBeInTheDocument();
@@ -863,7 +865,7 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboard).not.toBeNull();
     const dashboardScope = within(dashboard as HTMLElement);
     expect(dashboardScope.getAllByText('暴露不可用')).toHaveLength(2);
-    expect(dashboardScope.queryByText('CNY 100.00')).not.toBeInTheDocument();
+    expect(dashboardScope.queryByText('CNY 100,00')).not.toBeInTheDocument();
     expect(dashboardScope.queryByText('100.00%')).not.toBeInTheDocument();
   });
 
@@ -1879,7 +1881,7 @@ describe('PortfolioPage FX refresh', () => {
     fireEvent.click(screen.getByRole('button', { name: '刷新汇率' }));
 
     await waitFor(() => expect(refreshFx).toHaveBeenCalledWith({ accountId: 1 }));
-    expect(await screen.findByText('汇率已刷新，共更新 1 对。')).toBeInTheDocument();
+    expect(await screen.findByText('Döviz kurları yenilendi: 1 çift.')).toBeInTheDocument();
     await waitFor(() => expect(getSnapshot).toHaveBeenCalledTimes(snapshotCallsBeforeRefresh + 1));
     await waitFor(() => expect(getRisk).toHaveBeenCalledTimes(riskCallsBeforeRefresh + 1));
     expect(listTrades).toHaveBeenCalledTimes(tradeCallsBeforeRefresh);
@@ -1907,7 +1909,7 @@ describe('PortfolioPage FX refresh', () => {
     fireEvent.click(screen.getByRole('button', { name: '刷新汇率' }));
 
     await waitFor(() => expect(refreshFx).toHaveBeenCalledWith({ accountId: undefined }));
-    expect(await screen.findByText('当前范围无可刷新的汇率对。')).toBeInTheDocument();
+    expect(await screen.findByText('Bu kapsamda yenilenebilecek döviz kuru çifti yok.')).toBeInTheDocument();
   });
 
   it('shows disabled feedback when FX online refresh is disabled even without a disabled reason', async () => {
@@ -1927,7 +1929,7 @@ describe('PortfolioPage FX refresh', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '刷新汇率' }));
 
-    expect(await screen.findByText('汇率在线刷新已被禁用。')).toBeInTheDocument();
+    expect(await screen.findByText('Çevrimiçi döviz kuru yenileme kapalı.')).toBeInTheDocument();
   });
 
   it('renders backend-provided position valuation fields and stale missing-price hint', async () => {
@@ -1942,10 +1944,11 @@ describe('PortfolioPage FX refresh', () => {
 
     expect(await screen.findByText('HK00700')).toBeInTheDocument();
     expect(screen.getByText('420.0000')).toBeInTheDocument();
-    expect(screen.getByText('HKD 4,200.00')).toBeInTheDocument();
+    expect(screen.getByText('HKD 4.200,00')).toBeInTheDocument();
+    expect(screen.queryByText('CNY 4.200,00')).not.toBeInTheDocument();
     expect(screen.getByText('+5.00%')).toBeInTheDocument();
-    expect(screen.getByText('收盘价 · 2026-03-18')).toBeInTheDocument();
-    expect(screen.getByText('缺价')).toBeInTheDocument();
+    expect(screen.getByText('Kapanış fiyatı · 2026-03-18')).toBeInTheDocument();
+    expect(screen.getByText('Fiyat yok')).toBeInTheDocument();
     expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
 
     const hkRow = screen.getByText('HK00700').closest('tr');
@@ -2269,8 +2272,8 @@ describe('PortfolioPage FX refresh', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '刷新汇率' }));
 
-    expect(await screen.findByText('汇率在线刷新已被禁用。')).toBeInTheDocument();
-    expect(screen.queryByText('当前范围无可刷新的汇率对。')).not.toBeInTheDocument();
+    expect(await screen.findByText('Çevrimiçi döviz kuru yenileme kapalı.')).toBeInTheDocument();
+    expect(screen.queryByText('Bu kapsamda yenilenebilecek döviz kuru çifti yok.')).not.toBeInTheDocument();
   });
 
   it('shows warning feedback when FX refresh still falls back to stale rates', async () => {
@@ -2289,7 +2292,7 @@ describe('PortfolioPage FX refresh', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '刷新汇率' }));
 
-    expect(await screen.findByText(/stale\/fallback 汇率/)).toBeInTheDocument();
+    expect(await screen.findByText(/eski veya yedek kur mevcut/)).toBeInTheDocument();
   });
 
   it('shows warning feedback when FX refresh returns online errors without stale pairs', async () => {
@@ -2312,7 +2315,7 @@ describe('PortfolioPage FX refresh', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '刷新汇率' }));
 
-    expect(await screen.findByText(/在线刷新未完全成功/)).toBeInTheDocument();
+    expect(await screen.findByText(/Çevrimiçi kur yenileme tam olarak başarılı olmadı/)).toBeInTheDocument();
     await waitFor(() => expect(getSnapshot).toHaveBeenCalledTimes(snapshotCallsBeforeRefresh + 1));
     await waitFor(() => expect(getRisk).toHaveBeenCalledTimes(riskCallsBeforeRefresh + 1));
     expect(listTrades).toHaveBeenCalledTimes(tradeCallsBeforeRefresh);
@@ -2362,7 +2365,7 @@ describe('PortfolioPage FX refresh', () => {
 
     const fxAlertTitle = await screen.findByText('快照刷新失败');
     expect(fxAlertTitle.closest('[role="alert"]')).toHaveTextContent('无法加载最新持仓快照');
-    await waitFor(() => expect(screen.queryByText('汇率已刷新，共更新 1 对。')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Döviz kurları yenilendi: 1 çift.')).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getByRole('button', { name: '刷新汇率' })).not.toBeDisabled());
   });
 
@@ -2417,7 +2420,7 @@ describe('PortfolioPage FX refresh', () => {
 
     expect(getSnapshot).toHaveBeenCalledTimes(snapshotCallsAfterSwitch);
     expect(getRisk).toHaveBeenCalledTimes(riskCallsAfterSwitch);
-    expect(screen.queryByText('汇率已刷新，共更新 1 对。')).not.toBeInTheDocument();
+    expect(screen.queryByText('Döviz kurları yenilendi: 1 çift.')).not.toBeInTheDocument();
   });
 
   it('drops late FX refresh results after switching cost method', async () => {
@@ -2461,7 +2464,7 @@ describe('PortfolioPage FX refresh', () => {
 
     expect(getSnapshot).toHaveBeenCalledTimes(snapshotCallsAfterSwitch);
     expect(getRisk).toHaveBeenCalledTimes(riskCallsAfterSwitch);
-    expect(screen.queryByText('汇率已刷新，共更新 1 对。')).not.toBeInTheDocument();
+    expect(screen.queryByText('Döviz kurları yenilendi: 1 çift.')).not.toBeInTheDocument();
   });
 
   it('deactivates the selected account from the account toolbar and reloads accounts', async () => {
