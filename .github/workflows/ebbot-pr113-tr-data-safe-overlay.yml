@@ -1,0 +1,160 @@
+name: EBBot PR113 plus TR source-quality scoped integration (NO merge, NO trading)
+
+on:
+  push:
+    branches: [integration/ebbot-pr113-tr-data-safety-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-pr113-tr-safety-full-integrated-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  PYTHONUNBUFFERED: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  exact-merge-and-scope:
+    name: Read-only diff allowlist and current main merge preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove PR113 preserved outside four reviewed existing paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import subprocess
+          head = "73e044c8c5d41a57e762b0b765569f446139cd58"
+          paths = subprocess.check_output(
+              ["git", "diff", "--name-only", head, "HEAD"], text=True
+          ).splitlines()
+          base_changed = [
+              p for p in paths if subprocess.run(
+                  ["git", "cat-file", "-e", head + ":" + p],
+                  capture_output=True,
+              ).returncode == 0
+          ]
+          allowed = {
+              "src/services/tr_market_overview_service.py",
+              "tests/test_tr_market_overview_service.py",
+              "api/v1/endpoints/portfolio.py",
+              "api/v1/schemas/portfolio.py",
+          }
+          assert set(base_changed) == allowed, (base_changed, allowed)
+          assert not any(p.startswith((
+              "src/services/portfolio_service.py",
+              "src/services/portfolio_risk_service.py",
+              "apps/dsa-web/src/",
+          )) for p in paths), paths
+          print(f"Integration adds {len(paths)} reviewed files; 3 production changes.")
+          print("React, ledger, trading logic and scheduler unchanged from PR113.")
+          PY
+      - name: Check Git merge-tree against current main (ephemeral, no push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          git merge-tree --write-tree --name-only \
+            refs/remotes/origin/main HEAD > main-readonly-merge-tree.txt
+          echo "Ephemeral merge-tree: $(head -n 1 main-readonly-merge-tree.txt)"
+          echo "No checkout, git merge, commit, push or GitHub PR merge."
+      - name: Preserve merge-tree evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-surgical-overlay-git-scope
+          path: main-readonly-merge-tree.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+  offline-backend:
+    name: FULL offline backend and source guard tests on scoped overlay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install existing backend CI dependencies and socket blocker
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: Focused audit guards, network sockets blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
+            tests/test_tr_fx_pr113_surgical_integration.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_tcmb_try_display_service.py \
+            tests/test_audit_tr_fx_archived_evidence.py \
+            tests/test_audit_tr_fx_cross_sources.py \
+            tests/test_audit_tr_fx_later_day.py \
+            tests/test_audit_tr_fx_multiday_continuity.py \
+            tests/test_audit_tr_fx_public_sources.py \
+            --junitxml=overlay-source-guards.xml 2>&1 | tee overlay-source-guards.log
+      - name: FULL offline backend including portfolio and Solana contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q -m "not network" --tb=line --disable-warnings \
+            --timeout=120 -o timeout_method=thread -o faulthandler_timeout=300 \
+            --junitxml=overlay-full-backend.xml 2>&1 | tee overlay-full-backend.log
+      - name: Preserve full and focused backend reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-scoped-tr-data-backend-results
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            overlay-source-guards.xml
+            overlay-source-guards.log
+            overlay-full-backend.xml
+            overlay-full-backend.log
+
+  offline-frontend:
+    name: FULL PR113 React Vitest, lint, TS/Vite, native PWA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install exactly locked React dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Full React Vitest
+        run: npm test -- --reporter=dot
+      - name: React ESLint
+        run: npm run lint
+      - name: Build production TS and Vite assets
+        run: npm run build
+      - name: Offline PWA smoke tests
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa

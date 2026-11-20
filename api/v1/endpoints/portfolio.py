@@ -26,6 +26,7 @@ from api.v1.schemas.portfolio import (
     PortfolioEventCreatedResponse,
     PortfolioFxRefreshResponse,
     PortfolioDisplayFxResponse,
+    PortfolioTryDisplayResponse,
     PortfolioImportBrokerListResponse,
     PortfolioImportCommitResponse,
     PortfolioImportParseResponse,
@@ -38,6 +39,7 @@ from api.v1.schemas.portfolio import (
 )
 from src.services.task_queue import get_task_queue
 from src.services.portfolio_display_fx import get_try_display_rates
+from src.services.tcmb_try_display_service import TcmbQuoteUnavailable, get_tcmb_try_display_quotes
 from src.services.portfolio_import_service import PortfolioImportService
 from src.services.portfolio_risk_service import PortfolioRiskService
 from src.services.portfolio_service import (
@@ -647,6 +649,20 @@ def commit_csv_import(
 def get_display_fx_rates() -> PortfolioDisplayFxResponse:
     """Read-only market data endpoint; never triggers trades or changes ledgers."""
     return PortfolioDisplayFxResponse(**get_try_display_rates())
+
+
+@router.get(
+    "/fx/try-display",
+    response_model=PortfolioTryDisplayResponse,
+    responses={503: {"model": ErrorResponse}},
+    summary="Independent read-only dated TCMB indicative FX reference (not for accounting)",
+)
+def get_try_display_quotes() -> PortfolioTryDisplayResponse:
+    """Read-only official indicative bulletin; never touch portfolio FX ledger."""
+    try:
+        return PortfolioTryDisplayResponse(**get_tcmb_try_display_quotes())
+    except TcmbQuoteUnavailable:
+        raise api_error(503, "tcmb_display_unavailable", "Doğrulanmış güncel TCMB kuru bulunamadı")
 
 
 @router.post(
