@@ -405,6 +405,23 @@ describe('PortfolioPage FX refresh', () => {
     expect(screen.getByText(/Güvenilir ve uygun tarihli TL dönüşümü mevcut değil/)).toBeInTheDocument();
   });
 
+  it.each([
+    ['missing quotes', { available: true, source: 'TCMB', rateKind: 'indicative_forex_selling' }],
+    ['non-array quotes', { available: true, source: 'TCMB', quotes: { CNY: 6 } }],
+    ['null quote row', { available: true, source: 'TCMB', quotes: [null] }],
+  ])('keeps the original CNY amount and renders the risk dashboard for malformed TRY FX response: %s', async (_case, malformedResponse) => {
+    getSnapshot.mockResolvedValue(makeSnapshot({ fxStale: false }));
+    // Untrusted API JSON can be malformed at runtime despite its TS return type.
+    getTryDisplayRates.mockResolvedValue(malformedResponse);
+    render(<PortfolioPage />);
+    await waitForInitialLoad();
+    await waitFor(() => expect(getTryDisplayRates).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText('CNY 3.000,00')).toBeInTheDocument();
+    expect(screen.queryByText('TRY 18.000,00')).not.toBeInTheDocument();
+    expect(screen.getByText('风险与暴露看板')).toBeInTheDocument();
+  });
+
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
     render(<PortfolioPage />);
 
