@@ -75,7 +75,7 @@ jobs:
             fi
             # Degraded samples intentionally fail the producer workflow.
             # The converter cross-checks failure with a degraded capture.
-            printf '%s=%s\\n' "$id" "${meta##*|}" >> source-conclusions.txt
+            printf '%s=%s\n' "$id" "${meta##*|}" >> source-conclusions.txt
             mkdir -p "inputs/$id"
             gh run download "$id" --repo "$GITHUB_REPOSITORY" \
               --name solana-public-observations-not-paper-trades \
