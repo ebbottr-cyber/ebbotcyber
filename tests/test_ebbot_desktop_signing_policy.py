@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from scripts.audit_ebbot_desktop_signing import TARGETS, audit
+from scripts.audit_ebbot_desktop_signing import TARGETS, audit, ci_contract_violations
 
 
 class EBBotSigningPolicyTests(unittest.TestCase):
@@ -91,6 +91,19 @@ class EBBotSigningPolicyTests(unittest.TestCase):
         self.policy["release_enabled"] = True
         self.assertEqual(audit(self.policy, self.observation, at=self.now)["signing_validation"],
                          "BLOCKED")
+
+    def test_ci_requires_empty_signer_allowlist_and_disabled_release(self):
+        self.assertEqual(ci_contract_violations(self.policy, self.observation), [])
+        self.policy["approved_signer_thumbprints"] = [self.fingerprint]
+        self.assertTrue(ci_contract_violations(self.policy, self.observation))
+        self.policy["approved_signer_thumbprints"] = []
+        self.policy["release_enabled"] = True
+        self.assertTrue(ci_contract_violations(self.policy, self.observation))
+
+    def test_ci_requires_all_three_real_executables_to_be_present(self):
+        self.observation["signatures"]["electron_app"]["present"] = False
+        self.assertTrue(any("electron_app" in error for error in
+                            ci_contract_violations(self.policy, self.observation)))
 
     def test_partial_allowlist_never_approves_unknown_certificate(self):
         self._make_valid()
