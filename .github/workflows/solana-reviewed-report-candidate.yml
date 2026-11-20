@@ -58,6 +58,7 @@ jobs:
           fi
           IFS=',' read -r -a runs <<< "$OBS_RUN_IDS"
           declare -A seen=()
+          : > source-conclusions.txt
           for id in "${runs[@]}"; do
             if [[ -n "${seen[$id]:-}" ]]; then
               echo 'Duplicate observation run rejected'
@@ -67,10 +68,14 @@ jobs:
             meta=$(gh run view "$id" --repo "$GITHUB_REPOSITORY" \
               --json workflowName,conclusion \
               --jq '(.workflowName // "") + "|" + (.conclusion // "")')
-            if [[ "$meta" != 'Solana fixed-mint time-spaced observations (read only)|success' ]]; then
-              echo 'Unapproved observation workflow or unsuccessful source run'
+            if [[ "$meta" != 'Solana fixed-mint time-spaced observations (read only)|success' \
+               && "$meta" != 'Solana fixed-mint time-spaced observations (read only)|failure' ]]; then
+              echo 'Unapproved observation workflow or unsupported run outcome'
               exit 1
             fi
+            # Degraded samples intentionally fail the producer workflow.
+            # The converter cross-checks failure with a degraded capture.
+            printf '%s=%s\\n' "$id" "${meta##*|}" >> source-conclusions.txt
             mkdir -p "inputs/$id"
             gh run download "$id" --repo "$GITHUB_REPOSITORY" \
               --name solana-public-observations-not-paper-trades \
@@ -89,6 +94,9 @@ jobs:
           for id in "${runs[@]}"; do
             args+=(--capture "$id=inputs/$id/solana-public-observations.json")
           done
+          while IFS='=' read -r id outcome; do
+            args+=(--source-conclusion "$id=$outcome")
+          done < source-conclusions.txt
           python -m scripts.prepare_solana_reviewed_report \
             "${args[@]}" --audit-run-id "$GITHUB_RUN_ID" \
             --output solana-reviewed-quality-candidate.json
