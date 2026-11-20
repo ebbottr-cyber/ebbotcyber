@@ -800,9 +800,11 @@ describe('DecisionSignalsPage', () => {
     expect(new Date(refreshedItem.createdAt).getTime()).toBeLessThan(Date.now() - 90 * 86_400_000);
     await waitFor(() => expect(decisionSignalsApi.getLatest).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('timeline-click-90')).not.toBeInTheDocument();
-    await waitFor(() => expect(
+    // The refreshed item is outside the default 90-day range: no extra
+    // timeline query is necessary. The active/latest view does refresh.
+    expect(
       vi.mocked(decisionSignalsApi.list).mock.calls.filter(([params]) => params?.pageSize === 100),
-    ).toHaveLength(2));
+    ).toHaveLength(1);
   });
 
   it('keeps a terminal existing item terminal and does not inject it into active views', async () => {
