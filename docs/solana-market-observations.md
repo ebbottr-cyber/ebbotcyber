@@ -8,7 +8,7 @@ GitHub → **Actions** → **Solana fixed-mint time-spaced observations (read on
 
 - Başlangıçta GeckoTerminal (yeni havuz) ve DEX Screener (güncel token profilleri) ile en fazla **2 farklı Solana mint adresi** seçilir.
 - Bu adresler test boyunca sabit kalır. 60 saniyelik aralıklarla 3 ayrı gözlem yapılır (2 dakika boyunca, dış API gecikmeleri hariç).
-- Tüm fiyatlar **DEX Screener** üzerinden aynı mint adresleri sorgulanarak alınır. Her kayıtta keşif kaynağı ve fiyat kaynağı ayrı yazılır; havuzun aynı olduğu iddia edilmez.
+- Önce DEX Screener'dan aynı mint adresleri sorgulanır. İlk kez GeckoTerminal'de keşfedilmiş bir token DEX Screener'da henüz yoksa yalnızca **o tokenın ilk keşfedilen GeckoTerminal havuzu** sorgulanır. Havuz kimliği ve base mint tam eşleşmezse veri kabul edilmez. Her kayıtta keşif ve fiyat kaynağı ayrı yazılır; iki farklı havuz aynıymış gibi gösterilmez.
 - Her gözlemde GoPlus risk kontrolü yeniden sorgulanır. Bilgi eksikse mevcut EBBot risk motoru sonucu engeller; güvenli kabul edilmez.
 - Fiyat, likidite, hacim, beş dakikalık alım-satım sayıları, gözlem zaman damgası ve iki stratejinin izleme/engelleme nedeni kaydedilir.
 - Başarısız veya eksik fiyatlar için uydurma 0 USD fiyat konmaz; `missing_price` olarak işaretlenir. Ağ hataları `degraded` sonucuna dönüşür.

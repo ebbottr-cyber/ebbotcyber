@@ -15,13 +15,14 @@ from pathlib import Path
 from typing import Any, Callable
 
 from data_provider.solana_meme import (
-    MarketDataError, MemeQuote, SolanaMemeFeed, _dex_quotes, is_solana_address,
+    MarketDataError, MemeQuote, SolanaMemeFeed, _dex_quotes, _gecko_quotes, is_solana_address,
 )
 from scripts.scan_solana_meme import _select_quotes
 from src.services.solana_meme_radar import evaluate
 
 STRATEGIES = ("new_coin_hunter", "momentum_watcher")
 PRICING_SOURCE = "dexscreener"
+_GECKO_POOL_ENDPOINT = "https://api.geckoterminal.com/api/v2/networks/solana/pools/"
 _MAX_OBSERVATIONS = 4
 
 
@@ -41,8 +42,8 @@ def _eligible(quote: MemeQuote) -> bool:
 def _candidate(quote: MemeQuote, discovery: MemeQuote, now_ms: int,
                security: dict[str, Any] | None) -> dict[str, Any]:
     # The original GeckoTerminal source establishes the new-pool discovery
-    # claim. The repeated USD quote comes from DexScreener and can be a
-    # DIFFERENT pool. Preserve both provenance fields explicitly.
+    # claim. A repeated quote may come from DEX Screener (a different pool)
+    # or the verified original GeckoTerminal pool. Keep both identities.
     for_evaluation = replace(
         quote,
         source=discovery.source,
@@ -64,7 +65,7 @@ def _candidate(quote: MemeQuote, discovery: MemeQuote, now_ms: int,
         "discovery_source": discovery.source,
         "discovery_pool_id": discovery.pool_id,
         "discovery_pool_created_at_ms": discovery.pool_created_at_ms,
-        "price_source": PRICING_SOURCE,
+        "price_source": quote.source,
         "price_pair_id": quote.pool_id,
         "price_usd": str(quote.price_usd),
         "liquidity_usd": str(quote.liquidity_usd) if quote.liquidity_usd is not None else None,
@@ -136,7 +137,34 @@ def collect(
             except (MarketDataError, ValueError) as exc:
                 errors.append(_error("dexscreener_quotes", exc))
 
-        # Record receipt time AFTER fetching the public quote response.
+        # Some new GeckoTerminal pools are not yet indexed by DEX Screener.
+        # A narrowly bounded fallback reads ONLY the original discovered pool
+        # and checks BOTH pool ID and base mint. No cross-token substitution.
+        for mint, original in fixed.items():
+            if mint in prices or original.source != "geckoterminal":
+                continue
+            if not original.pool_id.startswith("solana_"):
+                continue
+            pool_address = original.pool_id[len("solana_"):]
+            if not is_solana_address(pool_address):
+                continue
+            try:
+                detail = feed.transport(_GECKO_POOL_ENDPOINT + pool_address + "?include=base_token")
+                if not isinstance(detail, dict) or not isinstance(detail.get("data"), dict):
+                    raise MarketDataError("Gecko pool payload invalid")
+                normalized = _gecko_quotes({
+                    "data": [detail["data"]],
+                    "included": detail.get("included", []),
+                }, now_ms)
+                valid = [quote for quote in normalized
+                         if quote.mint == mint and quote.pool_id == original.pool_id
+                         and _eligible(quote)]
+                if valid:
+                    prices[mint] = valid[0]
+            except (MarketDataError, ValueError) as exc:
+                errors.append(_error("geckoterminal_pool", exc))
+
+        # Record receipt time AFTER fetching all public price responses.
         received_ms = int(clock() * 1000)
         for mint, original in fixed.items():
             price = prices.get(mint)
@@ -145,7 +173,7 @@ def collect(
                     "timestamp_ms": received_ms,
                     "mint": mint,
                     "status": "missing_price",
-                    "price_source": PRICING_SOURCE,
+                    "price_source": None,
                     "strategies": {},
                 })
                 continue
