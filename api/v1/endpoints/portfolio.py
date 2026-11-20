@@ -43,6 +43,7 @@ from src.services.portfolio_risk_service import PortfolioRiskService
 from src.services.portfolio_service import (
     PortfolioBusyError,
     PortfolioConflictError,
+    PortfolioFxRateUnavailableError,
     PortfolioOversellError,
     PortfolioService,
 )
@@ -63,6 +64,12 @@ def _internal_error(message: str, exc: Exception) -> HTTPException:
 
 def _conflict_error(*, error: str, message: str) -> HTTPException:
     return api_error(409, error, message)
+
+
+def _fx_unavailable_error(exc: PortfolioFxRateUnavailableError) -> HTTPException:
+    # Distinguish missing exchange-rate evidence from a malformed user request
+    # or internal crash. No account/ledger records are changed by this response.
+    return api_error(503, "portfolio_fx_rate_unavailable", str(exc))
 
 
 def _serialize_import_record(item: dict) -> PortfolioImportTradeItem:
@@ -416,7 +423,7 @@ def delete_corporate_action(action_id: int) -> PortfolioDeleteResponse:
 @router.get(
     "/snapshot",
     response_model=PortfolioSnapshotResponse,
-    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    responses={400: {"model": ErrorResponse}, 503: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     summary="Get portfolio snapshot",
 )
 def get_snapshot(
@@ -437,6 +444,8 @@ def get_snapshot(
             include_realtime=include_realtime,
         )
         return PortfolioSnapshotResponse(**data)
+    except PortfolioFxRateUnavailableError as exc:
+        raise _fx_unavailable_error(exc)
     except ValueError as exc:
         raise _bad_request(exc)
     except Exception as exc:
@@ -456,6 +465,8 @@ def analyze_position(symbol: str, request: PortfolioPositionAnalysisRequest) -> 
         context = _resolve_position_analysis_context(service, symbol=symbol, account_id=request.account_id)
     except HTTPException:
         raise
+    except PortfolioFxRateUnavailableError as exc:
+        raise _fx_unavailable_error(exc)
     except ValueError as exc:
         raise _bad_request(exc)
     except Exception as exc:
@@ -661,7 +672,7 @@ def refresh_fx_rates(
 @router.get(
     "/risk",
     response_model=PortfolioRiskResponse,
-    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    responses={400: {"model": ErrorResponse}, 503: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     summary="Get portfolio risk report",
 )
 def get_risk_report(
@@ -682,6 +693,8 @@ def get_risk_report(
             include_realtime=include_realtime,
         )
         return PortfolioRiskResponse(**data)
+    except PortfolioFxRateUnavailableError as exc:
+        raise _fx_unavailable_error(exc)
     except ValueError as exc:
         raise _bad_request(exc)
     except Exception as exc:
