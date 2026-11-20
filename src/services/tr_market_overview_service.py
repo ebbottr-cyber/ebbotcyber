@@ -61,6 +61,9 @@ def _bar_date(value: Any) -> date | None:
 
 
 def _positive_float(value: Any) -> float | None:
+    # bool is an int subclass; a provider's true/false must not become a price.
+    if isinstance(value, bool):
+        return None
     try:
         number = float(value)
     except (ValueError, TypeError, OverflowError):
@@ -91,6 +94,7 @@ def quote_from_rows(
     valid = sorted(
         (day, value) for day, value in rows
         if isinstance(day, date) and isinstance(value, (int, float))
+        and not isinstance(value, bool)
         and math.isfinite(value) and value > 0 and day <= today
     )
     if not valid:
@@ -104,7 +108,13 @@ def quote_from_rows(
         )
     previous_prices = [value for day, value in valid[:-1] if day < latest_day]
     previous = previous_prices[-1] if previous_prices else None
-    change = round((latest_price / previous - 1) * 100, 4) if previous else None
+    # Two individually finite daily closes can still overflow their ratio.
+    # Never emit NaN/Infinity or a fabricated percentage to the JSON API.
+    change = None
+    if previous is not None:
+        raw_change = (latest_price / previous - 1) * 100
+        if math.isfinite(raw_change):
+            change = round(raw_change, 4)
     return {
         "key": key, "label": label, "symbol": symbol, "currency": currency,
         "price": latest_price, "change_pct": change,

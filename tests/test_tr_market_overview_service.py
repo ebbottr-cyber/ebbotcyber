@@ -103,6 +103,35 @@ class MarketOverviewTests(unittest.TestCase):
         self.assertEqual(result["items"][-1]["symbol"], None)
         self.assertIn("henüz", result["items"][-1]["note"])
 
+    def test_boolean_provider_fields_cannot_be_promoted_to_prices(self):
+        # Python treats True as numeric 1; untrusted provider payloads do not.
+        frame = FakeFrame([
+            (datetime(2026, 11, 16), {"Close": True}),
+            (datetime(2026, 11, 17), {"Close": False}),
+        ])
+        self.assertEqual(_history_close_rows(frame), [])
+
+        item = quote_from_rows(
+            "bist100", "BIST 100", "XU100.IS", "TRY",
+            [(self.days[0], True), (self.days[1], False)], self.today,
+        )
+        self.assertEqual(item["status"], "unavailable")
+        self.assertIsNone(item["price"])
+        self.assertIsNone(item["change_pct"])
+
+    def test_extreme_finite_prices_do_not_create_infinite_daily_change(self):
+        # Both prices are finite and positive but dividing them overflows.
+        # The source price is indicative only; an uncomputable change is null.
+        item = quote_from_rows(
+            "usdtry", "USD/TRY", "TRY=X", "TRY",
+            [(self.days[0], 1e-300), (self.days[1], 1e300)], self.today,
+        )
+        self.assertEqual(item["status"], "ready")
+        self.assertEqual(item["price"], 1e300)
+        self.assertIsNone(item["change_pct"])
+        import json
+        self.assertIn('"change_pct": null', json.dumps(item, allow_nan=False))
+
     def test_no_provider_yields_only_unavailable_prices(self):
         # Direct quote calculation cannot turn an empty series into a fake value.
         item = quote_from_rows("bist30", "BIST 30", "XU030.IS", "TRY", [], self.today)
