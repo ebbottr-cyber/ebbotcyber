@@ -1,48 +1,138 @@
-name: "PR #1 Verification"
+name: EBBot main pull request required checks (read-only, NO trading)
 
 on:
   pull_request:
     branches: [main]
+  # Audit branch self-test only. No deployment, periodic trigger or manual trade.
+  push:
+    branches: [security/ebbot-main-pr-stable-required-checks-20261121]
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr1-verify-${{ github.event.pull_request.head.repo.full_name }}-${{ github.head_ref }}
+  group: ebbot-main-pr-required-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  PYTHONUNBUFFERED: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
 jobs:
+  policy:
+    name: EBBot PR / policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify main PR checks are read-only, unconditional and fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_main_pr_gate_contract.py' -v
+          python -m compileall -q scripts/validate_main_pr_check_results.py
+
+  backend:
+    name: EBBot PR / backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install existing backend CI dependencies and socket test blocker
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: Focused offline security and Solana freshness regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --allow-unix-socket --tb=short \
+            tests/test_api_security_guard.py \
+            tests/test_solana_quality_promotion.py \
+            tests/test_disabled_workflows_remain_disabled.py \
+            tests/test_main_pr_gate_contract.py \
+            --junitxml=main-pr-policy-backend.xml 2>&1 | tee main-pr-policy-backend.log
+      - name: FULL backend regression, network-marked tests excluded
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q -m "not network" --tb=line --disable-warnings \
+            --timeout=120 -o timeout_method=thread -o faulthandler_timeout=300 \
+            --junitxml=main-pr-full-backend.xml 2>&1 | tee main-pr-full-backend.log
+      - name: Upload backend regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-pr-backend-results
+          path: |
+            main-pr-policy-backend.xml
+            main-pr-policy-backend.log
+            main-pr-full-backend.xml
+            main-pr-full-backend.log
+          retention-days: 7
+          if-no-files-found: warn
+
   frontend:
-    runs-on: ubuntu-latest
+    name: EBBot PR / frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: apps/dsa-web
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: '20'
-      - name: Install frontend dependencies
-        run: npm ci
-      - name: Typecheck frontend
-        run: npx tsc -p tsconfig.app.json --noEmit
-      - name: Lint frontend
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install exactly locked React dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Full React Vitest regression
+        run: npm test -- --reporter=dot
+      - name: React ESLint
         run: npm run lint
-      - name: Build frontend
+      - name: Production TypeScript and Vite build
         run: npm run build
 
-  backend:
-    runs-on: ubuntu-latest
+  merge-gate:
+    name: EBBot PR / merge gate
+    needs: [policy, backend, frontend]
+    # The check itself must never be SKIPPED when its dependencies fail.
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install backend CI dependencies
-        run: python -m pip install -r .github/requirements-ci.txt
-      - name: Run Python tests
-        run: pytest -q
+      - name: Refuse skipped, failed, cancelled or missing required jobs
+        env:
+          EBBOT_REQUIRED_JOB_RESULTS_JSON: ${{ toJSON(needs) }}
+        run: python -m scripts.validate_main_pr_check_results
