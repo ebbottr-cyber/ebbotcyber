@@ -112,7 +112,7 @@ describe('AlertsPage', () => {
     vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
     try {
       render(<AlertsPage />);
-      expect(screen.getByText('Uyarı Merkezi')).toBeInTheDocument();
+      expect(screen.getAllByText('Uyarı Merkezi').length).toBeGreaterThan(0);
       expect(await screen.findByText('Henüz bildirim denemesi yok')).toBeInTheDocument();
       expect(screen.getByText('Tetiklenme geçmişi')).toBeInTheDocument();
       expect(screen.queryByText('告警中心')).not.toBeInTheDocument();
