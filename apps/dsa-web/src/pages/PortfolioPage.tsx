@@ -1115,7 +1115,9 @@ const PortfolioPage: React.FC = () => {
         analysisPhase: 'auto',
         force: false,
       });
-      setPositionAnalysisMessage(`已提交 ${row.symbol} 分析任务：${task.taskId}`);
+      setPositionAnalysisMessage(shouldForceTurkishUi()
+        ? `${row.symbol} analiz görevi oluşturuldu: ${task.taskId}`
+        : `已提交 ${row.symbol} 分析任务：${task.taskId}`);
     } catch (err) {
       setError(getParsedApiError(err));
     } finally {
@@ -1617,7 +1619,7 @@ const PortfolioPage: React.FC = () => {
                   setAccountCreateSuccess(null);
                 }}
               >
-                收起
+                {portfolioOperatorText('收起', 'Daralt')}
               </button>
             ) : (
               <span className="text-xs text-secondary">{portfolioOperatorText("创建后自动切换到该账户", "Oluşturulunca bu hesap seçilir")}</span>
@@ -2085,7 +2087,7 @@ const PortfolioPage: React.FC = () => {
                 )}
               </select>
               <label className={PORTFOLIO_FILE_PICKER_CLASS}>
-                选择 CSV
+                {portfolioOperatorText('选择 CSV', 'CSV seç')}
                 <input type="file" accept=".csv" className="hidden"
                   onChange={(e) => setCsvFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)} />
               </label>
@@ -2107,15 +2109,19 @@ const PortfolioPage: React.FC = () => {
               <InlineAlert
                 variant={getCsvParseVariant(csvParseResult)}
                 title={portfolioOperatorText("CSV 解析结果", "CSV ayrıştırma sonucu")}
-                message={`有效 ${csvParseResult.recordCount} 条，跳过 ${csvParseResult.skippedCount} 条，错误 ${csvParseResult.errorCount} 条。`}
+                message={shouldForceTurkishUi()
+                  ? `Geçerli: ${csvParseResult.recordCount}; atlanan: ${csvParseResult.skippedCount}; hata: ${csvParseResult.errorCount}.`
+                  : `有效 ${csvParseResult.recordCount} 条，跳过 ${csvParseResult.skippedCount} 条，错误 ${csvParseResult.errorCount} 条。`}
                 className="rounded-lg px-3 py-2 text-xs shadow-none"
               />
             ) : null}
             {csvCommitResult ? (
               <InlineAlert
                 variant={getCsvCommitVariant(csvCommitResult, csvDryRun)}
-                title={csvDryRun ? 'CSV 预演结果' : 'CSV 提交结果'}
-                message={`${csvDryRun ? '预演检查' : '实际写入'}：写入 ${csvCommitResult.insertedCount} 条，重复 ${csvCommitResult.duplicateCount} 条，失败 ${csvCommitResult.failedCount} 条。`}
+                title={csvDryRun ? portfolioOperatorText("CSV 预演结果", "CSV deneme sonucu") : portfolioOperatorText("CSV 提交结果", "CSV aktarım sonucu")}
+                message={shouldForceTurkishUi()
+                  ? `${csvDryRun ? 'Deneme kontrolü' : 'Gerçek kayıt'}: kaydedilen ${csvCommitResult.insertedCount}, yinelenen ${csvCommitResult.duplicateCount}, başarısız ${csvCommitResult.failedCount}.`
+                  : `${csvDryRun ? '预演检查' : '实际写入'}：写入 ${csvCommitResult.insertedCount} 条，重复 ${csvCommitResult.duplicateCount} 条，失败 ${csvCommitResult.failedCount} 条。`}
                 className="rounded-lg px-3 py-2 text-xs shadow-none"
               />
             ) : null}
@@ -2145,7 +2151,7 @@ const PortfolioPage: React.FC = () => {
             ) : null}
             {eventType === 'trade' ? (
               <select className={PORTFOLIO_SELECT_CLASS} value={eventSide} onChange={(e) => setEventSide(e.target.value as '' | PortfolioSide)}>
-                <option value="">全部买卖方向</option>
+                <option value="">{portfolioOperatorText("全部买卖方向", "Tüm işlem yönleri")}</option>
                 <option value="buy">{portfolioOperatorText("买入", "Alış")}</option>
                 <option value="sell">{portfolioOperatorText("卖出", "Satış")}</option>
               </select>
@@ -2153,7 +2159,7 @@ const PortfolioPage: React.FC = () => {
             {eventType === 'cash' ? (
               <select className={PORTFOLIO_SELECT_CLASS} value={eventDirection}
                 onChange={(e) => setEventDirection(e.target.value as '' | PortfolioCashDirection)}>
-                <option value="">全部资金方向</option>
+                <option value="">{portfolioOperatorText("全部资金方向", "Tüm nakit yönleri")}</option>
                 <option value="in">{portfolioOperatorText("流入", "Para girişi")}</option>
                 <option value="out">{portfolioOperatorText("流出", "Para çıkışı")}</option>
               </select>
@@ -2161,19 +2167,19 @@ const PortfolioPage: React.FC = () => {
             {eventType === 'corporate' ? (
               <select className={PORTFOLIO_SELECT_CLASS} value={eventActionType}
                 onChange={(e) => setEventActionType(e.target.value as '' | PortfolioCorporateActionType)}>
-                <option value="">全部公司行为</option>
+                <option value="">{portfolioOperatorText("全部公司行为", "Tüm kurumsal işlemler")}</option>
                 <option value="cash_dividend">{portfolioOperatorText("现金分红", "Nakit temettü")}</option>
                 <option value="split_adjustment">{portfolioOperatorText("拆并股调整", "Bölünme/birleşme düzeltmesi")}</option>
               </select>
             ) : null}
             <div className="text-[11px] text-secondary">
-              {writeBlocked ? '删除修正仅在单账户视图可用。请先选择具体账户后再删除错误流水。' : '如有错误流水，可直接删除后重新录入。'}
+              {writeBlocked ? portfolioOperatorText("删除修正仅在单账户视图可用。请先选择具体账户后再删除错误流水。", "Silme yalnızca tek hesap görünümünde kullanılabilir; önce hesap seçin.") : portfolioOperatorText("如有错误流水，可直接删除后重新录入。", "Hatalı kayıt silinip yeniden girilebilir.")}
             </div>
             <div className="max-h-64 overflow-auto rounded-lg border border-white/10 p-2">
               {eventType === 'trade' && tradeEvents.map((item) => (
                 <div key={`t-${item.id}`} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 text-xs text-secondary">
                   <div className="min-w-0">
-                    {item.tradeDate} {formatSideLabel(item.side)} {item.symbol} 数量={item.quantity} 价格={item.price}
+                    {item.tradeDate} {formatSideLabel(item.side)} {item.symbol} {portfolioOperatorText('数量', 'Miktar')}={item.quantity} {portfolioOperatorText('价格', 'Fiyat')}={item.price}
                   </div>
                   {!writeBlocked ? (
                     <button
@@ -2182,10 +2188,12 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'trade',
                         id: item.id,
-                        message: `确认删除 ${item.tradeDate} 的${formatSideLabel(item.side)}流水 ${item.symbol}（数量 ${item.quantity}，价格 ${item.price}）吗？`,
+                        message: shouldForceTurkishUi()
+                          ? `${item.tradeDate} tarihli ${formatSideLabel(item.side)} kaydı ${item.symbol} (miktar ${item.quantity}, fiyat ${item.price}) silinsin mi?`
+                          : `确认删除 ${item.tradeDate} 的${formatSideLabel(item.side)}流水 ${item.symbol}（数量 ${item.quantity}，价格 ${item.price}）吗？`,
                       })}
                     >
-                      删除
+                      {portfolioOperatorText('删除', 'Sil')}
                     </button>
                   ) : null}
                 </div>
@@ -2202,10 +2210,12 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'cash',
                         id: item.id,
-                        message: `确认删除 ${item.eventDate} 的资金流水（${formatCashDirectionLabel(item.direction)} ${item.amount} ${item.currency}）吗？`,
+                        message: shouldForceTurkishUi()
+                          ? `${item.eventDate} tarihli nakit kaydı (${formatCashDirectionLabel(item.direction)} ${item.amount} ${item.currency}) silinsin mi?`
+                          : `确认删除 ${item.eventDate} 的资金流水（${formatCashDirectionLabel(item.direction)} ${item.amount} ${item.currency}）吗？`,
                       })}
                     >
-                      删除
+                      {portfolioOperatorText('删除', 'Sil')}
                     </button>
                   ) : null}
                 </div>
@@ -2222,10 +2232,12 @@ const PortfolioPage: React.FC = () => {
                       onClick={() => openDeleteDialog({
                         eventType: 'corporate',
                         id: item.id,
-                        message: `确认删除 ${item.effectiveDate} 的公司行为 ${formatCorporateActionLabel(item.actionType)}（${item.symbol}）吗？`,
+                        message: shouldForceTurkishUi()
+                          ? `${item.effectiveDate} tarihli ${item.symbol} kurumsal işlem kaydı (${formatCorporateActionLabel(item.actionType)}) silinsin mi?`
+                          : `确认删除 ${item.effectiveDate} 的公司行为 ${formatCorporateActionLabel(item.actionType)}（${item.symbol}）吗？`,
                       })}
                     >
-                      删除
+                      {portfolioOperatorText('删除', 'Sil')}
                     </button>
                   ) : null}
                 </div>
@@ -2246,11 +2258,11 @@ const PortfolioPage: React.FC = () => {
               <div className="flex gap-2">
                 <button type="button" className="btn-secondary text-xs px-3 py-1" disabled={eventPage <= 1}
                   onClick={() => setEventPage((prev) => Math.max(1, prev - 1))}>
-                  上一页
+                  {portfolioOperatorText("上一页", "Önceki")}
                 </button>
                 <button type="button" className="btn-secondary text-xs px-3 py-1" disabled={eventPage >= totalEventPages}
                   onClick={() => setEventPage((prev) => Math.min(totalEventPages, prev + 1))}>
-                  下一页
+                  {portfolioOperatorText("下一页", "Sonraki")}
                 </button>
               </div>
             </div>
