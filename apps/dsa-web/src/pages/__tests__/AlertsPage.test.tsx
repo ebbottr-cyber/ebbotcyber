@@ -108,6 +108,21 @@ beforeEach(() => {
 });
 
 describe('AlertsPage', () => {
+  it('shows Turkish alert center headings and notification states in production mode', async () => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+    try {
+      render(<AlertsPage />);
+      expect(screen.getByText('Uyarı Merkezi')).toBeInTheDocument();
+      expect(await screen.findByText('Henüz bildirim denemesi yok')).toBeInTheDocument();
+      expect(screen.getByText('Tetiklenme geçmişi')).toBeInTheDocument();
+      expect(screen.queryByText('告警中心')).not.toBeInTheDocument();
+      expect(screen.queryByText('暂无通知尝试记录')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+
   it('discloses environment rules even when the database rule list is empty', async () => {
     listRules.mockResolvedValue({
       items: [], total: 0, page: 1, pageSize: 20,
