@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ebbot-main-protection-audit-only
@@ -31,12 +32,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Eight offline fail-closed security regressions (NO network)
+      - name: Offline branch and pinned CI provenance regressions (NO network)
         shell: bash
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_audit_main_release_protection.py' -v \
             2>&1 | tee branch-security-unittest.log
+          python -m unittest discover -s tests -p 'test_audit_pinned_integration_ci_evidence.py' -v \
+            2>&1 | tee pinned-integration-ci-unittest.log
       - name: Read public repo, branch, rulesets and PR130 metadata from GitHub
         shell: bash
         env:
@@ -85,6 +88,55 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
               out.write("\n".join(lines) + "\n")
           PY
+      - name: Fetch exact successful 3-job PINNED main plus PR122 GitHub Actions evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # This is the previously completed run, not a new market-data capture.
+          gh api 'repos/ebbottr-cyber/ebbotcyber/actions/runs/44813551015' > exact-integration-run.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/actions/runs/44813551015/jobs?per_page=100' > exact-integration-jobs.json
+          gh api 'repos/ebbottr-cyber/ebbotcyber/pulls/122' > pr122-evidence.json
+
+      - name: Verify exact successful required CI jobs but KEEP RELEASE BLOCKED
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m scripts.audit_pinned_integration_ci_evidence \
+            --run exact-integration-run.json \
+            --jobs exact-integration-jobs.json \
+            --pr130 pr130-evidence.json \
+            --pr122 pr122-evidence.json \
+            --main main-evidence.json \
+            --output pinned-ci-release-blockers.json | tee pinned-ci-release-blockers.log
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          out = json.loads(Path("pinned-ci-release-blockers.json").read_text(encoding="utf-8"))
+          assert out["status"] == "PINNED_INTEGRATION_TESTS_VERIFIED_RELEASE_STILL_BLOCKED"
+          assert out["verified_job_count"] == 3
+          assert all(j["conclusion"] == "success" for j in out["jobs"])
+          assert out["approved_to_merge_main"] is False
+          assert out["production_deployment_approved"] is False
+          assert out["orders"] == out["paper_fills"] == out["journal_writes"] == 0
+          lines = [
+              "## Verified exact integration CI; release remains BLOCKED",
+              "",
+              f"- Original GitHub run: {out['run_id']}",
+              f"- Pinned main: {out['main_sha_under_test']}",
+              f"- PR122 head: {out['pr122_sha_under_test']}",
+              f"- Required completed SUCCESS jobs: {out['verified_job_count']}",
+              "- Backend+React success is not branch-protection configuration",
+              "- These branch-only audit job names must not be blindly selected as required checks on main",
+              "- Effective admin rules, licenses and release constraints: UNVERIFIED",
+              "- No main merge, deployment, schedules, brokers, paper/live orders or portfolio writes.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          PY
+
       - name: Archive redacted protection audit, never secrets or price feeds
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,3 +148,6 @@ jobs:
             main-branch-release-blockers.json
             main-branch-release-summary.log
             branch-security-unittest.log
+            pinned-integration-ci-unittest.log
+            pinned-ci-release-blockers.json
+            pinned-ci-release-blockers.log
