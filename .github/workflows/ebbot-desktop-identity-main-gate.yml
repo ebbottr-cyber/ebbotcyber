@@ -1,0 +1,60 @@
+name: EBBot desktop identity and updater fail-closed (NO release)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/dsa-desktop/**'
+      - '.github/workflows/ebbot-desktop-identity-main-gate.yml'
+      - 'docs/EBBOT_DESKTOP_IDENTITY_MAIN_GATE_TR.md'
+
+permissions:
+  contents: read
+
+jobs:
+  safe-desktop-source-and-unit-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify EBBot-only identity and blocked automatic updates
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('apps/dsa-desktop/package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('apps/dsa-desktop/package-lock.json', 'utf8'));
+          const js = fs.readFileSync('apps/dsa-desktop/main.js', 'utf8');
+          const loading = fs.readFileSync('apps/dsa-desktop/renderer/loading.html', 'utf8');
+          assert.equal(pkg.name, 'ebbot-desktop');
+          assert.equal(lock.name, 'ebbot-desktop');
+          assert.equal(lock.packages[''].name, 'ebbot-desktop');
+          assert.equal(pkg.build.appId, 'com.ebbot.desktop');
+          assert.equal(pkg.build.productName, 'EBBot');
+          assert.equal(pkg.build.win.artifactName, 'EBBot-windows-installer-v${version}.${ext}');
+          assert.deepEqual(pkg.build.win.publish,
+            [{ provider: 'github', owner: 'ebbottr-cyber', repo: 'ebbotcyber' }]);
+          assert.match(js, /const GITHUB_OWNER = 'ebbottr-cyber';/);
+          assert.match(js, /const GITHUB_REPO = 'ebbotcyber';/);
+          assert.match(js, /const DESKTOP_UPDATES_ENABLED = false;/);
+          assert.match(js, /if \(!restoreFailed && DESKTOP_UPDATES_ENABLED\) \{/);
+          assert.match(js, /if \(!DESKTOP_UPDATES_ENABLED\) \{\s*return setDesktopUpdateState/);
+          assert.doesNotMatch(js, /ZhuLinsen|daily_stock_analysis/);
+          assert.doesNotMatch(JSON.stringify(pkg), /ZhuLinsen|daily_stock_analysis/);
+          assert.match(loading, /<title>EBBot<\/title>/);
+          assert.doesNotMatch(loading, /Daily Stock Analysis/);
+          console.log('SAFE: own identity, upstream removed, update gate hard-disabled.');
+          NODE
+      - name: Install test-only Node dependencies
+        working-directory: apps/dsa-desktop
+        run: npm ci --ignore-scripts --no-audit
+      - name: Electron main/preload unit regression
+        working-directory: apps/dsa-desktop
+        run: npm test
+      - name: Confirm no installer/release/publishing is performed
+        run: |
+          echo 'This workflow does NOT package, sign, install, publish or download releases.'
+          echo 'Windows native packaging is separately gated by unmerged review PRs.'
