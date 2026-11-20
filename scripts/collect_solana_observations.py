@@ -59,6 +59,7 @@ def _candidate(quote: MemeQuote, discovery: MemeQuote, now_ms: int,
         }
     return {
         "timestamp_ms": now_ms,
+        "status": "priced",
         "mint": discovery.mint,
         "discovery_source": discovery.source,
         "discovery_pool_id": discovery.pool_id,
