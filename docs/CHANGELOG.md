@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Translate production-only portfolio account, CSV, event and warning labels to Turkish while preserving legacy test compatibility and API/currency codes.
+- [文档] Audit twelve frontend pages for remaining Chinese strings and classify the 359 baseline React failures without skipping or suppressing tests.
+
 - [新功能] Add bounded read-only TCMB daily reference rate API and strictly guarded TRY display for portfolio summary; leave accounting, strategies, orders and stored currencies unchanged.
 
 - [修复] Translate portfolio operator feedback, report-type labels and desktop diagnostics into Turkish, and use Turkish number/date formatting without altering source currencies or market-day calculation.
