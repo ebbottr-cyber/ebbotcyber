@@ -15,10 +15,9 @@ Example server environment setting (disabled by default):
 MEME_RADAR_LIVE_ENABLED=false
 ```
 
-The current main branch does not contain a canonical root `.env.example`.
-Do not replace the project's global environment template with a Meme-only
-stub. This option is documented here until a full configuration template
-is restored and reconciled with the settings registry.
+The root `.env.example` is available, and the default for this optional
+live-data flag remains disabled when unset. No active credentials are needed
+for the public-only one-off smoke test.
 The default is disabled, including when the setting is missing. The browser
 never receives credentials or a wallet interface. No cron or background scan
 is started. Maximum eight unique mints per scan, with a 30-second cache and
@@ -46,3 +45,25 @@ exposing optional live scans on an internet-facing deployment.
 
 No token mint-event feed, auto-training, paper P&L persistence or real
 alım-satım execution. Data providers are not yet validated under live load.
+
+## GitHub-only live provider verification
+
+The opt-in Actions workflow `.github/workflows/solana-meme-live-smoke.yml`
+can be started under **Actions → Solana Meme Radar one-off live read-only smoke
+→ Run workflow** (choose `main`; limit defaults to two mints). The workflow
+also runs exactly on pull requests that change this smoke workflow or its
+script/tests, so the first revision can provide network evidence without a PC.
+
+This uses GitHub's temporary public runner to call GeckoTerminal,
+DEX Screener and (for up to two discovered mints) GoPlus through the existing
+read-only scanner. It has **no schedule**, wallet, database, private keys,
+trade execution or background service. It prints aggregate source status,
+watch/blocked counts and failure classes, never raw token payloads or API
+credentials. An empty result, provider error or malformed safety response
+produces a non-green result rather than a false positive.
+
+This checks external provider access from a GitHub runner, **not** whether the
+Web UI works on a particular user's Windows PC or VPS. GitHub Actions runners
+are disposable and cannot replace a persistent paper-trading server. Provider
+rate limits or location-dependent blocking can make the smoke fail independently
+of code correctness; inspect the run output before diagnosing the cause.

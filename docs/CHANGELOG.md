@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [测试] Solana Meme Radar için yalnızca tek çalıştırmalık ve işlemsiz GitHub Actions canlı veri sağlayıcı testi eklendi; sonuç yoksa veya kaynak hatası varsa yeşil sonuç üretilmez.
 - [修复] Solana 新池识别使用 GeckoTerminal base_token 的真实代币符号，并为两类数据源均衡分配候选配额。
 - [安全] GoPlus Solana transfer_hook 地址及升级权限标志采用拒绝未知值的解析，避免风险币被误判为可观察。
 - [修复] 还原完整、无凭证的 .env.example 示例配置：所有实际生效的示例键与当前注册表一致，日程和公网 SearXNG 默认关闭。

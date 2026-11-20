@@ -1,0 +1,46 @@
+name: Solana Meme Radar one-off live read-only smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_mints:
+        description: 'Maximum unique Solana tokens checked (read-only)'
+        required: true
+        default: '2'
+        type: choice
+        options: ['1', '2']
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/solana-meme-live-smoke.yml'
+      - 'scripts/solana_meme_live_smoke.py'
+      - 'tests/test_solana_meme_live_smoke.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: solana-live-smoke-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  read-only-provider-smoke:
+    name: One-off read-only external data check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      RUN_IMMEDIATELY: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify smoke safety contracts offline
+        run: python -m unittest discover -s tests -p 'test_solana_meme_live_smoke.py' -v
+      - name: One bounded public-provider scan (no wallet, no trades)
+        env:
+          LIMIT: ${{ inputs.max_mints || '2' }}
+        run: python -m scripts.solana_meme_live_smoke --limit "$LIMIT"
