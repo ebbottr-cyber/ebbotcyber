@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [测试] EBBot Electron masaüstüne, WAL/SHM yan dosyalarını veya mevcut kullanıcı veritabanını değiştirmeden yalnız boş bir dizinde SQLite snapshot hazırlayan ve doğrulayan çevrimdışı test köprüsü eklendi; güncelleme ve yayın kapalı.
+
 - [测试] EBBot masaüstü için SQLite WAL işlemlerini tutarlı biçimde kopyalayan yalnızca açıkça çağrılan çevrimdışı snapshot aracı ve gerçek PyInstaller backend CLI testi eklendi; otomatik güncelleme, kurulum ve işlem yürütme açılmadı.
 
 - [测试] 新增 GitHub 手动 Solana 多次观测工件质量校验：检查地址、时间、池来源、流动性及风险提示，缺失报价继续降级，绝不推断收益或自动交易。
