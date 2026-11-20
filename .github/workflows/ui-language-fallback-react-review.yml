@@ -1,0 +1,74 @@
+name: EBBot UI language fallback React review
+
+on:
+  push:
+    branches: [fix/ui-language-fallback-react-contracts-20261120]
+  pull_request:
+    branches: [fix/turkish-alerts-chat-screening-review-20261120]
+
+permissions:
+  contents: read
+
+jobs:
+  locale-build-smoke:
+    name: Provider fallback, production, build and PWA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Provider-free legacy and Turkish-only production assertions
+        run: |
+          npm test -- src/contexts/__tests__/UiLanguageContext.test.tsx
+          VITE_EBBOT_TURKISH_TEST_MODE=true npm test -- src/utils/__tests__/turkishOnlyOperatorUi.test.tsx src/utils/__tests__/operatorText.test.ts
+      - name: ESLint
+        run: npm run lint
+      - name: Production TypeScript and Vite build
+        run: npm run build
+      - name: PWA smoke with correct Node test runner
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  complete-react-release-gate:
+    name: Full React/Vitest regressions — do not suppress failures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Run all Vitest checks including inherited legacy failures
+        shell: bash
+        run: |
+          set +e
+          npm test -- --reporter=dot > full-react-fallback-review.log 2>&1
+          rc=$?
+          set -e
+          echo "=== Full React release gate ==="
+          grep -E 'Test Files|      Tests ' full-react-fallback-review.log | tail -n 8 || true
+          echo "Exit code: $rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Complete React test suite is NOT green — release blocked"
+          fi
+          exit "$rc"
+      - name: Keep full test log for cause analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-fallback-full-react-log
+          path: apps/dsa-web/full-react-fallback-review.log
+          retention-days: 3
