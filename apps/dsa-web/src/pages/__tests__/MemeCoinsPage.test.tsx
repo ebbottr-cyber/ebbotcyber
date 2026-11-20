@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import MemeCoinsPage from '../MemeCoinsPage';
 import { memeRadarApi } from '../../api/memeRadar';
@@ -8,6 +8,16 @@ vi.mock('../../api/memeRadar', () => ({
 }));
 
 describe('MemeCoinsPage', () => {
+  // These assertions exercise the actual Turkish-only production UI,
+  // not the separate legacy Chinese-default Vitest compatibility mode.
+  beforeEach(() => {
+    vi.stubEnv('VITE_EBBOT_TURKISH_TEST_MODE', 'true');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('does not allow manual scanning while the server setting is off', async () => {
     vi.mocked(memeRadarApi.status).mockResolvedValue({
       available: true,
