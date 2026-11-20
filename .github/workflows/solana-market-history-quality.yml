@@ -1,0 +1,86 @@
+name: Solana manual market history quality review (no orders)
+
+on:
+  workflow_dispatch:
+    inputs:
+      observation_run_ids:
+        description: 'Comma-separated GitHub observation run IDs (1-6 runs, digits only)'
+        required: true
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/solana-market-history-quality.yml'
+      - 'scripts/validate_solana_history.py'
+      - 'tests/test_solana_history_quality.py'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  offline-history-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install small test runner
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Test history validation and fail-closed data quality
+        run: python -m pytest -q tests/test_solana_history_quality.py
+
+  validate-observation-artifacts:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-history-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OBS_RUN_IDS: ${{ inputs.observation_run_ids }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download selected existing read-only observation artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$OBS_RUN_IDS" =~ ^[0-9]{6,20}(,[0-9]{6,20}){0,5}$ ]]; then
+            echo 'Provide 1-6 comma-separated numeric GitHub run IDs (no spaces)'
+            exit 1
+          fi
+          IFS=',' read -r -a runs <<< "$OBS_RUN_IDS"
+          for id in "${runs[@]}"; do
+            source_workflow=$(gh run view "$id" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json workflowName --jq '.workflowName')
+            if [[ "$source_workflow" != 'Solana fixed-mint time-spaced observations (read only)' ]]; then
+              echo 'Run is not from the approved Solana observation workflow'
+              exit 1
+            fi
+            mkdir -p "inputs/$id"
+            gh run download "$id" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name solana-public-observations-not-paper-trades \
+              --dir "inputs/$id"
+          done
+      - name: Validate provenance, time continuity, data integrity, risk labels
+        run: |
+          python -m scripts.validate_solana_history \
+            --inputs inputs/*/solana-public-observations.json \
+            --output solana-observation-quality.json
+      - name: Archive data quality result only (no raw market data duplicated)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-history-quality-no-performance
+          path: solana-observation-quality.json
+          retention-days: 7
+          if-no-files-found: warn
