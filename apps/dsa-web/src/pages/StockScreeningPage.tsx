@@ -2173,7 +2173,7 @@ const StockScreeningPage: React.FC = () => {
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs text-secondary-text">
-                    {operatorText("返回", "Sonuç")} {run.candidateCount ?? 0}
+                    {operatorText(`返回 ${run.candidateCount ?? 0} 只`, `Sonuç ${run.candidateCount ?? 0}`)}
                     {run.snapshotCount != null ? ` · 快照 ${run.snapshotCount}` : ''}
                     {run.llmRanked ? ' · 智能重排' : ''}
                   </span>
