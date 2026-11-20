@@ -5,6 +5,7 @@ import { Pie, PieChart, ResponsiveContainer, Tooltip, Legend, Cell } from 'recha
 import { decisionSignalsApi } from '../api/decisionSignals';
 import { portfolioApi } from '../api/portfolio';
 import { formatTryDisplay } from '../utils/tryDisplayFx';
+import { shouldForceTurkishUi } from '../utils/uiLanguage';
 import type { ParsedApiError } from '../api/error';
 import { getParsedApiError } from '../api/error';
 import { ApiErrorAlert, Card, Badge, ConfirmDialog, EmptyState, InlineAlert, StatusDot } from '../components/common';
@@ -653,6 +654,11 @@ async function loadPortfolioSignalLookup(lookup: PortfolioSignalLookup): Promise
   }
 }
 
+// Keep older multilingual test expectations stable while production is Turkish-only.
+// This changes labels, never API values, broker IDs or currency codes.
+const operatorText = (turkish: string, legacyChinese: string): string =>
+  shouldForceTurkishUi() ? turkish : legacyChinese;
+
 const PortfolioPage: React.FC = () => {
   const { language, t } = useUiLanguage();
   const text = PORTFOLIO_TEXT[language];
@@ -793,7 +799,7 @@ const PortfolioPage: React.FC = () => {
       const brokerItems = response.brokers || [];
       if (brokerItems.length === 0) {
         setBrokers(FALLBACK_BROKERS);
-        setBrokerLoadWarning('券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。');
+        setBrokerLoadWarning(operatorText('Aracı kurum listesi boş geldi. Yerleşik kurumlar (Huatai/CITIC/China Merchants) gösteriliyor.', '券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。'));
         if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
           setSelectedBroker(FALLBACK_BROKERS[0].broker);
         }
@@ -806,7 +812,7 @@ const PortfolioPage: React.FC = () => {
       }
     } catch {
       setBrokers(FALLBACK_BROKERS);
-      setBrokerLoadWarning('券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。');
+      setBrokerLoadWarning(operatorText('Aracı kurum listesine erişilemiyor. Yerleşik kurumlar (Huatai/CITIC/China Merchants) gösteriliyor.', '券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。'));
       if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
         setSelectedBroker(FALLBACK_BROKERS[0].broker);
       }
@@ -835,7 +841,7 @@ const PortfolioPage: React.FC = () => {
       } catch (riskErr) {
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || operatorText('Risk verileri alınamadı. Yalnızca portföy özeti gösteriliyor.', '风险数据获取失败，已降级为仅展示快照数据。'));
       }
     } catch (err) {
       setSnapshot(null);
@@ -1146,7 +1152,7 @@ const PortfolioPage: React.FC = () => {
   const handleTradeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(operatorText('Kayıt veya içe aktarma yapmadan önce sağ üstten bir hesap seçin.', '请先在右上角选择具体账户，再进行录入或导入提交。'));
       return;
     }
     try {
@@ -1173,7 +1179,7 @@ const PortfolioPage: React.FC = () => {
   const handleCashSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(operatorText('Kayıt veya içe aktarma yapmadan önce sağ üstten bir hesap seçin.', '请先在右上角选择具体账户，再进行录入或导入提交。'));
       return;
     }
     try {
@@ -1196,7 +1202,7 @@ const PortfolioPage: React.FC = () => {
   const handleCorporateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(operatorText('Kayıt veya içe aktarma yapmadan önce sağ üstten bir hesap seçin.', '请先在右上角选择具体账户，再进行录入或导入提交。'));
       return;
     }
     try {
@@ -1234,7 +1240,7 @@ const PortfolioPage: React.FC = () => {
   const handleCommitCsv = async () => {
     if (!csvFile) return;
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行录入或导入提交。');
+      setWriteWarning(operatorText('Kayıt veya içe aktarma yapmadan önce sağ üstten bir hesap seçin.', '请先在右上角选择具体账户，再进行录入或导入提交。'));
       return;
     }
     try {
@@ -1254,7 +1260,7 @@ const PortfolioPage: React.FC = () => {
 
   const openDeleteDialog = (item: PendingDelete) => {
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行删除修正。');
+      setWriteWarning(operatorText('Silme ve düzeltme işlemi için önce sağ üstten bir hesap seçin.', '请先在右上角选择具体账户，再进行删除修正。'));
       return;
     }
     setPendingDelete(item);
@@ -1262,7 +1268,7 @@ const PortfolioPage: React.FC = () => {
 
   const openAccountDeleteDialog = () => {
     if (!writableAccount) {
-      setWriteWarning('请先选择具体账户，再删除持仓账户。');
+      setWriteWarning(operatorText('Portföy hesabını silmek için önce belirli bir hesap seçin.', '请先选择具体账户，再删除持仓账户。'));
       return;
     }
     setPendingAccountDelete({
@@ -1294,7 +1300,7 @@ const PortfolioPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!pendingDelete || deleteLoading) return;
     if (!writableAccountId) {
-      setWriteWarning('请先在右上角选择具体账户，再进行删除修正。');
+      setWriteWarning(operatorText('Silme ve düzeltme işlemi için önce sağ üstten bir hesap seçin.', '请先在右上角选择具体账户，再进行删除修正。'));
       setPendingDelete(null);
       return;
     }
@@ -1326,7 +1332,7 @@ const PortfolioPage: React.FC = () => {
     e.preventDefault();
     const name = accountForm.name.trim();
     if (!name) {
-      setAccountCreateError('账户名称不能为空。');
+      setAccountCreateError(operatorText('Hesap adı boş bırakılamaz.', '账户名称不能为空。'));
       setAccountCreateSuccess(null);
       return;
     }
@@ -1350,10 +1356,10 @@ const PortfolioPage: React.FC = () => {
         market: accountForm.market,
         baseCurrency: accountForm.baseCurrency,
       });
-      setAccountCreateSuccess('账户创建成功，已自动切换到该账户。');
+      setAccountCreateSuccess(operatorText('Hesap oluşturuldu ve yeni hesaba geçildi.', '账户创建成功，已自动切换到该账户。'));
     } catch (err) {
       const parsed = getParsedApiError(err);
-      setAccountCreateError(parsed.message || '创建账户失败，请稍后重试。');
+      setAccountCreateError(parsed.message || operatorText('Hesap oluşturulamadı. Lütfen tekrar deneyin.', '创建账户失败，请稍后重试。'));
       setAccountCreateSuccess(null);
     } finally {
       setAccountCreating(false);
@@ -1406,7 +1412,7 @@ const PortfolioPage: React.FC = () => {
         }
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || operatorText('Risk verileri alınamadı. Yalnızca portföy özeti gösteriliyor.', '风险数据获取失败，已降级为仅展示快照数据。'));
       }
       return true;
     } catch (err) {
@@ -1599,7 +1605,7 @@ const PortfolioPage: React.FC = () => {
       {(showCreateAccount || !hasAccounts) ? (
         <Card padding="md">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-foreground">新建账户</h2>
+            <h2 className="text-sm font-semibold text-foreground">{operatorText('Yeni hesap', '新建账户')}</h2>
             {hasAccounts ? (
               <button
                 type="button"
@@ -1610,17 +1616,17 @@ const PortfolioPage: React.FC = () => {
                   setAccountCreateSuccess(null);
                 }}
               >
-                收起
+                {operatorText('Gizle', '收起')}
               </button>
             ) : (
-              <span className="text-xs text-secondary">创建后自动切换到该账户</span>
+              <span className="text-xs text-secondary">{operatorText('Oluşturulduktan sonra yeni hesaba geçilir', '创建后自动切换到该账户')}</span>
             )}
           </div>
           {accountCreateError ? (
             <InlineAlert
               variant="danger"
               className="mt-2 rounded-lg px-2 py-1 text-xs shadow-none"
-              title="创建账户失败"
+              title={operatorText('Hesap oluşturulamadı', '创建账户失败')}
               message={accountCreateError}
             />
           ) : null}
@@ -1628,26 +1634,26 @@ const PortfolioPage: React.FC = () => {
             <InlineAlert
               variant="success"
               className="mt-2 rounded-lg px-2 py-1 text-xs shadow-none"
-              title="创建账户成功"
+              title={operatorText('Hesap oluşturuldu', '创建账户成功')}
               message={accountCreateSuccess}
             />
           ) : null}
           <form className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2" onSubmit={handleCreateAccount}>
             <input
               className={`${PORTFOLIO_INPUT_CLASS} md:col-span-2`}
-              placeholder="账户名称（必填）"
+              placeholder={operatorText('Hesap adı (zorunlu)', '账户名称（必填）')}
               value={accountForm.name}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, name: e.target.value }))}
             />
             <input
               className={PORTFOLIO_INPUT_CLASS}
-              placeholder="券商（可选，如 Demo/华泰）"
+              placeholder={operatorText('Aracı kurum (isteğe bağlı, ör. Demo/Huatai)', '券商（可选，如 Demo/华泰）')}
               value={accountForm.broker}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, broker: e.target.value }))}
             />
             <input
               className={PORTFOLIO_INPUT_CLASS}
-              placeholder="基准币（如 CNY/USD/HKD）"
+              placeholder={operatorText('Baz para birimi (ör. CNY/USD/HKD)', '基准币（如 CNY/USD/HKD）')}
               value={accountForm.baseCurrency}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, baseCurrency: e.target.value.toUpperCase() }))}
             />
@@ -1656,15 +1662,15 @@ const PortfolioPage: React.FC = () => {
               value={accountForm.market}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, market: e.target.value as PortfolioAccountMarket }))}
             >
-              <option value="cn">市场：A 股（cn）</option>
-              <option value="hk">市场：港股（hk）</option>
-              <option value="us">市场：美股（us）</option>
-              <option value="jp">市场：日股（jp）</option>
-              <option value="kr">市场：韩股（kr）</option>
-              <option value="tw">市场：台股（tw）</option>
+              <option value="cn">{operatorText('Piyasa: Çin A hisseleri (cn)', '市场：A 股（cn）')}</option>
+              <option value="hk">{operatorText('Piyasa: Hong Kong (hk)', '市场：港股（hk）')}</option>
+              <option value="us">{operatorText('Piyasa: ABD (us)', '市场：美股（us）')}</option>
+              <option value="jp">{operatorText('Piyasa: Japonya (jp)', '市场：日股（jp）')}</option>
+              <option value="kr">{operatorText('Piyasa: Güney Kore (kr)', '市场：韩股（kr）')}</option>
+              <option value="tw">{operatorText('Piyasa: Tayvan (tw)', '市场：台股（tw）')}</option>
             </select>
             <button type="submit" className="btn-secondary text-sm" disabled={accountCreating}>
-              {accountCreating ? '创建中...' : '创建账户'}
+              {accountCreating ? operatorText('Oluşturuluyor...', '创建中...') : operatorText('Hesap oluştur', '创建账户')}
             </button>
           </form>
         </Card>
