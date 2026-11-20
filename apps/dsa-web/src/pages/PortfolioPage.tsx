@@ -684,6 +684,7 @@ const PortfolioPage: React.FC = () => {
   const [fxRefreshing, setFxRefreshing] = useState(false);
   const [tryDisplayRates, setTryDisplayRates] = useState<PortfolioDisplayFxRates | null>(null);
   const [displayFxConnectionFailed, setDisplayFxConnectionFailed] = useState(false);
+  const [displayFxRetryKey, setDisplayFxRetryKey] = useState(0);
   const [fxRefreshFeedback, setFxRefreshFeedback] = useState<FxRefreshFeedback | null>(null);
   const [error, setError] = useState<ParsedApiError | null>(null);
   const [riskWarning, setRiskWarning] = useState<string | null>(null);
@@ -955,7 +956,7 @@ const PortfolioPage: React.FC = () => {
     void refreshDisplayRates();
     const timer = setInterval(() => { void refreshDisplayRates(); }, 60_000);
     return () => { canceled = true; clearInterval(timer); };
-  }, []);
+  }, [displayFxRetryKey]);
 
   useEffect(() => {
     void loadEvents();
@@ -1379,6 +1380,8 @@ const PortfolioPage: React.FC = () => {
   };
 
   const handleRefresh = async () => {
+    // Retry read-only indicative FX immediately, not just the next 60s timer.
+    setDisplayFxRetryKey((value) => value + 1);
     await Promise.all([loadAccounts(), loadSnapshotAndRisk(), loadEvents(), loadBrokers()]);
     setPortfolioSignalsRefreshKey((current) => current + 1);
   };
@@ -1442,6 +1445,8 @@ const PortfolioPage: React.FC = () => {
     if (!hasAccounts || isLoading || fxRefreshing) {
       return;
     }
+    // Manual FX refresh also retries independent read-only TL display quotes.
+    setDisplayFxRetryKey((value) => value + 1);
 
     const requestedViewKey = refreshViewKey;
     const requestedAccountId = queryAccountId;
