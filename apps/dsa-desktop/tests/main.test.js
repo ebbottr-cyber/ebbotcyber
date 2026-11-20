@@ -1185,6 +1185,34 @@ test('restorePackagedRuntimeStateFromBackup keeps backup when copy fails', (t) =
   assert.equal(restoreResult.failed[0].includes('target locked'), true);
 });
 
+test('new backup attempt cannot overwrite a pending interrupted-update recovery copy', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-pending-backup-retry-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const backupRoot = path.join(userData, '.dsa-desktop-update-backup');
+  const envBackup = path.join(backupRoot, '.env');
+  const backupManifest = path.join(backupRoot, 'runtime-state.json');
+  fs.mkdirSync(appDir, { recursive: true });
+  fs.mkdirSync(backupRoot, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(appDir, '.env'), 'current-new-value');
+  fs.writeFileSync(envBackup, 'previous-recovery-value');
+  const manifest = JSON.stringify({ appVersion: '3.12.0', files: ['.env'] });
+  fs.writeFileSync(backupManifest, manifest);
+
+  const mod = loadMainModule(t, {
+    platform: 'win32',
+    app: { isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.13.0' },
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  mod.backupPackagedRuntimeState();
+  assert.equal(fs.readFileSync(envBackup, 'utf-8'), 'previous-recovery-value');
+  assert.equal(fs.readFileSync(backupManifest, 'utf-8'), manifest);
+  assert.equal(fs.readFileSync(path.join(appDir, '.env'), 'utf-8'), 'current-new-value');
+});
+
 test('failed database restore preserves the existing target and retains retry backup', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-preserve-db-on-failure-'));
   const appDir = path.join(root, 'app');
