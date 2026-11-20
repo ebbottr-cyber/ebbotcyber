@@ -1,0 +1,86 @@
+name: EBBot reviewed Solana candidate real artifact audit V2 (NO orders)
+
+on:
+  push:
+    branches: [audit/solana-quality-candidate-real-v2-20261120]
+    paths:
+      - '.github/workflows/solana-candidate-real-artifact-audit-v2.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audited-real-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download only approved real observation runs and preserve their result
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > source-conclusions.txt
+          for id in 44779967482 44777830658; do
+            meta=$(gh run view "$id" --repo "$GITHUB_REPOSITORY" \
+              --json workflowName,conclusion \
+              --jq '(.workflowName // "") + "|" + (.conclusion // "")')
+            IFS='|' read -r workflow outcome <<< "$meta"
+            if [[ "$workflow" != 'Solana fixed-mint time-spaced observations (read only)' ]]; then
+              echo 'Wrong producer workflow'; exit 1
+            fi
+            if [[ "$outcome" != success && "$outcome" != failure ]]; then
+              echo 'Source not completed'; exit 1
+            fi
+            printf '%s=%s\n' "$id" "$outcome" >> source-conclusions.txt
+            mkdir -p "inputs/$id"
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" \
+              --name solana-public-observations-not-paper-trades \
+              --dir "inputs/$id"
+            test -f "inputs/$id/solana-public-observations.json"
+          done
+      - name: Recompute real price and risk counts and reject source conclusion mismatches
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS='=' read -r run_id outcome; do
+            args+=(--capture "$run_id=inputs/$run_id/solana-public-observations.json")
+            args+=(--source-conclusion "$run_id=$outcome")
+          done < source-conclusions.txt
+          python -m scripts.prepare_solana_reviewed_report \
+            "${args[@]}" --audit-run-id "$GITHUB_RUN_ID" \
+            --output solana-reviewed-quality-candidate.json
+          python - <<'PY'
+          import json, os
+          d = json.load(open('solana-reviewed-quality-candidate.json', encoding='utf-8'))
+          assert d['audit_run_id'] == os.environ['GITHUB_RUN_ID']
+          assert d['quality_result'] == 'degraded_capture_data'
+          assert d['capture_count'] == 2
+          assert [c['result'] for c in d['captures']] == ['passed','degraded']
+          assert [c['priced_rows'] for c in d['captures']] == [6,3]
+          assert [c['missing_rows'] for c in d['captures']] == [0,3]
+          assert (d['total_priced_rows'],d['total_missing_rows']) == (9,3)
+          assert (d['blocked_assessments'],d['watch_assessments']) == (18,0)
+          assert d['trading_enabled'] is False
+          assert d['wallet_enabled'] is False
+          assert d['performance_calculated'] is False
+          assert d['ready_for_verified_paper_performance'] is False
+          print('PASS: 9 valid, 3 missing, 18 blocked, 0 watch; review candidate only')
+          PY
+      - name: Upload candidate only, no raw market prices and no main branch write
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-solana-reviewed-candidate-not-published
+          path: solana-reviewed-quality-candidate.json
+          if-no-files-found: error
+          retention-days: 7
