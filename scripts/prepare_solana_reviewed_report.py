@@ -139,6 +139,33 @@ def prepare_candidate(
     }
 
 
+def verify_source_conclusions(
+    candidate: dict[str, Any], conclusions: dict[str, str]
+) -> None:
+    """Match trusted GH run conclusions to the independently recomputed quality.
+
+    A producer run intentionally fails on degraded data. Do not discard that
+    evidence, but never treat a failed run as a successful capture. A failed
+    run is still subject to explicit human audit before a UI PR is approved.
+    """
+    captures = candidate["captures"]
+    _check(
+        set(conclusions) == {item["run_id"] for item in captures},
+        "Source conclusion IDs must match every reviewed capture",
+    )
+    for item in captures:
+        conclusion = conclusions[item["run_id"]]
+        _check(
+            conclusion in ("success", "failure"),
+            "Only completed successful or degraded-source runs are accepted",
+        )
+        _check(
+            (conclusion == "success" and item["result"] == "passed")
+            or (conclusion == "failure" and item["result"] == "degraded"),
+            "Producer conclusion disagrees with validated capture quality",
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate REVIEW-ONLY Solana quality report candidate from local JSON"
@@ -146,6 +173,11 @@ def main() -> int:
     parser.add_argument(
         "--capture", action="append", required=True, metavar="RUN_ID=OBSERVATIONS_JSON",
         help="Approved observation Actions run ID and local JSON (repeat 1-6 times)",
+    )
+    parser.add_argument(
+        "--source-conclusion", action="append", required=True,
+        metavar="RUN_ID=success|failure",
+        help="Source GH run conclusion obtained from approved workflow, one per capture",
     )
     parser.add_argument("--audit-run-id", required=True, help="Independent quality audit run ID")
     parser.add_argument(
@@ -169,6 +201,13 @@ def main() -> int:
         candidate = prepare_candidate(
             captures, audit_run_id=args.audit_run_id, audited_at_utc=timestamp
         )
+        conclusions: dict[str, str] = {}
+        for entry in args.source_conclusion:
+            run_id, separator, conclusion = entry.partition("=")
+            _check(bool(separator) and run_id not in conclusions,
+                   "Malformed or duplicated source conclusion")
+            conclusions[_run_id(run_id)] = conclusion
+        verify_source_conclusions(candidate, conclusions)
         # Write only after all validations pass. This is NOT the public UI file.
         args.output.write_text(
             json.dumps(candidate, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
