@@ -59,9 +59,9 @@ def test_additional_currencies_are_independently_converted_and_timestamped():
     assert result["status"] == "current"
     for currency, expected in {"HKD": 6.25, "JPY": 0.3125, "KRW": 50 / 1400, "TWD": 1.5625}.items():
         assert abs(result[f"{currency.lower()}_try"] - expected) < 1e-7
-        assert result["pair_status"][currency] == "current"
-        assert result["pair_as_of"][currency]
-    assert result["pair_status"]["USD"] == "current"
+        assert result["pair_status"][currency.lower()] == "current"
+        assert result["pair_as_of"][currency.lower()]
+    assert result["pair_status"]["usd"] == "current"
 
 
 def test_bad_foreign_quote_cannot_poison_independent_valid_pair():
@@ -75,14 +75,14 @@ def test_bad_foreign_quote_cannot_poison_independent_valid_pair():
         }, now=now,
     )
     assert result["status"] == "unavailable"
-    assert result["pair_status"]["CNY"] == "unavailable"
-    assert result["pair_status"]["HKD"] == "current"
+    assert result["pair_status"]["cny"] == "unavailable"
+    assert result["pair_status"]["hkd"] == "current"
     assert result["hkd_try"] == 6.25
-    assert result["pair_status"]["JPY"] == "stale"  # timestamps too far apart
-    assert result["jpy_try"] is None and "JPY" not in result["pair_as_of"]
-    assert result["pair_status"]["KRW"] == "unavailable"
-    assert result["krw_try"] is None and "KRW" not in result["pair_as_of"]
-    assert result["pair_status"]["TWD"] == "unavailable"
+    assert result["pair_status"]["jpy"] == "stale"  # timestamps too far apart
+    assert result["jpy_try"] is None and "jpy" not in result["pair_as_of"]
+    assert result["pair_status"]["krw"] == "unavailable"
+    assert result["krw_try"] is None and "krw" not in result["pair_as_of"]
+    assert result["pair_status"]["twd"] == "unavailable"
 
 
 def test_stale_usd_reference_invalidates_all_crosses():
@@ -91,8 +91,8 @@ def test_stale_usd_reference_invalidates_all_crosses():
         (50.0, now - timedelta(hours=2)), (7.0, now),
         additional_quotes={"HKD": (8.0, now)}, now=now,
     )
-    assert result["pair_status"]["USD"] == "stale"
-    assert result["pair_status"]["HKD"] == "stale"
+    assert result["pair_status"]["usd"] == "stale"
+    assert result["pair_status"]["hkd"] == "stale"
     assert result["hkd_try"] is None and result["cny_try"] is None
 
 
@@ -106,5 +106,5 @@ def test_wrong_unit_or_naive_pair_rejected_instead_of_guessing():
         now=now,
     )
     for currency in ("HKD", "JPY", "KRW"):
-        assert result["pair_status"][currency] == "unavailable"
+        assert result["pair_status"][currency.lower()] == "unavailable"
         assert result[f"{currency.lower()}_try"] is None
