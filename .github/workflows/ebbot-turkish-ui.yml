@@ -6,6 +6,7 @@ on:
       - review/ebbot-3lu-entegrasyon-20261118
       - fix/turkish-ui-chat-20261118
       - feature/portfolio-try-multicurrency-fx-20261120
+      - fix/portfolio-stored-usd-cross-risk-20261120
     paths:
       - 'apps/dsa-web/**'
       - 'src/services/portfolio_service.py'

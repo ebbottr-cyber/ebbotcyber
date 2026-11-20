@@ -9,7 +9,7 @@ import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from data_provider.base import canonical_stock_code, normalize_stock_code
@@ -1583,7 +1583,11 @@ class PortfolioService:
         as_of_date: date,
         refresh_enabled: bool,
     ) -> Dict[str, int]:
-        """Refresh FX pairs for one account and keep stale fallback on failures."""
+        """Refresh from verified dated quotes; do not rewrite old FX as today's.
+
+        A failed/old provider result leaves the previously stored quote intact.
+        Historical portfolio valuation uses the quote's original rate_date.
+        """
         refresh_currencies = self._list_account_refresh_fx_currencies(
             account=account,
             as_of_date=as_of_date,
@@ -1605,23 +1609,37 @@ class PortfolioService:
             "error_count": 0,
         }
         for from_currency in refresh_currencies:
+            stale_provider_quote = False
             try:
-                rate = self._fetch_fx_rate_from_yfinance(
+                dated_quote = self._fetch_fx_rate_from_yfinance(
                     from_currency=from_currency,
                     to_currency=base_currency,
                     as_of_date=as_of_date,
                 )
-                if rate is not None and rate > 0:
-                    self.repo.save_fx_rate(
-                        from_currency=from_currency,
-                        to_currency=base_currency,
-                        rate_date=as_of_date,
-                        rate=rate,
-                        source="yfinance",
-                        is_stale=False,
-                    )
-                    summary["updated_count"] += 1
-                    continue
+                # A bare float cannot prove the quote date. Reject legacy
+                # provider results rather than silently stamping as_of_date.
+                if (
+                    isinstance(dated_quote, tuple)
+                    and len(dated_quote) == 2
+                    and type(dated_quote[1]) is date
+                    and isinstance(dated_quote[0], (int, float))
+                    and math.isfinite(dated_quote[0])
+                    and dated_quote[0] > 0
+                ):
+                    value, quote_date = dated_quote
+                    age_days = (as_of_date - quote_date).days
+                    if 0 <= age_days <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS:
+                        self.repo.save_fx_rate(
+                            from_currency=from_currency,
+                            to_currency=base_currency,
+                            rate_date=quote_date,
+                            rate=float(value),
+                            source="yfinance",
+                            is_stale=False,
+                        )
+                        summary["updated_count"] += 1
+                        continue
+                    stale_provider_quote = True
             except Exception as exc:
                 logger.warning(
                     "FX online fetch failed for %s/%s on %s: %s",
@@ -1631,20 +1649,15 @@ class PortfolioService:
                     exc,
                 )
 
+            # Never create an as_of_date duplicate of a prior quote and never
+            # alter its is_stale/source fields on a failed online refresh.
             fallback = self.repo.get_latest_fx_rate(
                 from_currency=from_currency,
                 to_currency=base_currency,
                 as_of=as_of_date,
             )
-            if fallback is not None and float(fallback.rate or 0.0) > 0:
-                self.repo.save_fx_rate(
-                    from_currency=from_currency,
-                    to_currency=base_currency,
-                    rate_date=as_of_date,
-                    rate=float(fallback.rate),
-                    source=(fallback.source or "cache_fallback"),
-                    is_stale=True,
-                )
+            fallback_rate = float(fallback.rate or 0.0) if fallback is not None else 0.0
+            if (fallback is not None and math.isfinite(fallback_rate) and fallback_rate > 0) or stale_provider_quote:
                 summary["stale_count"] += 1
             else:
                 summary["error_count"] += 1
@@ -1656,8 +1669,8 @@ class PortfolioService:
         from_currency: str,
         to_currency: str,
         as_of_date: date,
-    ) -> Optional[float]:
-        """Fetch latest available FX close rate around as_of date."""
+    ) -> Optional[Tuple[float, date]]:
+        """Return the actual daily close date with the price, never a bare rate."""
         if yf is None:
             return None
         symbol = f"{from_currency}{to_currency}=X"
@@ -1670,13 +1683,22 @@ class PortfolioService:
         )
         if history is None or history.empty or "Close" not in history:
             return None
-        close = history["Close"].dropna()
-        if close.empty:
+        closes = history["Close"].dropna().sort_index()
+        if closes.empty:
             return None
-        value = float(close.iloc[-1])
-        if value <= 0:
+        value = float(closes.iloc[-1])
+        timestamp = closes.index[-1]
+        if hasattr(timestamp, "to_pydatetime"):
+            timestamp = timestamp.to_pydatetime()
+        if isinstance(timestamp, datetime):
+            quote_date = timestamp.date()
+        elif type(timestamp) is date:
+            quote_date = timestamp
+        else:
             return None
-        return value
+        if not math.isfinite(value) or value <= 0 or quote_date > as_of_date:
+            return None
+        return value, quote_date
 
     def _require_active_account(self, account_id: int) -> Any:
         account = self.repo.get_account(account_id, include_inactive=False)
