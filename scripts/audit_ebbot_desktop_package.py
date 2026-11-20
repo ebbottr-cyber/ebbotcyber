@@ -103,6 +103,12 @@ def source_audit(root: Path) -> dict:
            and "sqliteSnapshotBridge" in js
            and (bridge.is_file() and "stageSnapshotRestoreCandidate" in bridge.read_text(encoding="utf-8")),
            "The offline no-clobber SQLite staging bridge must be included in Electron ASAR")
+    rehearsal = desktop / "sqliteRollbackRehearsal.js"
+    _check(checks, "sqlite_recovery_rehearsal_packaged",
+           "sqliteRollbackRehearsal.js" in files and rehearsal.is_file()
+           and "sqliteRollbackRehearsal" in js
+           and (rehearsal.is_file() and "rollbackCompletedSqlitePromotion" in rehearsal.read_text(encoding="utf-8")),
+           "Isolated SQLite DB/WAL/SHM rollback rehearsal must be bundled but never started")
     resources = build.get("extraResources", [])
     has_backend = any(x.get("from") == "../../dist/backend/stock_analysis" and
                       x.get("to") == "backend/stock_analysis"

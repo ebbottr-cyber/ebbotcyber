@@ -11,6 +11,7 @@ on:
       - security/ebbot-desktop-sqlite-backup-atomic-20261120
       - security/ebbot-desktop-sqlite-online-snapshot-20261120
       - security/ebbot-sqlite-electron-restore-staging-20261120
+      - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -21,6 +22,7 @@ on:
       - security/ebbot-desktop-safe-restore-20261120
       - security/ebbot-desktop-sqlite-backup-atomic-20261120
       - security/ebbot-desktop-sqlite-online-snapshot-20261120
+      - security/ebbot-sqlite-electron-restore-staging-20261120
 
 permissions:
   contents: read
@@ -62,6 +64,44 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Unsigned desktop release policy unit tests failed" }
           python -m unittest discover -s tests -p test_ebbot_sqlite_snapshot.py -v
           if ($LASTEXITCODE -ne 0) { throw "Offline WAL-consistent SQLite snapshot tests failed" }
+      - name: Regression - signing collector ignores stale native exit code (synthetic exe only)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $dir = Join-Path $env:RUNNER_TEMP 'ebbot-signing-collector-synthetic'
+          New-Item -ItemType Directory -Force -Path "$dir/win-unpacked/resources/backend/stock_analysis" | Out-Null
+          $exeNames = @(
+            (Join-Path $dir 'EBBot-windows-installer-v3.21.0.exe'),
+            (Join-Path $dir 'win-unpacked/EBBot.exe'),
+            (Join-Path $dir 'win-unpacked/resources/backend/stock_analysis/stock_analysis.exe')
+          )
+          try {
+            foreach ($exe in $exeNames) {
+              [System.IO.File]::WriteAllText($exe, 'synthetic, unsigned, do not execute')
+            }
+            & $env:ComSpec /c 'exit 17'
+            if ($LASTEXITCODE -ne 17) { throw "Native exit-code setup was not applied" }
+            $reportPath = Join-Path $dir 'signature-observation.json'
+            & ./scripts/collect_ebbot_windows_signatures.ps1 -Dist $dir -Version '3.21.0' -Output $reportPath
+            if (!(Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+              throw "PowerShell collector failed after nonzero stale LASTEXITCODE"
+            }
+            $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+            foreach ($name in @('nsis_installer', 'electron_app', 'python_backend')) {
+              if ($report.signatures.$name.present -ne $true) {
+                throw "Collector missed required synthetic executable: $name"
+              }
+            }
+            python scripts/audit_ebbot_desktop_signing.py --observation $reportPath --enforce-ci-contracts --json > (Join-Path $dir 'audit.json')
+            if ($LASTEXITCODE -ne 0) { throw "Signing policy audit failed" }
+            $audit = Get-Content (Join-Path $dir 'audit.json') -Raw | ConvertFrom-Json
+            if ($audit.release_status -ne 'BLOCKED' -or $audit.signing_validation -ne 'BLOCKED') {
+              throw "Unsigned synthetic binaries must NEVER pass signing or release authorization"
+            }
+          } finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Install exact Electron dependency lockfile
         working-directory: apps/dsa-desktop
         shell: pwsh
@@ -150,8 +190,13 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content apps/dsa-desktop/package.json -Raw | ConvertFrom-Json).version
+          # The collector is a pure PowerShell script, not a native executable.
+          # Do NOT inspect $LASTEXITCODE here: it can retain the prior npm/Python exit status.
+          # A terminating exception from the collector is already fatal in pwsh.
           & ./scripts/collect_ebbot_windows_signatures.ps1 -Dist apps/dsa-desktop/dist -Version $version -Output desktop-signature-observation.json
-          if ($LASTEXITCODE -ne 0) { throw "Windows signature observation failed" }
+          if (!(Test-Path -LiteralPath desktop-signature-observation.json -PathType Leaf)) {
+            throw "Windows signature observation file was not generated"
+          }
           python scripts/audit_ebbot_desktop_signing.py --observation desktop-signature-observation.json --enforce-ci-contracts --json > desktop-signature-audit.json
           if ($LASTEXITCODE -ne 0) { throw "Windows signing policy audit failed to run" }
           $signatureAudit = Get-Content desktop-signature-audit.json -Raw | ConvertFrom-Json

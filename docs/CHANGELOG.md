@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [测试] EBBot masaüstü için yalnız sentetik verilerle DB/WAL/SHM üçlüsünün birlikte korunmasını, kesilen klasör geçişinin geri alınmasını ve yeni snapshot'ın eski WAL/SHM ile karışmamasını sınayan izolasyon testleri eklendi; gerçek güncelleme ve yayın kapalı.
+
 - [测试] EBBot Electron masaüstüne, WAL/SHM yan dosyalarını veya mevcut kullanıcı veritabanını değiştirmeden yalnız boş bir dizinde SQLite snapshot hazırlayan ve doğrulayan çevrimdışı test köprüsü eklendi; güncelleme ve yayın kapalı.
 
 - [测试] EBBot masaüstü için SQLite WAL işlemlerini tutarlı biçimde kopyalayan yalnızca açıkça çağrılan çevrimdışı snapshot aracı ve gerçek PyInstaller backend CLI testi eklendi; otomatik güncelleme, kurulum ve işlem yürütme açılmadı.
