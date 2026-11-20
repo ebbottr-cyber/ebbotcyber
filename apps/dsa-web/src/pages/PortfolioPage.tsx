@@ -1480,8 +1480,14 @@ const PortfolioPage: React.FC = () => {
     && snapshot?.fxStale === false
     && snapshot?.dataQuality !== 'partial'
     && snapshot?.accounts.every((account) => account.fxStale === false);
-  const matchingTryQuote = eligibleForTryDisplay
-    ? tryDisplayRates?.quotes.find((quote) => quote.sourceCurrency === snapshot?.currency) ?? null
+  // The display-only FX endpoint is external input. Missing/malformed quote
+  // arrays must never crash the portfolio or fabricate a TRY conversion.
+  const matchingTryQuote = eligibleForTryDisplay && Array.isArray(tryDisplayRates?.quotes)
+    ? tryDisplayRates.quotes.find((quote) => (
+        quote !== null
+        && typeof quote === 'object'
+        && quote.sourceCurrency === snapshot?.currency
+      )) ?? null
     : null;
   const equityTryDisplay = formatTryDisplay(snapshot?.totalEquity, snapshot?.currency || 'CNY', matchingTryQuote);
   const marketValueTryDisplay = formatTryDisplay(snapshot?.totalMarketValue, snapshot?.currency || 'CNY', matchingTryQuote);

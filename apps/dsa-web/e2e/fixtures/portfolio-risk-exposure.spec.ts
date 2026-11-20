@@ -85,7 +85,7 @@ for (const state of ['complete', 'missing-price', 'snapshot-error', 'invalid-top
       await expect(page.getByText('持仓快照不可用', { exact: true })).toBeVisible();
     }
     if (state === 'empty') {
-      await expect(dashboard.getByText('总市值: CNY 0.00')).toBeVisible();
+      await expect(dashboard.getByText('总市值: CNY 0,00')).toBeVisible();
       await expect(dashboard.getByText('持仓: 0')).toBeVisible();
       await expect(dashboard.getByText('暂无暴露数据')).toHaveCount(2);
       await expect(page.getByText('当前无持仓数据', { exact: true })).toBeVisible();
