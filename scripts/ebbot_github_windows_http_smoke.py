@@ -47,13 +47,20 @@ def _asset_check(origin: str) -> bool:
         # Only a Vite asset in the checked out, freshly built bundle.
         if not re.fullmatch(r"/assets/[A-Za-z0-9_.-]+", path):
             return False
-        status, media_type, payload = local_get(origin, path)
-        if status != 200 or not payload:
-            return False
-        if path.endswith(".js") and "javascript" not in media_type.lower():
-            return False
-        if path.endswith(".css") and "css" not in media_type.lower():
-            return False
+        # Vite bundles can exceed the 64 KiB cap of JSON health responses.
+        # Read only the first 512 bytes, never fetch an entire JS bundle.
+        from ebbot_windows_portfolio_preflight import _RejectRedirect
+        opener = request.build_opener(request.ProxyHandler({}), _RejectRedirect())
+        with opener.open(
+            request.Request(origin + path, method="GET"), timeout=4,
+        ) as response:
+            media_type = response.headers.get("Content-Type", "")
+            if response.status != 200 or not response.read(512):
+                return False
+            if path.endswith(".js") and "javascript" not in media_type.lower():
+                return False
+            if path.endswith(".css") and "css" not in media_type.lower():
+                return False
         return True
     except (OSError, ValueError, error.URLError):
         return False
