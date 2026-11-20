@@ -4,7 +4,7 @@
 // startup path. No installed application or existing SQLite database is altered.
 const fs = require('node:fs');
 const path = require('node:path');
-const { createHash } = require('node:crypto');
+const { createHash, randomBytes } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 
 const FROZEN_SNAPSHOT_COMMAND = '--ebbot-desktop-sqlite-snapshot';
@@ -143,19 +143,21 @@ function stageSnapshotRestoreCandidate({ snapshotFile, destination, expectedSha2
     starts_backend: false, enables_updates: false,
     sha256: expectedSha256, size_bytes: expectedSize,
   }, snapshotFile);
+  const temporary = path.join(
+    path.dirname(destination),
+    `.ebbot-restore-candidate-${randomBytes(12).toString('hex')}`,
+  );
   try {
-    fs.copyFileSync(snapshotFile, destination, fs.constants.COPYFILE_EXCL);
-    if (sha256File(destination) !== evidence.sha256 ||
-        fs.statSync(destination).size !== evidence.sizeBytes) {
+    fs.copyFileSync(snapshotFile, temporary, fs.constants.COPYFILE_EXCL);
+    if (sha256File(temporary) !== evidence.sha256 ||
+        fs.statSync(temporary).size !== evidence.sizeBytes) {
       throw new Error('Staged restore copy did not match the approved SHA-256');
     }
-  } catch (error) {
-    // Only remove a destination file that this invocation successfully created.
-    // COPYFILE_EXCL avoids clobbering any previously existing file.
-    if (error.createdByUs) {
-      try { fs.unlinkSync(destination); } catch (_ignored) {}
-    }
-    throw error;
+    // Same-directory hard-link publication is atomic and fails if the
+    // destination was created by somebody else after our preflight.
+    fs.linkSync(temporary, destination);
+  } finally {
+    try { fs.unlinkSync(temporary); } catch (_ignored) {}
   }
   return Object.freeze({ ...evidence, status: 'STAGED_ONLY', installationAllowed: false });
 }
