@@ -28,7 +28,7 @@ export function renderLegacyChineseUi(
   const AdditionalWrapper = options?.wrapper;
   const WithLanguage = ({ children }: { children: ReactNode }) => (
     <UiLanguageProvider>
-      {AdditionalWrapper ? createElement(AdditionalWrapper, {}, children) : children}
+      {AdditionalWrapper ? createElement(AdditionalWrapper, { children }) : children}
     </UiLanguageProvider>
   );
   return testingLibraryRender(ui, { ...options, wrapper: WithLanguage });
