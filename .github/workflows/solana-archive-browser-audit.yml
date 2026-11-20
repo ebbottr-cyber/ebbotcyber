@@ -1,0 +1,42 @@
+name: EBBot Solana archived quality Chromium audit (NO trading)
+
+on:
+  push:
+    branches: [audit/solana-quality-browser-20261120]
+    paths:
+      - '.github/workflows/solana-archive-browser-audit.yml'
+      - 'apps/dsa-web/e2e/fixtures/solana-archive-quality-browser.spec.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Install isolated Chromium browser
+        run: npx playwright install --with-deps chromium
+      - name: Verify merged page on mobile and desktop with mocked read-only API
+        run: npx playwright test --config playwright.fixture.config.ts e2e/fixtures/solana-archive-quality-browser.spec.ts
+      - name: Save browser evidence only (no keys or raw market files)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-quality-browser-only-no-orders
+          path: apps/dsa-web/test-results/fixtures/
+          if-no-files-found: warn
+          retention-days: 7
