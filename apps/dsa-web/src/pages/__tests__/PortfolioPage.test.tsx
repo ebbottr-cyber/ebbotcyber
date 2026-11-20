@@ -1,5 +1,6 @@
 import type React from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor, within, type RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { decisionSignalsApi } from '../../api/decisionSignals';
 import { createApiError, createParsedApiError } from '../../api/error';
@@ -7,6 +8,11 @@ import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 import type { DecisionSignalItem } from '../../types/decisionSignals';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import PortfolioPage from '../PortfolioPage';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
 
 const {
   getAccounts,
@@ -288,6 +294,7 @@ describe('PortfolioPage FX refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
 
     getAccounts.mockResolvedValue(makeAccounts());
     getSnapshot.mockImplementation(async ({ accountId }: { accountId?: number } = {}) => makeSnapshot({ accountId, fxStale: true }));
@@ -344,6 +351,27 @@ describe('PortfolioPage FX refresh', () => {
       </UiLanguageProvider>,
     );
   }
+
+  it('shows the ledger forms and broker names in Turkish without changing trade IDs', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    render(
+      <UiLanguageProvider>
+        <PortfolioPage />
+      </UiLanguageProvider>,
+    );
+    await waitForInitialLoad();
+    expect(screen.getByText('Elle Kayıt: Alım-Satım')).toBeInTheDocument();
+    expect(screen.getByText('Elle Kayıt: Nakit Hareketi')).toBeInTheDocument();
+    expect(screen.getByText('Elle Kayıt: Şirket İşlemi')).toBeInTheDocument();
+    expect(screen.getByText('Aracı Kurum CSV Aktarımı')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Hisse kodu (örn. AAPL)')).toBeInTheDocument();
+    expect(screen.getAllByRole('option', { name: 'Alış' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: 'Alış' })[0]).toHaveValue('buy');
+    expect(screen.getAllByRole('option', { name: 'Satış' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: 'Satış' })[0]).toHaveValue('sell');
+    expect(screen.getByRole('option', { name: 'huatai (Huatai)' })).toHaveValue('huatai');
+    expect(screen.queryByText('手工录入：交易')).not.toBeInTheDocument();
+  });
 
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
     render(<PortfolioPage />);
@@ -445,7 +473,7 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboardScope.getByText('HKD')).toBeInTheDocument();
   });
 
-  it('converts single-account foreign-currency exposure values into the snapshot currency', async () => {
+  it('does not relabel single-account legacy CNY exposure as TRY without fresh FX quotes', async () => {
     getSnapshot.mockResolvedValueOnce({
       asOf: '2026-03-19',
       costMethod: 'fifo' as const,
@@ -502,12 +530,13 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboard).not.toBeNull();
     const dashboardScope = within(dashboard as HTMLElement);
     expect(dashboardScope.getByText('US')).toBeInTheDocument();
-    expect(dashboardScope.getAllByText('CNY 700.00').length).toBeGreaterThan(0);
+    expect(dashboardScope.getAllByText('—').length).toBeGreaterThan(0);
+    expect(dashboardScope.queryByText('CNY 700.00')).not.toBeInTheDocument();
     expect(dashboardScope.queryByText('CNY 100.00')).not.toBeInTheDocument();
     expect(dashboardScope.getAllByText('100.00%').length).toBeGreaterThan(0);
   });
 
-  it('converts mixed CNY and USD accounts using per-account aggregate market values', async () => {
+  it('hides mixed-currency exposure values until trustworthy TRY conversion is available', async () => {
     getSnapshot.mockResolvedValueOnce({
       asOf: '2026-03-19',
       costMethod: 'fifo' as const,
@@ -596,8 +625,9 @@ describe('PortfolioPage FX refresh', () => {
     for (const label of ['市场暴露', '币种暴露']) {
       const exposure = dashboardScope.getByText(label).closest('div.rounded-xl');
       const scope = within(exposure as HTMLElement);
-      expect(scope.getByText('CNY 70.00')).toBeInTheDocument();
-      expect(scope.getByText('CNY 700.00')).toBeInTheDocument();
+      expect(scope.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+      expect(scope.queryByText('CNY 70.00')).not.toBeInTheDocument();
+      expect(scope.queryByText('CNY 700.00')).not.toBeInTheDocument();
       expect(scope.getByText('9.09%')).toBeInTheDocument();
       expect(scope.getByText('90.91%')).toBeInTheDocument();
       expect(scope.queryByText('CNY 100.00')).not.toBeInTheDocument();
@@ -644,9 +674,11 @@ describe('PortfolioPage FX refresh', () => {
     }
     for (const label of ['市场暴露', '币种暴露']) {
       const exposure = within(dashboard.getByText(label).closest('div.rounded-xl') as HTMLElement);
-      for (const value of ['CNY 700.00', 'CNY 180.00', 'CNY 70.00', '73.68%', '18.95%', '7.37%']) {
+      for (const value of ['73.68%', '18.95%', '7.37%']) {
         expect(exposure.getByText(value)).toBeInTheDocument();
       }
+      expect(exposure.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+      expect(exposure.queryByText('CNY 700.00')).not.toBeInTheDocument();
       if (evidence === 'zero-value-account') {
         expect(exposure.getByText('持仓 2')).toBeInTheDocument();
       }
@@ -676,7 +708,7 @@ describe('PortfolioPage FX refresh', () => {
     await waitForInitialLoad();
     const dashboard = within(screen.getByText('风险与暴露看板').closest('section') as HTMLElement);
     expect(dashboard.getAllByText('暂无暴露数据')).toHaveLength(2);
-    expect(dashboard.getByText('总市值: CNY 0.00')).toBeInTheDocument();
+    expect(dashboard.getByText('总市值: —')).toBeInTheDocument();
     expect(dashboard.getByText('持仓: 0')).toBeInTheDocument();
     expect(screen.getByText('共 0 项')).toBeInTheDocument();
     expect(screen.getByText('当前无持仓数据')).toBeInTheDocument();
@@ -1142,7 +1174,7 @@ describe('PortfolioPage FX refresh', () => {
     expect(within(priceFlag as HTMLElement).getByText('--')).toBeInTheDocument();
     expect(within(priceFlag as HTMLElement).getAllByText('不可用')).toHaveLength(2);
     const dashboard = screen.getByText('风险与暴露看板').closest('section');
-    expect(within(dashboard as HTMLElement).getByText('总市值: --')).toBeInTheDocument();
+    expect(within(dashboard as HTMLElement).getByText('总市值: —')).toBeInTheDocument();
     expect(within(dashboard as HTMLElement).queryByText(/总市值: CNY 0/)).not.toBeInTheDocument();
     expect(within(dashboard as HTMLElement).getByText('持仓: --')).toBeInTheDocument();
     expect(screen.getByText('共 -- 项')).toBeInTheDocument();
@@ -1881,12 +1913,13 @@ describe('PortfolioPage FX refresh', () => {
     await waitForInitialLoad();
 
     expect(await screen.findByText('HK00700')).toBeInTheDocument();
-    expect(screen.getByText('420.0000')).toBeInTheDocument();
-    expect(screen.getByText('HKD 4,200.00')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryByText('420.0000')).not.toBeInTheDocument();
+    expect(screen.queryByText('HKD 4,200.00')).not.toBeInTheDocument();
     expect(screen.getByText('+5.00%')).toBeInTheDocument();
     expect(screen.getByText('收盘价 · 2026-03-18')).toBeInTheDocument();
     expect(screen.getByText('缺价')).toBeInTheDocument();
-    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
 
     const hkRow = screen.getByText('HK00700').closest('tr');
     const aaplRow = screen.getByText('AAPL').closest('tr');
@@ -2098,7 +2131,8 @@ describe('PortfolioPage FX refresh', () => {
     });
     const aaplRow = screen.getByText('AAPL').closest('tr');
     expect(aaplRow).not.toBeNull();
-    expect(within(aaplRow as HTMLTableRowElement).getByText('—')).toBeInTheDocument();
+    const aaplCells = within(aaplRow as HTMLTableRowElement).getAllByRole('cell');
+    expect(within(aaplCells[8]).getByText('—')).toBeInTheDocument();
   });
 
   it('shows a visible partial warning when one latest holding signal lookup fails', async () => {

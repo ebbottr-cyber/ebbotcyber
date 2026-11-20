@@ -1,9 +1,16 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, type RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { analysisApi } from '../../../api/analysis';
 import { historyApi } from '../../../api/history';
 import type { RunFlowSnapshot } from '../../../types/runFlow';
 import { RunFlowPanel } from '../RunFlowPanel';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
 
 vi.mock('../../../api/analysis', () => ({
   analysisApi: {
@@ -237,6 +244,7 @@ const contextBlockSnapshot: RunFlowSnapshot = {
 
 describe('RunFlowPanel', () => {
   beforeEach(() => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     vi.clearAllMocks();
   });
 

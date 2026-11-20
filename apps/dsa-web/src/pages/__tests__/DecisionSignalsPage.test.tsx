@@ -389,7 +389,8 @@ function submitCurrentStock(value: string) {
 }
 
 async function persistReassessFromFirstSignal() {
-  await screen.findByText('贵州茅台');
+  // The same stock may appear in both latest-signal and timeline views.
+  await screen.findAllByText('贵州茅台');
   fireEvent.click(screen.getAllByRole('button', { name: '查看 贵州茅台 AI 建议详情' })[0]);
   fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '生成预览' }));
   fireEvent.click(await screen.findByRole('button', { name: '确认保存' }));
@@ -756,6 +757,9 @@ describe('DecisionSignalsPage', () => {
   it('reports an expired signal refresh separately and refreshes active views', async () => {
     const refreshedItem = makeSignal({
       id: 90,
+      // Keep this test signal inside the default 30-day timeline window.
+      // Fixed historical fixture dates eventually age out and hide this item.
+      createdAt: new Date().toISOString(),
       decisionProfile: 'balanced',
       sourceAgent: null,
       triggerSource: 'api',
@@ -790,6 +794,9 @@ describe('DecisionSignalsPage', () => {
     renderPage();
     await screen.findByText('贵州茅台');
     submitCurrentStock('600519');
+    // Wait for the initial timeline to establish its applied filter context before
+    // asserting that a persisted reassessment refreshes the active timeline.
+    await screen.findByTestId('timeline-click-7');
     await persistReassessFromFirstSignal();
 
     expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();

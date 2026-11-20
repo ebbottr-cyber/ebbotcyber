@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -38,6 +39,9 @@ VALID_CASH_DIRECTIONS = {"in", "out"}
 VALID_CORPORATE_ACTIONS = {"cash_dividend", "split_adjustment"}
 PORTFOLIO_FX_REFRESH_DISABLED_REASON = "portfolio_fx_update_disabled"
 PORTFOLIO_REALTIME_QUOTE_MAX_WORKERS = 4
+# Risk and portfolio valuation: treat quotes older than a long weekend as stale.
+# Indicative TL display has its own stricter 30-minute requirement.
+MAX_PORTFOLIO_FX_RATE_AGE_DAYS = 3
 
 
 def _portfolio_limitations_for_market(market: str) -> List[str]:
@@ -65,6 +69,24 @@ def _merge_portfolio_limitations(*groups: Iterable[str]) -> List[str]:
 
 class PortfolioConflictError(Exception):
     """Raised when request conflicts with existing portfolio state."""
+
+
+class PortfolioFxRateUnavailableError(RuntimeError):
+    """A nonzero FX conversion cannot be valued without a usable market rate.
+
+    Do not substitute a 1:1 conversion: this exception makes account valuation
+    and any dependent risk calculation fail closed, without mutating the ledger.
+    """
+
+    def __init__(self, *, from_currency: str, to_currency: str, as_of_date: date) -> None:
+        self.from_currency = from_currency
+        self.to_currency = to_currency
+        self.as_of_date = as_of_date
+        super().__init__(
+            f"FX rate unavailable for {from_currency}/{to_currency} on "
+            f"{as_of_date.isoformat()}; portfolio valuation not calculated"
+        )
+
 
 
 class PortfolioOversellError(ValueError):
@@ -586,16 +608,18 @@ class PortfolioService:
             aggregate["unrealized_pnl"] += unrealized_cny
             aggregate["fee_total"] += fee_cny
             aggregate["tax_total"] += tax_cny
-            aggregate["fx_stale"] = aggregate["fx_stale"] or any(
-                [
-                    stale_cash,
+            aggregate["fx_stale"] = (
+                aggregate["fx_stale"] or bool(account_snapshot["fx_stale"]) or any(
+                    [
+                        stale_cash,
                     stale_mv,
                     stale_eq,
                     stale_realized,
                     stale_unrealized,
                     stale_fee,
                     stale_tax,
-                ]
+                    ]
+                )
             )
 
         return {
@@ -1454,19 +1478,31 @@ class PortfolioService:
             to_currency=to_norm,
             as_of=as_of_date,
         )
-        if direct is not None and direct.rate > 0:
-            return float(amount) * float(direct.rate), bool(direct.is_stale), "direct_rate"
+        if direct is not None and math.isfinite(float(direct.rate)) and float(direct.rate) > 0:
+            direct_date = getattr(direct, "rate_date", None)
+            direct_age = (as_of_date - direct_date).days if isinstance(direct_date, date) else None
+            stale = bool(direct.is_stale) or direct_age is None or not (0 <= direct_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
+            return float(amount) * float(direct.rate), stale, "direct_rate"
 
         inverse = self.repo.get_latest_fx_rate(
             from_currency=to_norm,
             to_currency=from_norm,
             as_of=as_of_date,
         )
-        if inverse is not None and inverse.rate > 0:
-            return float(amount) / float(inverse.rate), bool(inverse.is_stale), "inverse_rate"
+        if inverse is not None and math.isfinite(float(inverse.rate)) and float(inverse.rate) > 0:
+            inverse_date = getattr(inverse, "rate_date", None)
+            inverse_age = (as_of_date - inverse_date).days if isinstance(inverse_date, date) else None
+            stale = bool(inverse.is_stale) or inverse_age is None or not (0 <= inverse_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
+            return float(amount) / float(inverse.rate), stale, "inverse_rate"
 
-        # P0 fallback: keep pipeline available even when FX cache is missing.
-        return float(amount), True, "fallback_1_to_1"
+        # A missing currency pair has no meaningful conversion rate. Earlier
+        # versions returned the unchanged amount, silently treating FX as 1:1.
+        # That can corrupt portfolio totals and concentration/drawdown metrics.
+        raise PortfolioFxRateUnavailableError(
+            from_currency=from_norm,
+            to_currency=to_norm,
+            as_of_date=as_of_date,
+        )
 
     def convert_amount(
         self,

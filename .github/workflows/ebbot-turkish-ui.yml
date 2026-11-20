@@ -1,0 +1,72 @@
+name: EBBot Turkish UI translation checks
+
+on:
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
+    paths:
+      - 'apps/dsa-web/**'
+      - '.github/workflows/ebbot-turkish-ui.yml'
+  push:
+    branches:
+      - fix/turkish-ui-chat-20261118
+    paths:
+      - 'apps/dsa-web/**'
+      - '.github/workflows/ebbot-turkish-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: Verify all Turkish UI translations and interpolation keys
+        run: node scripts/verify-turkish-coverage.mjs
+      - name: TypeScript and Vite production build
+        run: npm run build
+      - name: Frontend lint
+        run: npm run lint
+      - name: Turkish UI localized tests
+        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx src/utils/__tests__/portfolioTryDisplay.test.ts src/pages/__tests__/StockScreeningPage.test.tsx src/pages/__tests__/AlertsPage.test.tsx src/pages/__tests__/HomePage.test.tsx src/pages/__tests__/DecisionSignalsPage.test.tsx src/pages/__tests__/LoginPage.test.tsx src/pages/__tests__/TokenUsagePage.test.tsx src/components/watchlist/__tests__/HomeStockWorkspace.test.tsx src/components/run-flow/__tests__/RunFlowPanel.test.tsx src/components/history/__tests__/StockHistoryTrendDrawer.test.tsx src/pages/__tests__/PortfolioPage.test.tsx src/utils/__tests__/portfolioLedgerText.test.ts
+
+  portfolio-display-fx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated FX test dependency
+        run: python -m pip install pytest
+      - name: Verify fail-closed TRY cross rates
+        run: python -m pytest -q scripts/test_portfolio_display_fx_standalone.py scripts/test_portfolio_fx_fail_closed_standalone.py
+      - name: Compile Python display API modules
+        run: python -m compileall -q src/services/portfolio_display_fx.py src/services/portfolio_service.py src/services/portfolio_risk_service.py api/v1/schemas/portfolio.py api/v1/endpoints/portfolio.py
+
+  portfolio-backend-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify complete portfolio service, risk and API regressions
+        run: python -m pytest -q --tb=short tests/test_portfolio_service.py tests/test_portfolio_pr2.py tests/test_portfolio_api.py

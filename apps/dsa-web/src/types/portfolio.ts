@@ -115,9 +115,9 @@ export interface PortfolioSectorConcentrationItem {
 
 export interface PortfolioDrawdownBlock {
   seriesPoints: number;
-  maxDrawdownPct: number;
-  currentDrawdownPct: number;
-  alert: boolean;
+  maxDrawdownPct: number | null;
+  currentDrawdownPct: number | null;
+  alert: boolean | null;
   fxStale: boolean;
 }
 
@@ -157,15 +157,19 @@ export interface PortfolioRiskResponse {
   currency: string;
   thresholds: Record<string, number>;
   concentration: {
-    totalMarketValue: number;
-    topWeightPct: number;
-    alert: boolean;
+    totalMarketValue: number | null;
+    topWeightPct: number | null;
+    alert: boolean | null;
+    available?: boolean;
+    fxStale?: boolean;
     topPositions: PortfolioConcentrationItem[];
   };
   sectorConcentration: {
-    totalMarketValue: number;
-    topWeightPct: number;
-    alert: boolean;
+    totalMarketValue: number | null;
+    topWeightPct: number | null;
+    alert: boolean | null;
+    available?: boolean;
+    fxStale?: boolean;
     topSectors: PortfolioSectorConcentrationItem[];
     coverage: Record<string, number>;
     errors: string[];
@@ -338,4 +342,15 @@ export interface PortfolioFxRefreshResponse {
   updatedCount: number;
   staleCount: number;
   errorCount: number;
+}
+
+
+/** Read-only, indicative FX quotes; only status=current may be used for TRY display. */
+export interface PortfolioDisplayFxRates {
+  status: 'current' | 'stale' | 'unavailable';
+  usdTry: number | null;
+  usdCny: number | null;
+  cnyTry: number | null;
+  asOf: string | null;
+  source: string;
 }
