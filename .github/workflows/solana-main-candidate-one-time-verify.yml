@@ -1,0 +1,96 @@
+name: EBBot MAIN Solana candidate one-time verification (no trades)
+
+on:
+  push:
+    branches: [audit/solana-main-candidate-confirm-20261120]
+    paths:
+      - '.github/workflows/solana-main-candidate-one-time-verify.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-main-reviewed-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      WEBUI_ENABLED: 'false'
+    steps:
+      - name: Checkout actual MAIN tool at pinned base commit
+        uses: actions/checkout@v4
+      - name: Verify tool is unchanged from audited main baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "90e9e6ce5f0659ff09c6d49bea58cc9134f879d1"
+          test -f scripts/prepare_solana_reviewed_report.py
+          git diff --quiet HEAD^ HEAD -- scripts/prepare_solana_reviewed_report.py scripts/validate_solana_history.py apps/dsa-web/public/solana-quality-reviewed.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify offline quality validator tests
+        run: |
+          python -m pip install 'pytest>=8,<10'
+          python -m pytest -q --noconftest tests/test_solana_quality_candidate.py tests/test_solana_history_quality.py
+      - name: Verify real source workflow identity and historical status; download read-only artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > source-conclusions.txt
+          for id in 44779967482 44777830658; do
+            metadata=$(gh run view "$id" --repo "$GITHUB_REPOSITORY" --json workflowName,conclusion --jq '(.workflowName // "") + "|" + (.conclusion // "")')
+            IFS='|' read -r workflow conclusion <<< "$metadata"
+            if [[ "$workflow" != 'Solana fixed-mint time-spaced observations (read only)' ]]; then
+              echo 'Unapproved source workflow'; exit 1
+            fi
+            if [[ "$id" == '44779967482' && "$conclusion" != success ]] || [[ "$id" == '44777830658' && "$conclusion" != failure ]]; then
+              echo 'Source outcome mismatch'; exit 1
+            fi
+            printf '%s=%s\n' "$id" "$conclusion" >> source-conclusions.txt
+            mkdir -p "inputs/$id"
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" --name solana-public-observations-not-paper-trades --dir "inputs/$id"
+            test -s "inputs/$id/solana-public-observations.json"
+          done
+      - name: Create and verify human-review ONLY quality report candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS='=' read -r run_id conclusion; do
+            args+=(--capture "$run_id=inputs/$run_id/solana-public-observations.json")
+            args+=(--source-conclusion "$run_id=$conclusion")
+          done < source-conclusions.txt
+          python -m scripts.prepare_solana_reviewed_report "${args[@]}" \
+            --audit-run-id "$GITHUB_RUN_ID" --output solana-reviewed-quality-candidate.json
+          python - <<'PY'
+          import json, os
+          r=json.load(open('solana-reviewed-quality-candidate.json',encoding='utf-8'))
+          assert r['audit_run_id']==os.environ['GITHUB_RUN_ID']
+          assert r['mode']=='reviewed_github_actions_archive_quality'
+          assert r['quality_result']=='degraded_capture_data'
+          assert r['capture_count']==2
+          assert [c['run_id'] for c in r['captures']]==['44779967482','44777830658']
+          assert [c['result'] for c in r['captures']]==['passed','degraded']
+          assert [(c['priced_rows'],c['missing_rows']) for c in r['captures']]==[(6,0),(3,3)]
+          assert (r['total_priced_rows'],r['total_missing_rows'])==(9,3)
+          assert (r['blocked_assessments'],r['watch_assessments'])==(18,0)
+          for field in ('trading_enabled','wallet_enabled','performance_calculated','ready_for_verified_paper_performance'):
+              assert r[field] is False
+          # Existing published summary is unchanged; candidate is review-only.
+          published=json.load(open('apps/dsa-web/public/solana-quality-reviewed.json',encoding='utf-8'))
+          assert published['total_priced_rows']==9 and published['total_missing_rows']==3
+          assert published['audit_run_id']=='44791912581'
+          print('PASS: reviewed candidate generated from MAIN, 9 priced, 3 missing, 18 blocked, 0 watch; NOT published')
+          PY
+          git diff --exit-code HEAD -- apps/dsa-web/public/solana-quality-reviewed.json
+      - name: Upload candidate JSON as expiring evidence, never as published panel data
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-main-candidate-needs-human-review
+          path: solana-reviewed-quality-candidate.json
+          if-no-files-found: error
+          retention-days: 7
