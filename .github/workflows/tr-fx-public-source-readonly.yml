@@ -1,0 +1,85 @@
+name: EBBot official TCMB and BIST FX daily source observation (NO orders)
+
+on:
+  push:
+    branches: [audit/tr-fx-real-data-readonly-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-tr-fx-public-source-readonly
+  cancel-in-progress: true
+
+jobs:
+  manual-scope-source-observation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SCHEDULE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUNBUFFERED: '1'
+      GUARD_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install existing backend CI dependencies and socket blocker
+        run: |
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pip install pytest-socket
+      - name: Offline tests must not access sockets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q --disable-socket --tb=short \
+            tests/test_audit_tr_fx_public_sources.py \
+            tests/test_tr_market_overview_service.py \
+            tests/test_tcmb_try_display_service.py \
+            --junitxml=tr-fx-offline-tests.xml 2>&1 | tee tr-fx-offline-tests.log
+      - name: Opt-in once to fixed public Yahoo and official TCMB read-only quotes
+        shell: bash
+        run: |
+          set -euo pipefail
+          # No user symbols, credentials, brokers, private endpoints, or orders.
+          # Status READ_ONLY_OBSERVATION is NOT proof of execution-ready quotes.
+          python -m scripts.audit_tr_fx_public_sources --fetch | tee tr-fx-readonly-observation.json
+      - name: Publish explicit data-status summary (not trading readiness)
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report = json.loads(Path("tr-fx-readonly-observation.json").read_text(encoding="utf-8"))
+          summary = [
+              "## TR / FX observed public providers (read-only)",
+              "",
+              "This CI checks current provider response metadata and is **never** a trading readiness gate.",
+              "",
+              f"- Status: {report['status']}",
+              f"- Yahoo delayed daily: {report['market_daily']['verified_delayed_quotes']}/{report['market_daily']['expected_instruments']} observed",
+              f"- Official TCMB indicative: {report['official_tcmb']['verified_indicative_rates']}/{report['official_tcmb']['expected_currencies']} observed",
+              f"- Gold TRY/gram source: unverified",
+              f"- Full source coverage: {report['full_observation_coverage']}",
+              "- Orders, paper fills, and executable quotes: **0**",
+              "- Refer to the uploaded JSON artifact for exact per-symbol observation date/status.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n".join(summary) + "\n")
+          PY
+      - name: Preserve one-off price source report and offline test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tr-fx-actual-source-readonly
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            tr-fx-readonly-observation.json
+            tr-fx-offline-tests.xml
+            tr-fx-offline-tests.log
