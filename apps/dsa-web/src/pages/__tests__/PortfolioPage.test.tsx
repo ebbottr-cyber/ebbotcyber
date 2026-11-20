@@ -384,11 +384,10 @@ describe('PortfolioPage FX refresh', () => {
     render(<PortfolioPage />);
     await waitForInitialLoad();
     expect(await screen.findByText(/Kur servisine ulaşılamıyor/)).toBeInTheDocument();
-    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    const statusCard = screen.getByText('TL Kur Durumu').parentElement?.parentElement ?? null;
     expect(statusCard).not.toBeNull();
     expect(within(statusCard as HTMLElement).getByText('Kullanılamıyor')).toBeInTheDocument();
-    const equityCard = screen.getByText('Toplam Varlık').closest('div.rounded-2xl');
-    if (equityCard) expect(within(equityCard as HTMLElement).getByText('—')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3);
     expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
     expect(screen.queryByText('1 Ocak 1970')).not.toBeInTheDocument();
   });
@@ -404,7 +403,7 @@ describe('PortfolioPage FX refresh', () => {
     render(<PortfolioPage />);
     await waitForInitialLoad();
     expect(await screen.findByText(/Kur servisine ulaşılamıyor/)).toBeInTheDocument();
-    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    const statusCard = screen.getByText('TL Kur Durumu').parentElement?.parentElement ?? null;
     expect(statusCard).not.toBeNull();
     fireEvent.click(within(statusCard as HTMLElement).getByRole('button'));
     await waitFor(() => expect(getDisplayFxRates).toHaveBeenCalledTimes(2));
@@ -422,7 +421,7 @@ describe('PortfolioPage FX refresh', () => {
     render(<PortfolioPage />);
     await waitForInitialLoad();
     expect(await screen.findByText(/Güncel kur veya güvenilir portföy dönüşümü yok/)).toBeInTheDocument();
-    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    const statusCard = screen.getByText('TL Kur Durumu').parentElement?.parentElement ?? null;
     expect(statusCard).not.toBeNull();
     expect(within(statusCard as HTMLElement).getByText('Kullanılamıyor')).toBeInTheDocument();
   });
@@ -438,7 +437,7 @@ describe('PortfolioPage FX refresh', () => {
     })));
     render(<PortfolioPage />);
     await screen.findByText('Portföy Özeti Kullanılamıyor');
-    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    const statusCard = screen.getByText('TL Kur Durumu').parentElement?.parentElement ?? null;
     expect(statusCard).not.toBeNull();
     expect(within(statusCard as HTMLElement).getByText('Kullanılamıyor')).toBeInTheDocument();
     expect(screen.getByText('Portföy Özeti Kullanılamıyor')).toBeInTheDocument();
@@ -462,7 +461,7 @@ describe('PortfolioPage FX refresh', () => {
     });
     render(<PortfolioPage />);
     await waitForInitialLoad();
-    const statusCard = screen.getByText('TL Kur Durumu').closest('div.rounded-2xl');
+    const statusCard = screen.getByText('TL Kur Durumu').parentElement?.parentElement ?? null;
     expect(statusCard).not.toBeNull();
     await waitFor(() => expect(within(statusCard as HTMLElement).getByText(/Yaklaşık TL değeri/)).toBeInTheDocument());
     expect(screen.queryByText('Invalid Date')).not.toBeInTheDocument();
