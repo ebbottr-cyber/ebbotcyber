@@ -1,0 +1,181 @@
+name: EBBot backend API + browser E2E review (NO deployment)
+
+on:
+  push:
+    branches: [audit/backend-browser-review-20261120]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-backend-browser-review
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  EBBOT_XETRA_QUOTES_UI_ENABLED: 'false'
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  full-backend-offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Entire backend suite excluding explicitly marked network tests
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q -m "not network" --tb=line --disable-warnings --junitxml=backend-full-pr101.xml 2>&1 | tee backend-full-pr101.log
+      - name: Preserve full backend log and JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-full-pr101
+          path: |
+            backend-full-pr101.xml
+            backend-full-pr101.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  api-financial-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: API, auth, portfolio FX and Meme Coin offline contracts
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q -m "not network" --tb=line --disable-warnings --junitxml=backend-api-pr101.xml \
+            tests/test_api_*.py \
+            tests/test_auth_api.py \
+            tests/test_analysis_api_contract.py \
+            tests/test_decision_signal_api.py \
+            tests/test_portfolio_*.py \
+            tests/test_meme_coin_*.py 2>&1 | tee backend-api-pr101.log
+      - name: Preserve API contract log and JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-api-pr101
+          path: |
+            backend-api-pr101.xml
+            backend-api-pr101.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  playwright-all-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    env:
+      DSA_WEB_SMOKE_PASSWORD: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install locked frontend dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install isolated Chromium for fixture E2E
+        run: npx playwright install --with-deps chromium
+      - name: Run all read-only API-mocked browser fixture tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test --config=playwright.fixture.config.ts 2>&1 | tee playwright-all-pr101.log
+      - name: Preserve traces and screenshots even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-all-pr101
+          path: |
+            apps/dsa-web/test-results/fixtures/**
+            apps/dsa-web/playwright-all-pr101.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  playwright-turkish-overview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    env:
+      VITE_EBBOT_TURKISH_TEST_MODE: 'true'
+      DSA_WEB_SMOKE_PASSWORD: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install locked frontend dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install isolated Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Turkish production interface navigation, Meme and responsive E2E
+        shell: bash
+        run: |
+          set -o pipefail
+          npx playwright test --config=playwright.fixture.config.ts e2e/fixtures/ebbot-white-overview.spec.ts 2>&1 | tee playwright-tr-pr101.log
+      - name: Preserve screenshots, trace and test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-turkish-pr101
+          path: |
+            apps/dsa-web/test-results/fixtures/**
+            apps/dsa-web/playwright-tr-pr101.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  release-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Existing deployment and trading release guard tests
+        run: python -m unittest discover -s tests -p test_ebbot_release_audit.py -v
+      - name: Keep production release blocked
+        shell: bash
+        run: |
+          python scripts/audit_ebbot_release.py --json > release-guard-pr101.json
+          python - <<'PY'
+          import json
+          with open("release-guard-pr101.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+          assert report["status"] == "blocked", "Do not interpret CI as permission to deploy"
+          assert report["enables_live_trading"] is False
+          assert report["manual_release_gates"], "Manual release signoff cannot be silently removed"
+          print("RELEASE=BLOCKED; LIVE_TRADING=DISABLED")
+          PY
+      - name: Preserve release review report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-guard-pr101
+          path: release-guard-pr101.json
+          if-no-files-found: warn
+          retention-days: 7
