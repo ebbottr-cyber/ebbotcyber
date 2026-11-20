@@ -856,7 +856,7 @@ const PortfolioPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [queryAccountId, costMethod, ledger.riskUnavailable]);
+  }, [queryAccountId, costMethod, ledger.riskUnavailable, ledger.fxErrorMessage]);
 
   const loadEventsPage = useCallback(async (page: number) => {
     setEventLoading(true);
@@ -1425,7 +1425,7 @@ const PortfolioPage: React.FC = () => {
       setError(getParsedApiError(err));
       return false;
     }
-  }, [ledger.riskUnavailable]);
+  }, [ledger.riskUnavailable, ledger.fxErrorMessage]);
 
   const handleRefreshFx = async () => {
     if (!hasAccounts || isLoading || fxRefreshing) {
