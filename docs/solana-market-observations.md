@@ -38,3 +38,7 @@ python -m scripts.collect_solana_observations --live --rounds 3 --interval 60 --
 ```
 
 `--live` yoksa ağ bağlantısı ve veri toplama yapılmaz.
+
+## GitHub üzerinden birden fazla gözlem arşivi nasıl denetlenir?
+
+Ayrı GitHub Actions çalışmalarının JSON arşivlerini, [Solana veri kalite kontrolü](solana-market-history-quality.md) ile **elle** analiz edebilirsiniz. Bu işlem sadece arşivleri okur; fiyat sorgusu, emir, zamanlanmış veri toplama veya kâr/zarar hesaplaması yapmaz. Geçerli ve eksik kayıtlar ayrı tutulur.
