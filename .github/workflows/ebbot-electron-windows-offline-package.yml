@@ -9,6 +9,7 @@ on:
       - security/ebbot-desktop-signature-readiness-20261120
       - security/ebbot-desktop-safe-restore-20261120
       - security/ebbot-desktop-sqlite-backup-atomic-20261120
+      - security/ebbot-desktop-sqlite-online-snapshot-20261120
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -17,6 +18,7 @@ on:
       - security/ebbot-desktop-update-integrity-20261120
       - security/ebbot-desktop-signature-readiness-20261120
       - security/ebbot-desktop-safe-restore-20261120
+      - security/ebbot-desktop-sqlite-backup-atomic-20261120
 
 permissions:
   contents: read
@@ -56,6 +58,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Desktop source structure invalid" }
           python -m unittest discover -s tests -p test_ebbot_desktop_signing_policy.py -v
           if ($LASTEXITCODE -ne 0) { throw "Unsigned desktop release policy unit tests failed" }
+          python -m unittest discover -s tests -p test_ebbot_sqlite_snapshot.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Offline WAL-consistent SQLite snapshot tests failed" }
       - name: Install exact Electron dependency lockfile
         working-directory: apps/dsa-desktop
         shell: pwsh
@@ -121,6 +125,11 @@ jobs:
           if (!(Test-Path 'dist/backend/stock_analysis/stock_analysis.exe')) {
             throw "No packaged backend executable; cannot build real Electron package."
           }
+      - name: Smoke isolated SQLite backup command inside actual PyInstaller backend (synthetic DB only)
+        shell: pwsh
+        run: |
+          python scripts/ebbot_sqlite_snapshot_smoke.py --backend-exe dist/backend/stock_analysis/stock_analysis.exe
+          if ($LASTEXITCODE -ne 0) { throw "Frozen SQLite snapshot WAL consistency failed" }
       - name: Build actual Windows NSIS installer locally WITHOUT publishing
         working-directory: apps/dsa-desktop
         shell: pwsh
