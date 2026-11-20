@@ -80,11 +80,11 @@ def build_try_display_rates(
         "source": "Yahoo Finance FX intraday (indicative, delayed possible)",
     }
     usd_state = _quote_state(usd_try, instant)
-    result["pair_status"]["USD"] = usd_state
+    result["pair_status"]["usd"] = usd_state
     if usd_state == "current":
         usd_value, usd_time = usd_try
         result["usd_try"] = round(float(usd_value), 8)
-        result["pair_as_of"]["USD"] = usd_time.astimezone(timezone.utc).isoformat()
+        result["pair_as_of"]["usd"] = usd_time.astimezone(timezone.utc).isoformat()
 
     for currency in CROSS_CURRENCIES:
         foreign_quote = quotes[currency]
@@ -104,17 +104,17 @@ def build_try_display_rates(
                     pair_state = "unavailable"
                 else:
                     result[f"{currency.lower()}_try"] = round(converted, 8)
-                    result["pair_as_of"][currency] = (
+                    result["pair_as_of"][currency.lower()] = (
                         min(usd_time, foreign_time).astimezone(timezone.utc).isoformat()
                     )
                     if currency == "CNY":
                         result["usd_cny"] = round(float(foreign_value), 8)
-        result["pair_status"][currency] = pair_state
+        result["pair_status"][currency.lower()] = pair_state
 
     # Legacy status/as_of describe CNY cross for existing clients; new clients
     # must rely on per-currency status and timestamp for independent validity.
-    result["status"] = result["pair_status"]["CNY"]
-    result["as_of"] = result["pair_as_of"].get("CNY")
+    result["status"] = result["pair_status"]["cny"]
+    result["as_of"] = result["pair_as_of"].get("cny")
     return result
 
 
