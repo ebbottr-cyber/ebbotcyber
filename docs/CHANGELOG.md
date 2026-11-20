@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] Solana 分时行情允许保存后续低流动性但有真实价格的观测；风险引擎仍禁止交易，未返回价格时继续标记为缺失。
+- [修复] Solana 分时观测在 DEX Screener 缺失新池报价时，仅查询 GeckoTerminal 最初发现的同一池，并校验池 ID 与 base mint，保留真实价格来源；身份不匹配继续按缺失数据处理。
+- [新功能] 增加手动触发的 Solana 固定币地址分时行情观测：三次相隔至少一分钟，仅写入短期 GitHub artifact，不触发交易、盈利统计或定时扫描.
 - [测试] 添加 Solana Meme Radar 的完全离线合成价格路径回放，复用当前风险评分，加入下一时点成交、手续费、滑点、止损跳空及未平仓浮盈亏的测试；GitHub 手动运行且不下单。
 - [测试] Solana Meme Radar için yalnızca tek çalıştırmalık ve işlemsiz GitHub Actions canlı veri sağlayıcı testi eklendi; sonuç yoksa veya kaynak hatası varsa yeşil sonuç üretilmez.
 - [修复] Solana 新池识别使用 GeckoTerminal base_token 的真实代币符号，并为两类数据源均衡分配候选配额。
