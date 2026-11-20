@@ -306,5 +306,11 @@ class PortfolioDisplayFxResponse(BaseModel):
     usd_try: Optional[float] = None
     usd_cny: Optional[float] = None
     cny_try: Optional[float] = None
+    hkd_try: Optional[float] = None
+    jpy_try: Optional[float] = None
+    krw_try: Optional[float] = None
+    twd_try: Optional[float] = None
     as_of: Optional[str] = None
+    pair_status: Dict[str, Literal["current", "stale", "unavailable"]] = Field(default_factory=dict)
+    pair_as_of: Dict[str, str] = Field(default_factory=dict)
     source: str
