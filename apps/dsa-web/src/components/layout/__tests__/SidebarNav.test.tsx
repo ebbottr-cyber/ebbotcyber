@@ -1,6 +1,9 @@
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { SidebarNav } from '../SidebarNav';
 
 const mockLogout = vi.fn().mockResolvedValue(undefined);
@@ -26,9 +29,21 @@ vi.mock('../../theme/ThemeToggle', () => ({
   ThemeToggle: (props: { collapsed?: boolean }) => mockThemeToggle(props),
 }));
 
+function renderWithChineseLocale(ui: ReactElement) {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  const result = render(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+  return {
+    ...result,
+    rerender: (nextUi: ReactElement) =>
+      result.rerender(<UiLanguageProvider>{nextUi}</UiLanguageProvider>),
+  };
+}
+
+afterEach(() => localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY));
+
 describe('SidebarNav', () => {
   it('keeps screening directly after chat without requiring configuration', () => {
-    render(<MemoryRouter initialEntries={['/']}><SidebarNav /></MemoryRouter>);
+    renderWithChineseLocale(<MemoryRouter initialEntries={['/']}><SidebarNav /></MemoryRouter>);
 
     expect(screen.getByRole('link', { name: '选股' })).toHaveAttribute('href', '/screening');
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
@@ -38,7 +53,7 @@ describe('SidebarNav', () => {
   it('shows the shared completion badge only when chat completion is pending', () => {
     completionBadgeState.value = true;
 
-    const { rerender } = render(
+    const { rerender } = renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <SidebarNav />
       </MemoryRouter>,
@@ -48,7 +63,7 @@ describe('SidebarNav', () => {
     expect(screen.getByLabelText('问股有新消息')).toBeInTheDocument();
 
     completionBadgeState.value = false;
-    rerender(
+    rerenderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <SidebarNav />
       </MemoryRouter>,
@@ -58,7 +73,7 @@ describe('SidebarNav', () => {
   });
 
   it('renders the collapsed theme toggle variant when the sidebar is collapsed', () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/']}>
         <SidebarNav collapsed />
       </MemoryRouter>,
@@ -71,7 +86,7 @@ describe('SidebarNav', () => {
   });
 
   it('renders the alerts navigation item and marks it active', () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/alerts']}>
         <SidebarNav />
       </MemoryRouter>,
@@ -83,7 +98,7 @@ describe('SidebarNav', () => {
   });
 
   it('renders the AI signals navigation item and marks it active', () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/decision-signals']}>
         <SidebarNav />
       </MemoryRouter>,
@@ -95,7 +110,7 @@ describe('SidebarNav', () => {
   });
 
   it('renders the data center navigation item and marks it active', () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/data']}>
         <SidebarNav />
       </MemoryRouter>,
@@ -107,7 +122,7 @@ describe('SidebarNav', () => {
   });
 
   it('keeps rail controls outside the scrollable navigation links', () => {
-    render(<MemoryRouter><SidebarNav variant="rail" /></MemoryRouter>);
+    renderWithChineseLocale(<MemoryRouter><SidebarNav variant="rail" /></MemoryRouter>);
 
     const nav = screen.getByRole('navigation', { name: '主导航' });
     expect(nav).toHaveClass('min-h-0', 'overflow-y-auto');
@@ -119,7 +134,7 @@ describe('SidebarNav', () => {
   it.each(['/settings?category=system', '/settings/'])(
     'explicitly confirms settings draft loss before logout at %s', async (path) => {
       mockLogout.mockClear();
-      render(<MemoryRouter initialEntries={[path]}><SidebarNav /></MemoryRouter>);
+      renderWithChineseLocale(<MemoryRouter initialEntries={[path]}><SidebarNav /></MemoryRouter>);
       fireEvent.click(screen.getByRole('button', { name: '退出' }));
       expect(await screen.findByText(/退出会丢弃本页未保存的设置/)).toBeInTheDocument();
       expect(screen.getByText(/已发出的保存请求不会因退出而撤销/)).toBeInTheDocument();
@@ -132,7 +147,7 @@ describe('SidebarNav', () => {
   );
 
   it('opens the logout confirmation and confirms logout', async () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <SidebarNav />
       </MemoryRouter>,

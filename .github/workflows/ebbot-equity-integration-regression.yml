@@ -170,3 +170,26 @@ jobs:
         run: npm run build
       - name: Separate focused green does NOT supersede full React failure
         run: echo "This targeted test lane does not override full React regression failures or grant release." >> "$GITHUB_STEP_SUMMARY"
+
+  integrated-legacy-layout-ui-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Previously skipped Shell and Chinese-legacy sidebar tests
+        run: npm run test -- src/components/layout/__tests__/Shell.test.tsx src/components/layout/__tests__/SidebarNav.test.tsx
+      - name: Frontend lint
+        run: npm run lint
+      - name: TypeScript and Vite production build
+        run: npm run build
+      - name: Not a substitute for the full React gate
+        run: echo "The full React suite must also pass before merge or release." >> "$GITHUB_STEP_SUMMARY"

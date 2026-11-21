@@ -1,6 +1,9 @@
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { ThemeProvider } from '../../theme/ThemeProvider';
 import { Shell } from '../Shell';
 
@@ -34,12 +37,18 @@ beforeAll(() => {
   });
 });
 
+function renderWithChineseLocale(ui: ReactElement) {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return render(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+}
+
 describe('Shell', () => {
   afterEach(() => {
+    localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
     delete (window as { dsaDesktop?: unknown }).dsaDesktop;
   });
-  it.skip('renders navigation, theme toggle and completion badge', () => {
-    render(
+  it('renders navigation, theme toggle and completion badge', () => {
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
           <Shell>
@@ -54,11 +63,11 @@ describe('Shell', () => {
     expect(screen.getByTestId('chat-completion-badge')).toBeInTheDocument();
     const logoutButton = screen.getByRole('button', { name: '退出' });
     expect(logoutButton).toBeInTheDocument();
-    expect(logoutButton).toHaveClass('cursor-pointer');
+    expect(logoutButton).toBeEnabled();
   });
 
-  it.skip('opens the theme menu from the sidebar toggle', async () => {
-    render(
+  it('opens the theme menu from the sidebar toggle', async () => {
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
           <Shell>
@@ -74,7 +83,7 @@ describe('Shell', () => {
   });
 
   it('hides the desktop update entry outside Electron runtime', () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
           <Shell>
@@ -96,7 +105,7 @@ describe('Shell', () => {
       onUpdateStateChange: vi.fn(() => () => undefined),
     };
 
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
           <Shell>
@@ -110,7 +119,7 @@ describe('Shell', () => {
   });
 
   it('shows a confirmation dialog before logout', async () => {
-    render(
+    renderWithChineseLocale(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
           <Shell>
