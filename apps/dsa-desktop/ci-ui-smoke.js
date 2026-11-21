@@ -178,6 +178,45 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
           await waitUntil(() => window.location.pathname === item.pathname
             && document.querySelector('main h1')?.textContent?.trim() === item.heading);
 
+          // Synthetic GET-only portfolio fixture mounts this selector; no
+          // positions, trades, orders or saved data exist in the fixture.
+          let costMethodChanged = false;
+          if (item.pathname === '/portfolio') {
+            const selector = await waitUntil(() =>
+              document.querySelector('select[data-testid="portfolio-cost-method"]'));
+            if (selector.value !== 'fifo') {
+              throw new Error('Portfolio cost method did not start in FIFO');
+            }
+            const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+            setter.call(selector, 'avg');
+            selector.dispatchEvent(new Event('change', { bubbles: true }));
+            await waitUntil(() => selector.value === 'avg'
+              && document.querySelector('[data-testid="portfolio-cost-method-current"]')
+                ?.textContent?.includes('AVG'));
+            costMethodChanged = true;
+          }
+
+          // The synthetic Settings schema contains only two inert categories.
+          // Changing tabs is a local React state transition; never save config.
+          let settingsCategoriesChanged = false;
+          if (item.pathname === '/settings') {
+            const base = await waitUntil(() =>
+              document.querySelector('button[data-testid="settings-category-base"]'));
+            const data = await waitUntil(() =>
+              document.querySelector('button[data-testid="settings-category-data_source"]'));
+            if (base.getAttribute('aria-current') !== 'page'
+              || data.getAttribute('aria-current') === 'page') {
+              throw new Error('Settings did not start in Base category');
+            }
+            data.click();
+            await waitUntil(() => data.getAttribute('aria-current') === 'page'
+              && base.getAttribute('aria-current') !== 'page');
+            base.click();
+            await waitUntil(() => base.getAttribute('aria-current') === 'page'
+              && data.getAttribute('aria-current') !== 'page');
+            settingsCategoriesChanged = true;
+          }
+
           // Change two controlled React filters without pressing "Apply".
           // The second change forces a React render so the first cannot pass
           // merely because the native select DOM property was edited.
@@ -203,6 +242,8 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
             pathname: window.location.pathname,
             heading: document.querySelector('main h1')?.textContent?.trim() || '',
             readonlyFiltersChanged,
+            costMethodChanged,
+            settingsCategoriesChanged,
           });
         }
         return {
@@ -229,11 +270,13 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         || navigation.checkedPages.some((page, index) => (
           page.pathname !== ['/portfolio', '/decision-signals', '/screening', '/settings'][index]
           || page.heading !== ['Portföy Yönetimi', 'AI Önerileri', 'Hisse Tarama', 'Ayarlar'][index]
+          || (index === 0 && page.costMethodChanged !== true)
           || (index === 1 && page.readonlyFiltersChanged !== true)
+          || (index === 3 && page.settingsCategoriesChanged !== true)
         ))) {
         throw new Error('Packaged Turkish React dashboard or navigation did not render as expected');
       }
-      console.log('PASS: packaged Turkish React routes, Usage period segment and AI signals read-only dropdown filters (CI-only, no writes).');
+      console.log('PASS: packaged Turkish React routes, Usage period, portfolio FIFO/AVG, AI filters and Settings categories (CI-only, no writes).');
     }
   } finally {
     if (!window.isDestroyed()) {

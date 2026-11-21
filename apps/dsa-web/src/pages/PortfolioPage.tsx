@@ -790,7 +790,11 @@ const PortfolioPage: React.FC = () => {
       const brokerItems = response.brokers || [];
       if (brokerItems.length === 0) {
         setBrokers(FALLBACK_BROKERS);
-        setBrokerLoadWarning('券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。');
+        setBrokerLoadWarning(language === 'tr'
+          ? 'Aracı kurum listesi boş geldi; yerleşik aracı kurumlar kullanılıyor.'
+          : language === 'en'
+            ? 'Broker list is empty; using built-in brokers.'
+            : '券商列表接口返回为空，已回退为内置券商列表（华泰/中信/招商）。');
         if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
           setSelectedBroker(FALLBACK_BROKERS[0].broker);
         }
@@ -803,12 +807,16 @@ const PortfolioPage: React.FC = () => {
       }
     } catch {
       setBrokers(FALLBACK_BROKERS);
-      setBrokerLoadWarning('券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。');
+      setBrokerLoadWarning(language === 'tr'
+        ? 'Aracı kurum listesine ulaşılamadı; yerleşik aracı kurumlar kullanılıyor.'
+        : language === 'en'
+          ? 'Broker list unavailable; using built-in brokers.'
+          : '券商列表接口不可用，已回退为内置券商列表（华泰/中信/招商）。');
       if (!FALLBACK_BROKERS.some((item) => item.broker === selectedBroker)) {
         setSelectedBroker(FALLBACK_BROKERS[0].broker);
       }
     }
-  }, [selectedBroker]);
+  }, [selectedBroker, language]);
 
   const loadSnapshotAndRisk = useCallback(async () => {
     setIsLoading(true);
@@ -832,7 +840,11 @@ const PortfolioPage: React.FC = () => {
       } catch (riskErr) {
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || (language === 'tr'
+          ? 'Risk verisi alınamadı; yalnızca portföy özeti gösteriliyor.'
+          : language === 'en'
+            ? 'Risk data unavailable; showing portfolio snapshot only.'
+            : '风险数据获取失败，已降级为仅展示快照数据。'));
       }
     } catch (err) {
       setSnapshot(null);
@@ -841,7 +853,7 @@ const PortfolioPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [queryAccountId, costMethod]);
+  }, [queryAccountId, costMethod, language]);
 
   const loadEventsPage = useCallback(async (page: number) => {
     setEventLoading(true);
@@ -1382,7 +1394,11 @@ const PortfolioPage: React.FC = () => {
         }
         setRisk(null);
         const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
+        setRiskWarning(parsed.message || (language === 'tr'
+          ? 'Risk verisi alınamadı; yalnızca portföy özeti gösteriliyor.'
+          : language === 'en'
+            ? 'Risk data unavailable; showing portfolio snapshot only.'
+            : '风险数据获取失败，已降级为仅展示快照数据。'));
       }
       return true;
     } catch (err) {
@@ -1394,7 +1410,7 @@ const PortfolioPage: React.FC = () => {
       setError(getParsedApiError(err));
       return false;
     }
-  }, []);
+  }, [language]);
 
   const handleRefreshFx = async () => {
     if (!hasAccounts || isLoading || fxRefreshing) {
@@ -1454,7 +1470,7 @@ const PortfolioPage: React.FC = () => {
   const snapshotQualityMessage = snapshot?.dataQuality === 'partial' && snapshot.limitations?.length
     ? snapshot.limitations
       .map((limitation) => formatPortfolioLimitation(limitation, language))
-      .join(language === 'en' ? '; ' : '；')
+      .join(language === 'zh' ? '；' : '; ')
     : null;
 
   return (
@@ -1487,6 +1503,8 @@ const PortfolioPage: React.FC = () => {
               <div>
                 <p className="text-xs text-secondary mb-1">{text.costMethod}</p>
                 <select
+                  data-testid="portfolio-cost-method"
+                  aria-label={text.costMethod}
                   value={costMethod}
                   onChange={(e) => setCostMethod(e.target.value as PortfolioCostMethod)}
                   className={PORTFOLIO_SELECT_CLASS}
@@ -1898,7 +1916,7 @@ const PortfolioPage: React.FC = () => {
           <div className="text-xs text-secondary space-y-1">
             <div>{text.accountCount}: {snapshot?.accountCount ?? '--'}</div>
             <div>{text.currency}: {snapshot?.currency || '--'}</div>
-            <div>{text.costMethodShort}: {(snapshot?.costMethod || costMethod).toUpperCase()}</div>
+            <div data-testid="portfolio-cost-method-current">{text.costMethodShort}: {(snapshot?.costMethod || costMethod).toUpperCase()}</div>
           </div>
         </Card>
         <Card padding="md">

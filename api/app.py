@@ -387,6 +387,58 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
                     "setupState": "no_password",
                 }
 
+            # Only synthetic, non-sensitive GET fixtures: the CI renderer
+            # needs at least one account to mount the cost-method selector,
+            # and schema entries to mount Settings category tabs. No actual
+            # portfolio, config, credential, or write handler is registered.
+            @app.get("/api/v1/portfolio/accounts", include_in_schema=False)
+            async def _offline_portfolio_accounts():
+                return {
+                    "accounts": [{
+                        "id": 1,
+                        "name": "CI Örnek Hesap (sanal)",
+                        "broker": "CI",
+                        "market": "us",
+                        "baseCurrency": "USD",
+                        "isActive": True,
+                    }]
+                }
+
+            @app.get("/api/v1/system/config", include_in_schema=False)
+            async def _offline_settings_categories():
+                def _category_item(category: str, order: int) -> dict:
+                    key = f"CI_READONLY_{category.upper()}"
+                    return {
+                        "key": key,
+                        "value": "",
+                        "rawValueExists": False,
+                        "isMasked": False,
+                        "schema": {
+                            "key": key,
+                            "title": "CI Salt Okunur",
+                            "description": "Yalnızca arayüz geçişi testi",
+                            "category": category,
+                            "dataType": "string",
+                            "uiControl": "text",
+                            "isSensitive": False,
+                            "isRequired": False,
+                            "isEditable": False,
+                            "options": [],
+                            "validation": {},
+                            "displayOrder": order,
+                        },
+                    }
+
+                return {
+                    "configVersion": "ci-readonly-no-save",
+                    "maskToken": "******",
+                    "llmModelProviders": [],
+                    "items": [
+                        _category_item("base", 10),
+                        _category_item("data_source", 20),
+                    ],
+                }
+
             @app.get("/", include_in_schema=False)
             @app.get("/usage", include_in_schema=False)
             @app.get("/data", include_in_schema=False)
