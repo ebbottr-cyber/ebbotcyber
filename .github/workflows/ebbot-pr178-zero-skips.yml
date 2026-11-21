@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - test/ebbot-pr178-shell-zero-skip-20261121
+      - integration/ebbot-main-readonly-controls-zero-skip-20261121
 
 permissions:
   contents: read

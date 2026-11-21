@@ -2,7 +2,7 @@ name: EBBot Windows React two-sided conflict candidate full regression (NO trade
 
 on:
   push:
-    branches: [integration/ebbot-windows-react-hunk-candidate-20261121, integration/ebbot-main-react-windows-probe-v2-20261121, integration/ebbot-main-four-route-verified-draft-20261121]
+    branches: [integration/ebbot-windows-react-hunk-candidate-20261121, integration/ebbot-main-react-windows-probe-v2-20261121, integration/ebbot-main-four-route-verified-draft-20261121, integration/ebbot-main-readonly-controls-zero-skip-20261121]
 
 permissions:
   contents: read
