@@ -125,11 +125,32 @@ class BistIdentityTests(unittest.TestCase):
     def test_perfect_claimed_rows_remain_review_only_and_not_exchange_verified(self):
         self.write_kap([("THYAO.IS", "2026-11-20T10:00:00Z")])
         self.write_exchange([("THYAO.IS", valid_isin(1), "active", "2026-11-20")])
+        self.bars.write_text(
+            "market,symbol,session,open,high,low,close,volume,source,currency,provider,provider_symbol\n"
+            "tr,THYAO.IS,2026-11-20,10,11,9,10,100,fixture_not_real,TRY,demo_vendor,THYAO\n",
+            encoding="utf-8",
+        )
         report = self.audit(provider_mapping=self.mapping, bars=self.bars)
         self.assertEqual(report["status"], "REVIEW_ONLY_NEEDS_INDEPENDENT_BIST_CONFIRMATION")
         self.assertFalse(report["independent_listing_authentication_verified"])
         self.assertFalse(report["provider_symbol_mapping_independently_verified"])
         self.assertFalse(report["price_provider_license_verified"])
+
+    def test_provider_mismatch_in_ohlcv_is_blocked(self):
+        self.bars.write_text(
+            "market,symbol,session,open,high,low,close,volume,source,currency,provider,provider_symbol\n"
+            "tr,THYAO.IS,2026-11-20,10,11,9,10,100,fixture_not_real,TRY,demo_vendor,WRONG\n",
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(AuditInputError, "bar_provider_symbol_mapping_mismatch"):
+            self.audit(provider_mapping=self.mapping, bars=self.bars)
+
+    def test_unattributed_ohlcv_remains_blocked_even_when_symbol_has_a_map(self):
+        self.write_kap([("THYAO.IS", "2026-11-20T10:00:00Z")])
+        self.write_exchange([("THYAO.IS", valid_isin(1), "active", "2026-11-20")])
+        report = self.audit(provider_mapping=self.mapping, bars=self.bars)
+        self.assertEqual(report["ohlcv_bar_identity_diagnostics"]["bar_rows_without_identity_evidence"], 1)
+        self.assertEqual(report["status"], "BLOCKED_STALE_OR_INCOMPLETE_BIST_REFERENCES")
 
     def test_isin_validity_is_only_a_check_digit(self):
         self.assertTrue(isin_check_digit_valid(valid_isin(1)))
