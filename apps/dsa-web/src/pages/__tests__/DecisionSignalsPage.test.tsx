@@ -755,12 +755,8 @@ describe('DecisionSignalsPage', () => {
   });
 
   it('reports an expired signal refresh separately and refreshes active views', async () => {
-    // Keep refreshed fixture inside the rolling 30-day timeline window.
-    const refreshedAt = Date.now();
+    // The Windows suite already sets a live createdAt below; do not duplicate it.
     const refreshedItem = makeSignal({
-      createdAt: new Date(refreshedAt - 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(refreshedAt).toISOString(),
-      expiresAt: new Date(refreshedAt + 24 * 60 * 60 * 1000).toISOString(),
       id: 90,
       // Keep this test signal inside the default 30-day timeline window.
       // Fixed historical fixture dates eventually age out and hide this item.
