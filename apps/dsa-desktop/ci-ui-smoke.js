@@ -149,14 +149,33 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         dataLink.click();
         await waitUntil(() => window.location.pathname === '/data'
           && document.querySelector('main h1')?.textContent?.trim() === 'Veri merkezi', 'data center heading');
-        return {
-          initial,
-          usage,
-          data: {
+        const data = {
+          pathname: window.location.pathname,
+          heading: document.querySelector('main h1')?.textContent?.trim() || '',
+        };
+
+        // Navigation-only: never click trading, screening, analysis, save,
+        // account-edit or scheduler controls in this restricted CI session.
+        const checks = [
+          { label: 'Portföy', pathname: '/portfolio', heading: 'Portföy Yönetimi' },
+          { label: 'AI Önerileri', pathname: '/decision-signals', heading: 'AI Önerileri' },
+          { label: 'Hisse Tarama', pathname: '/screening', heading: 'Hisse Tarama' },
+          { label: 'Ayarlar', pathname: '/settings', heading: 'Ayarlar' },
+        ];
+        const checkedPages = [];
+        for (const item of checks) {
+          const link = document.querySelector('nav a[aria-label="' + item.label + '"]');
+          if (!link) throw new Error('Missing Turkish navigation: ' + item.label);
+          link.click();
+          await waitUntil(() => window.location.pathname === item.pathname
+            && document.querySelector('main h1')?.textContent?.trim() === item.heading,
+          item.label + ' page heading');
+          checkedPages.push({
             pathname: window.location.pathname,
             heading: document.querySelector('main h1')?.textContent?.trim() || '',
-          },
-        };
+          });
+        }
+        return { initial, usage, data, checkedPages };
       })()`);
 
       if (navigation.initial?.language !== 'tr'
@@ -165,10 +184,16 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         || navigation.usage?.pathname !== '/usage'
         || !navigation.usage.heading
         || navigation.data?.pathname !== '/data'
-        || !navigation.data.heading) {
+        || navigation.data.heading !== 'Veri merkezi'
+        || !Array.isArray(navigation.checkedPages)
+        || navigation.checkedPages.length !== 4
+        || navigation.checkedPages.some((page, index) => (
+          page.pathname !== ['/portfolio', '/decision-signals', '/screening', '/settings'][index]
+          || page.heading !== ['Portföy Yönetimi', 'AI Önerileri', 'Hisse Tarama', 'Ayarlar'][index]
+        ))) {
         throw new Error('Packaged Turkish React dashboard or navigation did not render as expected');
       }
-      console.log('PASS: packaged Turkish React shell and usage/data navigation rendered through Electron; no analysis API.');
+      console.log('PASS: packaged Turkish React Usage/Data, Portfolio, AI Signals, Screening and Settings navigation rendered through Electron (CI-only, no writes).');
     }
   } finally {
     if (!window.isDestroyed()) {
