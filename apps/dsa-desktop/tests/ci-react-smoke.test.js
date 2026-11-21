@@ -37,6 +37,20 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
   assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
 });
 
+test('four new page headings match real packaged Turkish React sources', () => {
+  const web = path.join(__dirname, '..', '..', 'dsa-web', 'src');
+  const uiText = fs.readFileSync(path.join(web, 'i18n', 'uiText.ts'), 'utf8');
+  const tr = uiText.slice(uiText.indexOf('const tr:'));
+  assert.ok(tr.includes("'decisionSignals.title': \"AI Önerileri\""));
+  assert.ok(tr.includes("'settings.pageTitle': \"Ayarlar\""));
+  const portfolio = fs.readFileSync(path.join(web, 'locales', 'featureText.ts'), 'utf8');
+  assert.ok(portfolio.includes("title: 'Portföy Yönetimi'"));
+  const screening = fs.readFileSync(path.join(web, 'pages', 'StockScreeningPage.tsx'), 'utf8');
+  const screeningTranslations = fs.readFileSync(path.join(web, 'utils', 'screeningUiText.ts'), 'utf8');
+  assert.ok(screening.includes('>{L("选股")}</h1>'));
+  assert.match(screeningTranslations, /"选股":\\s*\\{\\s*"tr":\\s*"Hisse Tarama"/);
+});
+
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
   for (const pathSuffix of ['/', '/assets/app.js', '/api/v1/auth/status', '/usage', '/data', '/portfolio', '/decision-signals', '/screening', '/settings']) {
     assert.equal(isAllowedCiUiRequest(`http://127.0.0.1:54321${pathSuffix}`, 54321), true);
