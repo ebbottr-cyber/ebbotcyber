@@ -69,3 +69,33 @@ python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
 Resmî kaynak araştırması: [KAP şirket listesi](https://www.kap.org.tr/tr/bist-sirketler), [Borsa İstanbul veri sağlayıcıları](https://www.borsaistanbul.com/en/data/data-dissemination/data-vendors-directory), [HKEX menkul kıymet listesi](https://www.hkex.com.hk/Services/Trading/Securities/Securities-Lists?sc_lang=en), [NasdaqTrader sembol tanımları](https://nasdaqtrader.com/Trader.aspx?id=SymbolDirDefs). Bunların web üzerinden görülmesi lisanslı otomatik fiyat çekme hakkı vermez.
 
 **Yayın durumu: BLOKE.** Denetim olumlu çalışsa bile gerçek/paper emir, otomatik fiyat tarama, fon yönetimi ve canlı dağıtım açılmaz.
+
+## KAP Pazarlar tarihli envanterini fiyat üretmeden hazırlama
+
+KAP'ın [resmî Pazarlar](https://www.kap.org.tr/tr/Pazarlar) sayfası KAP kodu ve şirket/fon adı sunar. Bu kodu veri sağlayıcı sembolü, ISIN veya aracı kurum emriyle otomatik eşleştirmek güvenli değildir. Bu yüzden yeni `scripts/audit_ebbot_kap_market_inventory.py` yalnızca bağımsız inceleme bekleyen **aday KAP kodlarını** sayar. Eski dört piyasa OHLCV raporunda BIST=0 kalır; yeni fiyat veya `.IS` sembolü türetilmez.
+
+Operatör, KAP'taki pazar kayıtlarının orijinal hâlini ve indirme tarihini ayrıca saklayıp çalışma kopyasını UTF-8 CSV'ye dönüştürmelidir. Dosya şu sütunlara sahip olur: `pazar,kap_kodu,unvan,kaynak_tarihi,isin`. `isin` sütunu isteğe bağlıdır. Her satırın kaynak tarihi, verilen snapshot tarihiyle aynı olmalıdır.
+
+Kabul edilen pazar değerleri: `YILDIZ PAZAR`, `ANA PAZAR`, `ALT PAZAR`, `YAKIN İZLEME PAZARI`, `PİYASA ÖNCESİ İŞLEM PLATFORMU`, `YAPILANDIRILMIŞ ÜRÜNLER VE FON PAZARI`. Son gruptaki fon/yapılandırılmış ürünler ayrı sayılır.
+
+Dosya gerçek olarak mevcutsa, Windows PowerShell'de aşağıdaki dosya adını ve tarihi **kendi dosyanıza göre** değiştirerek çalıştırın:
+
+```powershell
+$dosya = 'C:\ApprovedMarketData\kap-pazarlar-2026-11-21.csv'
+$ozet = (Get-FileHash -Path $dosya -Algorithm SHA256).Hash.ToLowerInvariant()
+python -m scripts.audit_ebbot_kap_market_inventory --csv $dosya --sha256 $ozet --source-url 'https://www.kap.org.tr/tr/Pazarlar' --snapshot-date '2026-11-21' --report-json 'C:\ApprovedMarketData\kap-pazarlar-review.json' --strict
+```
+
+**Kanıt sınırı:** Verilen SHA, yalnızca normalleştirilmiş çalışma CSV'sinin ham bayt bütünlüğünü ispatlar; resmî KAP kaynağından geldiğini tek başına kanıtlamaz. `--source-url` yalnızca iddia edilen KAP kaynağının şeklini kontrol eder, ağdan indirme yapmaz. Asıl belgenin bağımsız kaynak/eşleme kontrolü şarttır.
+
+Bu araç eski dosyanın üzerine yazmaz; ham bayt SHA, bozuk/gelecek/mükerrer kaynak, geçersiz ISIN biçimi ve farklı tarihler güvenli şekilde reddedilir. Asgari kanıt olmadan sonuç `REVIEW_ONLY_UNMAPPED_KAP_CODES`, eski tarihli kaynakta `BLOCKED_STALE_KAP_SNAPSHOT`; `--strict` her koşulda çıkış 2 ve yayın engeli verir. Çıkış 0 yalnızca CSV'nin **okunabildiği** anlamına gelir.
+
+Tam JSON raporunda pazar bazında **bütün** KAP kodları tutulur, terminalde ilk 10 örnek gösterilir. Araç `verified_provider_symbols=0`, `approved_broker_symbols=0`, `verified_ohlcv_bars=0`, `network_requests=0`, `orders=0` tutar. Semboller `--stocks` üzerinden doğrulanmış fiyat envanterine otomatik aktarılmaz.
+
+Çevrimdışı regresyon:
+
+```powershell
+python -m unittest discover -s tests -p 'test_ebbot_kap_market_inventory.py' -v
+```
+
+Resmî pay işlem sırası ve ISIN, sağlayıcı sembolü, broker sembolü ve gerçek lisanslı OHLCV hâlâ ayrı onay gerektirir. [İş takibi #197](https://github.com/ebbottr-cyber/ebbotcyber/issues/197).
