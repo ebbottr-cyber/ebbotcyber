@@ -1,0 +1,85 @@
+name: EBBot PR57 main merge conflict audit (non-mutating)
+
+on:
+  push:
+    branches:
+      - audit/pr57-merge-check-20261119
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run-merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Dry-run merge of main into PR57 snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          echo "Audit branch HEAD: $(git rev-parse HEAD)"
+          echo "Main HEAD: $(git rev-parse origin/main)"
+          echo "Merge base: $(git merge-base HEAD origin/main)"
+          set +e
+          git -c user.name='EBBot Audit' -c user.email='audit@example.invalid' \
+            merge --no-commit --no-ff origin/main > /tmp/pr57-merge-output.txt 2>&1
+          result=$?
+          set -e
+          git diff --name-only --diff-filter=U > /tmp/pr57-conflict-files.txt
+          echo "MERGE_EXIT_CODE=${result}"
+          echo "CONFLICT_COUNT=$(wc -l < /tmp/pr57-conflict-files.txt)"
+          echo "CONFLICT_FILES_START"
+          cat /tmp/pr57-conflict-files.txt
+          echo "CONFLICT_FILES_END"
+          echo "CONFLICT_HUNKS_START"
+          python - <<'PY'
+          from pathlib import Path
+          files = Path("/tmp/pr57-conflict-files.txt").read_text().splitlines()
+          for filename in files:
+              print("\\n" + "="*16 + " " + filename + " " + "="*16)
+              rows = Path(filename).read_text(encoding="utf-8").splitlines()
+              start = None
+              for line_no, row in enumerate(rows):
+                  if row.startswith("<<<<<<< "):
+                      start = max(0, line_no-4)
+                  if row.startswith(">>>>>>> ") and start is not None:
+                      for i in range(start, min(len(rows), line_no+5)):
+                          print(f"{i+1:04d}: {rows[i]}")
+                      start = None
+          PY
+          echo "CONFLICT_HUNKS_END"
+          echo "MERGE_OUTPUT_START"
+          tail -80 /tmp/pr57-merge-output.txt
+          echo "MERGE_OUTPUT_END"
+          {
+            echo '# PR #57 mergeability dry-run'
+            echo ''
+            echo "Main ref: $(git rev-parse origin/main)"
+            echo ''
+            echo "Merge exit code: ${result}"
+            echo ''
+            echo '## Conflicting paths'
+            cat /tmp/pr57-conflict-files.txt
+          } > /tmp/pr57-merge-summary.md
+          cat /tmp/pr57-merge-summary.md >> "$GITHUB_STEP_SUMMARY"
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+            git merge --abort
+          fi
+          echo "DRY_RUN_ONLY_NO_COMMIT=1"
+      - name: Preserve conflict list
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr57-merge-conflict-report
+          path: |
+            /tmp/pr57-conflict-files.txt
+            /tmp/pr57-merge-summary.md
+          retention-days: 14
