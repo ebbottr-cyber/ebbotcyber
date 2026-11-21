@@ -94,10 +94,27 @@ jobs:
           mkdir -p "$candidate"
           git archive --format=tar "$tree_sha" | tar -xf - -C "$candidate"
           echo "candidate_dir=$candidate" >> "$GITHUB_OUTPUT"
+      - name: Materialize PINNED conflict-resolution preview in temp ONLY (four PR139 blobs)
+        if: steps.dryrun.outputs.clean == 'false'
+        id: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/ebbot_desktop_preview_conflict_resolution.py \
+            --repo . --audit-json "$AUDIT_REPORT" --report-json ebbot-desktop-preview-review.json
+          tree_sha=$(python -c 'import json; print(json.load(open("ebbot-desktop-preview-review.json"))["synthetic_tree_sha"])')
+          if [[ ! "$tree_sha" =~ ^[0-9a-f]{40,64}$ ]]; then
+            echo "Invalid preview tree"; exit 1
+          fi
+          candidate="$RUNNER_TEMP/ebbot-offline-reviewed-preview"
+          mkdir -p "$candidate"
+          git archive --format=tar "$tree_sha" | tar -xf - -C "$candidate"
+          echo "candidate_dir=$candidate" >> "$GITHUB_OUTPUT"
+          echo "Only synthetic tree, original Git branches remain untouched. RELEASE BLOCKED."
       - name: Run cumulative offline audit and SQLite/Electron tests on ephemeral combined tree
-        if: steps.dryrun.outputs.clean == 'true'
+        if: steps.dryrun.outputs.clean == 'true' || steps.preview.outcome == 'success'
         id: tests
-        working-directory: ${{ steps.materialize.outputs.candidate_dir }}
+        working-directory: ${{ steps.materialize.outputs.candidate_dir || steps.preview.outputs.candidate_dir }}
         shell: bash
         run: |
           set -euo pipefail
@@ -123,7 +140,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ebbot-main-desktop-merge-tree-audit
-          path: ${{ env.AUDIT_REPORT }}
+          path: |
+            ${{ env.AUDIT_REPORT }}
+            ebbot-desktop-preview-review.json
           if-no-files-found: warn
           retention-days: 7
       - name: Explicitly fail closed when integration is unresolved
