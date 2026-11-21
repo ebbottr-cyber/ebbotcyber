@@ -1,0 +1,29 @@
+name: EBBot untouched main React baseline (offline audit)
+
+on:
+  push:
+    branches:
+      - audit/ebbot-main-react-baseline-20261121
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-main-full-react:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install exact main frontend lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Run full main Vitest without suppressing failures or skipped tests
+        run: npm run test
