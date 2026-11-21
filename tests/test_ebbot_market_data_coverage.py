@@ -71,6 +71,20 @@ class CoverageAuditTests(unittest.TestCase):
         self.assertFalse(report["full_exchange_listing_coverage_verified"])
         self.assertFalse(report["live_trading_enabled"])
 
+    def test_real_repo_uppercase_market_tags_are_normalized(self):
+        # The actual bundled stock index uses uppercase US/HK/CN/JP/BSE tags.
+        self.write_index([
+            index_row("US", "AAPL"), index_row("HK", "0700.HK"),
+            index_row("CN", "600519.SS"), index_row("BSE", "430047.BJ"),
+            index_row("US", "^GSPC", "index"),
+        ])
+        report = audit(self.idx, as_of=DAY)
+        self.assertEqual(report["markets"]["us"]["candidate_instruments"], 1)
+        self.assertEqual(report["markets"]["hk"]["candidate_instruments"], 1)
+        self.assertEqual(report["inventory_diagnostics"]["out_of_scope_active_rows"], 2)
+        self.assertEqual(report["inventory_diagnostics"]["benchmark_index_rows"], 1)
+        self.assertEqual(report["total_candidate_instruments"], 2)
+
     def test_two_bars_are_only_review_evidence_not_license_or_broker_proof(self):
         stocks = self.four_market_stock_file()
         records = []
