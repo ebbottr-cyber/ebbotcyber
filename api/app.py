@@ -46,6 +46,15 @@ from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
+
+def _is_ebbot_packaged_health_probe() -> bool:
+    """Restricted diagnostic available only to a frozen executable in CI."""
+    return (
+        os.getenv("EBBOT_PACKAGED_HEALTH_PROBE") == "1"
+        and os.getenv("GITHUB_ACTIONS") == "true"
+        and bool(getattr(sys, "frozen", False))
+    )
+
 # Match src="/assets/foo.js" / href="/assets/foo.css" produced by the
 # vite build. Used by the startup self-check to surface packaging
 # mismatches early (see GitHub #1064 / #1065 / #1050).
@@ -238,6 +247,10 @@ def _load_runtime_scheduler_args() -> dict:
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
     """Initialize and release shared services for the app lifecycle."""
+    if _is_ebbot_packaged_health_probe():
+        # No schedulers, remote stock-index refresh, cache warmup or bot clients.
+        yield
+        return
     runtime_owns_schedule = os.getenv(CLI_SCHEDULER_OWNER_ENV, "").strip().lower() not in {
         "1",
         "true",
@@ -342,8 +355,19 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
         ),
         version="1.0.0",
         lifespan=app_lifespan,
+        docs_url=None if _is_ebbot_packaged_health_probe() else "/docs",
+        redoc_url=None if _is_ebbot_packaged_health_probe() else "/redoc",
+        openapi_url=None if _is_ebbot_packaged_health_probe() else "/openapi.json",
     )
-    
+
+    if _is_ebbot_packaged_health_probe():
+        # Deliberately no general API routes, SPA, auth/session or analysis.
+        @app.get("/api/health", include_in_schema=False)
+        async def _offline_packaged_health():
+            return {"status": "ok", "probe": "offline-packaged"}
+
+        return app
+
     # ============================================================
     # CORS 配置
     # ============================================================

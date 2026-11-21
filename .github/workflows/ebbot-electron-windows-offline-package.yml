@@ -4,12 +4,17 @@ on:
   push:
     branches:
       - audit/ebbot-windows-offline-main-stage-20261121
+      - test/ebbot-packaged-health-loopback-20261121
   pull_request:
     branches: [main]
     paths:
       - 'apps/dsa-desktop/**'
       - 'scripts/audit_ebbot_desktop_package.py'
       - 'tests/test_ebbot_desktop_package_audit.py'
+      - 'scripts/probe_ebbot_packaged_health.py'
+      - 'tests/test_ebbot_packaged_health_probe.py'
+      - 'main.py'
+      - 'api/app.py'
       - '.github/workflows/ebbot-electron-windows-offline-package.yml'
 
 permissions:
@@ -66,6 +71,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Install desktop contract dependencies failed" }
           python -m pytest -q tests/test_desktop_installer_config.py tests/test_desktop_packaging_assets.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
+          python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Packaged health probe safety contracts failed" }
 
   real-windows-nsis-package:
     name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
@@ -127,6 +134,11 @@ jobs:
           $report = Get-Content desktop-package-audit.json -Raw | ConvertFrom-Json
           if ($report.release_status -ne "BLOCKED") { throw "Release must remain blocked pending review" }
           Write-Host "Packaged Windows structure verified. Release blocked. SHA256 recorded in private CI artifact."
+      - name: Launch frozen backend ONLY in restricted loopback health mode
+        shell: pwsh
+        run: |
+          python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --timeout-seconds 180
+          if ($LASTEXITCODE -ne 0) { throw "Frozen Windows backend health probe failed" }
       - name: Upload audit JSON ONLY (never upload installer, backend, .env or updater files)
         if: always()
         uses: actions/upload-artifact@v4
@@ -142,5 +154,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity confirmed; updater hard-disabled. Code signing and real-device install remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Code signing, SmartScreen, real Windows user installation, backend startup and update/uninstall data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Only a restricted frozen backend loopback health check is verified; full desktop startup, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY
