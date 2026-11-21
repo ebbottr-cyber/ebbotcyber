@@ -1,0 +1,142 @@
+name: EBBot MAIN + React + Windows three-stack conflict audit (NO TRADES)
+
+on:
+  push:
+    branches: [audit/ebbot-main-react-windows-stack-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-three-stack-pinned-audit
+  cancel-in-progress: true
+
+env:
+  MAIN_SHA: '65b77f17085224a2f01dda3ee8d3807dbe789e10'
+  REACT_SHA: '61cda4b7024ff4f6d39b4c20887814ca882ade72'
+  WINDOWS_SHA: 'dd2470b86cb389278da7a1fd93a2d0b88e53678a'
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  conflict-preview:
+    name: Pinned three-stack merge-tree; fail on conflicts and keep main untouched
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch pinned sources (read only, no branch push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/test/ebbot-decision-refresh-date-fixture-20261121:refs/remotes/origin/ebbot-react \
+            +refs/heads/integration/ebbot-windows-loopback-probe-20261121:refs/remotes/origin/ebbot-windows
+      - name: Simulate main+React, then Windows on virtual local tree without updating refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/audit_ebbot_three_stack_merge_preview.py \
+            --main-ref refs/remotes/origin/main \
+            --react-ref refs/remotes/origin/ebbot-react \
+            --windows-ref refs/remotes/origin/ebbot-windows \
+            --main-sha "$MAIN_SHA" \
+            --react-sha "$REACT_SHA" \
+            --windows-sha "$WINDOWS_SHA" \
+            --report "$RUNNER_TEMP/ebbot-three-stack-merge-report.json"
+      - name: Preserve read-only conflict report even if review is required
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-three-stack-conflicts-json
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/ebbot-three-stack-merge-report.json
+
+  offline-contracts:
+    name: Safety tests on triple stack ONLY if real merge has zero conflicts
+    needs: [conflict-preview]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reverify same three exact sources; fail closed on branch drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/test/ebbot-decision-refresh-date-fixture-20261121:refs/remotes/origin/ebbot-react \
+            +refs/heads/integration/ebbot-windows-loopback-probe-20261121:refs/remotes/origin/ebbot-windows
+          python scripts/audit_ebbot_three_stack_merge_preview.py \
+            --main-ref refs/remotes/origin/main \
+            --react-ref refs/remotes/origin/ebbot-react \
+            --windows-ref refs/remotes/origin/ebbot-windows \
+            --main-sha "$MAIN_SHA" \
+            --react-sha "$REACT_SHA" \
+            --windows-sha "$WINDOWS_SHA" \
+            --report "$RUNNER_TEMP/ebbot-three-stack-confirmed.json"
+          tree=$(python -c "import json,os; p=json.load(open(os.environ['RUNNER_TEMP']+'/ebbot-three-stack-confirmed.json')); assert p['overall_status']=='CLEAN_DRY_RUN'; print(p['stage_2_add_windows']['tree_sha'])")
+          mkdir -p "$RUNNER_TEMP/ebbot-three-stack"
+          git archive --format=tar "$tree" | tar -xf - -C "$RUNNER_TEMP/ebbot-three-stack"
+      - name: Install test-only backend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-three-stack"
+          python -m pip install -r .github/requirements-ci.txt
+      - name: Run pinned Windows/SQLite/health policy tests on combined source (no installer)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-three-stack"
+          python -m pytest -q \
+            tests/test_ebbot_desktop_package_audit.py \
+            tests/test_ebbot_packaged_health_probe.py \
+            tests/test_desktop_installer_config.py \
+            tests/test_desktop_packaging_assets.py \
+            --junitxml="$RUNNER_TEMP/ebbot-three-stack-contracts.xml"
+          python -m unittest discover -s tests -p 'test_ebbot_sqlite_snapshot.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_sqlite_recovery_roundtrip.py' -v
+      - name: Preserve only audit JSON and JUnit (no installer, DB or executable)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-three-stack-offline-contracts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ebbot-three-stack-confirmed.json
+            ${{ runner.temp }}/ebbot-three-stack-contracts.xml
+
+  gate:
+    name: Three-stack integration gate (fail-closed, release always BLOCKED)
+    needs: [conflict-preview, offline-contracts]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reject conflicts, skipped and failed checks
+        shell: bash
+        env:
+          PREVIEW: ${{ needs.conflict-preview.result }}
+          CONTRACTS: ${{ needs.offline-contracts.result }}
+        run: |
+          set -euo pipefail
+          echo "Git preview: $PREVIEW; triple-stack safety contracts: $CONTRACTS"
+          echo 'RELEASE=BLOCKED. No branch merged, no installer run, no trading started.'
+          [[ "$PREVIEW" == success && "$CONTRACTS" == success ]]
