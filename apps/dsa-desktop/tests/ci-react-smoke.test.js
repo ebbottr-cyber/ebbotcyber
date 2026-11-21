@@ -49,7 +49,14 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   assert.match(smoke, /localStorage\.setItem\('dsa\.uiLanguage', 'tr'\)/);
   assert.match(smoke, /document\.documentElement\.lang === 'tr'/);
   assert.match(smoke, /Ana menü/);
-  assert.match(smoke, /Ana Sayfa/);
+  assert.match(smoke, /Piyasa Özeti/);
+  assert.match(smoke, /Hisse Analizi/);
+  const sidebar = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'dsa-web', 'src', 'components', 'layout', 'SidebarNav.tsx'),
+    'utf8',
+  );
+  assert.match(sidebar, /Piyasa Özeti/);
+  assert.match(sidebar, /Hisse Analizi/);
   assert.match(smoke, /Kullanım/);
   assert.match(smoke, /Veri Merkezi/);
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
