@@ -193,3 +193,26 @@ jobs:
         run: npm run build
       - name: Not a substitute for the full React gate
         run: echo "The full React suite must also pass before merge or release." >> "$GITHUB_STEP_SUMMARY"
+
+  integrated-alert-auth-locale-ui-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Alert form, rule list, login and Turkish-default language regression
+        run: npm run test -- src/components/alerts/__tests__/AlertRuleForm.test.tsx src/components/alerts/__tests__/AlertRuleList.test.tsx src/pages/__tests__/LoginPage.test.tsx src/contexts/__tests__/UiLanguageContext.test.tsx
+      - name: Frontend lint
+        run: npm run lint
+      - name: TypeScript and Vite production build
+        run: npm run build
+      - name: Never certify from focused-only passes
+        run: echo "Full React regression remains mandatory for any future release." >> "$GITHUB_STEP_SUMMARY"
