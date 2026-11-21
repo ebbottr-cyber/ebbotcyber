@@ -11,7 +11,7 @@ import unittest
 
 from scripts.audit_four_market_equities import parser, run
 from src.services.four_market_equity import (
-    MARKETS, audit_four_market_equities, xetra_equities_to_manifest,
+    MARKETS, _isin_check_digit_valid, audit_four_market_equities, xetra_equities_to_manifest,
 )
 
 
@@ -39,6 +39,7 @@ class FourMarketEquityTests(unittest.TestCase):
         with manifest.open(encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
         self.assertEqual(len(rows), 1750)
+        self.assertTrue(all(_isin_check_digit_valid(row["isin"]) for row in rows))
         self.assertEqual(len({row["symbol"] for row in rows}), 1750)
         self.assertEqual(
             sorted(row["symbol"] for row in rows),
@@ -68,6 +69,21 @@ class FourMarketEquityTests(unittest.TestCase):
         self.assertEqual(audit["excluded_other_mic"], 1)
         self.assertFalse(audit["price_symbols_verified"])
         self.assertEqual(audit["network_requests"], 0)
+
+    def test_xetra_rejects_invalid_isin_check_digit_even_when_format_matches(self):
+        # DE0007164601 has the right shape but the wrong modulus-10 digit.
+        bad = "Active;Active;Bad SAP;DE0007164601;BAD;XETR;CS"
+        self.assertTrue(_isin_check_digit_valid("DE0007164600"))
+        self.assertTrue(_isin_check_digit_valid("US03703U1079"))
+        self.assertFalse(_isin_check_digit_valid("DE0007164601"))
+        csv_text, audit = xetra_equities_to_manifest(
+            xetra(SAP, bad), today=date(2026, 11, 18)
+        )
+        self.assertIn("SAP.DE", csv_text)
+        self.assertNotIn("BAD.DE", csv_text)
+        self.assertEqual(audit["excluded_invalid_code_or_isin"], 1)
+        self.assertEqual(audit["included_common_stocks"], 1)
+        self.assertEqual(audit["orders"], 0)
 
     def test_xetra_actual_2026_semicolon_preface(self):
         # The official 18-Nov-2026 Xetra snapshot uses semicolons even in
@@ -101,7 +117,7 @@ class FourMarketEquityTests(unittest.TestCase):
                                        today=date(2026, 11, 18))
 
     def test_xetra_rejects_mnemonic_collisions_and_no_equities(self):
-        clash = "Active;Active;Other SAP;DE0000000004;SAP;XETR;CS"
+        clash = "Active;Active;Other SAP;US03703U1079;SAP;XETR;CS"
         with self.assertRaisesRegex(ValueError, "xetra_mnemonic_collision"):
             xetra_equities_to_manifest(xetra(SAP, clash), today=date(2026, 11, 18))
         with self.assertRaisesRegex(ValueError, "no_active_xetra"):
