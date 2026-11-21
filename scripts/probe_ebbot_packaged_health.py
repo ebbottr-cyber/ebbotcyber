@@ -60,7 +60,62 @@ def _get(port: int, path: str) -> tuple[int, bytes]:
         conn.close()
 
 
-def run(exe: Path, timeout_seconds: int) -> None:
+def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path) -> None:
+    """Validate real unpacked EBBot.exe against the still-running local backend."""
+    candidate = executable.resolve(strict=True)
+    expected = (backend_exe.parents[3] / "EBBot.exe").resolve(strict=True)
+    if candidate != expected or not candidate.is_file():
+        raise ValueError("Electron probe must use EBBot.exe from the same win-unpacked package")
+
+    env = _sanitized_environment()
+    env["EBBOT_ELECTRON_UI_SMOKE"] = "1"
+    env["EBBOT_ELECTRON_UI_SMOKE_PORT"] = str(port)
+    cmd = [str(candidate), "--ebbot-ci-ui-smoke"]
+    electron = subprocess.Popen(
+        cmd,
+        cwd=str(candidate.parent),
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+    )
+    try:
+        try:
+            stdout, stderr = electron.communicate(timeout=90)
+        except subprocess.TimeoutExpired as exc:
+            subprocess.run(
+                ["taskkill", "/PID", str(electron.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=15,
+            )
+            try:
+                electron.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                electron.kill()
+                electron.communicate(timeout=10)
+            raise TimeoutError("Packaged Electron UI smoke exceeded 90 seconds") from exc
+
+        if electron.returncode != 0:
+            raise RuntimeError(
+                "Packaged Electron smoke failed (exit="
+                + str(electron.returncode)
+                + "): "
+                + (stderr or stdout)[-1500:]
+            )
+        print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
+    finally:
+        if electron.poll() is None:
+            electron.kill()
+            electron.communicate(timeout=10)
+
+
+def run(exe: Path, timeout_seconds: int, electron_exe: Path | None = None) -> None:
     if sys.platform != "win32" or os.getenv("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Only the isolated Windows GitHub Actions runner may execute this probe")
     exe = _packaged_executable(exe)
@@ -95,6 +150,8 @@ def run(exe: Path, timeout_seconds: int) -> None:
                 if blocked_status != 404:
                     raise RuntimeError(f"Analysis endpoint unexpectedly exposed: HTTP {blocked_status}")
                 print("PASS: frozen Windows backend served loopback health only; analysis unavailable.")
+                if electron_exe is not None:
+                    _probe_packaged_electron(electron_exe, port, exe)
                 return
             except (ConnectionRefusedError, ConnectionResetError, TimeoutError, OSError):
                 time.sleep(1)
@@ -112,12 +169,13 @@ def run(exe: Path, timeout_seconds: int) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe", required=True, type=Path)
+    parser.add_argument("--electron-exe", type=Path)
     parser.add_argument("--timeout-seconds", default=180, type=int)
     args = parser.parse_args()
     if not 10 <= args.timeout_seconds <= 240:
         parser.error("Timeout must be between 10 and 240 seconds")
     try:
-        run(args.exe, args.timeout_seconds)
+        run(args.exe, args.timeout_seconds, electron_exe=args.electron_exe)
     except Exception as exc:
         print(f"FAIL: isolated packaged health check: {exc}", file=sys.stderr)
         return 1

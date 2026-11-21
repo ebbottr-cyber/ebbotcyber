@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -2094,24 +2094,60 @@ async function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+// Do not enter the production startup path during a packaged CI smoke.
+// In particular, never create user runtime state, start the normal backend,
+// restore schedules, scan markets, or check for updates from this invocation.
+const ciUiSmokeRequested = process.argv.includes('--ebbot-ci-ui-smoke')
+  || process.env.EBBOT_ELECTRON_UI_SMOKE === '1';
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+if (ciUiSmokeRequested) {
+  const { validateCiUiSmoke, runCiUiSmoke } = require('./ci-ui-smoke');
+  const ciProbe = validateCiUiSmoke({
+    packaged: app.isPackaged,
+    platform: process.platform,
+    env: process.env,
+    argv: process.argv,
+  });
+  if (ciProbe.allowed) {
+    app.disableHardwareAcceleration();
   }
-});
+  app.whenReady()
+    .then(async () => {
+      if (!ciProbe.allowed) {
+        throw new Error('CI Electron smoke requires packaged Windows, GitHub Actions and exact loopback arguments');
+      }
+      await runCiUiSmoke({
+        BrowserWindow,
+        session,
+        rootDir: __dirname,
+        port: ciProbe.port,
+      });
+      app.exit(0);
+    })
+    .catch((error) => {
+      console.error(`FAIL: restricted Electron UI smoke: ${error?.stack || String(error)}`);
+      app.exit(2);
+    });
+} else {
+  app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
-  void stopBackend();
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
 
-app.on('before-quit', () => {
-  void stopBackend();
-});
+  app.on('window-all-closed', () => {
+    void stopBackend();
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
+
+  app.on('before-quit', () => {
+    void stopBackend();
+  });
+}
 
 module.exports = {
   DESKTOP_UPDATES_ENABLED,

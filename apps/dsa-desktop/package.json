@@ -24,6 +24,7 @@
     "afterPack": "scripts/afterPackMacos.js",
     "files": [
       "main.js",
+      "ci-ui-smoke.js",
       "preload.js",
       "renderer/**/*"
     ],
