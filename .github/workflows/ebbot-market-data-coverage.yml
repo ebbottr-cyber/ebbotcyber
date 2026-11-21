@@ -1,0 +1,60 @@
+name: EBBot four-market data coverage gate (offline)
+
+on:
+  push:
+    branches:
+      - audit/ebbot-four-market-data-coverage-20261121
+  pull_request:
+    paths:
+      - 'scripts/audit_ebbot_kap_bist_crosswalk.py'
+      - 'tests/test_ebbot_kap_bist_crosswalk.py'
+      - 'scripts/audit_ebbot_kap_market_inventory.py'
+      - 'tests/test_ebbot_kap_market_inventory.py'
+      - 'scripts/audit_ebbot_market_data_coverage.py'
+      - 'tests/test_ebbot_market_data_coverage.py'
+      - 'docs/EBBOT_FOUR_MARKET_DATA_COVERAGE_GATE_TR.md'
+      - '.github/workflows/ebbot-market-data-coverage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-evidence-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Deterministic offline evidence tests
+        run: python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
+      - name: Deterministic offline KAP market staging tests
+        run: python -m unittest discover -s tests -p 'test_ebbot_kap_market_inventory.py' -v
+      - name: KAP to BIST declared symbol and ISIN crosswalk offline contract
+        run: python -m unittest discover -s tests -p 'test_ebbot_kap_bist_crosswalk.py' -v
+      - name: Report actual repo four-market inventory gaps (not readiness)
+        run: |
+          python -m scripts.audit_ebbot_market_data_coverage --report-json "$RUNNER_TEMP/ebbot-market-coverage.json"
+          python - "$RUNNER_TEMP/ebbot-market-coverage.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          report = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert report['status'] in ('BLOCKED_INCOMPLETE_EVIDENCE', 'REVIEW_ONLY_NEEDS_INDEPENDENT_VALIDATION')
+          assert report['network_requests'] == report['orders'] == 0
+          assert report['stored_xetra_manifest_loaded'] is True
+          assert report['markets']['de']['candidate_instruments'] == 1750
+          assert report['markets']['us']['candidate_instruments'] > 0
+          assert report['markets']['hk']['candidate_instruments'] > 0
+          assert report['market_data_license_verified'] is False
+          assert report['full_exchange_listing_coverage_verified'] is False
+          assert report['live_trading_enabled'] is False
+          print('Coverage audit generated; trading/release NOT approved.')
+          PY
+      - name: Preserve read-only evidence (no sensitive prices)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-four-market-coverage
+          path: ${{ runner.temp }}/ebbot-market-coverage.json
+          retention-days: 7
