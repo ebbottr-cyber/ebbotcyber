@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MAIN_SHA: '65b77f17085224a2f01dda3ee8d3807dbe789e10'
+  MAIN_SHA: 'daad93eaab155509cef8fcf3906c2b354fee4fdf'
   REACT_SHA: '61cda4b7024ff4f6d39b4c20887814ca882ade72'
   WINDOWS_SHA: 'dd2470b86cb389278da7a1fd93a2d0b88e53678a'
   SCHEDULE_ENABLED: 'false'
