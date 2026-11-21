@@ -44,7 +44,7 @@ class EBBotNsisUpgradeContractTests(unittest.TestCase):
     def test_real_repo_contract_passes_but_release_remains_blocked(self):
         result = self.check_sources()
         self.assertEqual(result["status"], "PASSED_SOURCE_ONLY", result["failed_checks"])
-        self.assertEqual(len(result["checks"]), 8)
+        self.assertEqual(len(result["checks"]), 9)
         self.assertTrue(all(result["checks"].values()))
         self.assertEqual(result["release_status"], "BLOCKED")
         self.assertFalse(result["ready_to_publish"])
