@@ -41,24 +41,24 @@ def test_daily_enrichment_adds_missing_columns_without_deprecated_at_assignment(
 
 
 @pytest.mark.parametrize(
-    ("freq", "rebalance", "expected"),
+    ("rebalance", "expected"),
     [
-        ("W", "weekly", ["2024-01-05", "2024-01-12"]),
-        ("M", "monthly", ["2024-01-31", "2024-02-09"]),
+        ("weekly", [
+            "2024-01-05", "2024-01-12", "2024-01-19",
+            "2024-01-26", "2024-02-02", "2024-02-09",
+        ]),
+        ("monthly", ["2024-01-31", "2024-02-09"]),
     ],
 )
 def test_etf_rebalance_dates_keep_last_session_without_period_values_warning(
-    freq, rebalance, expected,
+    rebalance, expected,
 ):
-    del freq  # parametrize both supported modes explicitly
     index = pd.bdate_range("2024-01-01", "2024-02-09")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         result = rebalance_dates(index, rebalance)
 
-    assert list(result.strftime("%Y-%m-%d")) == expected if rebalance == "monthly" else list(result.strftime("%Y-%m-%d")) == [
-        "2024-01-05", "2024-01-12", "2024-01-19", "2024-01-26", "2024-02-02", "2024-02-09",
-    ]
+    assert list(result.strftime("%Y-%m-%d")) == expected
     assert not any(
         "PeriodDtype dtype is deprecated" in str(warning.message)
         for warning in caught
