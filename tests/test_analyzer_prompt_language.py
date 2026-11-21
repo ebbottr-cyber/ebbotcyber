@@ -206,9 +206,14 @@ class EnglishStockPromptTemplateTestCase(unittest.TestCase):
         self.assertIn("All human-readable JSON values must be in Turkish (Türkçe).", tr_user)
         self.assertIn("Write all human-readable JSON values", tr_system)
         self.assertIn("in Turkish (Türkçe).", tr_system)
+        tr_headers = re.findall(r"^#{1,4} .+$", tr_user, re.MULTILINE)
+        en_headers = re.findall(r"^#{1,4} .+$", en_user, re.MULTILINE)
+        # Turkish quote labels are intentionally localized; all other headers
+        # continue to reuse English scaffolding without leaking Chinese.
+        self.assertIn("### Güncel Fiyat Bilgisi", tr_headers)
         self.assertEqual(
-            re.findall(r"^#{1,4} .+$", tr_user, re.MULTILINE),
-            re.findall(r"^#{1,4} .+$", en_user, re.MULTILINE),
+            tr_headers,
+            [header.replace("### Today's Quote", "### Güncel Fiyat Bilgisi") for header in en_headers],
         )
 
     def test_turkish_market_roles_and_guidelines_do_not_leak_chinese(self) -> None:

@@ -101,12 +101,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ): Promise<{ success: boolean; error?: ParsedApiError }> => {
       try {
         await authApi.changePassword(currentPassword, newPassword, newPasswordConfirm);
+        // Password rotation invalidates the current cookie as well.
+        await fetchStatus();
         return { success: true };
       } catch (err: unknown) {
         return { success: false, error: getParsedApiError(err) };
       }
     },
-    []
+    [fetchStatus]
   );
 
   const logout = useCallback(async () => {
