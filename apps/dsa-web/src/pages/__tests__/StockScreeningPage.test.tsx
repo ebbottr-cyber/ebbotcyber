@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as renderWithoutLanguageProvider, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScreeningHotspotDetail } from '../../api/screening';
-import { renderLegacyChineseUi } from '../../test/renderLegacyChineseUi';
+import { renderLegacyChineseUi as render } from '../../test/renderLegacyChineseUi';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import StockScreeningPage from '../StockScreeningPage';
 
 const {
@@ -162,12 +163,14 @@ describe('StockScreeningPage', () => {
       },
     }));
     window.sessionStorage.clear();
+    // Keep every legacy Chinese-language test independent of earlier locale choices.
+    window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
   });
 
-  it('uses the Turkish screening heading by default', async () => {
+  it('renders a Turkish screening heading without a language provider', async () => {
     getScreeningStatus.mockResolvedValueOnce({ enabled: true, available: true });
 
-    render(<StockScreeningPage />);
+    renderWithoutLanguageProvider(<StockScreeningPage />);
 
     expect(await screen.findByRole('heading', { name: 'Hisse Tarama' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: '选股' })).not.toBeInTheDocument();
@@ -481,9 +484,8 @@ describe('StockScreeningPage', () => {
       stockCount: 1,
     });
 
-    // This historical Chinese-output test must opt into zh explicitly.
-    // Production and ordinary tests keep the Turkish default.
-    renderLegacyChineseUi(<StockScreeningPage />);
+    // The shared legacy renderer explicitly selects zh for this historical contract.
+    render(<StockScreeningPage />);
 
     expect(await screen.findByRole('heading', { name: '选股' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /展开热点题材/ }));
