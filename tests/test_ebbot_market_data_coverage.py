@@ -213,6 +213,20 @@ class CoverageAuditTests(unittest.TestCase):
             with self.assertRaisesRegex(AuditInputError, "checksum_mismatch"):
                 audit(self.idx, as_of=DAY)
 
+    def test_inconsistent_currency_in_same_symbol_rejected(self):
+        stocks = self.stock_csv("market,symbol,source\nus,AAPL,source\n")
+        bars = self.bars_csv([
+            ("us", "AAPL", "2026-11-19", 10, 12, 9, 11, 100, "source", "USD"),
+            ("us", "AAPL", "2026-11-20", 10, 12, 9, 11, 100, "source", "EUR"),
+        ])
+        with self.assertRaisesRegex(AuditInputError, "conflicting_ohlcv_currencies"):
+            audit(self.idx, [stocks], [bars], as_of=DAY)
+
+    def test_unrecognized_manifest_active_flag_rejected(self):
+        stocks = self.stock_csv("market,symbol,source,active\nus,AAPL,source,maybe\n")
+        with self.assertRaisesRegex(AuditInputError, "invalid_manifest_active_flag"):
+            audit(self.idx, [stocks], as_of=DAY)
+
     def test_source_collisions_in_kind_fail_closed(self):
         self.write_index([index_row("us", "AAPL", "stock")])
         stock = self.stock_csv("market,symbol,source,kind\nus,AAPL,source,etf\n")
