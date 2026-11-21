@@ -151,7 +151,7 @@ test('dangling WAL and SHM entries are rejected in BOTH bridge operations before
       return originalLstat(target, options);
     };
     try {
-      assert.throws(() => stageSnapshotRestoreCandidate(restore), /WAL\\/SHM/);
+      assert.throws(() => stageSnapshotRestoreCandidate(restore), /WAL\/SHM/);
       assert.equal(fs.existsSync(ctx.restoreTarget), false);
       assert.deepEqual(fs.readdirSync(path.dirname(ctx.restoreTarget)), []);
       assert.throws(() => createFrozenSnapshotCandidate({
@@ -159,7 +159,7 @@ test('dangling WAL and SHM entries are rejected in BOTH bridge operations before
         sourceDatabase: ctx.sourceDatabase,
         destination: path.join(path.dirname(ctx.destination), 'frozen.db'),
         runner: () => { frozenRunnerCalls += 1; return { status: 0 }; },
-      }), /WAL\\/SHM/);
+      }), /WAL\/SHM/);
       assert.equal(frozenRunnerCalls, 0);
       assert.equal(fs.existsSync(path.join(path.dirname(ctx.destination), 'frozen.db')), false);
       assert.deepEqual(fs.readFileSync(ctx.destination), bytes);
@@ -187,7 +187,7 @@ test('a real dangling WAL sidecar symlink is never clobbered by staging', (t) =>
     destination: ctx.restoreTarget,
     expectedSha256: evidence(bytes).sha256,
     expectedSize: bytes.length,
-  }), /WAL\\/SHM/);
+  }), /WAL\/SHM/);
   assert.equal(fs.existsSync(ctx.restoreTarget), false);
   assert.equal(fs.lstatSync(dangling).isSymbolicLink(), true);
 });
