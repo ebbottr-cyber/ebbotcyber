@@ -730,7 +730,7 @@ describe('PortfolioPage FX refresh', () => {
   });
 
   // Both historical CNY exposure and current Turkish TRY fail-closed cases are retained.
-  it('converts single-account foreign-currency exposure values into the snapshot currency', async () => {
+  it('keeps legacy single-account foreign exposure amounts hidden without verified TRY quotes', async () => {
     getSnapshot.mockResolvedValueOnce({
       asOf: '2026-03-19',
       costMethod: 'fifo' as const,
@@ -787,12 +787,13 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboard).not.toBeNull();
     const dashboardScope = within(dashboard as HTMLElement);
     expect(dashboardScope.getByText('US')).toBeInTheDocument();
-    expect(dashboardScope.getAllByText('CNY 700.00').length).toBeGreaterThan(0);
+    expect(dashboardScope.getAllByText('—').length).toBeGreaterThan(0);
+    expect(dashboardScope.queryByText('CNY 700.00')).not.toBeInTheDocument();
     expect(dashboardScope.queryByText('CNY 100.00')).not.toBeInTheDocument();
     expect(dashboardScope.getAllByText('100.00%').length).toBeGreaterThan(0);
   });
 
-  it('converts mixed CNY and USD accounts using per-account aggregate market values', async () => {
+  it('preserves mixed-account aggregate exposure weights without inventing TRY quotes', async () => {
     getSnapshot.mockResolvedValueOnce({
       asOf: '2026-03-19',
       costMethod: 'fifo' as const,
@@ -881,8 +882,9 @@ describe('PortfolioPage FX refresh', () => {
     for (const label of ['市场暴露', '币种暴露']) {
       const exposure = dashboardScope.getByText(label).closest('div.rounded-xl');
       const scope = within(exposure as HTMLElement);
-      expect(scope.getByText('CNY 70.00')).toBeInTheDocument();
-      expect(scope.getByText('CNY 700.00')).toBeInTheDocument();
+      expect(scope.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+      expect(scope.queryByText('CNY 70.00')).not.toBeInTheDocument();
+      expect(scope.queryByText('CNY 700.00')).not.toBeInTheDocument();
       expect(scope.getByText('9.09%')).toBeInTheDocument();
       expect(scope.getByText('90.91%')).toBeInTheDocument();
       expect(scope.queryByText('CNY 100.00')).not.toBeInTheDocument();
