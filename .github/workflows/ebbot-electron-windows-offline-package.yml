@@ -16,6 +16,7 @@ on:
       - integration/ebbot-main-desktop-stack-pr139-20261121
       - integration/ebbot-windows-loopback-probe-20261121
       - integration/ebbot-latest-main-health-snapshot-20261121
+      - security/ebbot-sqlite-dangling-sidecar-no-clobber-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -29,6 +30,7 @@ on:
       - security/ebbot-sqlite-electron-restore-staging-20261120
       - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
       - integration/ebbot-main-desktop-stack-pr139-20261121
+      - integration/ebbot-latest-main-health-snapshot-20261121
       - main
 
 permissions:
