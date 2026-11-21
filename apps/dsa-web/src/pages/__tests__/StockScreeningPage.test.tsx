@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScreeningHotspotDetail } from '../../api/screening';
+import { renderLegacyChineseUi } from '../../test/renderLegacyChineseUi';
 import StockScreeningPage from '../StockScreeningPage';
 
 const {
@@ -161,6 +162,15 @@ describe('StockScreeningPage', () => {
       },
     }));
     window.sessionStorage.clear();
+  });
+
+  it('uses the Turkish screening heading by default', async () => {
+    getScreeningStatus.mockResolvedValueOnce({ enabled: true, available: true });
+
+    render(<StockScreeningPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Hisse Tarama' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '选股' })).not.toBeInTheDocument();
   });
 
   it('keeps implementation attribution and repeated guidance off the operation page', async () => {
@@ -471,7 +481,9 @@ describe('StockScreeningPage', () => {
       stockCount: 1,
     });
 
-    render(<StockScreeningPage />);
+    // This historical Chinese-output test must opt into zh explicitly.
+    // Production and ordinary tests keep the Turkish default.
+    renderLegacyChineseUi(<StockScreeningPage />);
 
     expect(await screen.findByRole('heading', { name: '选股' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /展开热点题材/ }));
