@@ -63,10 +63,14 @@ jobs:
         id: dryrun
         run: |
           set -uo pipefail
+          # merge-tree returns 1 for *expected* conflicts. Capture its status
+          # and publish JSON before the final REVIEW_REQUIRED gate fails.
+          set +e
           python scripts/audit_ebbot_desktop_merge_tree.py \
             --repo . --base-ref origin/ebbot-audit-main \
             --candidate-ref origin/ebbot-audit-pr139 --report "$AUDIT_REPORT"
           rc=$?
+          set -e
           if [ "$rc" -eq 0 ]; then
             echo "clean=true" >> "$GITHUB_OUTPUT"
           else
