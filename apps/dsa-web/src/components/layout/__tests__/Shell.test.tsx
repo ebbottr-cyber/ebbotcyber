@@ -42,7 +42,7 @@ describe('Shell', () => {
   afterEach(() => {
     delete (window as { dsaDesktop?: unknown }).dsaDesktop;
   });
-  it.skip('renders navigation, theme toggle and completion badge', () => {
+  it('renders navigation, theme toggle and completion badge', () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
@@ -58,10 +58,13 @@ describe('Shell', () => {
     expect(screen.getByTestId('chat-completion-badge')).toBeInTheDocument();
     const logoutButton = screen.getByRole('button', { name: '退出' });
     expect(logoutButton).toBeInTheDocument();
-    expect(logoutButton).toHaveClass('cursor-pointer');
+    // The rail's appearance is an implementation detail; verify an operable,
+    // accessible logout control instead of a removed CSS utility class.
+    expect(logoutButton).toHaveAttribute('type', 'button');
+    expect(logoutButton).toBeEnabled();
   });
 
-  it.skip('opens the theme menu from the sidebar toggle', async () => {
+  it('opens the theme menu from the sidebar toggle', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
