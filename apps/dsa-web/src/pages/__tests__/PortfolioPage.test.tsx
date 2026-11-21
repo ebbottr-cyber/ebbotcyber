@@ -729,6 +729,167 @@ describe('PortfolioPage FX refresh', () => {
     expect(dashboardScope.queryByText('暴露不可用')).not.toBeInTheDocument();
   });
 
+  // Both historical CNY exposure and current Turkish TRY fail-closed cases are retained.
+  it('converts single-account foreign-currency exposure values into the snapshot currency', async () => {
+    getSnapshot.mockResolvedValueOnce({
+      asOf: '2026-03-19',
+      costMethod: 'fifo' as const,
+      currency: 'CNY',
+      accountCount: 1,
+      totalCash: 0,
+      totalMarketValue: 700,
+      totalEquity: 700,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      feeTotal: 0,
+      taxTotal: 0,
+      fxStale: false,
+      dataQuality: 'ok',
+      limitations: [],
+      accounts: [
+        {
+          accountId: 1,
+          accountName: 'USD Account',
+          ownerId: null,
+          broker: 'Demo',
+          market: 'us',
+          baseCurrency: 'USD',
+          asOf: '2026-03-19',
+          costMethod: 'fifo' as const,
+          totalCash: 0,
+          totalMarketValue: 100,
+          totalEquity: 100,
+          realizedPnl: 0,
+          unrealizedPnl: 0,
+          feeTotal: 0,
+          taxTotal: 0,
+          fxStale: false,
+          dataQuality: 'ok',
+          limitations: [],
+          positions: [
+            makePosition({
+              symbol: 'AAPL',
+              market: 'us',
+              currency: 'USD',
+              valuationCurrency: 'USD',
+              marketValueBase: 100,
+            }),
+          ],
+        },
+      ],
+    });
+
+    render(<PortfolioPage />);
+
+    await waitForInitialLoad();
+
+    const dashboard = screen.getByText('风险与暴露看板').closest('section');
+    expect(dashboard).not.toBeNull();
+    const dashboardScope = within(dashboard as HTMLElement);
+    expect(dashboardScope.getByText('US')).toBeInTheDocument();
+    expect(dashboardScope.getAllByText('CNY 700.00').length).toBeGreaterThan(0);
+    expect(dashboardScope.queryByText('CNY 100.00')).not.toBeInTheDocument();
+    expect(dashboardScope.getAllByText('100.00%').length).toBeGreaterThan(0);
+  });
+
+  it('converts mixed CNY and USD accounts using per-account aggregate market values', async () => {
+    getSnapshot.mockResolvedValueOnce({
+      asOf: '2026-03-19',
+      costMethod: 'fifo' as const,
+      currency: 'CNY',
+      accountCount: 2,
+      totalCash: 0,
+      totalMarketValue: 770,
+      totalEquity: 770,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      feeTotal: 0,
+      taxTotal: 0,
+      fxStale: false,
+      dataQuality: 'ok',
+      limitations: [],
+      accounts: [
+        {
+          accountId: 1,
+          accountName: 'CNY Account',
+          ownerId: null,
+          broker: 'Demo',
+          market: 'cn',
+          baseCurrency: 'CNY',
+          asOf: '2026-03-19',
+          costMethod: 'fifo' as const,
+          totalCash: 0,
+          totalMarketValue: 70,
+          totalEquity: 70,
+          realizedPnl: 0,
+          unrealizedPnl: 0,
+          feeTotal: 0,
+          taxTotal: 0,
+          fxStale: false,
+          dataQuality: 'ok',
+          limitations: [],
+          positions: [
+            makePosition({
+              symbol: '600519',
+              market: 'cn',
+              currency: 'CNY',
+              valuationCurrency: 'CNY',
+              marketValueBase: 70,
+            }),
+          ],
+        },
+        {
+          accountId: 2,
+          accountName: 'USD Account',
+          ownerId: null,
+          broker: 'Demo',
+          market: 'us',
+          baseCurrency: 'USD',
+          asOf: '2026-03-19',
+          costMethod: 'fifo' as const,
+          totalCash: 0,
+          totalMarketValue: 100,
+          totalMarketValueAggregate: 700,
+          totalEquity: 100,
+          realizedPnl: 0,
+          unrealizedPnl: 0,
+          feeTotal: 0,
+          taxTotal: 0,
+          fxStale: false,
+          dataQuality: 'ok',
+          limitations: [],
+          positions: [
+            makePosition({
+              symbol: 'AAPL',
+              market: 'us',
+              currency: 'USD',
+              valuationCurrency: 'USD',
+              marketValueBase: 100,
+            }),
+          ],
+        },
+      ],
+    });
+
+    render(<PortfolioPage />);
+
+    await waitForInitialLoad();
+
+    const dashboard = screen.getByText('风险与暴露看板').closest('section');
+    expect(dashboard).not.toBeNull();
+    const dashboardScope = within(dashboard as HTMLElement);
+    for (const label of ['市场暴露', '币种暴露']) {
+      const exposure = dashboardScope.getByText(label).closest('div.rounded-xl');
+      const scope = within(exposure as HTMLElement);
+      expect(scope.getByText('CNY 70.00')).toBeInTheDocument();
+      expect(scope.getByText('CNY 700.00')).toBeInTheDocument();
+      expect(scope.getByText('9.09%')).toBeInTheDocument();
+      expect(scope.getByText('90.91%')).toBeInTheDocument();
+      expect(scope.queryByText('CNY 100.00')).not.toBeInTheDocument();
+    }
+    expect(dashboardScope.queryByText('暴露不可用')).not.toBeInTheDocument();
+  });
+
   it.each(['fresh', 'stale', 'missing', 'zero-value-account'] as const)('handles three account valuation currencies with %s conversion evidence', async (evidence) => {
     const snapshot = makeSnapshot({ fxStale: false });
     const specs = [
