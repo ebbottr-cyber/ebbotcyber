@@ -1,0 +1,58 @@
+name: EBBot equity session gap and provider identity (offline)
+on:
+  push:
+    branches:
+      - audit/ebbot-equity-provider-session-gaps-20261121
+  pull_request:
+    paths:
+      - 'scripts/audit_ebbot_equity_session_gaps.py'
+      - 'tests/test_ebbot_equity_session_gaps.py'
+      - 'docs/EBBOT_EQUITY_PROVIDER_SESSION_GAPS_TR.md'
+      - '.github/workflows/ebbot-equity-session-gaps.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-session-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check Python syntax
+        run: python -m compileall -q scripts/audit_ebbot_equity_session_gaps.py tests/test_ebbot_equity_session_gaps.py
+      - name: Deterministic provider identity and explicit calendar regression
+        run: python -m unittest discover -s tests -p 'test_ebbot_equity_session_gaps.py' -v
+      - name: Previous four-market evidence regression
+        run: |
+          python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
+          python -m unittest discover -s tests -p 'test_equity_data_coverage_reader.py' -v
+      - name: Offline snapshot and no-invented-holidays gate
+        run: |
+          python -m scripts.audit_ebbot_equity_session_gaps > "$RUNNER_TEMP/session-gaps.json"
+          python - "$RUNNER_TEMP/session-gaps.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert report['status'] == 'BLOCKED_REQUIRES_INDEPENDENT_MARKET_DATA_VALIDATION'
+          assert report['markets_without_calendar'] == ['tr', 'us', 'de', 'hk']
+          assert report['markets']['us']['potential_missing_symbol_session_slots'] is None
+          assert report['markets']['de']['candidate_symbols'] == 1750
+          assert report['licensed_ohlcv_verified'] is False
+          assert report['provider_symbol_mapping_independently_verified'] is False
+          assert report['network_requests'] == report['orders'] == 0
+          assert report['paper_trading_enabled'] is False
+          assert report['live_trading_enabled'] is False
+          print('Explicit calendar required; default missing-session count stays unknown.')
+          PY
+      - name: Upload aggregate only (no individual OHLCV, symbols or operator paths)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-equity-calendar-gap-summary
+          path: ${{ runner.temp }}/session-gaps.json
+          retention-days: 7
