@@ -72,8 +72,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Offline WAL-consistent SQLite snapshot tests failed" }
           python -m unittest discover -s tests -p test_ebbot_sqlite_recovery_roundtrip.py -v
           if ($LASTEXITCODE -ne 0) { throw "Synthetic real-SQLite WAL rollback and child-process crash tests failed" }
-          python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
-          if ($LASTEXITCODE -ne 0) { throw "CI-only packaged health route and no-trading contracts failed" }
       - name: Regression - signing collector ignores stale native exit code (synthetic exe only)
         shell: pwsh
         run: |
@@ -130,6 +128,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Install desktop contract dependencies failed" }
           python -m pytest -q tests/test_desktop_installer_config.py tests/test_desktop_packaging_assets.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
+          # These FastAPI/TestClient tests require the dependencies installed above.
+          python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
+          if ($LASTEXITCODE -ne 0) { throw "CI-only packaged health route and no-trading contracts failed" }
 
   real-windows-nsis-package:
     name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
