@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/audit_ebbot_main_windows_recheck.py \
+          python scripts/audit_ebbot_current_main_zero_skip.py \
             --main-ref refs/remotes/origin/main --main-sha "$MAIN_SHA" \
             --candidate-ref refs/remotes/origin/ebbot-reviewed-candidate --candidate-sha "$CANDIDATE_SHA" \
             --report "$RUNNER_TEMP/ebbot-current-main-zero-skip-merge-preview.json"
