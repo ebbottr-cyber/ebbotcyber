@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { randomBytes } = require('crypto');
