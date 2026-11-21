@@ -1,9 +1,23 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../../utils/uiLanguage';
 import { analysisApi } from '../../../api/analysis';
 import { historyApi } from '../../../api/history';
 import type { RunFlowSnapshot } from '../../../types/runFlow';
 import { RunFlowPanel } from '../RunFlowPanel';
+
+// Legacy Chinese text assertions are scoped to this test, not the Turkish production default.
+function render(ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) {
+  if (!window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)) {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  }
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
+afterEach(() => {
+  window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+});
 
 vi.mock('../../../api/analysis', () => ({
   analysisApi: {
