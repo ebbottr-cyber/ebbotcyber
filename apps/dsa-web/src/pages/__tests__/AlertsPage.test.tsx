@@ -1,7 +1,7 @@
 import { act, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
-import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import AlertsPage from '../AlertsPage';
 
 // Legacy Chinese text assertions are scoped to this test, not the Turkish production default.

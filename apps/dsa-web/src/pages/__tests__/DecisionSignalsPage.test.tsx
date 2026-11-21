@@ -790,6 +790,9 @@ describe('DecisionSignalsPage', () => {
     renderPage();
     await screen.findByText('贵州茅台');
     submitCurrentStock('600519');
+    // The refreshed signal must only be persisted after the active timeline is loaded.
+    // Otherwise the component legitimately has no applied timeline filter to refresh.
+    await screen.findByTestId('timeline-click-7');
     await persistReassessFromFirstSignal();
 
     expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();

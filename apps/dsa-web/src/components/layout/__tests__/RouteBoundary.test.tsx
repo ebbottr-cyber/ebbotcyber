@@ -3,8 +3,8 @@ import { lazy } from 'react';
 import type React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UiLanguageProvider } from '../../../../contexts/UiLanguageContext';
-import { UI_LANGUAGE_STORAGE_KEY } from '../../../../utils/uiLanguage';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { RouteOutletBoundary } from '../RouteBoundary';
 import { Shell } from '../Shell';
 

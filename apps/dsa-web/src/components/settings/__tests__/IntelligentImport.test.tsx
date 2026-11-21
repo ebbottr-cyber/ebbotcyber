@@ -1,7 +1,7 @@
 import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UiLanguageProvider } from '../../../../contexts/UiLanguageContext';
-import { UI_LANGUAGE_STORAGE_KEY } from '../../../../utils/uiLanguage';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { IntelligentImport } from '../IntelligentImport';
 import { SystemConfigConflictError } from '../../../api/systemConfig';
 

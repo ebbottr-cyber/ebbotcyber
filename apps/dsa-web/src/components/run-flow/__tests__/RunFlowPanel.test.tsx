@@ -1,7 +1,7 @@
 import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UiLanguageProvider } from '../../../../contexts/UiLanguageContext';
-import { UI_LANGUAGE_STORAGE_KEY } from '../../../../utils/uiLanguage';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { analysisApi } from '../../../api/analysis';
 import { historyApi } from '../../../api/history';
 import type { RunFlowSnapshot } from '../../../types/runFlow';

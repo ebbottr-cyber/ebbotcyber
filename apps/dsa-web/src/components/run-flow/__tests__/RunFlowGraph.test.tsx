@@ -1,7 +1,7 @@
 import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UiLanguageProvider } from '../../../../contexts/UiLanguageContext';
-import { UI_LANGUAGE_STORAGE_KEY } from '../../../../utils/uiLanguage';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import type { RunFlowEdge, RunFlowLane, RunFlowNode } from '../../../types/runFlow';
 import { RunFlowGraph } from '../RunFlowGraph';
 
