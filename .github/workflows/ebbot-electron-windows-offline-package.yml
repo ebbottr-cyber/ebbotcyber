@@ -7,6 +7,7 @@ on:
       - test/ebbot-packaged-health-loopback-20261121
       - test/ebbot-electron-ui-loopback-20261121
       - test/ebbot-react-tr-windows-offline-20261121
+      - test/ebbot-react-secondary-pages-offline-20261121
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - 'api/app.py'
       - 'tests/test_ebbot_packaged_react_probe.py'
       - 'apps/dsa-web/src/i18n/uiText.ts'
+      - 'apps/dsa-web/src/pages/StockScreeningPage.tsx'
       - '.github/workflows/ebbot-electron-windows-offline-package.yml'
 
 permissions:
@@ -170,5 +172,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity confirmed; updater hard-disabled. Code signing and real-device install remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Packaged Turkish React home shell, Usage/Data routes and local backend checked in CI-only read-only fixture; real API data/analysis, user install/uninstall and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Packaged Turkish React Usage, Data, Portfolio, AI Signals, Screening and Settings routes checked in CI-only read-only fixture; real API data/analysis, user install/uninstall and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY

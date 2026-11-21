@@ -111,7 +111,7 @@ def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path, rea
                 + "): " + (stderr or stdout)[-1500:]
             )
         if react_probe:
-            print("PASS: packaged Turkish React shell and usage/data navigation verified in Electron (CI-only).")
+            print("PASS: packaged Turkish React Usage/Data, Portfolio, AI Signals, Screening and Settings navigation verified in Electron (CI-only, read-only).")
         else:
             print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
     finally:

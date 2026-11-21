@@ -39,7 +39,10 @@ class FrozenReactProbeTests(unittest.TestCase):
             ):
                 app = create_app(static_dir=static_dir)
                 with TestClient(app) as client:
-                    for path in ("/", "/usage", "/data"):
+                    for path in (
+                        "/", "/usage", "/data",
+                        "/portfolio", "/decision-signals", "/screening", "/settings",
+                    ):
                         result = client.get(path)
                         self.assertEqual(result.status_code, 200, path)
                         self.assertIn('lang="tr"', result.text)
@@ -65,7 +68,7 @@ class FrozenReactProbeTests(unittest.TestCase):
                         "/api/v1/portfolio/accounts",
                         "/api/v1/screening/run",
                         "/api/v1/health",
-                        "/docs", "/openapi.json", "/settings",
+                        "/docs", "/openapi.json",
                         "/assets/missing.js",
                     ):
                         self.assertEqual(client.get(path).status_code, 404, path)
@@ -74,8 +77,21 @@ class FrozenReactProbeTests(unittest.TestCase):
                         "/api/v1/portfolio/accounts",
                         "/api/v1/auth/login",
                         "/api/v1/auth/status",
+                        "/api/v1/screening/run",
+                        "/api/v1/settings/config",
+                        "/portfolio",
+                        "/decision-signals",
+                        "/screening",
+                        "/settings",
                     ):
-                        self.assertEqual(client.post(path).status_code, 405 if path == "/api/v1/auth/status" else 404, path)
+                        self.assertEqual(
+                            client.post(path).status_code,
+                            405 if path in (
+                                "/api/v1/auth/status",
+                                "/portfolio", "/decision-signals", "/screening", "/settings",
+                            ) else 404,
+                            path,
+                        )
                     self.assertIsNone(
                         getattr(app.state, "runtime_scheduler_service", None)
                     )
