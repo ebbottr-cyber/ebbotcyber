@@ -842,7 +842,7 @@ const MiniSparkline: React.FC<{ score?: number | null; selected?: boolean }> = (
 
 const StockScreeningPage: React.FC = () => {
   const navigate = useNavigate();
-  const { language } = useUiLanguage();
+  const { language, t } = useUiLanguage();
   const L = (chinese: string) => screeningUiText(chinese, language);
   const [restoredTask] = useState<PersistedScreenTask | null>(() => readPersistedScreenTask());
   const [statusState, setStatusState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -908,12 +908,12 @@ const StockScreeningPage: React.FC = () => {
     : screenMessages;
   const isScreeningEnabled = statusState === 'ready' && enabled && available;
   const statusText = statusState === 'loading'
-    ? '正在检查选股状态'
+    ? t('screening.statusChecking')
     : statusState === 'error'
-      ? '选股状态未知'
+      ? t('screening.statusUnknown')
       : !enabled
-        ? '选股未开启'
-        : available ? '选股已开启' : '选股功能不可用';
+        ? t('screening.statusDisabled')
+        : available ? t('screening.statusEnabled') : t('screening.statusUnavailable');
 
   const applyScreenResult = useCallback((result: ScreeningScreenResponse) => {
     const nextCandidates = result.candidates || [];
@@ -1467,23 +1467,23 @@ const StockScreeningPage: React.FC = () => {
           <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-cyan text-cyan shadow-[0_0_24px_hsl(var(--primary)/0.18)]">
             <PlusCircle className="h-4 w-4" />
           </span>
-          <h1 className="text-2xl font-bold tracking-normal text-foreground">{L("选股")}</h1>
+          <h1 className="text-2xl font-bold tracking-normal text-foreground">{t('layout.nav.screening')}</h1>
         </div>
 
         <div className="inline-flex w-fit items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-4 py-2 text-sm shadow-soft-card">
           <span className={`h-2.5 w-2.5 rounded-full ${isScreeningEnabled ? 'bg-success' : 'bg-warning'}`} />
-          <span className="font-medium text-secondary-text">{L(statusText)}</span>
+          <span className="font-medium text-secondary-text">{statusText}</span>
         </div>
       </div>
 
       {statusState === 'loading' ? (
-        <InlineAlert variant="info" message={L("正在读取选股配置，请稍候。")} />
+        <InlineAlert variant="info" message={t('screening.configLoading')} />
       ) : null}
 
       {statusState === 'error' ? (
         <InlineAlert
           variant="warning"
-          title={L("选股状态加载失败")}
+          title={t('screening.statusLoadFailed')}
           message={statusError}
           action={
             <Button size="sm" onClick={() => {
@@ -1491,7 +1491,7 @@ const StockScreeningPage: React.FC = () => {
               setStatusError('');
               setStatusAttempt((attempt) => attempt + 1);
             }}>
-              {L("重试")}
+              {t('screening.retry')}
             </Button>
           }
         />
@@ -1500,11 +1500,11 @@ const StockScreeningPage: React.FC = () => {
       {statusState === 'ready' && !enabled ? (
         <InlineAlert
           variant="info"
-          title={L("选股未开启")}
-          message={L("开启后即可运行选股策略。")}
+          title={t('screening.statusDisabled')}
+          message={t('screening.enableDescription')}
           action={
-            <Button size="sm" isLoading={enabling} loadingText={L("开启中...")} onClick={() => void handleEnable()}>
-              {L("开启选股")}
+            <Button size="sm" isLoading={enabling} loadingText={t('screening.enabling')} onClick={() => void handleEnable()}>
+              {t('screening.enable')}
             </Button>
           }
         />
@@ -1513,12 +1513,12 @@ const StockScreeningPage: React.FC = () => {
       {statusState === 'ready' && enabled && !available ? (
         <InlineAlert
           variant="warning"
-          title={L("选股功能不可用")}
-          message={L("请检查后端日志、策略文件和基础数据依赖后重启服务。")}
+          title={t('screening.statusUnavailable')}
+          message={t('screening.unavailableDescription')}
         />
       ) : null}
 
-      {error ? <InlineAlert variant="danger" title={L("调用失败")} message={error} /> : null}
+      {error ? <InlineAlert variant="danger" title={t('screening.callFailed')} message={error} /> : null}
 
       <section className="rounded-2xl border border-border/80 bg-card/95 p-4 shadow-soft-card">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

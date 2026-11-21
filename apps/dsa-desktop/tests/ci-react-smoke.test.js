@@ -35,6 +35,7 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
   );
   assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
   assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
+  assert.match(probe, /PASS: Usage period and AI signal dropdown filters updated/);
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
@@ -43,6 +44,9 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   }
   assert.equal(isAllowedCiUiRequest('https://api.github.com/', 54321), false);
   assert.equal(isAllowedCiUiRequest('http://localhost:54321/', 54321), false);
+  assert.equal(isAllowedCiUiRequest('http://127.0.0.1:54321/api/v1/analysis/analyze', 54321, 'POST'), false);
+  assert.equal(isAllowedCiUiRequest('http://127.0.0.1:54321/api/v1/screening/run', 54321, 'PUT'), false);
+  assert.equal(isAllowedCiUiRequest('http://127.0.0.1:54321/api/v1/config', 54321, 'DELETE'), false);
 
   const smoke = fs.readFileSync(path.join(__dirname, '..', 'ci-ui-smoke.js'), 'utf8');
   assert.match(smoke, /if \(reactProbe\)/);
@@ -55,10 +59,9 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
     path.join(__dirname, '..', '..', 'dsa-web', 'src', 'components', 'layout', 'SidebarNav.tsx'),
     'utf8',
   );
-  // Equivalent Unicode escape in the TS source must not weaken visible-text assertions.
   assert.ok(
     sidebar.includes('Piyasa Özeti') || sidebar.includes(String.raw`Piyasa \u00d6zeti`),
-    'real Turkish Overview nav label missing from SidebarNav source',
+    'expected Turkish Overview link in actual React SidebarNav',
   );
   assert.match(sidebar, /Hisse Analizi/);
   assert.match(smoke, /Kullanım/);
@@ -73,6 +76,11 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
     assert.ok(smoke.includes("heading: '" + heading + "'"), heading);
   }
   assert.match(smoke, /Never click trade, analysis, screen-run/);
+  assert.match(smoke, /usage-period-all/);
+  assert.match(smoke, /aria-pressed/);
+  assert.match(smoke, /decision-signals-action-filter/);
+  assert.match(smoke, /decision-signals-status-filter/);
+  assert.match(smoke, /readonlyFiltersChanged/);
 
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
 });
