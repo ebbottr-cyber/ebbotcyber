@@ -25,3 +25,9 @@
 **Her koşulda DRAFT / NO MAIN MERGE / NO RELEASE / NO INSTALLER RUN / NO SCHEDULER / NO AUTO TRADING / NO PAPER/LIVE BROKER ORDER.**
 
 Bu belge CI sonucu değildir. Son HEAD CI sonuçları ayrıca kanıtlanıp kaydedilmelidir.
+
+## 21 Kasım — Gerçek birleşik React JUnit kabul farkı (PR #205)
+
+Kaynak [PR #188 tam yeşil JUnit #44902552528](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44902552528), artifact 14706313441, 1.530 PASS/0 fail/0 skip. Birleşik [PR205 düzeltilmiş tam JUnit #44910934656](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44910934656), artifact 14710305317, **1.542 PASS/0 fail/0 skip**. Eski kimliklerden çıkarılan **0**, eklenen **12** (`BistIdentityPanel` 7, `EquityCoveragePanel` 5). Yeni SHA-256 `2b2fc969f37bfbd85bf91aa681c66dc3db5577b398a8f560bb7d76319ffd4abb`.
+
+Aynı koşudaki React *job* önceki 1.530 SHA kilidiyle **beklenen şekilde FAIL** verdi; çalışma testlerinin başarısız olduğu anlamına gelmez. Yeni dosya kimliği kontrolü, bağımsız delta incelemesi sonrası `.github/ebbot-react-test-baseline.sha256` ve minimum test sayısı 1.542 olarak önerildi; ilk değişiklik commitindeki başarılı required-gate raporu yeni HEAD'in onayı sayılmaz. Tam backend ve Windows paketleme sonuçları ayrıca değerlendirilmelidir.

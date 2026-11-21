@@ -19,12 +19,14 @@ class CoverageWindowsSourceContractTests(unittest.TestCase):
         imports = script.split("$hiddenImports = @(", 1)[1].split(")", 1)[0]
         self.assertIn("'api.v1.endpoints.data'", imports)
         self.assertIn("'src.services.equity_data_coverage_reader'", imports)
+        self.assertIn("'src.services.bist_identity_report_reader'", imports)
         self.assertIn("--hidden-import=", script)
 
     def test_frozen_import_probe_covers_reader_without_loading_data(self):
         script = BUILD.read_text(encoding="utf-8")
         probes = script.split("Verifying packaged runtime imports...", 1)[1]
         self.assertIn("'src.services.equity_data_coverage_reader'", probes)
+        self.assertIn("'src.services.bist_identity_report_reader'", probes)
         self.assertIn("DSA_PACKAGED_IMPORT_PROBE", probes)
 
     def test_ci_only_frozen_health_probe_never_mounts_real_data_router(self):
@@ -36,9 +38,11 @@ class CoverageWindowsSourceContractTests(unittest.TestCase):
             app_source.index("if _is_ebbot_packaged_health_probe():", app_source.index("def create_app")),
             app_source.index('app.include_router(api_v1_router, prefix="/api/v1")'),
         )
-        self.assertIn('"/api/v1/data/equity-coverage"', (
-            ROOT / "tests" / "test_ebbot_packaged_react_probe.py"
-        ).read_text(encoding="utf-8"))
+        probe = (ROOT / "tests" / "test_ebbot_packaged_react_probe.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"/api/v1/data/equity-coverage"', probe)
+        self.assertIn('"/api/v1/data/bist-identity"', probe)
 
     def test_metadata_endpoint_has_explicit_no_store_and_auth_off_block(self):
         source = ENDPOINT.read_text(encoding="utf-8")
