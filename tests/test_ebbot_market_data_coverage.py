@@ -192,7 +192,9 @@ class CoverageAuditTests(unittest.TestCase):
             "de,SAP.DE,deutsche_boerse_xetra_t7,stock,2026-11-19\n",
             name="xetra.csv",
         )
-        digest = hashlib.sha256(xetra.read_bytes()).hexdigest()
+        # Audit hashes normalized UTF-8 text, not raw platform newline bytes.
+        # Windows writes CRLF in text mode; read_text canonicalizes to LF.
+        digest = hashlib.sha256(xetra.read_text(encoding="utf-8-sig").encode("utf-8")).hexdigest()
         with patch("scripts.audit_ebbot_market_data_coverage.DEFAULT_INDEX", self.idx), \
              patch("scripts.audit_ebbot_market_data_coverage.DEFAULT_XETRA", xetra), \
              patch("scripts.audit_ebbot_market_data_coverage.XETRA_SHA256", digest):
