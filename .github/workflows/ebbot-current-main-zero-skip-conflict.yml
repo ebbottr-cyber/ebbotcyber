@@ -152,13 +152,15 @@ jobs:
             apps/dsa-web/src/pages/__tests__/PortfolioPage.test.tsx
             apps/dsa-web/src/pages/__tests__/StockScreeningPage.test.tsx
           )
-          if git -C "$STAGE" merge --no-commit --no-ff "$ACCEPTANCE_SHA" > "$RUNNER_TEMP/pr180-pr188-git-merge.log" 2>&1; then
+          if git -C "$STAGE" -c user.name="EBBot CI Merge Probe" -c user.email="ebbot-ci@example.invalid" merge --no-commit --no-ff "$ACCEPTANCE_SHA" > "$RUNNER_TEMP/pr180-pr188-git-merge.log" 2>&1; then
             echo "::error::Unexpected clean merge. Re-evaluate pinned conflict policy."
             exit 1
           fi
           mapfile -t actual < <(git -C "$STAGE" diff --name-only --diff-filter=U)
           if [[ "${#actual[@]}" -ne "${#expected[@]}" ]] || [[ "$(printf '%s\n' "${actual[@]}")" != "$(printf '%s\n' "${expected[@]}")" ]]; then
             printf 'Unexpected Git conflicts (fail-closed):\n%s\n' "${actual[@]}"
+            cat "$RUNNER_TEMP/pr180-pr188-git-merge.log"
+            git -C "$STAGE" status --short
             exit 1
           fi
           echo "Exactly nine reviewed test-only conflicts. This is NOT a review-approved resolution."
