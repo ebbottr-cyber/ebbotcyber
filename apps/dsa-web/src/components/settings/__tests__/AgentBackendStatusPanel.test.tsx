@@ -53,8 +53,11 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof AgentBackend
     ...overrides,
   };
   localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  const result = render(<UiLanguageProvider><AgentBackendStatusPanel {...props} /></UiLanguageProvider>);
   return {
-    ...render(<UiLanguageProvider><AgentBackendStatusPanel {...props} /></UiLanguageProvider>),
+    ...result,
+    rerender: (nextUi: React.ReactElement) =>
+      result.rerender(<UiLanguageProvider>{nextUi}</UiLanguageProvider>),
     props,
   };
 }
