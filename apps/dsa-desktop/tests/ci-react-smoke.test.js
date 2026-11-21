@@ -44,7 +44,12 @@ test('four new page headings match real packaged Turkish React sources', () => {
   assert.ok(tr.includes("'decisionSignals.title': \"AI Önerileri\""));
   assert.ok(tr.includes("'settings.pageTitle': \"Ayarlar\""));
   const portfolio = fs.readFileSync(path.join(web, 'locales', 'featureText.ts'), 'utf8');
-  assert.ok(portfolio.includes("title: 'Portföy Yönetimi'"));
+  // The Turkish locale may use either JS quote style; assert the actual
+  // heading value, not the punctuation used to encode that same string.
+  assert.ok(
+    portfolio.includes('title: "Portföy Yönetimi"')
+    || portfolio.includes("title: 'Portföy Yönetimi'"),
+  );
   const screening = fs.readFileSync(path.join(web, 'pages', 'StockScreeningPage.tsx'), 'utf8');
   const screeningTranslations = fs.readFileSync(path.join(web, 'utils', 'screeningUiText.ts'), 'utf8');
   assert.ok(screening.includes('>{L("选股")}</h1>'));
