@@ -2121,6 +2121,7 @@ if (ciUiSmokeRequested) {
         session,
         rootDir: __dirname,
         port: ciProbe.port,
+        reactProbe: process.env.EBBOT_ELECTRON_REACT_SMOKE === '1',
       });
       app.exit(0);
     })
