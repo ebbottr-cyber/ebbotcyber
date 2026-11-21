@@ -239,6 +239,26 @@ class AuthSetPasswordTestCase(unittest.TestCase):
             auth._auth_enabled = None
             self.assertTrue(auth._is_auth_enabled_from_env())
 
+    def test_process_env_enables_auth_when_env_file_missing(self) -> None:
+        missing_env = self.data_dir / "no-auth-file.env"
+        with patch.dict(os.environ, {"ENV_FILE": str(missing_env), "ADMIN_AUTH_ENABLED": "true"}):
+            with patch.object(auth, "_ensure_env_loaded"):
+                self.assertTrue(auth._is_auth_enabled_from_env())
+
+    def test_process_env_enables_auth_when_file_has_no_toggle(self) -> None:
+        custom_env = self.data_dir / "no-auth-setting.env"
+        custom_env.write_text("STOCK_LIST=AAPL\n", encoding="utf-8")
+        with patch.dict(os.environ, {"ENV_FILE": str(custom_env), "ADMIN_AUTH_ENABLED": "yes"}):
+            with patch.object(auth, "_ensure_env_loaded"):
+                self.assertTrue(auth._is_auth_enabled_from_env())
+
+    def test_explicit_file_auth_false_retains_priority(self) -> None:
+        custom_env = self.data_dir / "explicit-disabled.env"
+        custom_env.write_text("ADMIN_AUTH_ENABLED=false\n", encoding="utf-8")
+        with patch.dict(os.environ, {"ENV_FILE": str(custom_env), "ADMIN_AUTH_ENABLED": "true"}):
+            with patch.object(auth, "_ensure_env_loaded"):
+                self.assertFalse(auth._is_auth_enabled_from_env())
+
     def test_refresh_auth_state_clears_session_secret_cache(self) -> None:
         def run():
             first_secret = auth.create_session()
@@ -265,6 +285,32 @@ class AuthSetPasswordTestCase(unittest.TestCase):
             self.assertIsNone(err)
             self.assertFalse(auth.verify_password("oldpass123"))
             self.assertTrue(auth.verify_password("newpass456"))
+
+        self._run_with_patch(run)
+
+    def test_change_password_rotation_failure_keeps_old_credential(self) -> None:
+        def run():
+            self.assertIsNone(auth.set_initial_password("oldpass123"))
+            old_session = auth.create_session()
+            self.assertTrue(auth.verify_session(old_session))
+            with patch.object(auth, "rotate_session_secret", return_value=False):
+                err = auth.change_password("oldpass123", "newpass456")
+            self.assertEqual(err, auth.SESSION_INVALIDATION_FAILED)
+            self.assertTrue(auth.verify_password("oldpass123"))
+            self.assertFalse(auth.verify_password("newpass456"))
+            self.assertTrue(auth.verify_session(old_session))
+
+        self._run_with_patch(run)
+
+    def test_change_password_invalid_input_does_not_revoke_session(self) -> None:
+        def run():
+            self.assertIsNone(auth.set_initial_password("oldpass123"))
+            session = auth.create_session()
+            with patch.object(auth, "rotate_session_secret") as rotate:
+                self.assertIsNotNone(auth.change_password("wrongpass", "newpass456"))
+                self.assertIsNotNone(auth.change_password("oldpass123", "short"))
+                rotate.assert_not_called()
+            self.assertTrue(auth.verify_session(session))
 
         self._run_with_patch(run)
 

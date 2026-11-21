@@ -41,6 +41,9 @@ const Probe = () => {
       <button type="button" onClick={() => void auth.logout()}>
         trigger-logout
       </button>
+      <button type="button" onClick={() => void auth.changePassword('oldpass6', 'newpass6', 'newpass6')}>
+        trigger-password-change
+      </button>
     </div>
   );
 };
@@ -77,6 +80,37 @@ describe('AuthContext', () => {
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('logged-in'));
     expect(screen.getByTestId('password-set')).toHaveTextContent('set');
+  });
+
+  it('refreshes auth state and clears private data after password change', async () => {
+    getStatus
+      .mockResolvedValueOnce({
+        authEnabled: true,
+        loggedIn: true,
+        passwordSet: true,
+        passwordChangeable: true,
+        setupState: 'enabled',
+      })
+      .mockResolvedValueOnce({
+        authEnabled: true,
+        loggedIn: false,
+        passwordSet: true,
+        passwordChangeable: true,
+        setupState: 'enabled',
+      });
+    changePassword.mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await screen.findByTestId('status');
+    expect(screen.getByTestId('status')).toHaveTextContent('logged-in');
+    fireEvent.click(screen.getByRole('button', { name: 'trigger-password-change' }));
+    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('logged-out'));
+    expect(resetDashboardState).toHaveBeenCalled();
   });
 
   it('refreshes auth state after logout', async () => {

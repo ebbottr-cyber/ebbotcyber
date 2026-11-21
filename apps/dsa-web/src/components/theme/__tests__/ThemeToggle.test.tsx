@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen } from '@testing-library/react';
+import { beforeEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider } from '../ThemeProvider';
 import { ThemeToggle } from '../ThemeToggle';
 
@@ -18,6 +19,9 @@ beforeAll(() => {
     })),
   });
 });
+
+// Historical Chinese-label expectations must opt in; production Turkish stays default.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('ThemeToggle', () => {
   it('opens the theme menu and shows all theme modes', async () => {
