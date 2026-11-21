@@ -19,6 +19,7 @@ on:
       - security/ebbot-sqlite-dangling-sidecar-no-clobber-20261121
       - integration/ebbot-electron-ui-sqlite-guard-20261121
       - integration/ebbot-main-electron-ui-sqlite-20261121
+      - test/ebbot-nsis-offline-upgrade-preservation-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -34,6 +35,7 @@ on:
       - integration/ebbot-main-desktop-stack-pr139-20261121
       - integration/ebbot-latest-main-health-snapshot-20261121
       - security/ebbot-sqlite-dangling-sidecar-no-clobber-20261121
+      - integration/ebbot-main-electron-ui-sqlite-20261121
       - main
 
 permissions:
@@ -78,6 +80,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Offline WAL-consistent SQLite snapshot tests failed" }
           python -m unittest discover -s tests -p test_ebbot_sqlite_recovery_roundtrip.py -v
           if ($LASTEXITCODE -ne 0) { throw "Synthetic real-SQLite WAL rollback and child-process crash tests failed" }
+          python -m unittest discover -s tests -p test_ebbot_nsis_upgrade_contract.py -v
+          if ($LASTEXITCODE -ne 0) { throw "No-install NSIS upgrade data preservation contract tests failed" }
+          python scripts/audit_ebbot_nsis_upgrade_contract.py --json
+          if ($LASTEXITCODE -ne 0) { throw "NSIS upgrade safety contract source audit failed" }
       - name: Regression - signing collector ignores stale native exit code (synthetic exe only)
         shell: pwsh
         run: |
