@@ -35,6 +35,7 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
   );
   assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
   assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
+  assert.match(probe, /PASS: Usage period and AI signal dropdown filters updated/);
 });
 
 test('four new page headings match real packaged Turkish React sources', () => {
@@ -63,6 +64,11 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   }
   assert.equal(isAllowedCiUiRequest('https://api.github.com/', 54321), false);
   assert.equal(isAllowedCiUiRequest('http://localhost:54321/', 54321), false);
+  assert.equal(isAllowedCiUiRequest('http://127.0.0.1:54321/usage', 54321, 'HEAD'), true);
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']) {
+    assert.equal(isAllowedCiUiRequest('http://127.0.0.1:54321/api/v1/analysis/analyze', 54321, method), false, method);
+    assert.equal(isAllowedCiUiRequest('file:///tmp/anything', 54321, method), false, method);
+  }
 
   const smoke = fs.readFileSync(path.join(__dirname, '..', 'ci-ui-smoke.js'), 'utf8');
   assert.match(smoke, /if \(reactProbe\)/);
@@ -97,5 +103,26 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   }
   assert.match(smoke, /never click trading, screening, analysis, save/);
   assert.match(smoke, /navigation.checkedPages.length !== 4/);
+  assert.match(smoke, /usage-period-all/);
+  assert.match(smoke, /usage-period-month/);
+  assert.match(smoke, /aria-pressed/);
+  assert.match(smoke, /usage period state/);
+  assert.match(smoke, /navigation.usage.periodChanged !== true/);
+  assert.match(smoke, /decision-signals-action-filter/);
+  assert.match(smoke, /decision-signals-status-filter/);
+  assert.match(smoke, /readonlyFiltersChanged/);
+  assert.match(smoke, /index === 1 && page.readonlyFiltersChanged !== true/);
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
+});
+
+test('usage period and AI filter selectors exist on real React components', () => {
+  const web = path.join(__dirname, '..', '..', 'dsa-web', 'src', 'pages');
+  const usage = fs.readFileSync(path.join(web, 'TokenUsagePage.tsx'), 'utf8');
+  const signals = fs.readFileSync(path.join(web, 'DecisionSignalsPage.tsx'), 'utf8');
+  assert.match(usage, /data-testid=\{\x60usage-period-\$\{option\}\x60\}/);
+  assert.match(usage, /aria-pressed=\{period === option\}/);
+  assert.match(signals, /data-testid="decision-signals-action-filter"/);
+  assert.match(signals, /data-testid="decision-signals-status-filter"/);
+  assert.match(signals, /setFilters\(\(current\) => \(\{ \.\.\.current, action:/);
+  assert.match(signals, /setFilters\(\(current\) => \(\{ \.\.\.current, status:/);
 });
