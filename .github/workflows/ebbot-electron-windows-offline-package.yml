@@ -20,6 +20,7 @@ on:
       - integration/ebbot-electron-ui-sqlite-guard-20261121
       - integration/ebbot-main-electron-ui-sqlite-20261121
       - test/ebbot-nsis-offline-upgrade-preservation-20261121
+      - integration/ebbot-react-tr-nsis-safe-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -36,6 +37,7 @@ on:
       - integration/ebbot-latest-main-health-snapshot-20261121
       - security/ebbot-sqlite-dangling-sidecar-no-clobber-20261121
       - integration/ebbot-main-electron-ui-sqlite-20261121
+      - test/ebbot-nsis-offline-upgrade-preservation-20261121
       - main
 
 permissions:
@@ -143,6 +145,8 @@ jobs:
           # These FastAPI/TestClient tests require the dependencies installed above.
           python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
           if ($LASTEXITCODE -ne 0) { throw "CI-only packaged health route and no-trading contracts failed" }
+          python -m unittest discover -s tests -p test_ebbot_packaged_react_probe.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Read-only packaged React fake-auth and static API safety contracts failed" }
 
   real-windows-nsis-package:
     name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
@@ -219,6 +223,11 @@ jobs:
         run: |
           python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --electron-exe apps/dsa-desktop/dist/win-unpacked/EBBot.exe --timeout-seconds 180
           if ($LASTEXITCODE -ne 0) { throw "Restricted packaged Electron UI smoke failed" }
+      - name: Verify packaged Turkish React shell and safe navigation in Electron (CI-only)
+        shell: pwsh
+        run: |
+          python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --electron-exe apps/dsa-desktop/dist/win-unpacked/EBBot.exe --react-ui --timeout-seconds 180
+          if ($LASTEXITCODE -ne 0) { throw "Restricted Turkish React Electron smoke failed" }
       - name: Inspect local Authenticode signatures (unsigned stays BLOCKED)
         shell: pwsh
         run: |
@@ -253,5 +262,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity and repository source isolated. Auto-updater is OFF; code signing, SmartScreen and device migration remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Restricted frozen backend and packaged Electron BrowserWindow splash/renderer loopback checked; FULL React dashboard startup, code signing, SmartScreen, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Restricted Turkish React CI-only shell/usage/data navigation and frozen backend loopback checked; real market API/data, user install/uninstall, signing, SmartScreen and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY
