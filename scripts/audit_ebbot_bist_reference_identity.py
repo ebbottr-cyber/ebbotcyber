@@ -20,7 +20,7 @@ from typing import Any
 from scripts.audit_ebbot_market_data_coverage import (
     AuditInputError, canonical, ohlcv_evidence, parse_day, rows_from_csv,
 )
-from scripts.audit_ebbot_equity_session_gaps import _mapping
+from scripts.audit_ebbot_equity_session_gaps import _mapping, _verify_bar_identity
 
 BIST_SYMBOL = re.compile(r"^[A-Z0-9]{3,8}\.IS$")
 ISIN_PATTERN = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
@@ -176,7 +176,9 @@ def reconcile_bist(
         [Path(provider_mapping)] if provider_mapping is not None else [],
         universe, as_of=today, max_age_days=max_source_age_days,
     )
-    bar_evidence = ohlcv_evidence([Path(bars)] if bars is not None else [], universe, today)
+    bar_files = [Path(bars)] if bars is not None else []
+    bar_evidence = ohlcv_evidence(bar_files, universe, today)
+    bar_identity = _verify_bar_identity(bar_files, mapping)
     active = {s for s, row in exchange_rows.items() if row["status"] == "active"}
     nonactive = {s for s, row in exchange_rows.items() if row["status"] != "active"}
     kap_symbols = set(kap_rows)
@@ -189,10 +191,12 @@ def reconcile_bist(
     provider_map_missing = provider_mapping is None
     price_input_missing = bars is None
     old_mapping = map_diag.get("stale_provider_mapping_rows", 0)
+    unresolved_input_identity = bar_identity["bar_rows_without_identity_evidence"]
     status = (
         "BLOCKED_STALE_OR_INCOMPLETE_BIST_REFERENCES"
         if old_kap or old_exchange or old_mapping or kap_only or exchange_only
         or active_unmapped or provider_map_missing or price_input_missing
+        or unresolved_input_identity or active_without_input_price
         else "REVIEW_ONLY_NEEDS_INDEPENDENT_BIST_CONFIRMATION"
     )
     return {
@@ -218,6 +222,7 @@ def reconcile_bist(
         "stale_provider_mapping_rows": old_mapping,
         "provider_mapping_file_supplied": not provider_map_missing,
         "ohlcv_file_supplied": not price_input_missing,
+        "ohlcv_bar_identity_diagnostics": bar_identity,
         "candidate_symbol_details": {
             "kap_only": kap_only,
             "exchange_only": exchange_only,
