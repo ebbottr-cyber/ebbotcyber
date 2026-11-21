@@ -21,6 +21,22 @@ XETRA_SOURCE_URL = (
 )
 _MNEMONIC = re.compile(r"^[A-Z0-9]{1,16}$")
 _ISIN = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
+
+
+def _isin_check_digit_valid(isin: str) -> bool:
+    """Verify the ISO 6166 modulus-10 check digit after A=10 ... Z=35 expansion."""
+    if not _ISIN.fullmatch(isin):
+        return False
+    expanded = "".join(str(ord(char) - 55) if "A" <= char <= "Z" else char for char in isin)
+    total = 0
+    for position, char in enumerate(reversed(expanded)):
+        digit = int(char)
+        if position % 2:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+    return total % 10 == 0
 _REQUIRED = {
     "Product Status", "Instrument Status", "ISIN",
     "Mnemonic", "MIC Code", "Instrument Type",
@@ -74,7 +90,7 @@ def xetra_equities_to_manifest(raw: str, *, today: date | None = None) -> tuple[
             continue
         name = row["Mnemonic"].strip().upper()
         isin = row["ISIN"].strip().upper()
-        if not _MNEMONIC.fullmatch(name) or not _ISIN.fullmatch(isin):
+        if not _MNEMONIC.fullmatch(name) or not _isin_check_digit_valid(isin):
             excluded_invalid += 1
             continue
         if name in matches:
