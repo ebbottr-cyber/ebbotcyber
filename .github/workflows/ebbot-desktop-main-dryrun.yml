@@ -34,7 +34,7 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       ELECTRON_BUILDER_PUBLISH: 'never'
       EBBOT_AUTOMATIC_UPDATES: 'false'
-      AUDIT_REPORT: ${{ runner.temp }}/ebbot-desktop-main-integration-audit.json
+      AUDIT_REPORT: ebbot-desktop-main-integration-audit.json
     steps:
       - name: Check out audit-only branch without merge
         uses: actions/checkout@v4
