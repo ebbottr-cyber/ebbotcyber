@@ -6,7 +6,7 @@
 
 - Yalnızca **Türkiye (TR), ABD (US), Almanya/Xetra (DE), Hong Kong (HK)** hisse adayları incelenir. Eski CN/JP/KR/BSE kayıtları silinmez, yalnız dört-piyasa toplamına katılmaz.
 - Ana kaynak `apps/dsa-web/public/stocks.index.json`; oradaki büyük harfli `US`/`HK` etiketleri doğru eşlenir. Aktif hisseler ve ETF türleri ayrı sayılır, endeksler ve pasif kayıtlar dışlanır. **100 sembol sınırı yoktur.**
-- 19 Kasım 2026 tarihli resmî Xetra kaynağından türetilmiş **1.750 aday** `data/market_snapshots/de/xetra-candidates.csv` üzerinden otomatik eklenir; dosyanın SHA-256 özeti sabittir. Bu kayıtların `.DE` fiyat sembolü, borsa üyeliğinin bugünkü hali veya Türkiye'de aracı kurum erişimi ayrıca doğrulanmamıştır.
+- 19 Kasım 2026 tarihli resmî Xetra kaynağından türetilmiş **1.750 aday** `data/market_snapshots/de/xetra-candidates.csv` üzerinden otomatik eklenir; dosyanın SHA-256 özeti sabittir. Özet ham dosya baytları üzerinden hesaplanır; UTF-8 BOM veya CRLF değişikliği, görünen CSV satırları aynı olsa da kaynağın checksum kimliğini bozar ve denetim reddeder. Bu kayıtların `.DE` fiyat sembolü, borsa üyeliğinin bugünkü hali veya Türkiye'de aracı kurum erişimi ayrıca doğrulanmamıştır.
 - BIST'in daha önce Windows bilgisayarında alınan 803 KAP şirket adayı GitHub'a yüklenmediği için otomatik mevcut sayılmaz. `--stocks` ile yerel kaynak dosyası ayrıca eklenebilir. KAP şirket kodu, işleme açık BIST hissesi kanıtı değildir.
 - Eski ABD/HK endeksleri güncel resmî borsa listeleriyle doğrulanmamıştır. Kayıt sayısı fiyat verisi sayısı değildir.
 
