@@ -28,7 +28,7 @@ from scripts.audit_ebbot_market_data_coverage import (
     inventory,
     ohlcv_evidence,
     parse_day,
-    read_safe,
+    read_safe_bytes,
     rows_from_csv,
 )
 
@@ -41,8 +41,10 @@ def _stock_files(index_path: Path, extras: Iterable[Path]) -> tuple[list[Path], 
     paths = [Path(path) for path in extras]
     imported = False
     if index_path.resolve() == DEFAULT_INDEX.resolve() and DEFAULT_XETRA.is_file():
-        raw = read_safe(DEFAULT_XETRA)
-        if hashlib.sha256(raw.encode("utf-8")).hexdigest() != XETRA_SHA256:
+        # Match the primary four-market audit: pin the on-disk source bytes,
+        # never a decoded/normalized representation (BOM/CRLF fail-closed).
+        raw = read_safe_bytes(DEFAULT_XETRA)
+        if hashlib.sha256(raw).hexdigest() != XETRA_SHA256:
             raise AuditInputError("xetra_candidate_checksum_mismatch")
         if not any(p.resolve() == DEFAULT_XETRA.resolve() for p in paths):
             paths.append(DEFAULT_XETRA)

@@ -58,3 +58,7 @@ Dosyalar operatör bilgisayarında bulunmalı. Bu komut hiç veri indirmez. `--r
 - Genel backend/React/Windows regresyonu ve ana dal birleştirme kapısı ayrıca bekler.
 
 **Yayın: BLOKE.** Bu araçta “eksik gün” ifadesi yalnız *beyan edilmiş takvim ile gözlenen fiyat tarihleri arasındaki potansiyel fark* anlamına gelir.
+
+## Xetra kaynak bütünlüğü PR #194 ile eşitlendi
+
+Seans boşluğu denetimi ve yerel OHLCV staging, Xetra aday dosyasının kimliğini artık dört-piyasa denetimiyle **aynı ham dosya baytlarından** SHA-256 hesaplayarak kontrol eder. UTF-8 BOM, LF/CRLF değişikliği veya symlink kaynak engellenir. Bu düzeltme bir finansal veri lisansı, fiyat geçmişi ya da veri sağlayıcısı sembolü doğrulaması değildir. Kaynak güvenlik kontrolleri eksikse denetim güvenli şekilde durur; emir, scheduler ve yayın hâlâ kapalıdır.
