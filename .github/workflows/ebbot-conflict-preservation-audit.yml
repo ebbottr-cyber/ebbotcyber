@@ -1,0 +1,90 @@
+name: EBBot three-stack conflicting tests preservation (DRAFT NO TRADES)
+
+on:
+  push:
+    branches: [audit/ebbot-three-stack-conflict-preservation-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-three-stack-conflict-preservation
+  cancel-in-progress: true
+
+env:
+  MAIN_SHA: 'daad93eaab155509cef8fcf3906c2b354fee4fdf'
+  REACT_SHA: '61cda4b7024ff4f6d39b4c20887814ca882ade72'
+  WINDOWS_SHA: 'dd2470b86cb389278da7a1fd93a2d0b88e53678a'
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  evidence:
+    name: Inventory both sides and run offline preservation unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify audit parser and two-sided test-case preservation rules
+        run: python -m unittest discover -s tests -p test_ebbot_conflict_test_preservation.py -v
+      - name: Fetch pinned refs, fail if new main or source branch moved
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/test/ebbot-decision-refresh-date-fixture-20261121:refs/remotes/origin/ebbot-react \
+            +refs/heads/integration/ebbot-windows-loopback-probe-20261121:refs/remotes/origin/ebbot-windows
+      - name: Read-only conflict inventory; keep both sets of test titles and safety controls visible
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/audit_ebbot_conflict_test_preservation.py \
+            --main-ref refs/remotes/origin/main --main-sha "$MAIN_SHA" \
+            --react-ref refs/remotes/origin/ebbot-react --react-sha "$REACT_SHA" \
+            --windows-ref refs/remotes/origin/ebbot-windows --windows-sha "$WINDOWS_SHA" \
+            --report "$RUNNER_TEMP/ebbot-conflict-case-inventory.json"
+          python - <<'PY'
+          import json, os
+          p = json.load(open(os.environ['RUNNER_TEMP'] + '/ebbot-conflict-case-inventory.json', encoding='utf-8'))
+          assert p['status'] == 'REVIEW_REQUIRED'
+          assert len(p['conflict_test_paths']) == 16
+          assert len(p['non_test_conflicts']) == 2
+          assert p['release_status'] == 'BLOCKED'
+          print('React-only named tests to preserve:', p['react_only_title_total'])
+          print('Windows-only named tests to preserve:', p['windows_only_title_total'])
+          for name, d in p['conflict_test_paths'].items():
+              if d['react_only_test_titles'] or d['windows_only_test_titles']:
+                  print(name, 'React-only:', d['react_only_test_titles'],
+                        'Windows-only:', d['windows_only_test_titles'])
+          PY
+      - name: Upload JSON evidence only; no installer, database or private content
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-conflict-preservation-inventory
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/ebbot-conflict-case-inventory.json
+
+  gate:
+    name: STOP - 18 unresolved conflicts, main merge and release blocked
+    needs: [evidence]
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - name: Keep release and merge blocked until explicit source-resolution PR
+        shell: bash
+        env:
+          EVIDENCE_RESULT: ${{ needs.evidence.result }}
+        run: |
+          echo "Case audit: $EVIDENCE_RESULT"
+          echo '18 source conflicts require deliberate review; no automatic ours/theirs.'
+          echo 'RELEASE=BLOCKED; MAIN_MERGE=BLOCKED; TRADING=DISABLED.'
+          exit 1
