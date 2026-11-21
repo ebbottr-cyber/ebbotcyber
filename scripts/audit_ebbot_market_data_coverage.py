@@ -11,6 +11,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 import csv
 import io
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -23,6 +24,8 @@ SYMBOL = re.compile(r"^[A-Za-z0-9.^_-]{1,64}$")
 CURRENCY = re.compile(r"^[A-Z]{3}$")
 MAX_INPUT_BYTES = 64 * 1024 * 1024
 DEFAULT_INDEX = Path(__file__).resolve().parents[1] / "apps/dsa-web/public/stocks.index.json"
+DEFAULT_XETRA = Path(__file__).resolve().parents[1] / "data/market_snapshots/de/xetra-candidates.csv"
+XETRA_SHA256 = "9e19abebcc9bbf956111fbf54c380978377407d7fcb43c1a8d064b370aaa9c6a"
 
 
 class AuditInputError(ValueError):
@@ -183,6 +186,17 @@ def audit(
     if min_bars < 1 or max_age_days < 0:
         raise AuditInputError("invalid_threshold")
     today = as_of or datetime.now(timezone.utc).date()
+    stock_files = list(stock_files)
+    stored_xetra_loaded = False
+    # Reuse the dated official-derived Xetra *candidate* manifest from PR #59,
+    # but only when auditing the real bundled repository index (not fixtures).
+    if index_path.resolve() == DEFAULT_INDEX.resolve() and DEFAULT_XETRA.is_file():
+        snapshot = read_safe(DEFAULT_XETRA)
+        if hashlib.sha256(snapshot.encode("utf-8")).hexdigest() != XETRA_SHA256:
+            raise AuditInputError("stored_xetra_snapshot_checksum_mismatch")
+        if not any(path.resolve() == DEFAULT_XETRA.resolve() for path in stock_files):
+            stock_files.append(DEFAULT_XETRA)
+        stored_xetra_loaded = True
     candidates, diagnostics = inventory(index_path, stock_files, today, max_age_days)
     bars = ohlcv_evidence(bar_files, candidates, today)
     result: dict[str, Any] = {}
@@ -228,6 +242,8 @@ def audit(
                    else "BLOCKED_INCOMPLETE_EVIDENCE"),
         "as_of_utc_date": today.isoformat(),
         "selected_markets": list(MARKETS),
+        "stored_xetra_manifest_loaded": stored_xetra_loaded,
+        "stored_xetra_as_of": "2026-11-19" if stored_xetra_loaded else None,
         "min_ohlcv_bars_per_symbol": min_bars,
         "max_age_calendar_days": max_age_days,
         "markets_without_inventory": missing_markets,
