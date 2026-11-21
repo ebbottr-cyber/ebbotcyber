@@ -1,7 +1,14 @@
-import { useState } from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState, type ReactElement } from 'react';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
+import { act, fireEvent, render as rtlRender, screen, waitFor, within, type RenderOptions } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMChannelEditor } from '../LLMChannelEditor';
+
+// Test-only locale wrapper for legacy Chinese labels; application defaults to Turkish.
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
 
 const {
   update,
@@ -23,6 +30,7 @@ vi.mock('../../../api/systemConfig', () => ({
 
 describe('LLMChannelEditor', () => {
   beforeEach(() => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     update.mockReset();
     testLLMChannel.mockReset();
     discoverLLMChannelModels.mockReset();

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -74,7 +75,11 @@ class UsageDashboardApiTestCase(unittest.TestCase):
             app.dependency_overrides[get_database_manager] = lambda: FakeUsageDbManager()
             client = TestClient(app)
 
-            response = client.get("/api/v1/usage/dashboard?period=today&limit=10")
+            # Usage serialization is tested here, not login policy. Isolate this
+            # test from admin auth enabled by other suite modules; middleware
+            # enforcement remains covered by dedicated auth API tests.
+            with patch("api.middlewares.auth.is_auth_enabled", return_value=False):
+                response = client.get("/api/v1/usage/dashboard?period=today&limit=10")
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
