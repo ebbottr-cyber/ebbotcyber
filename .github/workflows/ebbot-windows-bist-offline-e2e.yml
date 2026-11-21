@@ -1,0 +1,119 @@
+name: EBBot Windows BIST data-chain E2E and package source review (no release)
+
+on:
+  push:
+    branches:
+      - test/ebbot-windows-bist-offline-e2e-20261121
+  pull_request:
+    paths:
+      - 'tests/test_ebbot_windows_equity_e2e.py'
+      - 'tests/test_ebbot_windows_bist_packaging.py'
+      - 'tests/test_ebbot_packaged_react_probe.py'
+      - 'scripts/build-backend.ps1'
+      - 'docs/EBBOT_WINDOWS_BIST_E2E_GATE_TR.md'
+      - '.github/workflows/ebbot-windows-bist-offline-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-python-end-to-end:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile read-only pipeline and report readers
+        shell: pwsh
+        run: |
+          python -m compileall -q scripts/audit_ebbot_market_data_coverage.py scripts/audit_ebbot_equity_session_gaps.py scripts/stage_ebbot_equity_ohlcv.py scripts/audit_ebbot_bist_reference_identity.py src/services/bist_identity_report_reader.py src/services/equity_data_coverage_reader.py
+          if ($LASTEXITCODE -ne 0) { throw "Python compilation failed" }
+      - name: REAL Windows CLI pipeline from synthetic BIST CSV to Data Center reports
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_ebbot_windows_equity_e2e.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Windows end-to-end synthetic data chain failed" }
+      - name: Windows packager import and isolation source contracts
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_ebbot_windows_bist_packaging.py -v
+          if ($LASTEXITCODE -ne 0) { throw "BIST PyInstaller source contract failed" }
+          python -m unittest discover -s tests -p test_equity_coverage_windows_packaging.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Original coverage package contract failed" }
+      - name: All existing stock data offline evidence regressions on Windows
+        shell: pwsh
+        run: |
+          $patterns = @(
+            'test_ebbot_bist_reference_identity.py',
+            'test_bist_identity_report_reader.py',
+            'test_ebbot_equity_provider_readiness.py',
+            'test_ebbot_equity_ohlcv_staging.py',
+            'test_ebbot_equity_session_gaps.py',
+            'test_ebbot_market_data_coverage.py',
+            'test_equity_data_coverage_reader.py'
+          )
+          foreach ($pattern in $patterns) {
+            python -m unittest discover -s tests -p $pattern -v
+            if ($LASTEXITCODE -ne 0) { throw "Windows offline regression failed for $pattern" }
+          }
+      - name: Enforce no licensed data, packaging, or trade approval
+        shell: pwsh
+        run: |
+          "Synthetic Windows CLI + static PyInstaller import contract only." >> $env:GITHUB_STEP_SUMMARY
+          "NO real KAP/XIST files, signed installer, PyInstaller build, brokerage API, license, paper fill or live order." >> $env:GITHUB_STEP_SUMMARY
+
+  windows-react-data-center:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Turkish BIST and four-market UI regression on Windows
+        run: npm run test -- src/components/data-center/BistIdentityPanel.test.tsx src/components/data-center/EquityCoveragePanel.test.tsx
+      - name: Check ESLint on Windows
+        run: npm run lint
+      - name: Build Windows target React assets
+        run: npm run build
+      - name: No Electron installer or trading activation
+        shell: pwsh
+        run: |
+          "Windows React assets and tests only. No Electron installation, distribution, PyInstaller build, or trading." >> $env:GITHUB_STEP_SUMMARY
+
+  linux-auth-route-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install existing API CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Run real API security and frozen diagnostic safety tests
+        run: |
+          python -m pytest -q tests/test_bist_identity_api_auth.py tests/test_equity_coverage_api_auth.py tests/test_ebbot_packaged_react_probe.py
+      - name: Explicit no-release gate
+        run: echo "API auth tested; real Windows binary and license remain BLOCKED." >> "$GITHUB_STEP_SUMMARY"

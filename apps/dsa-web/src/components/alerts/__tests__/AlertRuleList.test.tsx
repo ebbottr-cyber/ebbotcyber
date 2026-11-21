@@ -66,8 +66,10 @@ describe('AlertRuleList', () => {
   });
 
   function renderList(overrides: Partial<React.ComponentProps<typeof AlertRuleList>> = {}) {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     render(
-      <AlertRuleList
+      <UiLanguageProvider>
+        <AlertRuleList
         rules={rules}
         total={40}
         page={1}
@@ -81,7 +83,8 @@ describe('AlertRuleList', () => {
         onDelete={onDelete}
         onTest={onTest}
         {...overrides}
-      />,
+        />
+      </UiLanguageProvider>,
     );
   }
 

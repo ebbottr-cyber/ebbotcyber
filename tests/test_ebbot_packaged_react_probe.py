@@ -66,6 +66,8 @@ class FrozenReactProbeTests(unittest.TestCase):
                     for path in (
                         "/api/v1/analysis/analyze",
                         "/api/v1/portfolio/accounts",
+                        "/api/v1/data/equity-coverage",
+                        "/api/v1/data/bist-identity",
                         "/api/v1/screening/run",
                         "/api/v1/health",
                         "/docs", "/openapi.json",

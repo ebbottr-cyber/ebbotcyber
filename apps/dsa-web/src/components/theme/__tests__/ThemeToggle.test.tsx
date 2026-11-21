@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { ThemeProvider } from '../ThemeProvider';
 import { ThemeToggle } from '../ThemeToggle';
 
@@ -19,12 +21,17 @@ beforeAll(() => {
   });
 });
 
+afterEach(() => localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY));
+
 describe('ThemeToggle', () => {
   it('opens the theme menu and shows all theme modes', async () => {
+    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     render(
-      <ThemeProvider>
-        <ThemeToggle />
-      </ThemeProvider>
+      <UiLanguageProvider>
+        <ThemeProvider>
+          <ThemeToggle />
+        </ThemeProvider>
+      </UiLanguageProvider>
     );
 
     fireEvent.click(screen.getByRole('button', { name: '切换主题' }));

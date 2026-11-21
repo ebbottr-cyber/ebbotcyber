@@ -1,0 +1,82 @@
+name: EBBot BIST identity Data Center API and React (readonly)
+on:
+  push:
+    branches:
+      - feat/ebbot-bist-identity-data-center-20261121
+  pull_request:
+    paths:
+      - 'src/services/bist_identity_report_reader.py'
+      - 'api/v1/endpoints/data.py'
+      - 'tests/test_bist_identity_report_reader.py'
+      - 'tests/test_bist_identity_api_auth.py'
+      - 'apps/dsa-web/src/components/data-center/BistIdentityPanel*'
+      - 'apps/dsa-web/src/pages/DataCenterPage.tsx'
+      - 'apps/dsa-web/src/types/bistIdentity.ts'
+      - 'apps/dsa-web/src/api/dataCapability.ts'
+      - '.github/workflows/ebbot-bist-data-center.yml'
+      - 'docs/EBBOT_BIST_IDENTITY_DATA_CENTER_TR.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bist-reader-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install API test runtime dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Python syntax
+        run: |
+          python -m compileall -q src/services/bist_identity_report_reader.py api/v1/endpoints/data.py tests/test_bist_identity_report_reader.py tests/test_bist_identity_api_auth.py
+      - name: Privacy and integrity reader tests
+        run: python -m unittest discover -s tests -p 'test_bist_identity_report_reader.py' -v
+      - name: Protected real ASGI endpoint tests
+        run: python -m unittest discover -s tests -p 'test_bist_identity_api_auth.py' -v
+      - name: BIST reconciliation and upstream offline integrity suite
+        run: |
+          python -m unittest discover -s tests -p 'test_ebbot_bist_reference_identity.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_equity_provider_readiness.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_equity_ohlcv_staging.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_equity_session_gaps.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
+          python -m unittest discover -s tests -p 'test_equity_data_coverage_reader.py' -v
+      - name: Missing operator report is not interpreted as zero BIST stocks
+        run: |
+          python - <<'PY'
+          from src.services.bist_identity_report_reader import read_bist_identity_summary
+          result = read_bist_identity_summary('')
+          assert result['status'] == 'unavailable'
+          assert result['counts'] is None
+          assert not result['independent_listing_verified']
+          assert not result['licensed_prices_verified']
+          assert not result['paper_trading_enabled']
+          assert not result['live_trading_enabled']
+          print('No operator file: BIST counts unknown; no prices invented.')
+          PY
+
+  react-data-center:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Turkish BIST and four-market data center tests
+        run: npm run test -- src/components/data-center/BistIdentityPanel.test.tsx src/components/data-center/EquityCoveragePanel.test.tsx
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript and production build
+        run: npm run build

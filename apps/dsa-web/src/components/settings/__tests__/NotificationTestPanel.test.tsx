@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement, ReactNode } from 'react';
 import { useUiLanguage, UiLanguageProvider } from '../../../contexts/UiLanguageContext';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { NotificationTestPanel } from '../NotificationTestPanel';
@@ -13,7 +13,13 @@ vi.mock('../../../api/systemConfig', () => ({
   },
 }));
 
+function renderLegacyChineseNotification(ui: ReactElement) {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return render(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+}
+
 describe('NotificationTestPanel', () => {
+  afterEach(() => localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY));
   beforeEach(() => {
     testNotificationChannel.mockReset();
     testNotificationChannel.mockResolvedValue({
@@ -40,7 +46,7 @@ describe('NotificationTestPanel', () => {
   });
 
   it('submits draft notification items and renders attempt details', async () => {
-    render(
+    renderLegacyChineseNotification(
       <NotificationTestPanel
         items={[{ key: 'CUSTOM_WEBHOOK_URLS', value: 'https://example.com/hook?token=secret' }]}
         maskToken="******"
@@ -182,7 +188,7 @@ describe('NotificationTestPanel', () => {
       ],
     });
 
-    render(
+    renderLegacyChineseNotification(
       <NotificationTestPanel
         items={[{ key: 'CUSTOM_WEBHOOK_URLS', value: 'https://example.com/hook?token=secret' }]}
         maskToken="******"
@@ -223,7 +229,7 @@ describe('NotificationTestPanel', () => {
       ],
     });
 
-    render(
+    renderLegacyChineseNotification(
       <NotificationTestPanel
         items={[{ key: 'WECHAT_WEBHOOK_URL', value: 'https://qyapi.example.com/cgi-bin/webhook/send?key=secret' }]}
         maskToken="******"
