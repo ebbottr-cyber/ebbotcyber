@@ -14,6 +14,7 @@ from api.deps import get_system_config_service
 from src.auth import (
     COOKIE_NAME,
     SESSION_MAX_AGE_HOURS_DEFAULT,
+    SESSION_INVALIDATION_FAILED,
     change_password,
     check_rate_limit,
     clear_rate_limit,
@@ -457,6 +458,15 @@ async def auth_change_password(body: ChangePasswordRequest):
         )
 
     err = change_password(current, new_pwd)
+    if err == SESSION_INVALIDATION_FAILED:
+        logger.error("Password change blocked: existing sessions could not be invalidated")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "session_invalidation_failed",
+                "message": "Password was not changed because session revocation failed",
+            },
+        )
     if err:
         return JSONResponse(
             status_code=400,
