@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
 import { lazy } from 'react';
 import type React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
