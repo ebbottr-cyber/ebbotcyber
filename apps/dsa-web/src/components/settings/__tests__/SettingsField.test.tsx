@@ -1,12 +1,18 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { UiLanguageProvider, useUiLanguage } from '../../../contexts/UiLanguageContext';
 import { getFieldDescriptionZh, getFieldTitleZh } from '../../../utils/systemConfigI18n';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { SettingsField } from '../SettingsField';
 
+function renderLegacyChineseField(ui: ReactNode) {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return render(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+}
+
 describe('SettingsField', () => {
+  afterEach(() => localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY));
   it.each(['zh', 'en'] as const)('shows the TickPlus recommendation and project registration link (%s)', (language) => {
     window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, language);
     const title = language === 'zh' ? 'TickPlus API Key（推荐）' : 'TickPlus API Key (Recommended)';
@@ -49,7 +55,7 @@ describe('SettingsField', () => {
   });
 
   it('prefers localized Chinese field titles over backend schema titles', () => {
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'STOCK_LIST',
@@ -80,7 +86,7 @@ describe('SettingsField', () => {
   });
 
   it('localizes TickFlow field descriptions instead of falling back to backend English schema', () => {
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'TICKFLOW_PRIORITY',
@@ -113,7 +119,7 @@ describe('SettingsField', () => {
     expect(screen.queryByText(/Priority for TickFlow daily K-line fetcher/)).not.toBeInTheDocument();
   });
   it('uses schema key for TickFlow localization when the runtime item key differs', () => {
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'runtime.tickflow.priority',
@@ -149,7 +155,7 @@ describe('SettingsField', () => {
   it('renders sensitive field metadata and validation errors', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'OPENAI_API_KEY',
@@ -197,7 +203,7 @@ describe('SettingsField', () => {
   it('renders multi-value sensitive fields with external delete actions', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'OPENAI_API_KEYS',
@@ -229,7 +235,7 @@ describe('SettingsField', () => {
   it('allows optional select fields to be cleared when schema provides an empty option', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'NOTIFICATION_MIN_SEVERITY',
@@ -273,7 +279,7 @@ describe('SettingsField', () => {
   it('shows the schema default for select fields when no explicit env value exists', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'GENERATION_BACKEND',
@@ -327,7 +333,7 @@ describe('SettingsField', () => {
     ] as const;
 
     selectCases.forEach(({ key, category, options, expectedLabels }) => {
-      const { unmount } = render(
+      const { unmount } = renderLegacyChineseField(
         <SettingsField
           item={{
             key,
@@ -368,7 +374,7 @@ describe('SettingsField', () => {
   it('renders MARKET_REVIEW_REGION as free-text field with comma-separated defaults', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'MARKET_REVIEW_REGION',
@@ -407,7 +413,7 @@ describe('SettingsField', () => {
   it('renders context compression profile options with Chinese labels', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'AGENT_CONTEXT_COMPRESSION_PROFILE',
@@ -447,7 +453,7 @@ describe('SettingsField', () => {
   it('renders blank-value preset guidance for context compression numeric fields', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <>
         <SettingsField
           item={{
@@ -505,7 +511,7 @@ describe('SettingsField', () => {
   it('renders localized custom webhook body template guidance', () => {
     const onChange = vi.fn();
 
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'CUSTOM_WEBHOOK_BODY_TEMPLATE',
@@ -536,7 +542,7 @@ describe('SettingsField', () => {
   });
 
   it('opens detailed field help when help metadata is available', () => {
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'STOCK_LIST',
@@ -594,7 +600,7 @@ describe('SettingsField', () => {
   });
 
   it('keeps generation channel help user-facing without env key or examples', () => {
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'GENERATION_BACKEND',
@@ -637,7 +643,7 @@ describe('SettingsField', () => {
   });
 
   it('describes agent auto generation without exposing implementation labels as the primary UI copy', () => {
-    render(
+    renderLegacyChineseField(
       <SettingsField
         item={{
           key: 'AGENT_GENERATION_BACKEND',

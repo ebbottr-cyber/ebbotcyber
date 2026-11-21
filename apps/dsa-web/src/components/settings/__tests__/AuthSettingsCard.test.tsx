@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { AuthSettingsCard } from '../AuthSettingsCard';
 
 const { refreshStatus, updateSettings, useAuthMock } = vi.hoisted(() => ({
@@ -18,7 +20,13 @@ vi.mock('../../../api/auth', () => ({
   },
 }));
 
+function renderLegacyChineseCard() {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return render(<UiLanguageProvider><AuthSettingsCard /></UiLanguageProvider>);
+}
+
 describe('AuthSettingsCard', () => {
+  afterEach(() => localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY));
   beforeEach(() => {
     vi.clearAllMocks();
     useAuthMock.mockReturnValue({
@@ -32,7 +40,7 @@ describe('AuthSettingsCard', () => {
     updateSettings.mockResolvedValue(undefined);
     refreshStatus.mockResolvedValue(undefined);
 
-    render(<AuthSettingsCard />);
+    renderLegacyChineseCard();
 
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.change(screen.getByLabelText('设置管理员密码'), { target: { value: 'passwd6' } });
@@ -55,7 +63,7 @@ describe('AuthSettingsCard', () => {
     updateSettings.mockResolvedValue(undefined);
     refreshStatus.mockResolvedValue(undefined);
 
-    render(<AuthSettingsCard />);
+    renderLegacyChineseCard();
 
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: '关闭认证' }));
@@ -73,7 +81,7 @@ describe('AuthSettingsCard', () => {
     updateSettings.mockResolvedValue(undefined);
     refreshStatus.mockResolvedValue(undefined);
 
-    render(<AuthSettingsCard />);
+    renderLegacyChineseCard();
 
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.change(screen.getByLabelText('当前管理员密码'), { target: { value: 'passwd6' } });
@@ -93,7 +101,7 @@ describe('AuthSettingsCard', () => {
       refreshStatus,
     });
 
-    render(<AuthSettingsCard />);
+    renderLegacyChineseCard();
 
     fireEvent.click(screen.getByRole('checkbox'));
 
@@ -109,14 +117,14 @@ describe('AuthSettingsCard', () => {
       refreshStatus,
     });
 
-    render(<AuthSettingsCard />);
+    renderLegacyChineseCard();
 
     expect(screen.queryByLabelText('设置管理员密码')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('确认新密码')).not.toBeInTheDocument();
   });
 
   it('blocks initial enable when the new password is missing', async () => {
-    render(<AuthSettingsCard />);
+    renderLegacyChineseCard();
 
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: '开启认证' }));

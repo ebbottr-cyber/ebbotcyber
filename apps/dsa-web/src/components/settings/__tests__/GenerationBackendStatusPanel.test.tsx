@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GenerationBackendStatusPanel } from '../GenerationBackendStatusPanel';
@@ -79,6 +80,16 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+function renderLegacyChinesePanel(ui: ReactElement) {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  const result = render(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+  return {
+    ...result,
+    rerender: (nextUi: ReactElement) =>
+      result.rerender(<UiLanguageProvider>{nextUi}</UiLanguageProvider>),
+  };
+}
+
 describe('GenerationBackendStatusPanel', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -91,7 +102,7 @@ describe('GenerationBackendStatusPanel', () => {
   });
 
   it('loads saved generation backend status without draft items', async () => {
-    render(<GenerationBackendStatusPanel items={[]} maskToken="******" />);
+    renderLegacyChinesePanel(<GenerationBackendStatusPanel items={[]} maskToken="******" />);
 
     await waitFor(() => {
       expect(getGenerationBackendStatus).toHaveBeenCalledTimes(1);
@@ -103,7 +114,7 @@ describe('GenerationBackendStatusPanel', () => {
   });
 
   it('previews unsaved draft generation backend status', async () => {
-    render(
+    renderLegacyChinesePanel(
       <GenerationBackendStatusPanel
         items={[{ key: 'GENERATION_BACKEND', value: 'opencode_cli' }]}
         maskToken="******"
@@ -120,7 +131,7 @@ describe('GenerationBackendStatusPanel', () => {
   });
 
   it('runs JSON smoke test with current draft items', async () => {
-    render(
+    renderLegacyChinesePanel(
       <GenerationBackendStatusPanel
         items={[{ key: 'GENERATION_BACKEND', value: 'codex_cli' }]}
         maskToken="******"
@@ -140,7 +151,7 @@ describe('GenerationBackendStatusPanel', () => {
   });
 
   it('clears stale smoke result when draft items change', async () => {
-    const { rerender } = render(
+    const { rerender } = renderLegacyChinesePanel(
       <GenerationBackendStatusPanel
         items={[{ key: 'GENERATION_BACKEND', value: 'codex_cli' }]}
         maskToken="******"
@@ -169,7 +180,7 @@ describe('GenerationBackendStatusPanel', () => {
       .mockReturnValueOnce(firstPreview.promise)
       .mockReturnValueOnce(secondPreview.promise);
 
-    const { rerender } = render(
+    const { rerender } = renderLegacyChinesePanel(
       <GenerationBackendStatusPanel
         items={[{ key: 'GENERATION_BACKEND', value: 'codex_cli' }]}
         maskToken="******"
@@ -201,7 +212,7 @@ describe('GenerationBackendStatusPanel', () => {
   });
 
   it('clears stale status when preview request fails', async () => {
-    const { rerender } = render(<GenerationBackendStatusPanel items={[]} maskToken="******" />);
+    const { rerender } = renderLegacyChinesePanel(<GenerationBackendStatusPanel items={[]} maskToken="******" />);
     expect(await screen.findByText('codex_cli')).toBeInTheDocument();
 
     previewGenerationBackendStatus.mockRejectedValueOnce(new Error('validation failed'));
@@ -222,7 +233,7 @@ describe('GenerationBackendStatusPanel', () => {
       error: 'validation_failed', message: 'System configuration validation failed',
       issues: [{ key: 'LLM_MODELFLARE_API_KEY', code: 'missing_api_key', message: 'API key required' }],
     } } });
-    render(<GenerationBackendStatusPanel
+    renderLegacyChinesePanel(<GenerationBackendStatusPanel
       items={[{ key: 'LLM_MODELFLARE_API_KEY', value: '' }]} maskToken="******"
     />);
     expect(await screen.findByText('配置需要调整')).toBeInTheDocument();
@@ -235,7 +246,7 @@ describe('GenerationBackendStatusPanel', () => {
   it('shows smoke status even when initial status has not loaded', async () => {
     getGenerationBackendStatus.mockReturnValueOnce(new Promise(() => undefined));
 
-    render(<GenerationBackendStatusPanel items={[]} maskToken="******" />);
+    renderLegacyChinesePanel(<GenerationBackendStatusPanel items={[]} maskToken="******" />);
 
     fireEvent.click(screen.getByRole('button', { name: /JSON 冒烟测试/ }));
 
