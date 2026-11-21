@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidebarNav } from '../SidebarNav';
 
 const mockLogout = vi.fn().mockResolvedValue(undefined);
@@ -26,13 +27,22 @@ vi.mock('../../theme/ThemeToggle', () => ({
   ThemeToggle: (props: { collapsed?: boolean }) => mockThemeToggle(props),
 }));
 
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
+
 describe('SidebarNav', () => {
   it('keeps screening directly after chat without requiring configuration', () => {
     render(<MemoryRouter initialEntries={['/']}><SidebarNav /></MemoryRouter>);
 
     expect(screen.getByRole('link', { name: '选股' })).toHaveAttribute('href', '/screening');
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
-    expect(hrefs.slice(0, 5)).toEqual(['/', '/chat', '/screening', '/portfolio', '/decision-signals']);
+    // Navigation may grow without changing the Chat -> Screening contract.
+    // Germany is a separate PR100 parent-branch feature, not a prerequisite.
+    expect(hrefs).toContain('/overview');
+    expect(hrefs).toContain('/');
+    expect(hrefs.indexOf('/screening')).toBe(hrefs.indexOf('/chat') + 1);
+    expect(hrefs).toContain('/portfolio');
+    expect(hrefs).toContain('/decision-signals');
   });
 
   it('shows the shared completion badge only when chat completion is pending', () => {

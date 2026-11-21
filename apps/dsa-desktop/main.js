@@ -1,6 +1,10 @@
 const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { randomBytes } = require('crypto');
+const sqliteSnapshotBridge = require('./sqliteSnapshotBridge');
+// This helper is not part of any startup, update or production restore flow.
+const sqliteRollbackRehearsal = require('./sqliteRollbackRehearsal');
 const { spawn } = require('child_process');
 const net = require('net');
 const http = require('http');
@@ -469,30 +473,78 @@ function cleanupUpdateBackupRoot() {
 }
 
 function normalizeBackupFileList(manifest) {
-  if (manifest && Array.isArray(manifest.files) && manifest.files.length) {
-    return manifest.files.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim());
+  // Never restore arbitrary paths from a potentially malformed backup manifest.
+  // An invalid/missing file list must not silently fall back to every state file.
+  if (!manifest || !Array.isArray(manifest.files) || !manifest.files.length) {
+    return null;
   }
-  return DESKTOP_UPDATE_RUNTIME_RELATIVE_FILES.slice();
+  const allowed = new Set(DESKTOP_UPDATE_RUNTIME_RELATIVE_FILES);
+  if (manifest.files.some((item) => typeof item !== 'string' || !allowed.has(item))) {
+    return null;
+  }
+  return [...new Set(manifest.files)];
 }
 
 function copyRuntimeStatePathSync(source, target) {
-  const stats = fs.statSync(source);
-  if (stats.isDirectory()) {
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.mkdirSync(target, { recursive: true });
-    fs.readdirSync(source, { withFileTypes: true }).forEach((entry) => {
-      copyRuntimeStatePathSync(path.join(source, entry.name), path.join(target, entry.name));
-    });
-    return;
-  }
-
-  if (!stats.isFile()) {
-    throw new Error(`unsupported runtime state path type: ${source}`);
-  }
+  // Stage a complete file/directory beside the target before moving the old
+  // target aside. A read/copy error must never delete the original user data.
+  const suffix = `${process.pid}-${randomBytes(8).toString('hex')}`;
+  const pending = `${target}.ebbot-pending-${suffix}`;
+  const previous = `${target}.ebbot-previous-${suffix}`;
+  const copyToEmptyPath = (from, to) => {
+    const stats = fs.lstatSync(from);
+    if (stats.isSymbolicLink()) {
+      throw new Error('runtime backup path cannot be a symbolic link');
+    }
+    if (stats.isDirectory()) {
+      fs.mkdirSync(to);
+      fs.readdirSync(from, { withFileTypes: true }).forEach((entry) => {
+        copyToEmptyPath(path.join(from, entry.name), path.join(to, entry.name));
+      });
+      return;
+    }
+    if (!stats.isFile()) {
+      throw new Error('unsupported runtime state path type');
+    }
+    fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
+  };
 
   ensureDirectory(path.dirname(target));
-  fs.rmSync(target, { recursive: true, force: true });
-  fs.copyFileSync(source, target);
+  let previousMoved = false;
+  let pendingInstalled = false;
+  try {
+    copyToEmptyPath(source, pending);
+    if (fs.existsSync(target)) {
+      fs.renameSync(target, previous);
+      previousMoved = true;
+    }
+    try {
+      fs.renameSync(pending, target);
+      pendingInstalled = true;
+    } catch (error) {
+      if (previousMoved) {
+        fs.renameSync(previous, target);
+        previousMoved = false;
+      }
+      throw error;
+    }
+    if (previousMoved) {
+      try {
+        fs.rmSync(previous, { recursive: true, force: true });
+      } catch (_error) {
+        // Never erase the restored target just because old-file cleanup failed.
+        logLine('[update] previous runtime copy cleanup failed; retaining new target');
+      }
+    }
+  } finally {
+    if (!pendingInstalled) {
+      try {
+        fs.rmSync(pending, { recursive: true, force: true });
+      } catch (_error) {
+        logLine('[update] temporary runtime copy cleanup failed');
+      }
+    }
+  }
 }
 
 function backupPackagedRuntimeState() {
@@ -500,29 +552,80 @@ function backupPackagedRuntimeState() {
     return;
   }
 
-  const runtimeEntries = resolveRuntimeFileEntries();
-  const backedUpFiles = [];
+  // SQLite databases with WAL/SHM may be changing while the managed backend
+  // is alive. Never treat a plain filesystem copy as a live SQLite snapshot.
+  if (backendProcess && backendProcess.exitCode == null && !backendProcess.signalCode) {
+    throw new Error('Cannot safely back up SQLite while desktop backend is running');
+  }
 
-  cleanupUpdateBackupRoot();
-  ensureDirectory(resolveUpdateBackupRoot());
-
-  runtimeEntries.forEach(({ relativePath, absolutePath, backupPath }) => {
-    if (!fs.existsSync(absolutePath)) {
-      return;
-    }
-    copyRuntimeStatePathSync(absolutePath, backupPath);
-    backedUpFiles.push(relativePath);
-  });
-
-  if (!backedUpFiles.length) {
+  const backupRoot = resolveUpdateBackupRoot();
+  if (fs.existsSync(backupRoot)) {
+    // An interrupted update may still need this copy for recovery.
+    logLine('[update] skipped new runtime backup because a prior backup needs review');
     return;
   }
 
-  writeUpdateBackupManifest({
-    backedAt: new Date().toISOString(),
-    appVersion: resolveDesktopVersion(),
-    files: backedUpFiles,
+  const runtimeEntries = resolveRuntimeFileEntries();
+  const sqliteFiles = [
+    path.join('data', 'stock_analysis.db'),
+    path.join('data', 'stock_analysis.db-wal'),
+    path.join('data', 'stock_analysis.db-shm'),
+  ];
+  const sqlitePaths = sqliteFiles.map((relativePath) => path.join(resolveAppDir(), relativePath));
+  const getSqliteState = () => sqlitePaths.map((file) => {
+    if (!fs.existsSync(file)) {
+      return null;
+    }
+    const stat = fs.lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error('SQLite runtime path is not a regular file');
+    }
+    return { size: stat.size, mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs };
   });
+  // These stat checks detect changed files; they do NOT replace SQLite's
+  // online backup API or guarantee a transactionally consistent snapshot.
+  const beforeSqliteState = getSqliteState();
+  ensureDirectory(path.dirname(backupRoot));
+  const stageRoot = fs.mkdtempSync(path.join(path.dirname(backupRoot), '.ebbot-runtime-stage-'));
+  let published = false;
+  try {
+    const backedUpFiles = [];
+    runtimeEntries.forEach(({ relativePath, absolutePath }) => {
+      if (!fs.existsSync(absolutePath)) {
+        return;
+      }
+      copyRuntimeStatePathSync(absolutePath, path.join(stageRoot, relativePath));
+      backedUpFiles.push(relativePath);
+    });
+    if (!backedUpFiles.length) {
+      return;
+    }
+    if (JSON.stringify(beforeSqliteState) !== JSON.stringify(getSqliteState())) {
+      throw new Error('SQLite database/WAL/SHM changed during backup; snapshot discarded');
+    }
+    fs.writeFileSync(
+      path.join(stageRoot, DESKTOP_UPDATE_BACKUP_MANIFEST_FILE),
+      JSON.stringify({
+        backedAt: new Date().toISOString(),
+        appVersion: resolveDesktopVersion(),
+        files: backedUpFiles,
+      }, null, 2),
+      'utf-8'
+    );
+    if (fs.existsSync(backupRoot)) {
+      throw new Error('A runtime recovery backup already exists; refusing replacement');
+    }
+    fs.renameSync(stageRoot, backupRoot);
+    published = true;
+  } finally {
+    if (!published) {
+      try {
+        fs.rmSync(stageRoot, { recursive: true, force: true });
+      } catch (_error) {
+        logLine('[update] incomplete runtime staging directory cleanup failed');
+      }
+    }
+  }
 }
 
 function restorePackagedRuntimeStateFromBackup() {
@@ -565,6 +668,11 @@ function restorePackagedRuntimeStateFromBackup() {
   const appDir = resolveAppDir();
   const runtimeEntries = resolveRuntimeFileEntries(appDir);
   const relativeFiles = normalizeBackupFileList(manifest);
+  if (!relativeFiles) {
+    result.failed.push('Invalid or unapproved runtime backup manifest file list');
+    logLine('[update] refused to restore unapproved runtime backup file paths');
+    return result; // Retain the backup for manual inspection/recovery.
+  }
   const failedRelativeFiles = [];
 
   try {
@@ -1609,7 +1717,9 @@ async function installDownloadedUpdate() {
     logLine('[update] stop backend and backup runtime data before install');
     await stopBackend();
     backupRoot = resolveUpdateBackupRoot();
-    cleanupUpdateBackupRoot();
+    if (fs.existsSync(backupRoot)) {
+      throw new Error('Unresolved recovery backup exists; update installation blocked');
+    }
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
@@ -1637,10 +1747,9 @@ async function installDownloadedUpdate() {
     updater.quitAndInstall(true, true);
     return true;
   } catch (error) {
-    if (backupRoot) {
-      cleanupUpdateBackupRoot();
-    }
-    logLine(`[update] install downloaded update failed: ${error instanceof Error ? error.message : String(error)}`);
+    // Never delete a completed recovery snapshot when the NSIS launcher fails.
+    // The next startup/recovery path may need it to restore user data.
+    logLine(`[update] install downloaded update failed; recovery copy retained: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
@@ -2114,6 +2223,9 @@ app.on('before-quit', () => {
 });
 
 module.exports = {
+  // Exposed solely for isolated offline tests; no startup/update handler calls this bridge.
+  sqliteSnapshotBridge,
+  sqliteRollbackRehearsal,
   DESKTOP_UPDATES_ENABLED,
   DEFAULT_REQUEST_TIMEOUT_MS,
   GITHUB_OWNER,

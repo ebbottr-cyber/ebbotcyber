@@ -25,6 +25,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "sqliteSnapshotBridge.js",
+      "sqliteRollbackRehearsal.js",
       "renderer/**/*"
     ],
     "extraResources": [
