@@ -105,6 +105,7 @@ $hiddenImports = @(
   'api.v1.endpoints.screening',
   'api.v1.endpoints.data',
   'src.services.equity_data_coverage_reader',
+  'src.services.bist_identity_report_reader',
   'src.services.screening',
   'src.services.screening.pipeline',
   'api.v1.schemas',
@@ -173,7 +174,7 @@ if (-not (Test-Path $packagedEntry)) {
 }
 $previousProbe = $env:DSA_PACKAGED_IMPORT_PROBE
 try {
-  foreach ($module in @('src.services.screening.pipeline', 'src.services.equity_data_coverage_reader', 'futu', 'orjson', 'py_mini_racer', 'src.agent.factory')) {
+  foreach ($module in @('src.services.screening.pipeline', 'src.services.equity_data_coverage_reader', 'src.services.bist_identity_report_reader', 'futu', 'orjson', 'py_mini_racer', 'src.agent.factory')) {
     $env:DSA_PACKAGED_IMPORT_PROBE = $module
     $probeProcess = Start-Process -FilePath $packagedEntry -Wait -PassThru -WindowStyle Hidden
     if ($probeProcess.ExitCode -ne 0) {
