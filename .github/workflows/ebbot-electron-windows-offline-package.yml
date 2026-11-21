@@ -24,6 +24,7 @@ on:
       - integration/ebbot-main-react-tr-nsis-20261121
       - fix/ebbot-react-nav-smoke-real-label-20261121
       - integration/ebbot-react-secondary-safe-20261121
+      - test/ebbot-readonly-react-controls-stack-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -43,6 +44,7 @@ on:
       - test/ebbot-nsis-offline-upgrade-preservation-20261121
       - integration/ebbot-main-react-tr-nsis-20261121
       - fix/ebbot-react-nav-smoke-real-label-20261121
+      - integration/ebbot-react-secondary-safe-20261121
       - main
 
 permissions:
@@ -267,5 +269,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity and repository source isolated. Auto-updater is OFF; code signing, SmartScreen and device migration remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Restricted Turkish React CI-only Usage, Data, Portfolio, AI Signals, Screening, Settings navigation and frozen backend loopback checked; real market API/data, user install/uninstall, signing, SmartScreen and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Restricted Turkish React route navigation, Usage period control and AI signals read-only filter states verified with GET/HEAD-only renderer requests; real market API/data, user install/uninstall, signing, SmartScreen and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY

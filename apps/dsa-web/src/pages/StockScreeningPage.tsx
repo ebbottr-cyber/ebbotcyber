@@ -907,13 +907,15 @@ const StockScreeningPage: React.FC = () => {
       : ['智能重排未完成，当前候选继续使用确定性因子评分。']
     : screenMessages;
   const isScreeningEnabled = statusState === 'ready' && enabled && available;
+  // Reuse the existing comprehensive screening dictionary rather than
+  // duplicate status text in the generic UI key map.
   const statusText = statusState === 'loading'
-    ? '正在检查选股状态'
+    ? L('正在检查选股状态')
     : statusState === 'error'
-      ? '选股状态未知'
+      ? L('选股状态未知')
       : !enabled
-        ? '选股未开启'
-        : available ? '选股已开启' : '选股功能不可用';
+        ? L('选股未开启')
+        : available ? L('选股已开启') : L('选股功能不可用');
 
   const applyScreenResult = useCallback((result: ScreeningScreenResponse) => {
     const nextCandidates = result.candidates || [];

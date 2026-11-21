@@ -33,7 +33,9 @@ function validateCiUiSmoke({
   return { requested: true, allowed, port: allowed ? port : null };
 }
 
-function isAllowedCiUiRequest(url, port) {
+function isAllowedCiUiRequest(url, port, method = 'GET') {
+  // Even the isolated fake localhost API must never accept mutation traffic.
+  if (method !== 'GET' && method !== 'HEAD') return false;
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'file:') {
@@ -53,7 +55,7 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
   }
   // No web/electron-updater/third-party requests from this diagnostic window.
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
-    callback({ cancel: !isAllowedCiUiRequest(details.url, port) });
+    callback({ cancel: !isAllowedCiUiRequest(details.url, port, details.method || 'GET') });
   });
 
   const window = new BrowserWindow({
@@ -141,9 +143,19 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         usageLink.click();
         await waitUntil(() => window.location.pathname === '/usage'
           && document.querySelector('main h1')?.textContent?.trim() === 'Token Kullanımı', 'usage page heading');
+        // Click the REAL controlled React period selector; no network write.
+        const allPeriod = document.querySelector('button[data-testid="usage-period-all"]');
+        const monthPeriod = document.querySelector('button[data-testid="usage-period-month"]');
+        if (!allPeriod || !monthPeriod || monthPeriod.getAttribute('aria-pressed') !== 'true') {
+          throw new Error('Usage period controls did not mount in the expected state');
+        }
+        allPeriod.click();
+        await waitUntil(() => allPeriod.getAttribute('aria-pressed') === 'true'
+          && monthPeriod.getAttribute('aria-pressed') === 'false', 'usage period state');
         const usage = {
           pathname: window.location.pathname,
           heading: document.querySelector('main h1')?.textContent?.trim() || '',
+          periodChanged: true,
         };
         const dataLink = document.querySelector('nav a[aria-label="Veri Merkezi"]');
         dataLink.click();
@@ -170,9 +182,30 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
           await waitUntil(() => window.location.pathname === item.pathname
             && document.querySelector('main h1')?.textContent?.trim() === item.heading,
           item.label + ' page heading');
+
+          // Change only read-only React filter state; never click Apply, Save,
+          // trading, analysis, screen-run or scheduler controls.
+          let readonlyFiltersChanged = false;
+          if (item.pathname === '/decision-signals') {
+            const action = document.querySelector('select[data-testid="decision-signals-action-filter"]');
+            const status = document.querySelector('select[data-testid="decision-signals-status-filter"]');
+            if (!action || !status || action.value !== '' || status.value !== 'active') {
+              throw new Error('AI signals filter selectors missing or unexpected initial state');
+            }
+            const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+            setter.call(action, 'buy');
+            action.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            setter.call(status, 'expired');
+            status.dispatchEvent(new Event('change', { bubbles: true }));
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            readonlyFiltersChanged = action.value === 'buy' && status.value === 'expired';
+            if (!readonlyFiltersChanged) throw new Error('AI signals read-only filters did not update React state');
+          }
           checkedPages.push({
             pathname: window.location.pathname,
             heading: document.querySelector('main h1')?.textContent?.trim() || '',
+            readonlyFiltersChanged,
           });
         }
         return { initial, usage, data, checkedPages };
@@ -183,6 +216,7 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         || !navigation.initial.rootMounted
         || navigation.usage?.pathname !== '/usage'
         || !navigation.usage.heading
+        || navigation.usage.periodChanged !== true
         || navigation.data?.pathname !== '/data'
         || navigation.data.heading !== 'Veri merkezi'
         || !Array.isArray(navigation.checkedPages)
@@ -190,10 +224,11 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         || navigation.checkedPages.some((page, index) => (
           page.pathname !== ['/portfolio', '/decision-signals', '/screening', '/settings'][index]
           || page.heading !== ['Portföy Yönetimi', 'AI Önerileri', 'Hisse Tarama', 'Ayarlar'][index]
+          || (index === 1 && page.readonlyFiltersChanged !== true)
         ))) {
         throw new Error('Packaged Turkish React dashboard or navigation did not render as expected');
       }
-      console.log('PASS: packaged Turkish React Usage/Data, Portfolio, AI Signals, Screening and Settings navigation rendered through Electron (CI-only, no writes).');
+      console.log('PASS: packaged Turkish React routes, Usage period segment and AI signals read-only dropdown filters (CI-only, no writes).');
     }
   } finally {
     if (!window.isDestroyed()) {
