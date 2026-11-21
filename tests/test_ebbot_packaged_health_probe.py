@@ -79,7 +79,13 @@ class PackagedHealthProbeTests(unittest.TestCase):
         source = (REPO / "scripts/probe_ebbot_packaged_health.py").read_text(encoding="utf-8")
         self.assertIn('http.client.HTTPConnection("127.0.0.1"', source)
         self.assertIn('"--serve-only", "--host", "127.0.0.1"', source)
-        self.assertIn('env=_sanitized_environment()', source)
+        # The sanitized dictionary is now extended only with opt-in CI flags
+        # before being passed to both subprocesses; never inherit credentials.
+        self.assertIn('env = _sanitized_environment()', source)
+        self.assertEqual(source.count('env = _sanitized_environment()'), 2)
+        self.assertGreaterEqual(source.count('env=env,'), 2)
+        self.assertNotIn('env=os.environ', source)
+        self.assertNotIn('env=dict(os.environ)', source)
         self.assertIn('"/api/v1/analysis/analyze"', source)
         self.assertNotIn('subprocess.run(["powershell"', source)
 

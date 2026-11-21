@@ -6,6 +6,7 @@ on:
       - audit/ebbot-windows-offline-main-stage-20261121
       - test/ebbot-packaged-health-loopback-20261121
       - test/ebbot-electron-ui-loopback-20261121
+      - test/ebbot-react-tr-windows-offline-20261121
   pull_request:
     branches: [main]
     paths:
@@ -16,6 +17,8 @@ on:
       - 'tests/test_ebbot_packaged_health_probe.py'
       - 'main.py'
       - 'api/app.py'
+      - 'tests/test_ebbot_packaged_react_probe.py'
+      - 'apps/dsa-web/src/i18n/uiText.ts'
       - '.github/workflows/ebbot-electron-windows-offline-package.yml'
 
 permissions:
@@ -74,6 +77,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
           python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
           if ($LASTEXITCODE -ne 0) { throw "Packaged health probe safety contracts failed" }
+          python -m unittest discover -s tests -p test_ebbot_packaged_react_probe.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Packaged React CI-only API contracts failed" }
 
   real-windows-nsis-package:
     name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
@@ -145,6 +150,11 @@ jobs:
         run: |
           python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --electron-exe apps/dsa-desktop/dist/win-unpacked/EBBot.exe --timeout-seconds 180
           if ($LASTEXITCODE -ne 0) { throw "Restricted packaged Electron UI smoke failed" }
+      - name: Verify packaged Turkish React shell and safe navigation in Electron
+        shell: pwsh
+        run: |
+          python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --electron-exe apps/dsa-desktop/dist/win-unpacked/EBBot.exe --react-ui --timeout-seconds 180
+          if ($LASTEXITCODE -ne 0) { throw "Restricted Turkish React Electron smoke failed" }
       - name: Upload audit JSON ONLY (never upload installer, backend, .env or updater files)
         if: always()
         uses: actions/upload-artifact@v4
@@ -160,5 +170,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity confirmed; updater hard-disabled. Code signing and real-device install remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Restricted frozen backend and packaged Electron BrowserWindow splash/renderer loopback smoke checked; full React dashboard, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Packaged Turkish React home shell, Usage/Data routes and local backend checked in CI-only read-only fixture; real API data/analysis, user install/uninstall and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY
