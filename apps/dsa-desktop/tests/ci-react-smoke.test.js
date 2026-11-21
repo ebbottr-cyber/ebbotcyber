@@ -34,11 +34,31 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
     'utf8',
   );
   assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
-  assert.match(probe, /PASS: packaged Turkish React shell and usage\/data navigation/);
+  assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
+});
+
+test('four new page headings match real packaged Turkish React sources', () => {
+  const web = path.join(__dirname, '..', '..', 'dsa-web', 'src');
+  const uiText = fs.readFileSync(path.join(web, 'i18n', 'uiText.ts'), 'utf8');
+  const tr = uiText.slice(uiText.indexOf('const tr:'));
+  assert.ok(tr.includes("'decisionSignals.title': \"AI Önerileri\""));
+  assert.ok(tr.includes("'settings.pageTitle': \"Ayarlar\""));
+  const portfolio = fs.readFileSync(path.join(web, 'locales', 'featureText.ts'), 'utf8');
+  // The Turkish locale may use either JS quote style; assert the actual
+  // heading value, not the punctuation used to encode that same string.
+  assert.ok(
+    portfolio.includes('title: "Portföy Yönetimi"')
+    || portfolio.includes("title: 'Portföy Yönetimi'"),
+  );
+  const screening = fs.readFileSync(path.join(web, 'pages', 'StockScreeningPage.tsx'), 'utf8');
+  const screeningTranslations = fs.readFileSync(path.join(web, 'utils', 'screeningUiText.ts'), 'utf8');
+  assert.ok(screening.includes('>{L("选股")}</h1>'));
+  const screeningLabel = screeningTranslations.slice(screeningTranslations.indexOf('"选股":'), screeningTranslations.indexOf('"选股":') + 120);
+  assert.ok(screeningLabel.includes('"tr": "Hisse Tarama"'));
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
-  for (const pathSuffix of ['/', '/assets/app.js', '/api/v1/auth/status', '/usage', '/data']) {
+  for (const pathSuffix of ['/', '/assets/app.js', '/api/v1/auth/status', '/usage', '/data', '/portfolio', '/decision-signals', '/screening', '/settings']) {
     assert.equal(isAllowedCiUiRequest(`http://127.0.0.1:54321${pathSuffix}`, 54321), true);
   }
   assert.equal(isAllowedCiUiRequest('https://api.github.com/', 54321), false);
@@ -64,5 +84,18 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   assert.match(smoke, /'data center heading'/);
   assert.match(smoke, /Kullanım/);
   assert.match(smoke, /Veri Merkezi/);
+  // Four new pages remain navigation-only. The actual pathname and h1 must
+  // be checked, not merely the URL or an existing sidebar aria-label.
+  for (const [route, heading] of [
+    ['/portfolio', 'Portföy Yönetimi'],
+    ['/decision-signals', 'AI Önerileri'],
+    ['/screening', 'Hisse Tarama'],
+    ['/settings', 'Ayarlar'],
+  ]) {
+    assert.ok(smoke.includes("pathname: '" + route + "'"), route);
+    assert.ok(smoke.includes("heading: '" + heading + "'"), heading);
+  }
+  assert.match(smoke, /never click trading, screening, analysis, save/);
+  assert.match(smoke, /navigation.checkedPages.length !== 4/);
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
 });
