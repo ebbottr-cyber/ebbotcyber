@@ -16,6 +16,8 @@ vi.mock('../../../api/systemConfig', () => ({
 
 describe('NotificationTestPanel', () => {
   beforeEach(() => {
+    // An explicit EN language switch in one case must not leak to later legacy zh tests.
+    window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
     testNotificationChannel.mockReset();
     testNotificationChannel.mockResolvedValue({
       success: true,
