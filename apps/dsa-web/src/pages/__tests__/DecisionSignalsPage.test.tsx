@@ -1906,7 +1906,9 @@ describe('DecisionSignalsPage', () => {
         pageSize: 20,
       }));
     });
-    expect(screen.getByText('共 20 条信号')).toBeInTheDocument();
+    // The API call is made before React commits the new total. Wait for
+    // the rendered result so CI does not race the last-page clamp update.
+    expect(await screen.findByText('共 20 条信号')).toBeInTheDocument();
     expect(screen.queryByText('暂无决策信号')).not.toBeInTheDocument();
   });
 
