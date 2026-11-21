@@ -115,7 +115,7 @@ jobs:
     env:
       ACCEPTANCE_SHA: 'ef9a293921a32dd06b90d2a9d0ef6bdc239e4d07'
       WINDOWS_SHA: 'eed661f457855176d7b8b9bfd7bcbd0470da7c86'
-      STAGE: ${{ runner.temp }}/ebbot-pr180-pr188-uncommitted-probe
+      STAGE: '/tmp/ebbot-pr180-pr188-uncommitted-probe'
     steps:
       - uses: actions/checkout@v4
         with:
