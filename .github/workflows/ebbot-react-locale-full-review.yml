@@ -1,0 +1,83 @@
+name: EBBot React legacy locale regression and full UI safety
+
+on:
+  push:
+    branches:
+      - test/ebbot-react-locale-regression-20261120
+  pull_request:
+    branches:
+      - fix/ebbot-integration-full-backend-fx-20261120
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-react-locale-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-react-and-build:
+    name: Full Vitest + lint + production build + native PWA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install reproducible frontend dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run EVERY Vitest file including Turkish-first tests (no skips added)
+        run: npm test -- --reporter=dot
+      - name: ESLint
+        run: npm run lint
+      - name: Production TypeScript + Vite build
+        run: npm run build
+      - name: Run native Node PWA smoke separately
+        run: PWA_REQUIRE_BUILD=1 npm run test:pwa
+
+  locale-specific-regressions:
+    name: 21 previously failing React locale files
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install exact frontend lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Re-run all 21 historical failing UI files, without filters inside them
+        run: |
+          npx vitest run --reporter=dot \
+            src/components/alerts/__tests__/AlertRuleForm.test.tsx \
+            src/components/settings/__tests__/SettingsField.test.tsx \
+            src/components/history/__tests__/HistoryList.test.tsx \
+            src/components/layout/__tests__/SidebarNav.test.tsx \
+            src/components/alerts/__tests__/AlertRuleList.test.tsx \
+            src/pages/__tests__/BacktestPage.test.tsx \
+            src/components/tasks/__tests__/TaskPanel.test.tsx \
+            src/components/layout/__tests__/DesktopUpdateIndicator.test.tsx \
+            src/components/settings/__tests__/AgentBackendStatusPanel.test.tsx \
+            src/components/settings/__tests__/AuthSettingsCard.test.tsx \
+            src/components/history/__tests__/StockBarItem.test.tsx \
+            src/components/settings/__tests__/GenerationBackendStatusPanel.test.tsx \
+            src/components/settings/__tests__/IntelligentImport.test.tsx \
+            src/components/common/__tests__/Input.test.tsx \
+            src/components/settings/__tests__/SettingsPanelErrorBoundary.test.tsx \
+            src/contexts/__tests__/UiLanguageContext.test.tsx \
+            src/pages/__tests__/DataCenterPage.test.tsx \
+            src/components/layout/__tests__/Shell.test.tsx \
+            src/components/report/__tests__/ReportOverview.test.tsx \
+            src/components/layout/__tests__/RouteBoundary.test.tsx \
+            src/components/theme/__tests__/ThemeToggle.test.tsx

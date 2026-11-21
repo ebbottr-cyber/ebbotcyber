@@ -1,0 +1,51 @@
+name: EBBot main merge governance preflight (ADVISORY, no merge)
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, review_requested]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ebbot-merge-governance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  governance-advisory:
+    name: Main protection and independent review advisory (NO merge)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Offline governance regression tests (no network)
+        run: python -m unittest discover -s tests -p 'test_audit_ebbot_merge_governance.py' -v
+      - name: GET-only branch protection, required gate and review preflight
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python scripts/audit_ebbot_merge_governance.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --pr-number "$PR_NUMBER" \
+            --head-sha "$PR_HEAD" \
+            --report "$RUNNER_TEMP/ebbot-governance-review.json"
+      - name: Store governance blocker report even if red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-governance-review-advisory
+          path: ${{ runner.temp }}/ebbot-governance-review.json
+          if-no-files-found: warn
+          retention-days: 7

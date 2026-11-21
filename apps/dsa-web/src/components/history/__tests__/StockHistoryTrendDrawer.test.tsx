@@ -1,9 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen, type RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { StockHistoryTrendDrawer } from '../StockHistoryTrendDrawer';
 import type { AnalysisReport, HistoryItem } from '../../../types/analysis';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
 
 const report: AnalysisReport = {
   meta: {
@@ -42,6 +47,7 @@ const items: HistoryItem[] = [
 describe('StockHistoryTrendDrawer', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
   });
 
   it('uses structured action in summary and rows', () => {

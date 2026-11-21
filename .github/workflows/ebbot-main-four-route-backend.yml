@@ -1,0 +1,79 @@
+name: EBBot combined draft full offline backend regression (NO release or trades)
+
+on:
+  push:
+    branches:
+      - integration/ebbot-main-four-route-verified-draft-20261121
+      - integration/ebbot-main-readonly-controls-zero-skip-20261121
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-main-four-route-backend
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  ELECTRON_BUILDER_PUBLISH: 'never'
+
+jobs:
+  backend:
+    name: All offline-marked backend tests against real merged draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies from repository CI requirements
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Run entire backend regression excluding tests marked network
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python -m pytest -q -m 'not network' \
+            --junitxml="$RUNNER_TEMP/ebbot-merged-backend.xml" \
+            > "$RUNNER_TEMP/ebbot-merged-backend.log" 2>&1
+          result=$?
+          set -e
+          tail -n 100 "$RUNNER_TEMP/ebbot-merged-backend.log"
+          if [[ "$result" -ne 0 ]]; then
+            echo "FAIL: full offline-selected backend regression ($result)"
+            exit "$result"
+          fi
+          echo 'Backend regression passed. These tests are NOT a proof of physical network isolation.'
+      - name: Upload test report only; never packaged artifacts or credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-four-route-backend-junit
+          path: ${{ runner.temp }}/ebbot-merged-backend.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  gate:
+    name: Fail closed if backend regression fails; release always BLOCKED
+    needs: [backend]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Preserve no-release contract
+        shell: bash
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+        run: |
+          set -euo pipefail
+          echo "Backend result: $BACKEND_RESULT"
+          echo 'No main merge, no installer execution, no scheduled analysis, no paper/live orders, no releases.'
+          [[ "$BACKEND_RESULT" == 'success' ]]
