@@ -37,11 +37,11 @@ jobs:
       - name: Install CI dependencies without secrets
         run: python -m pip install -r .github/requirements-ci.txt
       - name: Real API session, no path injection and auth-disabled fail closed
-        run: python -m unittest discover -s tests -p 'test_equity_coverage_api_auth.py' -v
+        run: python -m pytest -q tests/test_equity_coverage_api_auth.py
       - name: Original bounded reader regression
         run: python -m unittest discover -s tests -p 'test_equity_data_coverage_reader.py' -v
       - name: CI-only frozen React probe must hide real coverage API
-        run: python -m unittest discover -s tests -p 'test_ebbot_packaged_react_probe.py' -v
+        run: python -m pytest -q tests/test_ebbot_packaged_react_probe.py
       - name: Static Windows packaging guard
         run: python -m unittest discover -s tests -p 'test_equity_coverage_windows_packaging.py' -v
 
