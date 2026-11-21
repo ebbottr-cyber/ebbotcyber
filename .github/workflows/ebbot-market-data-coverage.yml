@@ -35,6 +35,10 @@ jobs:
           report = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert report['status'] in ('BLOCKED_INCOMPLETE_EVIDENCE', 'REVIEW_ONLY_NEEDS_INDEPENDENT_VALIDATION')
           assert report['network_requests'] == report['orders'] == 0
+          assert report['stored_xetra_manifest_loaded'] is True
+          assert report['markets']['de']['candidate_instruments'] == 1750
+          assert report['markets']['us']['candidate_instruments'] > 0
+          assert report['markets']['hk']['candidate_instruments'] > 0
           assert report['market_data_license_verified'] is False
           assert report['full_exchange_listing_coverage_verified'] is False
           assert report['live_trading_enabled'] is False
