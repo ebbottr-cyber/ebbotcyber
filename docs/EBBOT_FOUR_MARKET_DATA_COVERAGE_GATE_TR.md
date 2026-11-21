@@ -76,7 +76,7 @@ KAP'ın [resmî Pazarlar](https://www.kap.org.tr/tr/Pazarlar) sayfası KAP kodu 
 
 Operatör, KAP'taki pazar kayıtlarının orijinal hâlini ve indirme tarihini ayrıca saklayıp çalışma kopyasını UTF-8 CSV'ye dönüştürmelidir. Dosya şu sütunlara sahip olur: `pazar,kap_kodu,unvan,kaynak_tarihi,isin`. `isin` sütunu isteğe bağlıdır. Her satırın kaynak tarihi, verilen snapshot tarihiyle aynı olmalıdır.
 
-Kabul edilen pazar değerleri: `YILDIZ PAZAR`, `ANA PAZAR`, `ALT PAZAR`, `YAKIN İZLEME PAZARI`, `PİYASA ÖNCESİ İŞLEM PLATFORMU`, `YAPILANDIRILMIŞ ÜRÜNLER VE FON PAZARI`. Son gruptaki fon/yapılandırılmış ürünler ayrı sayılır.
+Kabul edilen pazar değerleri: `YILDIZ PAZAR`, `ANA PAZAR`, `ALT PAZAR`, `YAKIN İZLEME PAZARI`, `PİYASA ÖNCESİ İŞLEM PLATFORMU`, `YAPILANDIRILMIŞ ÜRÜNLER VE FON PAZARI`. Ayrıca resmî Pay Piyasası altında listelenen `GİRİŞİM SERMAYESİ PAZARI` ve `EMTİA PAZARI` kayıtları yalnız **ayrı fon/emtia kanıtı** olarak alınır; hisse adayı sayısına katılmaz. Sekiz segmentten bazıları eksikse rapordaki `all_eight_pay_market_segments_present=false` değeri bunu açık gösterir. Bu alan da kaynak kanıtı veya veri lisansı onayı değildir. Son gruptaki fon/yapılandırılmış ürünler ayrı sayılır.
 
 Dosya gerçek olarak mevcutsa, Windows PowerShell'de aşağıdaki dosya adını ve tarihi **kendi dosyanıza göre** değiştirerek çalıştırın:
 

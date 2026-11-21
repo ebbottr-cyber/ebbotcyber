@@ -43,11 +43,18 @@ class KAPInventoryTests(unittest.TestCase):
             "YAKIN İZLEME PAZARI,ATEKS,Ornek Yakin,2026-11-21,\n"
             "PİYASA ÖNCESİ İŞLEM PLATFORMU,XXXX,Ornek Oncesi,2026-11-21,\n"
             "YAPILANDIRILMIŞ ÜRÜNLER VE FON PAZARI,YYYY,Ornek Fon,2026-11-21,\n"
+            "GİRİŞİM SERMAYESİ PAZARI,ZZZZ,Ornek Girisim Fonu,2026-11-21,\n"
+            "EMTİA PAZARI,QQQQ,Ornek Emtia,2026-11-21,\n"
         )
         self.assertEqual(result["status"], "REVIEW_ONLY_UNMAPPED_KAP_CODES")
-        self.assertEqual(result["source_rows"], 6)
+        self.assertEqual(result["source_rows"], 8)
         self.assertEqual(result["equity_market_candidate_count"], 5)
         self.assertEqual(result["structured_fund_separate_count"], 1)
+        self.assertEqual(result["venture_fund_separate_count"], 1)
+        self.assertEqual(result["commodity_separate_count"], 1)
+        self.assertTrue(result["all_eight_pay_market_segments_present"])
+        self.assertNotIn("ZZZZ", result["kap_codes_pending_provider_symbol_mapping"])
+        self.assertNotIn("QQQQ", result["kap_codes_pending_provider_symbol_mapping"])
         self.assertEqual(result["markets"]["watch"]["rows"], 1)
         self.assertEqual(result["verified_provider_symbols"], 0)
         self.assertEqual(result["approved_broker_symbols"], 0)
@@ -57,6 +64,20 @@ class KAPInventoryTests(unittest.TestCase):
         self.assertEqual(result["network_requests"], 0)
         self.assertEqual(result["orders"], 0)
         self.assertNotIn("THYAO.IS", result["kap_codes_pending_provider_symbol_mapping"])
+
+    def test_non_equity_segments_never_count_as_stock_candidates(self):
+        result = self.inspect_rows(
+            "GİRİŞİM SERMAYESİ PAZARI,AAAA,Ornek GS Fonu,2026-11-21,\n"
+            "EMTİA PAZARI,BBBB,Ornek Emtia,2026-11-21,\n"
+            "YAPILANDIRILMIŞ ÜRÜNLER VE FON PAZARI,CCCC,Ornek BYF,2026-11-21,\n"
+        )
+        self.assertEqual(result["source_rows"], 3)
+        self.assertEqual(result["equity_market_candidate_count"], 0)
+        self.assertEqual(result["kap_codes_pending_provider_symbol_mapping"], [])
+        self.assertFalse(result["all_eight_pay_market_segments_present"])
+        self.assertEqual(result["venture_fund_separate_count"], 1)
+        self.assertEqual(result["commodity_separate_count"], 1)
+        self.assertFalse(result["tradeable_bist_universe_verified"])
 
     def test_sha256_pins_exact_bytes_and_rejects_bom(self):
         digest = self.put("ANA PAZAR,ACSEL,Ornek,2026-11-21,\n")

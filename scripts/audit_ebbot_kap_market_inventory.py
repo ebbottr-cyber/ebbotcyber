@@ -29,6 +29,8 @@ MARKETS = {
     "YAKIN İZLEME PAZARI": "watch",
     "PİYASA ÖNCESİ İŞLEM PLATFORMU": "pre_market",
     "YAPILANDIRILMIŞ ÜRÜNLER VE FON PAZARI": "structured_fund",
+    "GİRİŞİM SERMAYESİ PAZARI": "venture_fund",
+    "EMTİA PAZARI": "commodity",
 }
 EQUITY_MARKETS = {"star", "main", "sub", "watch", "pre_market"}
 COLUMNS = {"pazar", "kap_kodu", "unvan", "kaynak_tarihi"}
@@ -123,6 +125,9 @@ def inspect(path: Path, expected_hash: str, page: str, snapshot_date: date,
         "markets": {m: {"rows": groups[m], "kap_codes": codes[m]} for m in codes},
         "equity_market_candidate_count": len(eligible),
         "structured_fund_separate_count": groups["structured_fund"],
+        "venture_fund_separate_count": groups["venture_fund"],
+        "commodity_separate_count": groups["commodity"],
+        "all_eight_pay_market_segments_present": all(groups[group] > 0 for group in codes),
         "kap_codes_pending_provider_symbol_mapping": eligible,
         "rows_with_unverified_isin_format": with_isin,
         "verified_provider_symbols": 0,
