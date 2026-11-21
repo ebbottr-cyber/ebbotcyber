@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ReportOverview } from '../ReportOverview';
 
 const baseMeta = {
@@ -17,6 +18,9 @@ const baseSummary = {
   trendPrediction: '短线震荡偏强',
   sentimentScore: 78,
 };
+
+// Historical Chinese-label expectations must opt in; production Turkish stays default.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('ReportOverview', () => {
   it('renders final market phase and partial-bar labels from report metadata', () => {

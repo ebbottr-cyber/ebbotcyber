@@ -1,0 +1,119 @@
+name: EBBot combined auth Turkish React full offline gate (NO trades)
+
+on:
+  push:
+    branches:
+      - integration/ebbot-auth-turkish-react-main-20261121
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-full-auth-tr-react-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  PYTHONUNBUFFERED: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  complete-backend:
+    name: Complete offline backend pytest (no live providers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend test dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Run all backend tests except marked network probes
+        run: python -m pytest -q -m "not network"
+
+  focused-security-turkish:
+    name: Dedicated auth, Turkish reporting and Chinese leak checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r .github/requirements-ci.txt
+      - name: Python auth / Turkish reporting contracts
+        run: |
+          python -m pytest -q tests/test_auth.py tests/test_auth_api.py tests/test_auth_status_setup_state.py tests/test_analyzer_prompt_language.py tests/test_notification_empty_news_disclosure.py tests/test_market_review.py tests/test_turkish_report_language.py tests/test_nasdaq_turkish_smoke.py tests/test_turkish_market_recap_scaffold.py tests/test_turkish_text_leak_audit.py
+          python -m scripts.audit_turkish_text_leaks
+
+  entire-react:
+    name: Complete React Vitest (preserve all failures)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Entire Vitest suite, real exit status, JUnit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          if npm test -- --reporter=dot --reporter=junit --outputFile.junit=vitest-results.xml > vitest-console.log 2>&1; then
+            tail -n 45 vitest-console.log
+          else
+            tail -n 100 vitest-console.log
+            exit 1
+          fi
+      - name: Archive complete Vitest output on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-combined-react-vitest-truth
+          path: |
+            apps/dsa-web/vitest-console.log
+            apps/dsa-web/vitest-results.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  eslint-typescript-build:
+    name: Independent ESLint, TypeScript and production Vite build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npx tsc -p tsconfig.app.json --noEmit
+      - run: npm run build
