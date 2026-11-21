@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { useUiLanguage, UiLanguageProvider } from '../../../contexts/UiLanguageContext';
@@ -15,6 +16,8 @@ vi.mock('../../../api/systemConfig', () => ({
 
 describe('NotificationTestPanel', () => {
   beforeEach(() => {
+    // An explicit EN language switch in one case must not leak to later legacy zh tests.
+    window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
     testNotificationChannel.mockReset();
     testNotificationChannel.mockResolvedValue({
       success: true,

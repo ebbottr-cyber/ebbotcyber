@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
 import { describe, expect, it, vi } from 'vitest';
 import { TaskPanel } from '../TaskPanel';
 import type { TaskInfo } from '../../../types/analysis';
