@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Database, RefreshCw, Settings2, TriangleAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dataCapabilityApi } from '../api/dataCapability';
+import EquityCoveragePanel from '../components/data-center/EquityCoveragePanel';
 import { AppPage, Badge, Button, Card, EmptyState, InlineAlert, Loading, PageHeader } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import type { DataCapabilityOverview, DatasetQualityStatus, ProviderCapabilityStatus } from '../types/dataCapability';
@@ -124,6 +125,8 @@ const DataCenterPage: React.FC = () => {
       {!loading && !error && overview && overview.providers.length === 0 && overview.datasets.length === 0 ? (
         <EmptyState icon={<Database className="h-6 w-6" />} title={t('dataCenter.emptyTitle')} description={t('dataCenter.emptyDescription')} />
       ) : null}
+
+      <EquityCoveragePanel />
 
       {overview ? (
         <>
