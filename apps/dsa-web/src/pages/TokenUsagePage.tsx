@@ -24,7 +24,7 @@ const CALL_TYPE_LABEL_KEYS: Record<string, UiTextKey> = {
 };
 
 function getLocale(language: UiLanguage): string {
-  return language === 'en' ? 'en-US' : 'zh-CN';
+  return language === 'tr' ? 'tr-TR' : language === 'en' ? 'en-US' : 'zh-CN';
 }
 
 function formatNumber(value: number | null | undefined, language: UiLanguage): string {
@@ -155,6 +155,8 @@ const TokenUsagePage: React.FC = () => {
                   <button
                     key={option}
                     type="button"
+                    data-testid={`usage-period-${option}`}
+                    aria-pressed={period === option}
                     onClick={() => setPeriod(option)}
                     className={cn(
                       'rounded-lg px-3 py-1.5 text-sm transition-colors',
