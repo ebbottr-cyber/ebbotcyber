@@ -30,6 +30,7 @@ RATE_LIMIT_WINDOW_SEC = 300
 RATE_LIMIT_MAX_FAILURES = 5
 SESSION_MAX_AGE_HOURS_DEFAULT = 24
 MIN_PASSWORD_LEN = 6
+SESSION_INVALIDATION_FAILED = "Session invalidation failed; password not changed"
 
 # Lazy-loaded state
 _auth_enabled: Optional[bool] = None
@@ -67,15 +68,20 @@ def _get_credential_path() -> Path:
 
 
 def _is_auth_enabled_from_env() -> bool:
-    """Read ADMIN_AUTH_ENABLED from .env file."""
+    """Read the saved auth toggle, falling back to a process env setting.
+
+    Explicit .env entries take precedence so WebUI auth toggles remain effective.
+    Container-only ADMIN_AUTH_ENABLED=true must not silently disable auth.
+    """
     _ensure_env_loaded()
     env_file = os.getenv("ENV_FILE")
     env_path = Path(env_file) if env_file else Path(__file__).resolve().parent.parent / ".env"
-    if not env_path.exists():
-        return False
-    values = dotenv_values(env_path)
-    val = (values.get("ADMIN_AUTH_ENABLED") or "").strip().lower()
-    return val in ("true", "1", "yes")
+    val = os.getenv("ADMIN_AUTH_ENABLED", "")
+    if env_path.exists():
+        values = dotenv_values(env_path)
+        if "ADMIN_AUTH_ENABLED" in values:
+            val = values.get("ADMIN_AUTH_ENABLED") or ""
+    return val.strip().lower() in ("true", "1", "yes")
 
 
 def rotate_session_secret() -> bool:
@@ -303,6 +309,13 @@ def change_password(current: str, new: str) -> Optional[str]:
     err = _validate_password(new)
     if err:
         return err
+
+    # Never commit a replacement password while old signed sessions can
+    # remain valid. A rotation failure leaves the old password unchanged.
+    # Successful rotation before a failed password write revokes old sessions
+    # conservatively; the old credential can still be used to sign in again.
+    if not rotate_session_secret():
+        return SESSION_INVALIDATION_FAILED
 
     cred_path = _get_credential_path()
     salt = secrets.token_bytes(32)
