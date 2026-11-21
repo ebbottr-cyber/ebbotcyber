@@ -1,0 +1,49 @@
+name: Turkish backend report contracts V13
+
+on:
+  pull_request:
+    branches:
+      - fix/archived-workflow-ci-contracts-v12
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turkish-backend-v13-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  turkish-report-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Compile affected modules and tests
+        run: python -m py_compile src/market_context.py tests/test_turkish_market_context.py tests/test_notification_empty_news_disclosure.py
+      - name: Turkish, Korean, English, Chinese report regressions
+        run: |
+          python -m pytest -q \
+            tests/test_turkish_market_context.py \
+            tests/test_analyzer_prompt_language.py \
+            tests/test_notification_empty_news_disclosure.py \
+            tests/test_turkish_report_language.py \
+            tests/test_report_language.py \
+            tests/test_report_language_prompt_directives.py
+
+  all-backend-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Execute complete backend pytest without suppressing failures
+        run: python -m pytest -q

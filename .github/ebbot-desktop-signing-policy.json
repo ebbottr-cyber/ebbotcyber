@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "product": "EBBot",
+  "release_enabled": false,
+  "approved_signer_thumbprints": [],
+  "required_targets": [
+    "nsis_installer",
+    "electron_app",
+    "python_backend"
+  ],
+  "notes": "BLOCKED until an approved code-signing certificate and independently reviewed publisher identity are configured. No secrets or cert files in repository."
+}

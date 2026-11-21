@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetSharedDesktopUpdateState } from '../../../desktop/updateStore';
@@ -37,6 +38,9 @@ function renderIndicator() {
     </MemoryRouter>,
   );
 }
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('DesktopUpdateIndicator', () => {
   beforeEach(() => {
@@ -155,7 +159,9 @@ describe('DesktopUpdateIndicator', () => {
     renderIndicator();
 
     const entry = await screen.findByRole('button', { name: '桌面端更新' });
-    expect(entry).toHaveAttribute('title', expect.stringContaining('42%'));
+    expect(entry).toHaveAttribute('aria-description', expect.stringContaining('42%'));
+    fireEvent.mouseEnter(entry);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('42%');
     expect(desktopCheckForUpdates).not.toHaveBeenCalled();
   });
 });

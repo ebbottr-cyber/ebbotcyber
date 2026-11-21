@@ -1,6 +1,14 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import AlertsPage from '../AlertsPage';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
 
 const {
   listRules,
@@ -72,6 +80,7 @@ function createDeferred<T>() {
 }
 
 beforeEach(() => {
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
   vi.clearAllMocks();
   listRules.mockResolvedValue({ items: [rule], total: 1, page: 1, pageSize: 20 });
   listTriggers.mockResolvedValue({
@@ -108,6 +117,17 @@ beforeEach(() => {
 });
 
 describe('AlertsPage', () => {
+  it('shows Turkish alert and notification headings when Turkish is selected', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    render(<AlertsPage />);
+    expect(await screen.findByText('Uyarı Merkezi')).toBeInTheDocument();
+    expect(screen.getByText('Bildirim Gönderim Denemeleri')).toBeInTheDocument();
+    expect(screen.getByText('Tetikleme Geçmişi')).toBeInTheDocument();
+    expect((await screen.findAllByText('Tetiklendi')).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Henüz bildirim denemesi yok')).toBeInTheDocument();
+    expect(screen.queryByText('告警中心')).not.toBeInTheDocument();
+  });
+
   it('discloses environment rules even when the database rule list is empty', async () => {
     listRules.mockResolvedValue({
       items: [], total: 0, page: 1, pageSize: 20,

@@ -1,0 +1,48 @@
+name: ETF Provider Consistency V7
+
+on:
+  pull_request:
+    branches:
+      - fix/turkish-ui-type-coverage-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: etf-provider-v7-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  provider-consistency-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Syntax validation
+        run: python -m py_compile src/core/provider_consistency.py scripts/smoke_etf_provider_consistency.py tests/test_provider_consistency.py
+      - name: Targeted provider consistency unit tests
+        run: python -m pytest -q tests/test_provider_consistency.py
+
+  paired-real-provider-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      EFINANCE_CALL_TIMEOUT: "12"
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Strict two-provider read-only historical ETF verification
+        run: PYTHONPATH=. python scripts/smoke_etf_provider_consistency.py
