@@ -14,6 +14,7 @@ on:
       - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
       - test/ebbot-sqlite-crash-recovery-offline-20261121
       - integration/ebbot-main-desktop-stack-pr139-20261121
+      - integration/ebbot-windows-loopback-probe-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -26,6 +27,7 @@ on:
       - security/ebbot-desktop-sqlite-online-snapshot-20261120
       - security/ebbot-sqlite-electron-restore-staging-20261120
       - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
+      - integration/ebbot-main-desktop-stack-pr139-20261121
       - main
 
 permissions:
@@ -126,6 +128,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Install desktop contract dependencies failed" }
           python -m pytest -q tests/test_desktop_installer_config.py tests/test_desktop_packaging_assets.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
+          # These FastAPI/TestClient tests require the dependencies installed above.
+          python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
+          if ($LASTEXITCODE -ne 0) { throw "CI-only packaged health route and no-trading contracts failed" }
 
   real-windows-nsis-package:
     name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
@@ -192,6 +197,11 @@ jobs:
           $report = Get-Content desktop-package-audit.json -Raw | ConvertFrom-Json
           if ($report.release_status -ne "BLOCKED") { throw "Release must remain blocked pending review" }
           Write-Host "Packaged Windows structure verified. Release blocked. SHA256 recorded in private CI artifact."
+      - name: Probe frozen Windows backend ONLY via isolated loopback health endpoint
+        shell: pwsh
+        run: |
+          python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --timeout-seconds 180
+          if ($LASTEXITCODE -ne 0) { throw "Frozen backend localhost health isolation failed" }
       - name: Inspect local Authenticode signatures (unsigned stays BLOCKED)
         shell: pwsh
         run: |
@@ -226,5 +236,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity and repository source isolated. Auto-updater is OFF; code signing, SmartScreen and device migration remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Code signing, SmartScreen, real Windows user installation, backend startup and update/uninstall data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Restricted frozen backend loopback health is tested; FULL Electron startup, code signing, SmartScreen, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY

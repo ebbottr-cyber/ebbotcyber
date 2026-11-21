@@ -1716,6 +1716,27 @@ def main() -> int:
     # 解析命令行参数
     args = parse_arguments()
 
+    # Explicit CI-only frozen diagnostic. Never use a normal server startup
+    # on GitHub Actions: only this exact loopback/serve-only command is allowed.
+    offline_health_probe = os.getenv("EBBOT_PACKAGED_HEALTH_PROBE") == "1"
+    if offline_health_probe:
+        expected_args = [
+            "--serve-only", "--host", "127.0.0.1",
+            "--port", str(args.port),
+        ]
+        if not (
+            getattr(sys, "frozen", False)
+            and os.getenv("GITHUB_ACTIONS") == "true"
+            and args.serve_only
+            and not args.serve
+            and args.host == "127.0.0.1"
+            and isinstance(args.port, int)
+            and 1 <= args.port <= 65535
+            and sys.argv[1:] == expected_args
+        ):
+            print("EBBot offline health probe: invalid CI/frozen/loopback invocation", file=sys.stderr)
+            return 2
+
     # 在配置加载前先初始化 bootstrap 日志，确保早期失败也能落盘
     try:
         _setup_bootstrap_logging(debug=args.debug)
@@ -1819,7 +1840,9 @@ def main() -> int:
         args.serve = True
 
     # === 启动 Web 服务 (如果启用) ===
-    start_serve = (args.serve or args.serve_only) and os.getenv("GITHUB_ACTIONS") != "true"
+    start_serve = (args.serve or args.serve_only) and (
+        os.getenv("GITHUB_ACTIONS") != "true" or offline_health_probe
+    )
 
     if start_serve:
         args.host, args.port = _resolve_web_service_bind(args, config)
@@ -1839,8 +1862,13 @@ def main() -> int:
         # This keeps Web settings, status, and run-now actions attached to the real
         # scheduler instead of a separate CLI loop.
         os.environ.pop(CLI_SCHEDULER_OWNER_ENV, None)
-        os.environ.pop(RUNTIME_SCHEDULER_SUPPRESS_START_ENV, None)
-        runtime_schedule_requested = args.schedule or config.schedule_enabled
+        if offline_health_probe:
+            os.environ[RUNTIME_SCHEDULER_SUPPRESS_START_ENV] = "true"
+        else:
+            os.environ.pop(RUNTIME_SCHEDULER_SUPPRESS_START_ENV, None)
+        runtime_schedule_requested = (not offline_health_probe) and (
+            args.schedule or config.schedule_enabled
+        )
         if args.schedule:
             os.environ[RUNTIME_SCHEDULER_FORCE_ENABLED_ENV] = "true"
         else:
@@ -1870,7 +1898,7 @@ def main() -> int:
         if getattr(args, "portfolio", None):
             runtime_scheduler_args["portfolio"] = args.portfolio
         os.environ[RUNTIME_SCHEDULER_ARGS_ENV] = json.dumps(runtime_scheduler_args)
-        if not prepare_webui_frontend_assets():
+        if not offline_health_probe and not prepare_webui_frontend_assets():
             logger.warning("前端静态资源未就绪，继续启动 FastAPI 服务（Web 页面可能不可用）")
         try:
             start_api_server(host=args.host, port=args.port, config=config)
@@ -1881,7 +1909,7 @@ def main() -> int:
                 return 1
             start_serve = False
 
-    if bot_clients_started:
+    if bot_clients_started and not offline_health_probe:
         start_bot_stream_clients(config)
 
     # === 仅 Web 服务模式：不自动执行分析 ===
