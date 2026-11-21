@@ -219,7 +219,9 @@ class AuthApiTestCase(unittest.TestCase):
             )
         )
         self.assertEqual(login.status_code, 200)
-        with patch.object(auth_endpoint, "rotate_session_secret", return_value=False):
+        previous_session = auth.create_session()
+        self.assertTrue(auth.verify_session(previous_session))
+        with patch.object(auth, "rotate_session_secret", return_value=False):
             response = asyncio.run(
                 auth_endpoint.auth_change_password(
                     auth_endpoint.ChangePasswordRequest(
@@ -231,6 +233,9 @@ class AuthApiTestCase(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 500)
         self.assertIn(b'session_invalidation_failed', response.body)
+        self.assertTrue(auth.verify_password("oldpass6"))
+        self.assertFalse(auth.verify_password("newpass6"))
+        self.assertTrue(auth.verify_session(previous_session))
 
     def test_change_password_wrong_current_rejected(self) -> None:
         first_response = asyncio.run(

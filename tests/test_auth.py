@@ -288,6 +288,32 @@ class AuthSetPasswordTestCase(unittest.TestCase):
 
         self._run_with_patch(run)
 
+    def test_change_password_rotation_failure_keeps_old_credential(self) -> None:
+        def run():
+            self.assertIsNone(auth.set_initial_password("oldpass123"))
+            old_session = auth.create_session()
+            self.assertTrue(auth.verify_session(old_session))
+            with patch.object(auth, "rotate_session_secret", return_value=False):
+                err = auth.change_password("oldpass123", "newpass456")
+            self.assertEqual(err, auth.SESSION_INVALIDATION_FAILED)
+            self.assertTrue(auth.verify_password("oldpass123"))
+            self.assertFalse(auth.verify_password("newpass456"))
+            self.assertTrue(auth.verify_session(old_session))
+
+        self._run_with_patch(run)
+
+    def test_change_password_invalid_input_does_not_revoke_session(self) -> None:
+        def run():
+            self.assertIsNone(auth.set_initial_password("oldpass123"))
+            session = auth.create_session()
+            with patch.object(auth, "rotate_session_secret") as rotate:
+                self.assertIsNotNone(auth.change_password("wrongpass", "newpass456"))
+                self.assertIsNotNone(auth.change_password("oldpass123", "short"))
+                rotate.assert_not_called()
+            self.assertTrue(auth.verify_session(session))
+
+        self._run_with_patch(run)
+
     def test_change_password_wrong_current(self) -> None:
         def run():
             auth.set_initial_password("correctpass")

@@ -30,6 +30,7 @@ RATE_LIMIT_WINDOW_SEC = 300
 RATE_LIMIT_MAX_FAILURES = 5
 SESSION_MAX_AGE_HOURS_DEFAULT = 24
 MIN_PASSWORD_LEN = 6
+SESSION_INVALIDATION_FAILED = "Session invalidation failed; password not changed"
 
 # Lazy-loaded state
 _auth_enabled: Optional[bool] = None
@@ -308,6 +309,13 @@ def change_password(current: str, new: str) -> Optional[str]:
     err = _validate_password(new)
     if err:
         return err
+
+    # Never commit a replacement password while old signed sessions can
+    # remain valid. A rotation failure leaves the old password unchanged.
+    # Successful rotation before a failed password write revokes old sessions
+    # conservatively; the old credential can still be used to sign in again.
+    if not rotate_session_secret():
+        return SESSION_INVALIDATION_FAILED
 
     cred_path = _get_credential_path()
     salt = secrets.token_bytes(32)
