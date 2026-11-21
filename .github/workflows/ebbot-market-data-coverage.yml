@@ -6,6 +6,8 @@ on:
       - audit/ebbot-four-market-data-coverage-20261121
   pull_request:
     paths:
+      - 'scripts/audit_ebbot_kap_bist_crosswalk.py'
+      - 'tests/test_ebbot_kap_bist_crosswalk.py'
       - 'scripts/audit_ebbot_kap_market_inventory.py'
       - 'tests/test_ebbot_kap_market_inventory.py'
       - 'scripts/audit_ebbot_market_data_coverage.py'
@@ -30,6 +32,8 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
       - name: Deterministic offline KAP market staging tests
         run: python -m unittest discover -s tests -p 'test_ebbot_kap_market_inventory.py' -v
+      - name: KAP to BIST declared symbol and ISIN crosswalk offline contract
+        run: python -m unittest discover -s tests -p 'test_ebbot_kap_bist_crosswalk.py' -v
       - name: Report actual repo four-market inventory gaps (not readiness)
         run: |
           python -m scripts.audit_ebbot_market_data_coverage --report-json "$RUNNER_TEMP/ebbot-market-coverage.json"
