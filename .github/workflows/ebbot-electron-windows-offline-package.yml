@@ -9,6 +9,7 @@ on:
       - test/ebbot-react-tr-windows-offline-20261121
       - test/ebbot-react-secondary-pages-offline-20261121
       - test/ebbot-react-readonly-controls-20261121
+      - test/ebbot-react-portfolio-settings-readonly-20261121
   pull_request:
     branches: [main]
     paths:
@@ -24,6 +25,9 @@ on:
       - 'apps/dsa-web/src/pages/StockScreeningPage.tsx'
       - 'apps/dsa-web/src/pages/TokenUsagePage.tsx'
       - 'apps/dsa-web/src/pages/DecisionSignalsPage.tsx'
+      - 'apps/dsa-web/src/pages/PortfolioPage.tsx'
+      - 'apps/dsa-web/src/pages/SettingsPage.tsx'
+      - 'apps/dsa-web/src/components/settings/SettingsCategoryNav.tsx'
       - '.github/workflows/ebbot-electron-windows-offline-package.yml'
 
 permissions:
@@ -175,5 +179,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity confirmed; updater hard-disabled. Code signing and real-device install remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Packaged Turkish React routes, Usage period control and AI signals filter selectors checked with GET/HEAD-only requests in CI. Real API data/analysis, user install/uninstall and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Packaged Turkish React routes, Usage period, portfolio FIFO/AVG selection, AI filters and Settings category transitions checked against synthetic GET-only fixtures. No writes. Real account/market/config data, user install/uninstall and migration NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY
