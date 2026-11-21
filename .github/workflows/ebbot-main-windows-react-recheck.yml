@@ -1,0 +1,73 @@
+name: EBBot current-main versus reconciled Windows React merge-tree (NO MERGE)
+
+on:
+  push:
+    branches: [audit/ebbot-main-windows-react-conflict-recheck-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-pinned-main-windows-react-conflicts
+  cancel-in-progress: true
+
+env:
+  MAIN_SHA: '885d4ff9a3c01d467853febb5f28303ff93638f2'
+  CANDIDATE_SHA: 'fb1e4e9fb4a13ebbd635ded97f8c4f604197a94c'
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  true-three-way:
+    name: Exact Git three-way preview, never modify branch refs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch latest pinned main and reviewed candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/integration/ebbot-main-react-windows-probe-v2-20261121:refs/remotes/origin/ebbot-reviewed-candidate
+      - name: Git merge-tree dry run, fail closed on even one content conflict or SHA drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/audit_ebbot_main_windows_recheck.py \
+            --main-ref refs/remotes/origin/main --main-sha "$MAIN_SHA" \
+            --candidate-ref refs/remotes/origin/ebbot-reviewed-candidate --candidate-sha "$CANDIDATE_SHA" \
+            --report "$RUNNER_TEMP/ebbot-main-windows-react-merge-preview.json"
+      - name: Preserve conflict evidence even when preview fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-windows-react-merge-conflicts-json
+          path: ${{ runner.temp }}/ebbot-main-windows-react-merge-preview.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  gate:
+    name: Fail-closed merge review gate, release always BLOCKED
+    needs: [true-three-way]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require conflict-free Git preview and keep all release actions disabled
+        env:
+          MERGE_PREVIEW: ${{ needs.true-three-way.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Git merge-tree preview result: $MERGE_PREVIEW"
+          echo 'No refs changed. RELEASE: BLOCKED. NO DEPLOY, INSTALL, AUTO-UPDATE OR PAPER/LIVE TRADE.'
+          [[ "$MERGE_PREVIEW" == 'success' ]]
