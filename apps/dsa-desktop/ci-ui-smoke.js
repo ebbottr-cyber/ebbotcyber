@@ -115,22 +115,22 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
       await window.loadURL(reactRoot);
       const navigation = await window.webContents.executeJavaScript(`(async () => {
         const deadline = Date.now() + 45000;
-        const waitUntil = async (check) => {
+        const waitUntil = async (check, stage) => {
           while (Date.now() < deadline) {
             const result = check();
             if (result) return result;
             await new Promise((resolve) => setTimeout(resolve, 250));
           }
-          throw new Error('Timed out while waiting for packaged React route');
+          throw new Error('Timed out while waiting for packaged React ' + stage);
         };
 
         await waitUntil(() => {
           const nav = document.querySelector('nav[aria-label="Ana menü"]');
           return nav && document.documentElement.lang === 'tr'
-            && nav.querySelector('a[aria-label="Ana Sayfa"]')
+            && nav.querySelector('a[aria-label="Hisse Analizi"]')
             && nav.querySelector('a[aria-label="Kullanım"]')
             && nav.querySelector('a[aria-label="Veri Merkezi"]');
-        });
+        }, 'Turkish navigation controls');
 
         const initial = {
           language: document.documentElement.lang,
@@ -140,7 +140,7 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         const usageLink = document.querySelector('nav a[aria-label="Kullanım"]');
         usageLink.click();
         await waitUntil(() => window.location.pathname === '/usage'
-          && document.querySelector('main h1')?.textContent?.trim() === 'Token Kullanımı');
+          && document.querySelector('main h1')?.textContent?.trim() === 'Token Kullanımı', 'usage page heading');
         const usage = {
           pathname: window.location.pathname,
           heading: document.querySelector('main h1')?.textContent?.trim() || '',
@@ -148,7 +148,7 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         const dataLink = document.querySelector('nav a[aria-label="Veri Merkezi"]');
         dataLink.click();
         await waitUntil(() => window.location.pathname === '/data'
-          && document.querySelector('main h1')?.textContent?.trim() === 'Veri merkezi');
+          && document.querySelector('main h1')?.textContent?.trim() === 'Veri merkezi', 'data center heading');
         return {
           initial,
           usage,

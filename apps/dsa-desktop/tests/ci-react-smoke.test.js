@@ -49,7 +49,19 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   assert.match(smoke, /localStorage\.setItem\('dsa\.uiLanguage', 'tr'\)/);
   assert.match(smoke, /document\.documentElement\.lang === 'tr'/);
   assert.match(smoke, /Ana menü/);
-  assert.match(smoke, /Ana Sayfa/);
+  // The desktop SidebarNav deliberately labels its home action "Hisse Analizi"
+  // even though the generic Turkish dictionary has layout.nav.home = "Ana Sayfa".
+  // Test the rendered desktop rail contract, not the unused translation entry.
+  const sidebar = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'dsa-web', 'src', 'components', 'layout', 'SidebarNav.tsx'),
+    'utf8',
+  );
+  assert.match(sidebar, /language === 'tr' \? 'Hisse Analizi' : t\(labelKey\)/);
+  assert.match(smoke, /nav\.querySelector\('a\[aria-label="Hisse Analizi"\]'\)/);
+  assert.doesNotMatch(smoke, /nav\.querySelector\('a\[aria-label="Ana Sayfa"\]'\)/);
+  assert.match(smoke, /'Turkish navigation controls'/);
+  assert.match(smoke, /'usage page heading'/);
+  assert.match(smoke, /'data center heading'/);
   assert.match(smoke, /Kullanım/);
   assert.match(smoke, /Veri Merkezi/);
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);

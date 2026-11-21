@@ -22,6 +22,7 @@ on:
       - test/ebbot-nsis-offline-upgrade-preservation-20261121
       - integration/ebbot-react-tr-nsis-safe-20261121
       - integration/ebbot-main-react-tr-nsis-20261121
+      - fix/ebbot-react-nav-smoke-real-label-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -39,6 +40,7 @@ on:
       - security/ebbot-sqlite-dangling-sidecar-no-clobber-20261121
       - integration/ebbot-main-electron-ui-sqlite-20261121
       - test/ebbot-nsis-offline-upgrade-preservation-20261121
+      - integration/ebbot-main-react-tr-nsis-20261121
       - main
 
 permissions:
