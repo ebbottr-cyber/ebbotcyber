@@ -10,8 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from api.deps import get_config_dep
 from api.v1.schemas.common import ErrorResponse
 from api.v1.schemas.data_capability import DataCapabilityOverviewResponse
+from api.v1.schemas.tr_market_overview import TurkishMarketOverviewResponse
 from src.config import Config
 from src.services.data_capability_service import DataCapabilityService
+from src.services.tr_market_overview_service import get_overview as get_tr_market_overview
 
 logger = logging.getLogger(__name__)
 
@@ -70,3 +72,16 @@ def get_data_capabilities(
         config,
         runtime_scheduler=getattr(request.app.state, "runtime_scheduler_service", None),
     )
+
+
+@router.get(
+    "/tr-market-overview",
+    response_model=TurkishMarketOverviewResponse,
+    summary="Delayed Turkish market overview",
+    description=(
+        "Read-only, best-effort Yahoo daily prices for BIST 100, BIST 30 and TRY FX pairs. "
+        "Never executable/live quotes; unavailable and stale data produce null prices."
+    ),
+)
+def get_turkish_market_overview() -> TurkishMarketOverviewResponse:
+    return TurkishMarketOverviewResponse.model_validate(get_tr_market_overview())

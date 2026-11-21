@@ -32,7 +32,7 @@ test('reviewed Solana quality summary loads on desktop and mobile without API wr
     ['mobile', 390, 844],
   ] as const) {
     await page.setViewportSize({ width, height });
-    await page.goto('/meme-coins');
+    await page.goto('/meme-radar');
     const panel = page.getByTestId('solana-archive-quality');
     await expect(panel.getByRole('heading', { name: 'Solana arşiv veri kalitesi' })).toBeVisible();
     await expect(panel.getByTestId('archive-quality-valid')).toHaveText('9');
@@ -58,7 +58,7 @@ test('unreviewed or unavailable JSON never becomes a numeric quality or trading 
   await page.route('**/solana-quality-reviewed.json', async (route) => route.fulfill({
     json: { schema_version: 1, trading_enabled: true },
   }));
-  await page.goto('/meme-coins');
+  await page.goto('/meme-radar');
   const panel = page.getByTestId('solana-archive-quality');
   await expect(panel.getByRole('alert')).toBeVisible();
   await expect(panel.getByTestId('archive-quality-valid')).toHaveCount(0);

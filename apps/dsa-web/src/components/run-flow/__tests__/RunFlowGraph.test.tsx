@@ -1,5 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import type { RunFlowEdge, RunFlowLane, RunFlowNode } from '../../../types/runFlow';
 import { RunFlowGraph } from '../RunFlowGraph';
 
@@ -58,6 +61,13 @@ const topFor = (testId: string): number => (
 const heightFor = (testId: string): number => (
   parseFloat(positionedStyleFor(testId).height)
 );
+
+// The expected labels in this regression suite are intentionally Chinese.
+// Supply the same locale as production rather than relying on fallbackContext.
+const render = (ui: ReactNode) => {
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return rtlRender(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+};
 
 describe('RunFlowGraph', () => {
   it('renders auto-layered lanes, edge legend labels, and clickable nodes', () => {
