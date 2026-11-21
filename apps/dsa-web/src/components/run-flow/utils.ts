@@ -112,8 +112,7 @@ export const formatDateTime = (
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  const locales: Record<UiLanguage, string> = { zh: 'zh-CN', en: 'en-US', tr: 'tr-TR' };
-  return date.toLocaleString(locales[language]);
+  return date.toLocaleString(language === 'zh' ? 'zh-CN' : language === 'tr' ? 'tr-TR' : 'en-US');
 };
 
 export const compactText = (value: string | null | undefined, maxLength = 64): string => {

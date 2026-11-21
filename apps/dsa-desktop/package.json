@@ -26,6 +26,8 @@
       "main.js",
       "ci-ui-smoke.js",
       "preload.js",
+      "sqliteSnapshotBridge.js",
+      "sqliteRollbackRehearsal.js",
       "renderer/**/*"
     ],
     "extraResources": [

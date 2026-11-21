@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider } from '../../theme/ThemeProvider';
 import { Shell } from '../Shell';
 
@@ -33,6 +34,9 @@ beforeAll(() => {
     })),
   });
 });
+
+// Historical Chinese-label expectations must opt in; production Turkish stays default.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('Shell', () => {
   afterEach(() => {
