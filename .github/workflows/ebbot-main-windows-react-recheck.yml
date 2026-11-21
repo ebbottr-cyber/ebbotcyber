@@ -13,7 +13,7 @@ concurrency:
 
 env:
   MAIN_SHA: 'c95fb7f2ee63d5bee131bd59b25a38ae420d0546'
-  CANDIDATE_SHA: '18d80ace433b97aef7e51f7219bbfe58a8fb9d54'
+  CANDIDATE_SHA: 'd13a7de45b663d8c3fcc17234ce79905cc878c62'
   SCHEDULE_ENABLED: 'false'
   RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
   RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin \
             +refs/heads/main:refs/remotes/origin/main \
-            +refs/heads/integration/ebbot-windows-react-hunk-candidate-20261121:refs/remotes/origin/ebbot-reviewed-candidate
+            +refs/heads/integration/ebbot-main-react-windows-probe-v2-20261121:refs/remotes/origin/ebbot-reviewed-candidate
       - name: Git merge-tree dry run, fail closed on even one content conflict or SHA drift
         shell: bash
         run: |
