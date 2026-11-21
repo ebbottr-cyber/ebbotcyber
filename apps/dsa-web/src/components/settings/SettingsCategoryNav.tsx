@@ -54,6 +54,7 @@ export const SettingsCategoryNav: React.FC<SettingsCategoryNavProps> = ({
             <button
               key={category.category}
               type="button"
+              data-testid={`settings-category-${category.category}`}
               className={cn(
                 'flex min-w-[9rem] items-center gap-2 rounded-md border px-3 py-2.5 text-left transition-[background-color,border-color,box-shadow] duration-200 lg:min-w-0 lg:w-full lg:items-start lg:gap-3 lg:px-3 lg:py-3',
                 isActive
