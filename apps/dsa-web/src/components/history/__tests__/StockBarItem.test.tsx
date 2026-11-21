@@ -1,7 +1,21 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render as rtlRender, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { StockBarItemComponent } from '../StockBarItem';
 import type { StockBarItem } from '../../../types/analysis';
+
+// Legacy Chinese text assertions are scoped to this test, not the Turkish production default.
+function render(ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) {
+  if (!window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)) {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  }
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
+afterEach(() => {
+  window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+});
 
 const issue1600Item: StockBarItem = {
   id: 1,

@@ -1,10 +1,24 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react';
 import { lazy } from 'react';
 import type React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { RouteOutletBoundary } from '../RouteBoundary';
 import { Shell } from '../Shell';
+
+// Legacy Chinese text assertions are scoped to this test, not the Turkish production default.
+function render(ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) {
+  if (!window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)) {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  }
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
+
+afterEach(() => {
+  window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+});
 
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({

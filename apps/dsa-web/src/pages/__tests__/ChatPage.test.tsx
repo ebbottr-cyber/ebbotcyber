@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import { StrictMode, useState } from 'react';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,6 +11,11 @@ import type { StockIndexItem } from '../../types/stockIndex';
 import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import ChatPage from '../ChatPage';
 import { extractStockCodeFromMessage, extractStockCodesFromMessage } from '../../utils/chatStockCode';
+
+// Scope the historical language fixture to this test file, not the production UI.
+function render(ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -211,7 +216,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+  // Keep legacy Chinese label tests explicit without changing the app default.
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
   mockGetStatus.mockReset();
   mockStoreState.messages = [];
   mockStoreState.activeStockContext = null;

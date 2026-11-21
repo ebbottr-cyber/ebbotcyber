@@ -150,7 +150,7 @@ describe('DesktopUpdateIndicator', () => {
     await waitFor(() => expect(desktopCheckForUpdates).toHaveBeenCalledTimes(1));
   });
 
-  it('surfaces download percent in the entry tooltip', async () => {
+  it('exposes download percent in the accessible entry description', async () => {
     desktopGetUpdateState.mockResolvedValue({
       status: 'downloading',
       currentVersion: '3.30.0',
@@ -161,7 +161,7 @@ describe('DesktopUpdateIndicator', () => {
     renderIndicator();
 
     const entry = await screen.findByRole('button', { name: '桌面端更新' });
-    expect(entry).toHaveAttribute('title', expect.stringContaining('42%'));
+    expect(entry).toHaveAttribute('aria-description', expect.stringContaining('42%'));
     expect(desktopCheckForUpdates).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,14 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import type { ScreeningHotspotDetail } from '../../api/screening';
 import StockScreeningPage from '../StockScreeningPage';
+
+// Scope the historical language fixture to this test file, not the production UI.
+function render(ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
 
 const {
   enableScreening,
@@ -112,6 +119,8 @@ function createDeferred<T>() {
 
 describe('StockScreeningPage', () => {
   beforeEach(() => {
+    // These historical expectations are in Chinese; runtime default is still Turkish.
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     enableScreening.mockReset();
     getHistory.mockReset();
     getRun.mockReset();

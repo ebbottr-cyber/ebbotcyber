@@ -389,8 +389,10 @@ function submitCurrentStock(value: string) {
 }
 
 async function persistReassessFromFirstSignal() {
-  await screen.findByText('贵州茅台');
-  fireEvent.click(screen.getAllByRole('button', { name: '查看 贵州茅台 AI 建议详情' })[0]);
+  // The same stock name legitimately appears in both the active list and timeline.
+  // Wait for the actionable detail control instead of querying ambiguous text.
+  const detailButtons = await screen.findAllByRole('button', { name: '查看 贵州茅台 AI 建议详情' });
+  fireEvent.click(detailButtons[0]);
   fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '生成预览' }));
   fireEvent.click(await screen.findByRole('button', { name: '确认保存' }));
   const confirmButtons = screen.getAllByRole('button', { name: '确认保存' });
@@ -755,6 +757,9 @@ describe('DecisionSignalsPage', () => {
 
   it('reports an expired signal refresh separately and refreshes active views', async () => {
     const refreshedItem = makeSignal({
+      // Timeline is 90d by default: a refreshed row must fall in that range.
+      // The original fixed June 2026 fixture aged out and hid the intended UI behavior.
+      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       id: 90,
       decisionProfile: 'balanced',
       sourceAgent: null,
@@ -790,6 +795,9 @@ describe('DecisionSignalsPage', () => {
     renderPage();
     await screen.findByText('贵州茅台');
     submitCurrentStock('600519');
+    // The refreshed signal must only be persisted after the active timeline is loaded.
+    // Otherwise the component legitimately has no applied timeline filter to refresh.
+    await screen.findByTestId('timeline-click-7');
     await persistReassessFromFirstSignal();
 
     expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();
