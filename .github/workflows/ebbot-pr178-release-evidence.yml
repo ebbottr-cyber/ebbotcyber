@@ -1,0 +1,100 @@
+name: EBBot PR178 immutable CI + release safety review (ALWAYS BLOCKED)
+
+on:
+  push:
+    branches:
+      - audit/ebbot-pr178-release-evidence-gate-20261121
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: ebbot-pr178-readonly-release-audit
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  evidence:
+    name: Read GitHub run/job provenance; report no-release blockers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Offline fail-closed gate unit tests
+        run: python -m unittest discover -s tests -p test_ebbot_pr178_release_evidence.py -v
+      - name: Retrieve exact commit, PR, branch and all real workflow jobs (read only)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          mkdir -p "$RUNNER_TEMP/ebbot-release-evidence"
+          out="$RUNNER_TEMP/ebbot-release-evidence"
+          gh api "repos/$repo/branches/main" > "$out/main.json"
+          gh api "repos/$repo/pulls/178" > "$out/pull_request.json"
+          gh api "repos/$repo/git/commits/9ac204944df962f1043296561f7907d42eea080c" > "$out/commit.json"
+          for pair in react:44887061797 windows:44887061763 backend:44887061769; do
+            label="${pair%%:*}"
+            runid="${pair#*:}"
+            gh api "repos/$repo/actions/runs/$runid" > "$out/$label-run.json"
+            gh api "repos/$repo/actions/runs/$runid/jobs?per_page=100" > "$out/$label-jobs.json"
+          done
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["RUNNER_TEMP"]) / "ebbot-release-evidence"
+          inputs = {k: json.loads((p / (k + ".json")).read_text()) for k in ("main", "pull_request", "commit")}
+          inputs["workflows"] = {
+              k: {x: json.loads((p / (k + "-" + x + ".json")).read_text()) for x in ("run", "jobs")}
+              for k in ("react", "windows", "backend")
+          }
+          (p / "evidence.json").write_text(json.dumps(inputs, ensure_ascii=False), encoding="utf-8")
+          PY
+      - name: Evaluate all stages, preserve blocked report but do not call it released
+        shell: bash
+        run: |
+          set +e
+          python scripts/audit_ebbot_pr178_release_evidence.py \
+            --evidence "$RUNNER_TEMP/ebbot-release-evidence/evidence.json" \
+            --report "$RUNNER_TEMP/ebbot-pr178-release-blocked.json"
+          status=$?
+          set -e
+          echo "Release gate returned $status (EXPECTED BLOCKED)."
+          [[ "$status" == 1 ]]
+      - name: Archive only redacted report (not raw GitHub API metadata)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr178-readonly-release-blockers
+          path: ${{ runner.temp }}/ebbot-pr178-release-blocked.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  release-deny:
+    name: ALWAYS DENY release until code signing, device and branch protection approved
+    needs: [evidence]
+    runs-on: ubuntu-24.04
+    if: always()
+    steps:
+      - name: Never mistake CI success for license to merge or ship
+        shell: bash
+        run: |
+          echo 'PR178 is DRAFT. Main protection disabled. Signature, SmartScreen, real-device upgrade and SQLite migration unverified.'
+          echo 'NO MERGE, NO RELEASE, NO INSTALLER UPLOAD, NO AUTO-UPDATE, NO SCHEDULER, NO PAPER/LIVE TRADES.'
+          exit 1
