@@ -202,11 +202,25 @@ _QUOTE_LABELS_EN = {
     "盘中估算价": "Intraday Estimated Price",
 }
 
+_QUOTE_LABELS_TR = {
+    "今日行情": "Güncel Fiyat Bilgisi",
+    "收盘价": "Kapanış Fiyatı",
+    "上一完整交易日行情": "Son Tamamlanan İşlem Günü",
+    "上一完整交易日收盘价": "Son Tamamlanan İşlem Günü Kapanışı",
+    "最新行情": "Güncel Fiyat Bilgisi",
+    "实时估算价": "Anlık Tahmini Fiyat",
+    "最新价": "Son Fiyat",
+    "盘中估算价": "Gün İçi Tahmini Fiyat",
+}
+
 
 def _phase_aware_quote_labels(context: Dict[str, Any], report_language: str = "zh") -> Tuple[str, str]:
     """Choose quote-table labels that do not conflict with phase context."""
     section_title, close_label = _phase_aware_quote_labels_zh(context)
-    if normalize_report_language(report_language) in ("en", "ko", "tr"):
+    language = normalize_report_language(report_language)
+    if language == "tr":
+        return _QUOTE_LABELS_TR[section_title], _QUOTE_LABELS_TR[close_label]
+    if language in ("en", "ko"):
         return _QUOTE_LABELS_EN[section_title], _QUOTE_LABELS_EN[close_label]
     return section_title, close_label
 
