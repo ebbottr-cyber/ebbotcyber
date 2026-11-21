@@ -55,7 +55,11 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
     path.join(__dirname, '..', '..', 'dsa-web', 'src', 'components', 'layout', 'SidebarNav.tsx'),
     'utf8',
   );
-  assert.match(sidebar, /Piyasa Özeti/);
+  // The TS source may use a Unicode escape; Chromium renders the same Ö.
+  assert.ok(
+    sidebar.includes('Piyasa Özeti') || sidebar.includes(String.raw`Piyasa \u00d6zeti`),
+    'Turkish Overview nav label must exist in the actual React sidebar source',
+  );
   assert.match(sidebar, /Hisse Analizi/);
   assert.match(smoke, /Kullanım/);
   assert.match(smoke, /Veri Merkezi/);
