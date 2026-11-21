@@ -28,6 +28,13 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
   const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
   assert.match(main, /reactProbe: process\.env\.EBBOT_ELECTRON_REACT_SMOKE === '1'/);
   assert.match(main, /const DESKTOP_UPDATES_ENABLED = false;/);
+  assert.match(main, /EBBOT_ELECTRON_REACT_SMOKE === '1' \? 42 : 0/);
+  const probe = fs.readFileSync(
+    path.join(__dirname, '..', '..', '..', 'scripts', 'probe_ebbot_packaged_health.py'),
+    'utf8',
+  );
+  assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
+  assert.match(probe, /PASS: packaged Turkish React shell and usage\/data navigation/);
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {

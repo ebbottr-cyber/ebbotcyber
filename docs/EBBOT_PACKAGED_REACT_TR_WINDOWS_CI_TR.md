@@ -28,3 +28,7 @@ Electron oturumundaki istekler `file:` veya tam `http://127.0.0.1:<seçili port>
 - [ ] Installer, EXE, kullanıcı `.env`, güncelleme metadata hiçbir yere yüklenmiyor; yalnız JSON audit tutuluyor
 
 Bu test **gerçek piyasa verisi, gerçek API etkileşimleri, Türkçeleştirilmiş bütün metinler, kullanıcı giriş, gerçek cihaz kurulumu, imzalama/Defender/SmartScreen, yükseltme veya veri göçü** için onay sayılmaz. Bunlar bağımsız yayın engelleridir; önceki MIT lisansı ve upstream atıfları korunur.
+
+## Yanlış-pozitif önleme
+
+React tanılaması yalnız testteki gerçek Chromium menü ve sayfa başlığı kontrolleri geçince `EBBot.exe` içinde **42** çıkış koduyla başarı bildirir. Python runner `--react-ui` sırasında yalnız bu kodu kabul eder; sıradan splash sağlık testi için **0** beklenir. React testinin sonuç işareti `PASS: packaged Turkish React shell and usage/data navigation verified in Electron (CI-only).` satırıdır. Böylece önceki yalnız splash başarı mesajı React kanıtı olarak yanlış yorumlanamaz.

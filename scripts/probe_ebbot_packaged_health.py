@@ -103,14 +103,17 @@ def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path, rea
                 electron.communicate(timeout=10)
             raise TimeoutError("Packaged Electron UI smoke exceeded 90 seconds") from exc
 
-        if electron.returncode != 0:
+        expected_exit_code = 42 if react_probe else 0
+        if electron.returncode != expected_exit_code:
             raise RuntimeError(
-                "Packaged Electron smoke failed (exit="
-                + str(electron.returncode)
-                + "): "
-                + (stderr or stdout)[-1500:]
+                "Packaged Electron smoke failed (expected exit="
+                + str(expected_exit_code) + ", actual=" + str(electron.returncode)
+                + "): " + (stderr or stdout)[-1500:]
             )
-        print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
+        if react_probe:
+            print("PASS: packaged Turkish React shell and usage/data navigation verified in Electron (CI-only).")
+        else:
+            print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
     finally:
         if electron.poll() is None:
             electron.kill()
