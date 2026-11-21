@@ -39,6 +39,7 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
 
   const smoke = fs.readFileSync(path.join(__dirname, '..', 'ci-ui-smoke.js'), 'utf8');
   assert.match(smoke, /if \(reactProbe\)/);
+  assert.match(smoke, /localStorage\.setItem\('dsa\.uiLanguage', 'tr'\)/);
   assert.match(smoke, /document\.documentElement\.lang === 'tr'/);
   assert.match(smoke, /Ana menü/);
   assert.match(smoke, /Ana Sayfa/);

@@ -10,6 +10,8 @@ Yeni `--react-ui` Python flag'i yalnız existing Windows runner probe'u içinded
 
 Test API modu yalnızca **GET** `/api/health`, **GET** `/api/v1/auth/status` (tamamen **sahte** `authEnabled:false` yanıtı), statik `/`, `/usage`, `/data` ve paketlenmiş `/assets/*` yollarını sunar. Production analiz, portföy emirleri, backtest, screening, auth login, OpenAPI, başka API ve veri mutasyon yolları **kayıt edilmez; 404/405 döner**. Test kimlik doğrulamayı veya gerçek kullanıcı oturumunu doğrulamış olmaz. AkShare önbellek ısınması, indeks yenileme, runtime scheduler, bot stream istemcileri atlanır.
 
+GitHub Windows runner'ın tarayıcı dili İngilizce olabileceğinden, **yalnız CI'daki geçici Chromium oturumunun** `dsa.uiLanguage` anahtarı `tr` yapılır ve gerçek React sayfası tekrar yüklenir. Bu işlem uygulamanın varsayılan dil ayarını veya kullanıcı dosyalarını değiştirmez.
+
 Windows paketli `EBBot.exe` Chromium renderer testinin bekledikleri:
 1. Özgün EBBot splash sayfası ve preload köprüsü, gerçek frozen localhost health 200, analiz API 404.
 2. Üretim `static/index.html` ve gerçek Vite JS/CSS assetlerinin localhost üzerinden yüklenmesi.

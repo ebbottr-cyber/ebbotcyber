@@ -104,7 +104,15 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
     if (reactProbe) {
       // The frozen backend serves ONLY bundled static assets, canned read-only
       // auth status and /api/health. No normal API endpoints are registered.
-      await window.loadURL(`http://127.0.0.1:${port}/`);
+      const reactRoot = `http://127.0.0.1:${port}/`;
+      await window.loadURL(reactRoot);
+      // GitHub's hosted Windows locale is often en-US. Explicitly select
+      // Turkish for THIS throwaway Chromium session, then reload the real
+      // packaged React app. This does not change product defaults.
+      await window.webContents.executeJavaScript(
+        "window.localStorage.setItem('dsa.uiLanguage', 'tr')"
+      );
+      await window.loadURL(reactRoot);
       const navigation = await window.webContents.executeJavaScript(`(async () => {
         const deadline = Date.now() + 45000;
         const waitUntil = async (check) => {
