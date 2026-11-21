@@ -8,8 +8,10 @@ Bu belge yalnız test ve repo yönetimi hazırlığıdır; herhangi bir PR'ı bi
 
 1. `Complete offline backend pytest (no live providers)`: `pytest -q -m "not network"`. Bilerek kapsam dışı bırakılan 4 gerçek ağ testi, canlı veri doğrulaması yerine geçmez.
 2. `Dedicated auth, Turkish reporting and Chinese leak checks`: oturum ve parola iptal güvenliği, Türkçe rapor, Han metni denetimi, ayrıca JUnit validator birim testleri.
-3. `Complete React Vitest (preserve all failures)`: tüm testlerin gerçek çıkış kodu korunur. `scripts/validate_vitest_junit.py` ile XML'deki **en az 1.408 testcase, sıfır skipped, sıfır failure/error** zorunludur. Test silmek veya `it.skip` eklemek yeşil sonuç üretemez.
+3. `Complete React Vitest (preserve all failures)`: tüm testlerin gerçek çıkış kodu korunur. `scripts/validate_vitest_junit.py` ile XML'deki **en az 1.409 testcase, sıfır skipped, sıfır failure/error** zorunludur. Toplamın 1.409 altına düşmesi veya `it.skip` kullanılması kapıyı kırmızıya çevirir. Salt toplam sayı yeterli olmadığı için CI, tüm 1.409 JUnit testcase'in `classname` ve `name` çiftlerinin sıralı listesinin SHA-256 özetini `.github/vitest-testset-baseline.sha256` referansıyla da karşılaştırır. Böylece test kaldırılıp aynı sayıda başka test eklenmesi de kapıyı kırmızıya çevirir. Kimlikler bilinçli değiştirildiğinde baseline sadece bağımsız kod incelemesiyle güncellenmelidir (Issue #192).
 4. `Independent ESLint, TypeScript and production Vite build`: frontend kalite/derleme kontrolleri.
+
+Kimlik listesi, PR #180'in `b5b663a2` HEAD'inde [başarılı 1.409 React testinin JUnit raporundan](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44888953684) üretilmiştir. Rapordaki 1.409 testcase arasında iki yinelenen (`classname`, `name`) kimliği vardır; karşılaştırma sıralı **çoklu kümeyi** kullanarak tekrar sayılarını da korur. Bu kontrol kodu/baseline dosyası PR içinde değiştirilebildiğinden bağımsız review ve [#183 ruleset](https://github.com/ebbottr-cyber/ebbotcyber/issues/183) zorunludur.
 
 Son iş: **`EBBot required gate / all offline acceptance checks`**. Dört bağımlılığın her biri `success` değilse bu iş başarısız olur. Workflow salt-okunurdur, `main` üzerinde otomatik işlem oluşturmaz.
 
