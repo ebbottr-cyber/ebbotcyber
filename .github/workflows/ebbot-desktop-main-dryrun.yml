@@ -10,7 +10,9 @@ on:
     paths:
       - '.github/workflows/ebbot-desktop-main-dryrun.yml'
       - 'scripts/audit_ebbot_desktop_merge_tree.py'
+      - 'scripts/ebbot_desktop_preview_conflict_resolution.py'
       - 'tests/test_ebbot_desktop_merge_tree_audit.py'
+      - 'tests/test_ebbot_desktop_preview_conflicts.py'
       - 'docs/EBBOT_DESKTOP_MAIN_INTEGRATION_GATE_TR.md'
 
 permissions:
@@ -47,8 +49,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test auditor on artificial clean and conflicting Git histories
-        run: python -m unittest discover -s tests -p test_ebbot_desktop_merge_tree_audit.py -v
+      - name: Test both Git auditors on artificial clean and conflicting histories
+        run: |
+          python -m unittest discover -s tests -p test_ebbot_desktop_merge_tree_audit.py -v
+          python -m unittest discover -s tests -p test_ebbot_desktop_preview_conflicts.py -v
       - name: Fetch only main and final draft branch (read-only)
         shell: bash
         run: |
