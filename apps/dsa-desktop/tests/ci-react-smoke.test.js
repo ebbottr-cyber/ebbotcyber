@@ -34,7 +34,7 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
     'utf8',
   );
   assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
-  assert.match(probe, /PASS: packaged Turkish React shell and usage\/data navigation/);
+  assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
