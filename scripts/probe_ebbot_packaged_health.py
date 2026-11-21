@@ -60,7 +60,7 @@ def _get(port: int, path: str) -> tuple[int, bytes]:
         conn.close()
 
 
-def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path) -> None:
+def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path, react_probe: bool = False) -> None:
     """Validate real unpacked EBBot.exe against the still-running local backend."""
     candidate = executable.resolve(strict=True)
     expected = (backend_exe.parents[3] / "EBBot.exe").resolve(strict=True)
@@ -70,6 +70,8 @@ def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path) -> 
     env = _sanitized_environment()
     env["EBBOT_ELECTRON_UI_SMOKE"] = "1"
     env["EBBOT_ELECTRON_UI_SMOKE_PORT"] = str(port)
+    if react_probe:
+        env["EBBOT_ELECTRON_REACT_SMOKE"] = "1"
     cmd = [str(candidate), "--ebbot-ci-ui-smoke"]
     electron = subprocess.Popen(
         cmd,
@@ -101,33 +103,45 @@ def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path) -> 
                 electron.communicate(timeout=10)
             raise TimeoutError("Packaged Electron UI smoke exceeded 90 seconds") from exc
 
-        if electron.returncode != 0:
+        expected_exit_code = 42 if react_probe else 0
+        if electron.returncode != expected_exit_code:
             raise RuntimeError(
-                "Packaged Electron smoke failed (exit="
-                + str(electron.returncode)
-                + "): "
-                + (stderr or stdout)[-1500:]
+                "Packaged Electron smoke failed (expected exit="
+                + str(expected_exit_code) + ", actual=" + str(electron.returncode)
+                + "): " + (stderr or stdout)[-1500:]
             )
-        print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
+        if react_probe:
+            print("PASS: packaged Turkish React shell and usage/data navigation verified in Electron (CI-only).")
+        else:
+            print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
     finally:
         if electron.poll() is None:
             electron.kill()
             electron.communicate(timeout=10)
 
 
-def run(exe: Path, timeout_seconds: int, electron_exe: Path | None = None) -> None:
+def run(
+    exe: Path, timeout_seconds: int, electron_exe: Path | None = None,
+    react_probe: bool = False,
+) -> None:
     if sys.platform != "win32" or os.getenv("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Only the isolated Windows GitHub Actions runner may execute this probe")
     exe = _packaged_executable(exe)
+    if react_probe and electron_exe is None:
+        raise ValueError("React smoke must also verify the packaged Electron executable")
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
         candidate.bind(("127.0.0.1", 0))
         port = int(candidate.getsockname()[1])
 
+    env = _sanitized_environment()
+    if react_probe:
+        env["EBBOT_PACKAGED_REACT_PROBE"] = "1"
+
     child = subprocess.Popen(
         [str(exe), "--serve-only", "--host", "127.0.0.1", "--port", str(port)],
         cwd=str(exe.parent),
-        env=_sanitized_environment(),
+        env=env,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -151,7 +165,7 @@ def run(exe: Path, timeout_seconds: int, electron_exe: Path | None = None) -> No
                     raise RuntimeError(f"Analysis endpoint unexpectedly exposed: HTTP {blocked_status}")
                 print("PASS: frozen Windows backend served loopback health only; analysis unavailable.")
                 if electron_exe is not None:
-                    _probe_packaged_electron(electron_exe, port, exe)
+                    _probe_packaged_electron(electron_exe, port, exe, react_probe=react_probe)
                 return
             except (ConnectionRefusedError, ConnectionResetError, TimeoutError, OSError):
                 time.sleep(1)
@@ -170,12 +184,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe", required=True, type=Path)
     parser.add_argument("--electron-exe", type=Path)
+    parser.add_argument("--react-ui", action="store_true")
     parser.add_argument("--timeout-seconds", default=180, type=int)
     args = parser.parse_args()
     if not 10 <= args.timeout_seconds <= 240:
         parser.error("Timeout must be between 10 and 240 seconds")
     try:
-        run(args.exe, args.timeout_seconds, electron_exe=args.electron_exe)
+        run(
+            args.exe, args.timeout_seconds,
+            electron_exe=args.electron_exe, react_probe=args.react_ui,
+        )
     except Exception as exc:
         print(f"FAIL: isolated packaged health check: {exc}", file=sys.stderr)
         return 1

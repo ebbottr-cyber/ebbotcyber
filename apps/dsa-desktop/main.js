@@ -2230,8 +2230,10 @@ if (ciUiSmokeRequested) {
         session,
         rootDir: __dirname,
         port: ciProbe.port,
+        reactProbe: process.env.EBBOT_ELECTRON_REACT_SMOKE === '1',
       });
-      app.exit(0);
+      // A distinct return code proves real React navigation, not merely the splash.
+      app.exit(process.env.EBBOT_ELECTRON_REACT_SMOKE === '1' ? 42 : 0);
     })
     .catch((error) => {
       console.error(`FAIL: restricted Electron UI smoke: ${error?.stack || String(error)}`);

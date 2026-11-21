@@ -47,7 +47,7 @@ function isAllowedCiUiRequest(url, port) {
   }
 }
 
-async function runCiUiSmoke({ BrowserWindow, session, rootDir, port }) {
+async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe = false }) {
   if (!session || !session.defaultSession || !session.defaultSession.webRequest) {
     throw new Error('Packaged Electron session is missing');
   }
@@ -100,6 +100,76 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port }) {
     }
 
     console.log('PASS: packaged EBBot BrowserWindow splash, preload and renderer loopback health; analysis unavailable.');
+
+    if (reactProbe) {
+      // The frozen backend serves ONLY bundled static assets, canned read-only
+      // auth status and /api/health. No normal API endpoints are registered.
+      const reactRoot = `http://127.0.0.1:${port}/`;
+      await window.loadURL(reactRoot);
+      // GitHub's hosted Windows locale is often en-US. Explicitly select
+      // Turkish for THIS throwaway Chromium session, then reload the real
+      // packaged React app. This does not change product defaults.
+      await window.webContents.executeJavaScript(
+        "window.localStorage.setItem('dsa.uiLanguage', 'tr')"
+      );
+      await window.loadURL(reactRoot);
+      const navigation = await window.webContents.executeJavaScript(`(async () => {
+        const deadline = Date.now() + 45000;
+        const waitUntil = async (check) => {
+          while (Date.now() < deadline) {
+            const result = check();
+            if (result) return result;
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+          throw new Error('Timed out while waiting for packaged React route');
+        };
+
+        await waitUntil(() => {
+          const nav = document.querySelector('nav[aria-label="Ana menü"]');
+          return nav && document.documentElement.lang === 'tr'
+            && nav.querySelector('a[aria-label="Ana Sayfa"]')
+            && nav.querySelector('a[aria-label="Kullanım"]')
+            && nav.querySelector('a[aria-label="Veri Merkezi"]');
+        });
+
+        const initial = {
+          language: document.documentElement.lang,
+          nav: document.querySelector('nav[aria-label="Ana menü"]')?.getAttribute('aria-label'),
+          rootMounted: !!document.querySelector('#root > *'),
+        };
+        const usageLink = document.querySelector('nav a[aria-label="Kullanım"]');
+        usageLink.click();
+        await waitUntil(() => window.location.pathname === '/usage'
+          && document.querySelector('main h1')?.textContent?.trim() === 'Token Kullanımı');
+        const usage = {
+          pathname: window.location.pathname,
+          heading: document.querySelector('main h1')?.textContent?.trim() || '',
+        };
+        const dataLink = document.querySelector('nav a[aria-label="Veri Merkezi"]');
+        dataLink.click();
+        await waitUntil(() => window.location.pathname === '/data'
+          && document.querySelector('main h1')?.textContent?.trim() === 'Veri merkezi');
+        return {
+          initial,
+          usage,
+          data: {
+            pathname: window.location.pathname,
+            heading: document.querySelector('main h1')?.textContent?.trim() || '',
+          },
+        };
+      })()`);
+
+      if (navigation.initial?.language !== 'tr'
+        || navigation.initial.nav !== 'Ana menü'
+        || !navigation.initial.rootMounted
+        || navigation.usage?.pathname !== '/usage'
+        || !navigation.usage.heading
+        || navigation.data?.pathname !== '/data'
+        || !navigation.data.heading) {
+        throw new Error('Packaged Turkish React dashboard or navigation did not render as expected');
+      }
+      console.log('PASS: packaged Turkish React shell and usage/data navigation rendered through Electron; no analysis API.');
+    }
   } finally {
     if (!window.isDestroyed()) {
       window.destroy();
