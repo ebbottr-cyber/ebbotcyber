@@ -1,0 +1,108 @@
+name: EBBot major legacy ZH React tests and full regression truth (NO trading)
+
+on:
+  push:
+    branches:
+      - fix/ebbot-legacy-zh-major-ui-tests-20261121
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-major-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+
+jobs:
+  selected-ui:
+    name: Eight original legacy UI suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Eight targeted suites must all pass (no skips)
+        run: |
+          npx vitest run \
+            src/pages/__tests__/PortfolioPage.test.tsx \
+            src/pages/__tests__/SettingsPage.test.tsx \
+            src/pages/__tests__/HomePage.test.tsx \
+            src/pages/__tests__/ChatPage.test.tsx \
+            src/components/alerts/__tests__/AlertRuleForm.test.tsx \
+            src/components/alerts/__tests__/AlertRuleList.test.tsx \
+            src/components/layout/__tests__/SidebarNav.test.tsx \
+            src/pages/__tests__/BacktestPage.test.tsx
+
+  full-vitest:
+    name: Full React Vitest (preserve all failures)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Full Vitest preserves original exit code
+        shell: bash
+        run: |
+          set -euo pipefail
+          if npm test -- --reporter=dot --reporter=junit --outputFile.junit=vitest-results.xml > vitest-console.log 2>&1; then
+            tail -n 35 vitest-console.log
+          else
+            tail -n 90 vitest-console.log
+            exit 1
+          fi
+      - name: Preserve JUnit and original log even if red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-major-ui-full-react-evidence
+          path: |
+            apps/dsa-web/vitest-console.log
+            apps/dsa-web/vitest-results.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  lint-build:
+    name: Independent TypeScript lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
