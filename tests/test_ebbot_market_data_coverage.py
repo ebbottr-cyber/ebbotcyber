@@ -192,9 +192,7 @@ class CoverageAuditTests(unittest.TestCase):
             "de,SAP.DE,deutsche_boerse_xetra_t7,stock,2026-11-19\n",
             name="xetra.csv",
         )
-        # Audit hashes normalized UTF-8 text, not raw platform newline bytes.
-        # Windows writes CRLF in text mode; read_text canonicalizes to LF.
-        digest = hashlib.sha256(xetra.read_text(encoding="utf-8-sig").encode("utf-8")).hexdigest()
+        digest = hashlib.sha256(xetra.read_bytes()).hexdigest()
         with patch("scripts.audit_ebbot_market_data_coverage.DEFAULT_INDEX", self.idx), \
              patch("scripts.audit_ebbot_market_data_coverage.DEFAULT_XETRA", xetra), \
              patch("scripts.audit_ebbot_market_data_coverage.XETRA_SHA256", digest):
@@ -202,6 +200,29 @@ class CoverageAuditTests(unittest.TestCase):
         self.assertTrue(result["stored_xetra_manifest_loaded"])
         self.assertEqual(result["markets"]["de"]["candidate_instruments"], 1)
         self.assertEqual(result["stored_xetra_as_of"], "2026-11-19")
+
+    def test_pinned_xetra_rejects_bom_and_crlf_mutations(self):
+        xetra = self.stock_csv(
+            "market,symbol,source,kind,source_as_of_date\n"
+            "de,SAP.DE,deutsche_boerse_xetra_t7,stock,2026-11-19\n",
+            name="xetra.csv",
+        )
+        raw = xetra.read_bytes()
+        pinned_digest = hashlib.sha256(raw).hexdigest()
+        mutations = (
+            bytes.fromhex("efbbbf") + raw,
+            raw.replace(bytes([10]), bytes([13, 10])),
+        )
+        with patch("scripts.audit_ebbot_market_data_coverage.DEFAULT_INDEX", self.idx):
+            with patch("scripts.audit_ebbot_market_data_coverage.DEFAULT_XETRA", xetra):
+                with patch("scripts.audit_ebbot_market_data_coverage.XETRA_SHA256", pinned_digest):
+                    for contents in mutations:
+                        with self.subTest(first_bytes=contents[:4]):
+                            xetra.write_bytes(contents)
+                            with self.assertRaisesRegex(
+                                AuditInputError, "stored_xetra_snapshot_checksum_mismatch"
+                            ):
+                                audit(self.idx, as_of=DAY)
 
     def test_tampered_xetra_snapshot_blocks_all_instead_of_partial_ingest(self):
         xetra = self.stock_csv(
