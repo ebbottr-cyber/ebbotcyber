@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from api.middlewares.auth import add_auth_middleware
 from api.v1.endpoints.data import router as data_router
 from src.auth import COOKIE_NAME
-from test_bist_identity_report_reader import fixture
+from tests.test_bist_identity_report_reader import fixture
 
 
 class BistIdentityEndpointAuthTests(unittest.TestCase):

@@ -5,10 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider, useUiLanguage } from '../../contexts/UiLanguageContext';
 import DataCenterPage from '../DataCenterPage';
 
-const { getOverview } = vi.hoisted(() => ({ getOverview: vi.fn() }));
+const { getOverview, getEquityCoverage, getBistIdentitySummary } = vi.hoisted(() => ({
+  getOverview: vi.fn(),
+  getEquityCoverage: vi.fn(),
+  getBistIdentitySummary: vi.fn(),
+}));
 
 vi.mock('../../api/dataCapability', () => ({
-  dataCapabilityApi: { getOverview: () => getOverview() },
+  dataCapabilityApi: {
+    getOverview: () => getOverview(),
+    getEquityCoverage: () => getEquityCoverage(),
+    getBistIdentitySummary: () => getBistIdentitySummary(),
+  },
 }));
 
 const overview = {
@@ -113,6 +121,10 @@ function deferred<T>() {
 beforeEach(() => {
   vi.clearAllMocks();
   getOverview.mockResolvedValue(overview);
+  // New panels remain mounted in the real DataCenterPage, but this historical
+  // overview test has no operator evidence. Exercise their fail-closed paths.
+  getEquityCoverage.mockRejectedValue(new Error('coverage evidence unavailable'));
+  getBistIdentitySummary.mockRejectedValue(new Error('BIST identity evidence unavailable'));
 });
 
 // Historical Chinese-label expectations must opt in; production Turkish stays default.

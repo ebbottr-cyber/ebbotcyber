@@ -19,6 +19,7 @@ on:
       - integration/ebbot-main-react-windows-probe-v2-20261121
       - integration/ebbot-main-four-route-verified-draft-20261121
       - integration/ebbot-main-readonly-controls-zero-skip-20261121
+      - integration/ebbot-core-bist-data-stack-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
