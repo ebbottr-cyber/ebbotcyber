@@ -63,7 +63,7 @@ describe('SidebarNav', () => {
     expect(screen.getByLabelText('问股有新消息')).toBeInTheDocument();
 
     completionBadgeState.value = false;
-    rerenderWithChineseLocale(
+    rerender(
       <MemoryRouter initialEntries={['/chat']}>
         <SidebarNav />
       </MemoryRouter>,
