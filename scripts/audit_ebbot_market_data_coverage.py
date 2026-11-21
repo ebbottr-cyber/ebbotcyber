@@ -95,10 +95,16 @@ def inventory(
             continue
         if item[7] not in ("stock", "etf"):
             raise AuditInputError("unsupported_index_instrument_kind")
-        if item[6] not in MARKETS:
+        # The bundled legacy stocks.index.json uses uppercase market tags
+        # (US/HK/CN/JP/KR/BSE), unlike normalized CSV manifests (us/hk/etc.).
+        # Convert the tag without altering the original index or its symbols.
+        if not isinstance(item[6], str):
+            raise AuditInputError("invalid_index_market_tag")
+        indexed_market = item[6].strip().lower()
+        if indexed_market not in MARKETS:
             diagnostics["out_of_scope_active_rows"] += 1
             continue
-        key = canonical(item[6], item[0])
+        key = canonical(indexed_market, item[0])
         if key in candidates:
             diagnostics["duplicate_index_rows"] += 1
         else:
