@@ -120,7 +120,10 @@ def inventory(
                 raise AuditInputError("invalid_stock_manifest_kind")
             if not row["source"].strip():
                 raise AuditInputError("missing_stock_manifest_source")
-            if row.get("active", "").lower() == "false":
+            active_token = row.get("active", "").strip().lower()
+            if active_token not in ("", "true", "false"):
+                raise AuditInputError("invalid_manifest_active_flag")
+            if active_token == "false":
                 diagnostics["inactive_manifest_rows"] += 1
                 continue
             stamp = row.get("source_as_of_date", "").strip()
@@ -171,6 +174,8 @@ def ohlcv_evidence(
                                              "sources": set(), "currencies": set()})
             if stamp in item["sessions"]:
                 raise AuditInputError("duplicate_ohlcv_session")
+            if item["currencies"] and row["currency"] not in item["currencies"]:
+                raise AuditInputError("conflicting_ohlcv_currencies")
             item["sessions"].add(stamp)
             item["last"] = max(stamp, item["last"]) if item["last"] else stamp
             item["zero_volume"] += int(vol == 0)
@@ -230,7 +235,7 @@ def audit(
             "zero_volume_bar_count": sum(bars[k]["zero_volume"] for k in keys if k in bars),
         }
     missing_markets = [m for m in MARKETS if not result[m]["candidate_instruments"]]
-    has_full_evidence = not missing_markets and all(
+    has_full_evidence = not missing_markets and not diagnostics.get("stale_inventory_rows", 0) and all(
         not result[m]["missing_ohlcv_count"]
         and not result[m]["insufficient_history_count"]
         and not result[m]["stale_ohlcv_count"]
