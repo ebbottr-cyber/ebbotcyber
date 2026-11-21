@@ -42,7 +42,7 @@ describe('Shell', () => {
   afterEach(() => {
     delete (window as { dsaDesktop?: unknown }).dsaDesktop;
   });
-  it.skip('renders navigation, theme toggle and completion badge', () => {
+  it('renders navigation, theme toggle and completion badge', () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
@@ -61,7 +61,7 @@ describe('Shell', () => {
     expect(logoutButton).toHaveClass('cursor-pointer');
   });
 
-  it.skip('opens the theme menu from the sidebar toggle', async () => {
+  it('opens the theme menu from the sidebar toggle', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
         <ThemeProvider>
