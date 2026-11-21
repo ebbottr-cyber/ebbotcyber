@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MAIN_SHA: 'daad93eaab155509cef8fcf3906c2b354fee4fdf'
+  MAIN_SHA: 'c95fb7f2ee63d5bee131bd59b25a38ae420d0546'
   CANDIDATE_SHA: '18d80ace433b97aef7e51f7219bbfe58a8fb9d54'
   SCHEDULE_ENABLED: 'false'
   RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
