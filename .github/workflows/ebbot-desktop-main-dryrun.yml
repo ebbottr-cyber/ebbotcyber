@@ -1,0 +1,162 @@
+name: EBBot main vs desktop draft-stack integration DRY RUN (NO merge or publish)
+
+on:
+  push:
+    branches:
+      - audit/ebbot-main-pr139-integration-dryrun-20261121
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ebbot-desktop-main-dryrun.yml'
+      - 'scripts/audit_ebbot_desktop_merge_tree.py'
+      - 'scripts/ebbot_desktop_preview_conflict_resolution.py'
+      - 'tests/test_ebbot_desktop_merge_tree_audit.py'
+      - 'tests/test_ebbot_desktop_preview_conflicts.py'
+      - 'docs/EBBOT_DESKTOP_MAIN_INTEGRATION_GATE_TR.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-desktop-main-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  read-only-main-integration-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MEME_COIN_DISCOVERY_ENABLED: 'false'
+      MEME_RADAR_LIVE_ENABLED: 'false'
+      SCHEDULE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      ELECTRON_BUILDER_PUBLISH: 'never'
+      EBBOT_AUTOMATIC_UPDATES: 'false'
+      AUDIT_REPORT: ebbot-desktop-main-integration-audit.json
+    steps:
+      - name: Check out audit-only branch without merge
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test both Git auditors on artificial clean and conflicting histories
+        run: |
+          python -m unittest discover -s tests -p test_ebbot_desktop_merge_tree_audit.py -v
+          python -m unittest discover -s tests -p test_ebbot_desktop_preview_conflicts.py -v
+      - name: Fetch only main and final draft branch (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/ebbot-audit-main \
+            +refs/heads/test/ebbot-sqlite-crash-recovery-offline-20261121:refs/remotes/origin/ebbot-audit-pr139
+          git rev-parse --verify origin/ebbot-audit-main
+          git rev-parse --verify origin/ebbot-audit-pr139
+      - name: Compare actual 3-way Git trees ONLY, without modifying refs
+        shell: bash
+        id: dryrun
+        run: |
+          set -uo pipefail
+          # merge-tree returns 1 for *expected* conflicts. Capture its status
+          # and publish JSON before the final REVIEW_REQUIRED gate fails.
+          set +e
+          python scripts/audit_ebbot_desktop_merge_tree.py \
+            --repo . --base-ref origin/ebbot-audit-main \
+            --candidate-ref origin/ebbot-audit-pr139 --report "$AUDIT_REPORT"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f "$AUDIT_REPORT" ]; then
+            python -c 'import json,os; x=json.load(open(os.environ["AUDIT_REPORT"])); print({k:x[k] for k in ["status","release_status","base_sha","candidate_sha","base_changed_files","candidate_changed_files","exact_overlap_count","conflict_message_count"]}); print("overlap:", x["exact_overlap_files"][:30]); print("conflicts:",x["conflict_messages"][:30])'
+          fi
+          exit 0
+      - name: Build an EPHEMERAL merged-tree sandbox (never create Git branch or merge commit)
+        if: steps.dryrun.outputs.clean == 'true'
+        id: materialize
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree_sha=$(python -c 'import json,os; print(json.load(open(os.environ["AUDIT_REPORT"]))["merge_tree_sha"])')
+          if [[ ! "$tree_sha" =~ ^[0-9a-f]{40,64}$ ]]; then
+            echo "Merged tree SHA missing or malformed"; exit 1
+          fi
+          candidate="$RUNNER_TEMP/ebbot-offline-merged-tree"
+          mkdir -p "$candidate"
+          git archive --format=tar "$tree_sha" | tar -xf - -C "$candidate"
+          echo "candidate_dir=$candidate" >> "$GITHUB_OUTPUT"
+      - name: Materialize PINNED conflict-resolution preview in temp ONLY (four PR139 blobs)
+        if: steps.dryrun.outputs.clean == 'false'
+        id: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/ebbot_desktop_preview_conflict_resolution.py \
+            --repo . --audit-json "$AUDIT_REPORT" --report-json ebbot-desktop-preview-review.json
+          tree_sha=$(python -c 'import json; print(json.load(open("ebbot-desktop-preview-review.json"))["synthetic_tree_sha"])')
+          if [[ ! "$tree_sha" =~ ^[0-9a-f]{40,64}$ ]]; then
+            echo "Invalid preview tree"; exit 1
+          fi
+          candidate="$RUNNER_TEMP/ebbot-offline-reviewed-preview"
+          mkdir -p "$candidate"
+          git archive --format=tar "$tree_sha" | tar -xf - -C "$candidate"
+          echo "candidate_dir=$candidate" >> "$GITHUB_OUTPUT"
+          echo "Only synthetic tree, original Git branches remain untouched. RELEASE BLOCKED."
+      - name: Run cumulative offline audit and SQLite/Electron tests on ephemeral combined tree
+        if: steps.dryrun.outputs.clean == 'true' || steps.preview.outcome == 'success'
+        id: tests
+        working-directory: ${{ steps.materialize.outputs.candidate_dir || steps.preview.outputs.candidate_dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_ebbot_desktop_package_audit.py -v
+          python -m unittest discover -s tests -p test_ebbot_desktop_signing_policy.py -v
+          python -m unittest discover -s tests -p test_ebbot_sqlite_snapshot.py -v
+          python -m unittest discover -s tests -p test_ebbot_sqlite_recovery_roundtrip.py -v
+          python scripts/audit_ebbot_desktop_package.py --strict-source
+          npm ci --prefix apps/dsa-desktop --ignore-scripts --no-audit --no-fund
+          npm test --prefix apps/dsa-desktop
+          python - <<'PY'
+          from pathlib import Path
+          source = Path("apps/dsa-desktop/main.js").read_text(encoding="utf-8")
+          assert "const DESKTOP_UPDATES_ENABLED = false;" in source
+          assert "sqliteRollbackRehearsal" in source
+          assert "sqliteSnapshotBridge" in source
+          assert "const GITHUB_OWNER = 'ebbottr-cyber';" in source
+          assert "const GITHUB_REPO = 'ebbotcyber';" in source
+          print("Merged-tree source contracts PASSED; trading/update/release remain blocked.")
+          PY
+      - name: Upload JSON-only dry-run audit (NO app or installer)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-desktop-merge-tree-audit
+          path: |
+            ${{ env.AUDIT_REPORT }}
+            ebbot-desktop-preview-review.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Explicitly fail closed when integration is unresolved
+        if: always()
+        env:
+          CLEAN: ${{ steps.dryrun.outputs.clean }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          if [ "$CLEAN" != "true" ] || [ "$TEST_OUTCOME" != "success" ]; then
+            echo "REVIEW REQUIRED: conflicts or offline aggregate tests not cleared. No merge/release permission."
+            exit 1
+          fi
+          echo "Only ephemeral dry-run merge and tests PASSED. RELEASE STILL BLOCKED."
