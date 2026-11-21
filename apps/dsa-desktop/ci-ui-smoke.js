@@ -129,7 +129,8 @@ async function runCiUiSmoke({ BrowserWindow, session, rootDir, port, reactProbe 
         await waitUntil(() => {
           const nav = document.querySelector('nav[aria-label="Ana menü"]');
           return nav && document.documentElement.lang === 'tr'
-            && nav.querySelector('a[aria-label="Ana Sayfa"]')
+            && nav.querySelector('a[aria-label="Piyasa Özeti"]')
+            && nav.querySelector('a[aria-label="Hisse Analizi"]')
             && nav.querySelector('a[aria-label="Kullanım"]')
             && nav.querySelector('a[aria-label="Veri Merkezi"]');
         });

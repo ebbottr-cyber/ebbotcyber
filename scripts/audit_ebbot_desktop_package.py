@@ -7,6 +7,7 @@ network connections. A valid build is NOT permission to distribute it.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import re
@@ -30,6 +31,52 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _sha512_base64(path: Path) -> str:
+    """Return the base64 SHA-512 used in electron-builder's latest.yml."""
+    digest = hashlib.sha512()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return base64.b64encode(digest.digest()).decode("ascii")
+
+
+def verify_latest_yml(text: str, installer: Path, filename: str, version: str) -> tuple[bool, str]:
+    """Check one local NSIS asset, never follow the manifest's URL or execute any file.
+
+    This is a narrow, fail-closed check of electron-builder's *Windows NSIS*
+    latest.yml layout. It is not a substitute for authenticating an update
+    signature or signing the installer.
+    """
+    if not installer.is_file():
+        return False, "NSIS executable missing; cannot verify manifest hash"
+    try:
+        # Reject ambiguous/duplicate URL, version, path, digest and file entries.
+        def values(pattern: str) -> list[str]:
+            return [match.strip().strip("\'\"") for match in re.findall(pattern, text)]
+
+        versions = values(r"(?m)^version:[ \t]*([^\r\n]+)$")
+        paths = values(r"(?m)^path:[ \t]*([^\r\n]+)$")
+        urls = values(r"(?m)^[ \t]*-[ \t]*url:[ \t]*([^\r\n]+)$")
+        hashes = values(r"(?m)^[ \t]*sha512:[ \t]*([^\r\n]+)$")
+        file_sizes = values(r"(?m)^[ \t]+size:[ \t]*([^\r\n]+)$")
+        files_headers = re.findall(r"(?m)^files:[ \t]*$", text)
+        if (len(files_headers) != 1 or len(versions) != 1 or len(paths) != 1 or
+                len(urls) != 1 or len(hashes) != 2 or len(file_sizes) > 1):
+            return False, "Ambiguous or missing NSIS latest.yml keys"
+        if versions[0] != version or paths[0] != filename or urls[0] != filename:
+            return False, "Version, installer path or asset URL mismatches EBBot NSIS"
+        # Filename equality also rejects traversal, absolute URLs and external hosts.
+        calculated = _sha512_base64(installer)
+        if any(value != calculated for value in hashes):
+            return False, "NSIS installer SHA-512 does not match update metadata"
+        if file_sizes and (not file_sizes[0].isdigit() or
+                           int(file_sizes[0]) != installer.stat().st_size):
+            return False, "NSIS installer size does not match update metadata"
+    except (OSError, ValueError):
+        return False, "Cannot verify latest.yml or NSIS installer"
+    return True, "Single EBBot NSIS asset, version, SHA-512 and size verified offline"
+
+
 def source_audit(root: Path) -> dict:
     desktop = root / "apps/dsa-desktop"
     manifest = desktop / "package.json"
@@ -50,6 +97,18 @@ def source_audit(root: Path) -> dict:
     files = build.get("files", [])
     _check(checks, "electron_bridge", "main.js" in files and "preload.js" in files,
            "Electron main and preload must both be packaged")
+    bridge = desktop / "sqliteSnapshotBridge.js"
+    _check(checks, "sqlite_offline_bridge_packaged",
+           "sqliteSnapshotBridge.js" in files and bridge.is_file()
+           and "sqliteSnapshotBridge" in js
+           and (bridge.is_file() and "stageSnapshotRestoreCandidate" in bridge.read_text(encoding="utf-8")),
+           "The offline no-clobber SQLite staging bridge must be included in Electron ASAR")
+    rehearsal = desktop / "sqliteRollbackRehearsal.js"
+    _check(checks, "sqlite_recovery_rehearsal_packaged",
+           "sqliteRollbackRehearsal.js" in files and rehearsal.is_file()
+           and "sqliteRollbackRehearsal" in js
+           and (rehearsal.is_file() and "rollbackCompletedSqlitePromotion" in rehearsal.read_text(encoding="utf-8")),
+           "Isolated SQLite DB/WAL/SHM rollback rehearsal must be bundled but never started")
     resources = build.get("extraResources", [])
     has_backend = any(x.get("from") == "../../dist/backend/stock_analysis" and
                       x.get("to") == "backend/stock_analysis"
@@ -113,16 +172,10 @@ def package_audit(root: Path, dist: Path, version: str) -> dict:
         _check(checks, name, path.is_file() if name != "electron_unpacked" else path.is_dir(),
                "Present" if path.exists() else "Missing " + path.name)
     if latest.is_file():
-        text = latest.read_text(encoding="utf-8")
-        vm = re.search(r"(?m)^version:\s*['\"]?([^'\"\r\n\s]+)", text)
-        pm = re.search(r"(?m)^path:\s*['\"]?([^'\"\r\n]+)", text)
-        um = re.search(r"(?m)^\s*-\s*url:\s*['\"]?([^'\"\r\n]+)", text)
-        valid = (bool(vm) and vm.group(1).strip() == version and
-                 bool(pm) and pm.group(1).strip() == expected and
-                 (um is None or um.group(1).strip() == expected) and
-                 bool(re.search(r"(?m)^sha512:\s*\S+", text)))
-        _check(checks, "updater_metadata", valid,
-               "NSIS metadata version, file URL, path and sha512 must agree with package")
+        valid, detail = verify_latest_yml(
+            latest.read_text(encoding="utf-8"), installer, expected, version
+        )
+        _check(checks, "updater_metadata", valid, detail)
     else:
         _check(checks, "updater_metadata", False, "Missing latest.yml")
     resources = unpacked / "resources"

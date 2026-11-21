@@ -1,6 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, waitFor, type RenderOptions } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../LoginPage';
+
+function render(ui: ReactElement, options?: RenderOptions) {
+  return rtlRender(ui, { ...options, wrapper: UiLanguageProvider });
+}
 
 const { navigate, useSearchParamsMock, useAuthMock } = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -23,6 +30,7 @@ vi.mock('react-router-dom', async () => {
 
 describe('LoginPage', () => {
   beforeEach(() => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     vi.clearAllMocks();
     document.documentElement.className = 'light';
     useSearchParamsMock.mockReturnValue([new URLSearchParams('redirect=%2Fsettings')]);

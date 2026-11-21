@@ -103,7 +103,9 @@ def rebalance_dates(index: pd.DatetimeIndex, rebalance: str) -> pd.DatetimeIndex
     if len(index) == 0:
         return index
     keys = index.to_period(period)
-    is_last = keys != keys.to_series().shift(-1).values
+    # PeriodDtype Series.values is changing in future pandas releases.
+    # to_numpy() keeps the same comparison semantics without that warning.
+    is_last = keys != keys.to_series().shift(-1).to_numpy()
     return index[is_last]
 
 

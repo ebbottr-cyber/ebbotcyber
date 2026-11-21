@@ -1,0 +1,56 @@
+name: EBBot equity provider readiness and license claims (offline)
+on:
+  push:
+    branches:
+      - feat/ebbot-equity-provider-readiness-20261121
+  pull_request:
+    paths:
+      - 'scripts/audit_ebbot_equity_provider_readiness.py'
+      - 'data/market_sources/official_equity_data_options.json'
+      - 'data/market_sources/operator_provider_review.sample.json'
+      - 'tests/test_ebbot_equity_provider_readiness.py'
+      - 'docs/EBBOT_EQUITY_PROVIDER_ONBOARDING_TR.md'
+      - '.github/workflows/ebbot-equity-provider-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-review-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile and validate offline provider review module
+        run: python -m compileall -q scripts/audit_ebbot_equity_provider_readiness.py tests/test_ebbot_equity_provider_readiness.py
+      - name: Read-only provider onboarding tests
+        run: python -m unittest discover -s tests -p 'test_ebbot_equity_provider_readiness.py' -v
+      - name: Existing local market-data staging and integrity regression
+        run: |
+          python -m unittest discover -s tests -p 'test_ebbot_equity_ohlcv_staging.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_equity_session_gaps.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
+          python -m unittest discover -s tests -p 'test_equity_data_coverage_reader.py' -v
+      - name: Assert repository contains no connected licensed provider credentials
+        run: |
+          python - <<'PY'
+          from scripts.audit_ebbot_equity_provider_readiness import audit_provider_readiness
+          report = audit_provider_readiness()
+          assert report["selected_markets"] == ["tr", "us", "de", "hk"]
+          assert report["markets_with_review_record"] == 0
+          assert report["status"] == "BLOCKED_NOT_APPROVED_FOR_DATA_INGESTION_OR_TRADING"
+          assert all(
+              not lead["connection_configured"] and not lead["license_verified"]
+              for item in report["markets"].values()
+              for lead in item["official_product_research_options"]
+          )
+          assert report["network_requests"] == report["orders"] == 0
+          assert report["paper_trading_enabled"] is False
+          assert report["live_trading_enabled"] is False
+          assert report["may_auto_import_quotes"] is False
+          print("Four official provider research options available; no license, account, trade or price access claimed.")
+          PY

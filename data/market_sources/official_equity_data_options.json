@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "markets": {
+    "tr": [
+      {
+        "product": "Borsa İstanbul DataStore — historical and reference data",
+        "official_product_url": "https://www.borsaistanbul.com/en/data/historical-data-sales",
+        "note": "Historical availability; usage and automated local processing rights require separate contract review."
+      },
+      {
+        "product": "Borsa İstanbul licensed distributors",
+        "official_product_url": "https://borsaistanbul.com/en/data/data-dissemination/data-vendors-directory",
+        "note": "Distributor listing is not evidence that EBBot holds a subscription or redistribution rights."
+      }
+    ],
+    "us": [
+      {
+        "product": "Nasdaq Data Link historical Bars API",
+        "official_product_url": "https://www.nasdaq.com/products/data/data-link/api",
+        "note": "Published API product is a research option; subscriber plan, all-market scope and automated storage rights are not established."
+      },
+      {
+        "product": "NYSE Daily TAQ historical trades and quotes",
+        "official_product_url": "https://www.nyse.com/data-products/catalog/daily-taq",
+        "note": "Trade and quote files are not automatically normalized daily OHLCV and may require separate transformation and license review."
+      }
+    ],
+    "de": [
+      {
+        "product": "Deutsche Börse Historical Data Shop",
+        "official_product_url": "https://www.mds.deutsche-boerse.com/mds-en/historical-data",
+        "note": "Xetra historical data product exists; symbol, ISIN, XETR scope and license need direct confirmation."
+      }
+    ],
+    "hk": [
+      {
+        "product": "HKEX Data Marketplace — historical market products",
+        "official_product_url": "https://www.hkex.com.hk/Services/Market-Data-Services/Historical-Data-Services/HKEX-Data-Marketplace?sc_lang=en",
+        "note": "Historical products can be ordered; daily OHLCV suitability, full stock scope and contractual usage rights unverified."
+      }
+    ]
+  }
+}

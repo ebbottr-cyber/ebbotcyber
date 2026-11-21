@@ -20,7 +20,7 @@ from sqlalchemy import select
 
 from src.config import Config
 from src.repositories.portfolio_repo import PortfolioBusyError, PortfolioRepository
-from src.services.portfolio_service import _AvgState, PortfolioConflictError, PortfolioOversellError, PortfolioService
+from src.services.portfolio_service import _AvgState, PortfolioConflictError, PortfolioFxRateUnavailableError, PortfolioOversellError, PortfolioService
 from src.storage import DatabaseManager, PortfolioDailySnapshot, PortfolioPosition, PortfolioPositionLot, PortfolioTrade
 
 
@@ -89,6 +89,15 @@ class PortfolioServiceTestCase(unittest.TestCase):
     ) -> int:
         account = self.service.create_account(name=f"{market}-account", broker="Demo", market=market, base_currency=currency)
         aid = account["id"]
+        # Fixture only: non-CNY accounts require actual conversion evidence to
+        # enter CNY-denominated aggregate snapshots. Do not rely on 1:1.
+        fixture_rates = {"USD": 7.0, "HKD": 0.9, "JPY": 0.048, "KRW": 0.005, "TWD": 0.22}
+        if currency in fixture_rates:
+            self.service.repo.save_fx_rate(
+                from_currency=currency, to_currency="CNY",
+                rate_date=date(2026, 1, 1), rate=fixture_rates[currency],
+                source="test-fixture", is_stale=False,
+            )
         self.service.record_cash_ledger(
             account_id=aid,
             event_date=date(2026, 1, 1),
@@ -109,6 +118,123 @@ class PortfolioServiceTestCase(unittest.TestCase):
         if close is not None:
             self._save_close(self.service._normalize_symbol(symbol), close_date or date(2026, 1, 3), close)
         return aid
+
+    def test_missing_fx_rate_fails_closed_then_accepts_valid_quote(self) -> None:
+        account = self.service.create_account(
+            name="US account", broker="Demo", market="us", base_currency="USD"
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid,
+            event_date=date(2026, 1, 1),
+            direction="in",
+            amount=100.0,
+            currency="USD",
+        )
+        as_of = date(2026, 1, 2)
+        with self.assertRaises(PortfolioFxRateUnavailableError) as ctx:
+            self.service.get_portfolio_snapshot(
+                account_id=aid, as_of=as_of, include_realtime=False
+            )
+        self.assertEqual(ctx.exception.from_currency, "USD")
+        self.assertEqual(ctx.exception.to_currency, "CNY")
+
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY",
+            rate_date=as_of, rate=7.0, source="unit-test", is_stale=False,
+        )
+        snapshot = self.service.get_portfolio_snapshot(
+            account_id=aid, as_of=as_of, include_realtime=False
+        )
+        self.assertEqual(snapshot["currency"], "CNY")
+        self.assertAlmostEqual(snapshot["total_cash"], 700.0)
+        self.assertFalse(snapshot["fx_stale"])
+
+    def test_stale_cross_currency_quote_flags_aggregate_snapshot(self) -> None:
+        account = self.service.create_account(
+            name="US account", broker="Demo", market="us", base_currency="USD"
+        )
+        aid = account["id"]
+        self.service.record_cash_ledger(
+            account_id=aid,
+            event_date=date(2026, 1, 1),
+            direction="in",
+            amount=100.0,
+            currency="USD",
+        )
+        as_of = date(2026, 1, 2)
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY",
+            rate_date=as_of, rate=7.0, source="unit-test", is_stale=True,
+        )
+        snapshot = self.service.get_portfolio_snapshot(
+            account_id=aid, as_of=as_of, include_realtime=False
+        )
+        self.assertTrue(snapshot["fx_stale"])
+        self.assertAlmostEqual(snapshot["total_cash"], 700.0)
+
+    def test_recorded_usd_cross_converts_hkd_and_jpy_without_live_display_quotes(self) -> None:
+        as_of = date(2026, 1, 2)
+        for from_currency, to_currency, rate in (
+            ("HKD", "USD", 0.125),
+            ("USD", "CNY", 7.0),
+            ("USD", "JPY", 150.0),
+        ):
+            self.service.repo.save_fx_rate(
+                from_currency=from_currency, to_currency=to_currency,
+                rate_date=as_of, rate=rate, source="unit-test", is_stale=False,
+            )
+        # HKD/USD is a direct leg; JPY/USD is the inverse of USD/JPY.
+        for amount, currency, expected in ((800, "HKD", 700.0), (150, "JPY", 7.0)):
+            converted, stale, source = self.service.convert_amount(
+                amount=amount, from_currency=currency,
+                to_currency="CNY", as_of_date=as_of,
+            )
+            self.assertAlmostEqual(converted, expected)
+            self.assertFalse(stale)
+            self.assertEqual(source, "usd_cross")
+
+    def test_missing_cross_leg_fails_with_original_currency_pair(self) -> None:
+        as_of = date(2026, 1, 2)
+        self.service.repo.save_fx_rate(
+            from_currency="KRW", to_currency="USD",
+            rate_date=as_of, rate=0.00075, source="unit-test", is_stale=False,
+        )
+        with self.assertRaises(PortfolioFxRateUnavailableError) as ctx:
+            self.service.convert_amount(
+                amount=1000, from_currency="KRW", to_currency="CNY", as_of_date=as_of,
+            )
+        self.assertEqual((ctx.exception.from_currency, ctx.exception.to_currency), ("KRW", "CNY"))
+        # A tiny but nonzero amount cannot bypass missing second-leg evidence.
+        with self.assertRaises(PortfolioFxRateUnavailableError):
+            self.service.convert_amount(
+                amount=0.0000001, from_currency="KRW",
+                to_currency="CNY", as_of_date=as_of,
+            )
+
+    def test_usd_cross_stale_leg_marks_portfolio_snapshot_unusable_for_risk(self) -> None:
+        as_of = date(2026, 1, 5)
+        account = self.service.create_account(
+            name="Hong Kong", broker="Demo", market="hk", base_currency="HKD",
+        )
+        self.service.record_cash_ledger(
+            account_id=account["id"], event_date=date(2026, 1, 1),
+            direction="in", amount=800, currency="HKD",
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="HKD", to_currency="USD", rate_date=as_of,
+            rate=0.125, source="unit-test", is_stale=False,
+        )
+        self.service.repo.save_fx_rate(
+            from_currency="USD", to_currency="CNY", rate_date=date(2026, 1, 1),
+            rate=7.0, source="unit-test", is_stale=False,
+        )
+        snapshot = self.service.get_portfolio_snapshot(
+            account_id=account["id"], as_of=as_of, include_realtime=False,
+        )
+        self.assertAlmostEqual(snapshot["total_cash"], 700.0)
+        self.assertTrue(snapshot["fx_stale"])
+        self.assertFalse(snapshot["accounts"][0]["fx_stale"])
 
     def test_current_snapshot_uses_realtime_price_when_close_missing(self) -> None:
         today = date.today()

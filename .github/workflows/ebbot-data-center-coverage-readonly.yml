@@ -1,0 +1,67 @@
+name: EBBot Data Center Equity Coverage (read-only review)
+
+on:
+  push:
+    branches:
+      - feat/ebbot-data-center-coverage-readonly-20261121
+  pull_request:
+    paths:
+      - 'src/services/equity_data_coverage_reader.py'
+      - 'api/v1/endpoints/data.py'
+      - 'tests/test_equity_data_coverage_reader.py'
+      - 'apps/dsa-web/src/components/data-center/EquityCoveragePanel*'
+      - 'apps/dsa-web/src/pages/DataCenterPage.tsx'
+      - 'apps/dsa-web/src/types/equityCoverage.ts'
+      - 'apps/dsa-web/src/api/dataCapability.ts'
+      - '.github/workflows/ebbot-data-center-coverage-readonly.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  backend-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile API and reader (without execution)
+        run: python -m compileall -q api/v1/endpoints/data.py src/services/equity_data_coverage_reader.py
+      - name: Cover report reader and original coverage gate
+        run: |
+          python -m unittest discover -s tests -p test_equity_data_coverage_reader.py -v
+          python -m unittest discover -s tests -p test_ebbot_market_data_coverage.py -v
+      - name: Assert no source reports treated as release approval
+        run: |
+          python - <<'PY'
+          from src.services.equity_data_coverage_reader import read_equity_coverage_report
+          r = read_equity_coverage_report("")
+          assert r["status"] == "unavailable"
+          assert r["markets"] == {}
+          assert r["paper_trading_enabled"] is False
+          assert r["live_trading_enabled"] is False
+          print("No configured report: no invented market numbers.")
+          PY
+
+  frontend-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Targeted Data Center coverage tests
+        run: npm run test -- src/components/data-center/EquityCoveragePanel.test.tsx
+      - name: Frontend ESLint
+        run: npm run lint
+      - name: TypeScript + production build
+        run: npm run build

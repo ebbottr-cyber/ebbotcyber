@@ -211,7 +211,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
   mockGetStatus.mockReset();
   mockStoreState.messages = [];
   mockStoreState.activeStockContext = null;
@@ -287,13 +287,21 @@ beforeEach(() => {
 });
 
 describe('ChatPage', () => {
+  it('shows translated chat controls in Turkish when Turkish is selected', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
+    render(<MemoryRouter><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Hisse Asistanı' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gönder' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Örn:/)).toBeInTheDocument();
+  });
+
 
   it('keeps the existing waiting state for LiteLLM without offering a false stop', async () => {
     mockStoreState.loading = true;
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -306,7 +314,7 @@ describe('ChatPage', () => {
     render(
       <StrictMode>
         <MemoryRouter initialEntries={['/chat']}>
-          <ChatPage />
+          <UiLanguageProvider><ChatPage /></UiLanguageProvider>
         </MemoryRouter>
       </StrictMode>,
     );
@@ -327,7 +335,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -359,7 +367,7 @@ describe('ChatPage', () => {
     });
     const router = createMemoryRouter(
       [
-        { path: '/chat', element: <ChatPage /> },
+        { path: '/chat', element: <UiLanguageProvider><ChatPage /></UiLanguageProvider> },
         { path: '/settings', element: <div>Agent settings destination</div> },
       ],
       { initialEntries: ['/chat'] },
@@ -381,7 +389,7 @@ describe('ChatPage', () => {
     mockGetStatus.mockRejectedValueOnce(new Error('temporary status failure'));
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -409,7 +417,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -442,7 +450,7 @@ describe('ChatPage', () => {
       mockGetStatus.mockResolvedValueOnce({ backend, available: true, experimental: false, errorCode: null, message: null });
       mockStockIndexState.index = [];
       mockStockIndexState.loading = true;
-      render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+      render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
       const input = await screen.findByPlaceholderText(/分析 600519/);
       for (const message of ['分析上证指数', '分析 005930.KS', '换成 000001', '比较 sh000001 和 000001']) {
         fireEvent.change(input, { target: { value: message } });
@@ -465,7 +473,7 @@ describe('ChatPage', () => {
     };
     mockStockIndexState.index = [];
     mockStockIndexState.loading = true;
-    render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
     expect(await screen.findByLabelText('当前讨论对象')).toHaveTextContent(name);
     if (type === 'index') expect(screen.queryByText('加入自选')).not.toBeInTheDocument();
     else expect(await screen.findByText('加入自选')).toBeInTheDocument();
@@ -480,7 +488,7 @@ describe('ChatPage', () => {
       title: '会话已更新', message: '请刷新会话后重试', code: 'session_state_conflict', category: 'http_error',
     });
     mockStartStream.mockImplementationOnce(async () => undefined);
-    render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
     const input = await screen.findByPlaceholderText(/分析 600519/);
     fireEvent.change(input, { target: { value: '风险呢' } });
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -496,7 +504,7 @@ describe('ChatPage', () => {
     mockStoreState.chatError = createParsedApiError({ title: 'Removed', message: 'Codex App Server 已移除',
       code: 'backend_removed', status: 400, category: 'http_error' });
     mockStartStream.mockImplementationOnce(async () => undefined);
-    render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
     const input = await screen.findByPlaceholderText(/分析 600519/);
     fireEvent.change(input, { target: { value: '风险呢' } });
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -508,7 +516,7 @@ describe('ChatPage', () => {
 
   it('can display a historical Codex backend label without enabling that backend', async () => {
     mockStoreState.messages = [{ id: 'historical', role: 'assistant', content: '历史回答', backend: 'codex_app_server' }];
-    render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
     expect(await screen.findByText('Codex Agent · 历史记录')).toBeInTheDocument();
     expect(screen.getByText('历史回答')).toBeInTheDocument();
     expect(mockStartStream).not.toHaveBeenCalled();
@@ -520,7 +528,7 @@ describe('ChatPage', () => {
       stock_name: 'Samsung', asset_type: 'stock' };
     mockStoreState.chatError = createParsedApiError({ title: 'Session changed', message: 'Refresh',
       code: 'session_state_conflict', category: 'http_error' });
-    render(<UiLanguageProvider><MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter></UiLanguageProvider>);
+    render(<UiLanguageProvider><MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter></UiLanguageProvider>);
     expect(await screen.findByLabelText('Current discussion object')).toHaveTextContent('Discussing: Samsung · 005930.KS');
     expect(screen.getByRole('button', { name: 'Refresh session (keep your draft and retry)' })).toBeInTheDocument();
   });
@@ -538,7 +546,7 @@ describe('ChatPage', () => {
     render(
       <UiLanguageProvider>
         <MemoryRouter initialEntries={['/chat']}>
-          <ChatPage />
+          <UiLanguageProvider><ChatPage /></UiLanguageProvider>
         </MemoryRouter>
       </UiLanguageProvider>,
     );
@@ -555,7 +563,7 @@ describe('ChatPage', () => {
     render(
       <UiLanguageProvider>
         <MemoryRouter initialEntries={['/chat']}>
-          <ChatPage />
+          <UiLanguageProvider><ChatPage /></UiLanguageProvider>
         </MemoryRouter>
       </UiLanguageProvider>,
     );
@@ -568,7 +576,7 @@ describe('ChatPage', () => {
   it('renders a fixed workspace shell with independent session and message viewports', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -582,7 +590,7 @@ describe('ChatPage', () => {
   it('loads and saves the global context compression setting from the chat input area', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -637,7 +645,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -667,7 +675,7 @@ describe('ChatPage', () => {
   it('does not switch when clicking the current session card', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -683,7 +691,7 @@ describe('ChatPage', () => {
   it('renders a separate delete button for each session and opens confirmation without switching', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -700,7 +708,7 @@ describe('ChatPage', () => {
   it('hides header actions when there are no messages', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -718,7 +726,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -735,7 +743,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -757,7 +765,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -784,7 +792,7 @@ describe('ChatPage', () => {
 
     const { container } = render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -819,7 +827,7 @@ describe('ChatPage', () => {
 
     const { container } = render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -840,7 +848,7 @@ describe('ChatPage', () => {
   it('selects the default skill after loading skills', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -860,7 +868,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -883,7 +891,7 @@ describe('ChatPage', () => {
   it('omits skills for an untouched new session so the server resolves its default', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -906,7 +914,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -937,7 +945,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -976,7 +984,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
     fireEvent.click(await screen.findByRole('button', { name: '用缠论分析茅台' }));
@@ -1002,7 +1010,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1042,7 +1050,7 @@ describe('ChatPage', () => {
   it('sends an explicit empty skills list when all concrete skills are cleared', async () => {
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1081,7 +1089,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1107,7 +1115,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1138,7 +1146,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -1165,7 +1173,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -1192,7 +1200,7 @@ describe('ChatPage', () => {
 
   it('does not send a client-selected identity for a name-only question', async () => {
     mockGetStatus.mockResolvedValueOnce({ backend: 'litellm', available: true, experimental: false, errorCode: null, message: null });
-    render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
     const input = await screen.findByPlaceholderText(/分析 600519/);
     fireEvent.change(input, { target: { value: '分析茅台' } });
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -1210,7 +1218,7 @@ describe('ChatPage', () => {
     });
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1234,7 +1242,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1261,7 +1269,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1290,7 +1298,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1309,7 +1317,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1338,7 +1346,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat?stock=600519&name=%E8%B4%B5%E5%B7%9E%E8%8C%85%E5%8F%B0&recordId=1']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1451,7 +1459,7 @@ describe('ChatPage', () => {
 
     render(
       <MemoryRouter initialEntries={['/chat?stock=600519&name=%E8%B4%B5%E5%B7%9E%E8%8C%85%E5%8F%B0&recordId=1']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1487,7 +1495,7 @@ describe('ChatPage', () => {
   it('falls back to base stock context when recordId is missing', async () => {
     render(
       <MemoryRouter initialEntries={['/chat?stock=AAPL']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1536,7 +1544,7 @@ describe('ChatPage', () => {
       { id: '3', role: 'assistant', content: '模型猜测正在讨论300750' },
     ];
     mockStoreState.stateContract = 'authoritative';
-    render(<MemoryRouter initialEntries={['/chat?stock=AAPL&name=Apple']}><ChatPage /></MemoryRouter>);
+    render(<MemoryRouter initialEntries={['/chat?stock=AAPL&name=Apple']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
     const input = await screen.findByDisplayValue('请深入分析 Apple(AAPL)');
     expect(screen.getByLabelText('当前讨论对象')).toHaveTextContent('未确认');
     fireEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -1554,7 +1562,7 @@ describe('ChatPage', () => {
       mockStoreState.activeStockContext = { stock_code: '600519', canonical_id: 'sh600519',
         stock_name: '贵州茅台', asset_type: 'stock' };
       mockStoreState.stateContract = 'authoritative';
-      render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+      render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
       const input = await screen.findByPlaceholderText(/分析 600519/);
       fireEvent.change(input, { target: { value: message } });
       fireEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -1567,7 +1575,7 @@ describe('ChatPage', () => {
   it('ignores malformed follow-up query params', async () => {
     render(
       <MemoryRouter initialEntries={['/chat?stock=%3Cscript%3E&name=Bad%0AName&recordId=abc']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1585,7 +1593,7 @@ describe('ChatPage', () => {
       .mockImplementationOnce(() => secondDeferred.promise);
 
     const router = createMemoryRouter(
-      [{ path: '/chat', element: <ChatPage /> }],
+      [{ path: '/chat', element: <UiLanguageProvider><ChatPage /></UiLanguageProvider> }],
       {
         initialEntries: ['/chat?stock=600519&name=%E8%B4%B5%E5%B7%9E%E8%8C%85%E5%8F%B0&recordId=1'],
       },
@@ -1680,7 +1688,7 @@ describe('ChatPage', () => {
   ] as const)('restores the %s follow-up URL to the registry canonical and hides the stock-only watchlist action', async (stockParam, expectedCanonical) => {
     render(
       <MemoryRouter initialEntries={[`/chat?stock=${stockParam}`]}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -1714,7 +1722,7 @@ describe('ChatPage', () => {
 
     const { rerender } = render(
       <MemoryRouter initialEntries={['/chat?stock=sh000016']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
     expect(screen.queryByDisplayValue(/请深入分析/)).not.toBeInTheDocument();
@@ -1724,7 +1732,7 @@ describe('ChatPage', () => {
     mockStockIndexState.loaded = true;
     rerender(
       <MemoryRouter initialEntries={['/chat?stock=sh000016']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -1764,7 +1772,7 @@ describe('ChatPage', () => {
 
       const { rerender } = render(
         <MemoryRouter initialEntries={['/chat?stock=sh000016']}>
-          <ChatPage />
+          <UiLanguageProvider><ChatPage /></UiLanguageProvider>
         </MemoryRouter>,
       );
 
@@ -1781,7 +1789,7 @@ describe('ChatPage', () => {
       mockStockIndexState.loaded = true;
       rerender(
         <MemoryRouter initialEntries={['/chat?stock=sh000016']}>
-          <ChatPage />
+          <UiLanguageProvider><ChatPage /></UiLanguageProvider>
         </MemoryRouter>,
       );
 
@@ -1793,7 +1801,7 @@ describe('ChatPage', () => {
     'does not restore a guessed stock from %s history when the store explicitly has no object', async (contract) => {
       mockStoreState.stateContract = contract;
       mockStoreState.messages = [{ id: 'm-1', role: 'user', content: '分析 sh000016' }];
-      render(<MemoryRouter initialEntries={['/chat']}><ChatPage /></MemoryRouter>);
+      render(<MemoryRouter initialEntries={['/chat']}><UiLanguageProvider><ChatPage /></UiLanguageProvider></MemoryRouter>);
       const input = await screen.findByPlaceholderText(/分析 600519/);
       expect(screen.getByLabelText('当前讨论对象')).toHaveTextContent('未确认');
       expect(screen.queryByText('加入自选')).not.toBeInTheDocument();
@@ -1812,7 +1820,7 @@ describe('ChatPage', () => {
 
     const { rerender } = render(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -1830,7 +1838,7 @@ describe('ChatPage', () => {
 
     rerender(
       <MemoryRouter initialEntries={['/chat']}>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>
     );
 
@@ -2025,7 +2033,7 @@ describe('watchlist button with code variants', () => {
 
     render(
       <MemoryRouter>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -2042,7 +2050,7 @@ describe('watchlist button with code variants', () => {
 
     render(
       <MemoryRouter>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -2059,7 +2067,7 @@ describe('watchlist button with code variants', () => {
 
     render(
       <MemoryRouter>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 
@@ -2077,7 +2085,7 @@ describe('watchlist button with code variants', () => {
 
     render(
       <MemoryRouter>
-        <ChatPage />
+        <UiLanguageProvider><ChatPage /></UiLanguageProvider>
       </MemoryRouter>,
     );
 

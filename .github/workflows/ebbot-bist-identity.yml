@@ -1,0 +1,55 @@
+name: EBBot BIST KAP vs XIST security identity (offline)
+on:
+  push:
+    branches:
+      - audit/ebbot-bist-kap-listing-reconcile-20261121
+  pull_request:
+    paths:
+      - 'scripts/audit_ebbot_bist_reference_identity.py'
+      - 'tests/test_ebbot_bist_reference_identity.py'
+      - 'docs/EBBOT_BIST_KAP_XIST_RECONCILIATION_TR.md'
+      - '.github/workflows/ebbot-bist-identity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bist-security-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile BIST reconciliation module and tests
+        run: python -m compileall -q scripts/audit_ebbot_bist_reference_identity.py tests/test_ebbot_bist_reference_identity.py
+      - name: BIST KAP-vs-XIST, ISIN, provider evidence regression
+        run: python -m unittest discover -s tests -p 'test_ebbot_bist_reference_identity.py' -v
+      - name: Provider rights and previous OHLCV guards regression
+        run: |
+          python -m unittest discover -s tests -p 'test_ebbot_equity_provider_readiness.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_equity_ohlcv_staging.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_equity_session_gaps.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
+          python -m unittest discover -s tests -p 'test_equity_data_coverage_reader.py' -v
+      - name: No invented BIST listing or provider coverage
+        run: |
+          python -m scripts.audit_ebbot_bist_reference_identity > "$RUNNER_TEMP/bist-reconciliation.json"
+          python - "$RUNNER_TEMP/bist-reconciliation.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          result = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert result['status'] == 'BLOCKED_MISSING_BIST_SOURCE_FILES'
+          assert result['counts_unknown_not_zero'] is True
+          assert result['kap_candidate_count'] is None
+          assert result['exchange_active_count'] is None
+          assert result['independent_listing_authentication_verified'] is False
+          assert result['price_provider_license_verified'] is False
+          assert result['network_requests'] == result['orders'] == 0
+          assert result['live_trading_enabled'] is False
+          assert result['paper_trading_enabled'] is False
+          print("No KAP/BIST raw files in CI: market scope unknown, no prices fabricated.")
+          PY

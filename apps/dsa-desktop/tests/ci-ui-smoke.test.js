@@ -67,3 +67,12 @@ test('normal desktop startup and fail-closed updater remain separate from smoke 
   assert.equal(pkg.build.productName, 'EBBot');
   assert.ok(pkg.build.files.includes('ci-ui-smoke.js'));
 });
+
+test('packaged CI smoke passes a defined Electron session to the network isolation guard', () => {
+  const mainSource = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const electronImport = mainSource.match(/const\s*\{([^}]+)\}\s*=\s*require\(['"]electron['"]\)/);
+  assert.ok(electronImport, 'main process must import Electron exports');
+  const exportedNames = electronImport[1].split(',').map((name) => name.trim());
+  assert.ok(exportedNames.includes('session'), 'CI-only smoke requires Electron session to be defined');
+  assert.match(mainSource, /await\s+runCiUiSmoke\(\{[\s\S]*?\bsession\s*,[\s\S]*?\}\)/);
+});

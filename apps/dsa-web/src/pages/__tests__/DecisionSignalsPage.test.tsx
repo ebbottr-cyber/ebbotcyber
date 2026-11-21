@@ -389,7 +389,8 @@ function submitCurrentStock(value: string) {
 }
 
 async function persistReassessFromFirstSignal() {
-  await screen.findByText('贵州茅台');
+  // The same stock may appear in both latest-signal and timeline views.
+  await screen.findAllByText('贵州茅台');
   fireEvent.click(screen.getAllByRole('button', { name: '查看 贵州茅台 AI 建议详情' })[0]);
   fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '生成预览' }));
   fireEvent.click(await screen.findByRole('button', { name: '确认保存' }));
@@ -754,8 +755,12 @@ describe('DecisionSignalsPage', () => {
   });
 
   it('reports an expired signal refresh separately and refreshes active views', async () => {
+    // The Windows suite already sets a live createdAt below; do not duplicate it.
     const refreshedItem = makeSignal({
       id: 90,
+      // Keep this test signal inside the default 30-day timeline window.
+      // Fixed historical fixture dates eventually age out and hide this item.
+      createdAt: new Date().toISOString(),
       decisionProfile: 'balanced',
       sourceAgent: null,
       triggerSource: 'api',
@@ -790,11 +795,64 @@ describe('DecisionSignalsPage', () => {
     renderPage();
     await screen.findByText('贵州茅台');
     submitCurrentStock('600519');
+    // Wait for the initial timeline to establish its applied filter context before
+    // asserting that a persisted reassessment refreshes the active timeline.
+    await screen.findByTestId('timeline-click-7');
     await persistReassessFromFirstSignal();
 
     expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();
     expect(screen.getByText(/DecisionSignal #90 已按存储契约完成过期续期或缺失维度补齐/)).toBeInTheDocument();
     expect(await screen.findByTestId('timeline-click-90')).toBeInTheDocument();
+    await waitFor(() => expect(decisionSignalsApi.getLatest).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps a historical refreshed signal outside the default timeline but reloads latest', async () => {
+    const refreshedItem = makeSignal({
+      id: 90,
+      // A refreshed historical creation date must not be silently rewritten to today.
+      createdAt: new Date(Date.now() - 120 * 86_400_000).toISOString(),
+      decisionProfile: 'balanced',
+      sourceAgent: null,
+      triggerSource: 'api',
+      action: 'buy',
+      status: 'active',
+      metadata: {
+        decision_profile: 'balanced',
+        profile_source: 'user_selected',
+        signal_generation_version: 'decision-profile-reassess-v1',
+      },
+    });
+    let persisted = false;
+    vi.mocked(decisionSignalsApi.reassess).mockImplementation(async (request) => {
+      if (!request.persist) return persistableReassessResponse;
+      persisted = true;
+      return {
+        preview: null,
+        item: refreshedItem,
+        created: false,
+        persistStatus: 'refreshed',
+        warnings: [],
+        blockedReason: null,
+      };
+    });
+    vi.mocked(decisionSignalsApi.list).mockImplementation(async () => (
+      listResponse(persisted ? [refreshedItem, signal] : [signal])
+    ));
+    vi.mocked(decisionSignalsApi.getLatest).mockImplementation(async () => (
+      listResponse(persisted ? [refreshedItem, signal] : [signal])
+    ));
+
+    renderPage();
+    await screen.findByText('贵州茅台');
+    submitCurrentStock('600519');
+    // Wait for the initial timeline to establish its applied filter context before
+    // asserting that a persisted reassessment refreshes the active timeline.
+    await screen.findByTestId('timeline-click-7');
+    await persistReassessFromFirstSignal();
+
+    expect(await screen.findByText('重评估信号已刷新')).toBeInTheDocument();
+    expect(screen.getByText(/DecisionSignal #90 已按存储契约完成过期续期或缺失维度补齐/)).toBeInTheDocument();
+    expect(screen.queryByTestId('timeline-click-90')).not.toBeInTheDocument();
     await waitFor(() => expect(decisionSignalsApi.getLatest).toHaveBeenCalledTimes(2));
   });
 
@@ -1848,7 +1906,9 @@ describe('DecisionSignalsPage', () => {
         pageSize: 20,
       }));
     });
-    expect(screen.getByText('共 20 条信号')).toBeInTheDocument();
+    // The API call is made before React commits the new total. Wait for
+    // the rendered result so CI does not race the last-page clamp update.
+    expect(await screen.findByText('共 20 条信号')).toBeInTheDocument();
     expect(screen.queryByText('暂无决策信号')).not.toBeInTheDocument();
   });
 
