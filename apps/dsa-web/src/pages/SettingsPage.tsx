@@ -28,6 +28,7 @@ import {
 import { WEB_BUILD_INFO } from '../utils/constants';
 import { parseStockListValue } from '../utils/stockList';
 import { getCategoryDescription, getCategoryTitle } from '../utils/systemConfigI18n';
+import { localizeSetupCheck } from '../utils/setupStatusI18n';
 import type {
   ConfigValidationIssue,
   SchedulerStatusResponse,
@@ -188,6 +189,7 @@ function getSetupCheckStatusLabel(
 }
 
 type FirstRunSetupCardProps = {
+  language: UiLanguage;
   status: SetupStatusResponse | null;
   isLoading: boolean;
   error: ParsedApiError | null;
@@ -205,6 +207,7 @@ type FirstRunSetupCardProps = {
 };
 
 const FirstRunSetupCard: React.FC<FirstRunSetupCardProps> = ({
+  language,
   status,
   isLoading,
   error,
@@ -238,7 +241,7 @@ const FirstRunSetupCard: React.FC<FirstRunSetupCardProps> = ({
     : requiredMissing.length
       ? t('settings.setupGuideMissingSummary', {
         count: requiredMissing.length,
-        labels: requiredMissing.slice(0, 3).map((check) => check.title).join(listSeparator),
+        labels: requiredMissing.slice(0, 3).map((check) => localizeSetupCheck(check, language).title).join(listSeparator),
       })
       : t('settings.setupGuideReadySummary');
 
@@ -309,14 +312,14 @@ const FirstRunSetupCard: React.FC<FirstRunSetupCardProps> = ({
                   {getSetupCheckIcon(check)}
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">{check.title}</p>
+                      <p className="text-sm font-semibold text-foreground">{localizeSetupCheck(check, language).title}</p>
                       <span className="rounded-full border settings-border bg-background/60 px-2 py-0.5 text-[11px] font-medium text-muted-text">
                         {getSetupCheckStatusLabel(check, t)}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-muted-text">{check.message}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-text">{localizeSetupCheck(check, language).message}</p>
                     {check.nextStep ? (
-                      <p className="mt-2 text-xs leading-5 text-secondary-text">{check.nextStep}</p>
+                      <p className="mt-2 text-xs leading-5 text-secondary-text">{localizeSetupCheck(check, language).nextStep}</p>
                     ) : null}
                   </div>
                 </div>
@@ -1208,10 +1211,11 @@ const SettingsPage: React.FC = () => {
 
   const shouldGuardActiveConfigPanel = activeCategory === 'notification' || activeCategory === 'agent';
   const activeConfigPanelErrorTitle = activeCategory === 'agent' ? t('settings.agentSettings') : t('settings.notificationSettings');
+  const desktopDiagnosticParts = t('settings.diagnosticHintDesktop').split('desktop.log');
   const settingsPanelDiagnosticHint = isDesktopRuntime
-    ? uiLanguage === 'en'
-      ? <>Check and provide the desktop log <code>desktop.log</code>, plus the release version, Windows version, and trigger path.</>
-      : <>请查看并提供桌面端日志 <code>desktop.log</code>，同时补充 release 版本、Windows 版本和触发入口。</>
+    ? desktopDiagnosticParts.length === 2
+      ? <>{desktopDiagnosticParts[0]}<code>desktop.log</code>{desktopDiagnosticParts[1]}</>
+      : t('settings.diagnosticHintDesktop')
     : t('settings.diagnosticHintWeb');
   const activeCategoryTitle = getCategoryTitle(activeCategory as SystemConfigCategory, t('settings.activePanelTitle'), uiLanguage);
   const activeCategoryDescription = getCategoryDescription(activeCategory as SystemConfigCategory, '', uiLanguage);
@@ -1352,6 +1356,7 @@ const SettingsPage: React.FC = () => {
           <section className="space-y-4">
             {shouldShowFirstRunSetup ? (
               <FirstRunSetupCard
+                language={uiLanguage}
                 status={setupStatus}
                 isLoading={isRefreshingSetupStatus}
                 error={setupStatusError}
@@ -1364,7 +1369,7 @@ const SettingsPage: React.FC = () => {
                 onSelectCategory={setActiveCategory}
                 onEditStockList={handleEditSetupStockList}
                 onRunSmoke={handleRunSetupSmoke}
-                listSeparator={uiLanguage === 'en' ? ', ' : '、'}
+                listSeparator={uiLanguage === 'zh' ? '、' : ', '}
                 t={t}
               />
             ) : null}

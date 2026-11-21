@@ -286,6 +286,11 @@ class PortfolioApiTestCase(unittest.TestCase):
         )
         self.assertEqual(trade_resp.status_code, 200, trade_resp.text)
         self._save_close("7203.T", date(2026, 1, 3), 1200.0)
+        PortfolioService().repo.save_fx_rate(
+            from_currency="JPY", to_currency="CNY",
+            rate_date=date(2026, 1, 2), rate=0.048,
+            source="unit-test", is_stale=False,
+        )
 
         snapshot_resp = self.client.get(
             "/api/v1/portfolio/snapshot",
@@ -531,6 +536,11 @@ class PortfolioApiTestCase(unittest.TestCase):
             quantity=10,
             market="hk",
             currency="HKD",
+        )
+        PortfolioService().repo.save_fx_rate(
+            from_currency="HKD", to_currency="CNY",
+            rate_date=date.today(), rate=0.9,
+            source="unit-test", is_stale=False,
         )
         accepted_task = SimpleNamespace(
             task_id="task-portfolio-hk",

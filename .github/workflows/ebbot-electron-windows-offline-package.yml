@@ -3,19 +3,33 @@ name: EBBot Windows Electron OFFLINE packaging verification (no release)
 on:
   push:
     branches:
-      - audit/ebbot-windows-offline-main-stage-20261121
-      - test/ebbot-packaged-health-loopback-20261121
+      - test/ebbot-windows-electron-offline-package-20261120
+      - security/ebbot-desktop-identity-updater-block-20261120
+      - security/ebbot-desktop-update-integrity-20261120
+      - security/ebbot-desktop-signature-readiness-20261120
+      - security/ebbot-desktop-safe-restore-20261120
+      - security/ebbot-desktop-sqlite-backup-atomic-20261120
+      - security/ebbot-desktop-sqlite-online-snapshot-20261120
+      - security/ebbot-sqlite-electron-restore-staging-20261120
+      - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
+      - test/ebbot-sqlite-crash-recovery-offline-20261121
+      - integration/ebbot-main-desktop-stack-pr139-20261121
+      - integration/ebbot-windows-loopback-probe-20261121
+      - integration/ebbot-latest-main-health-snapshot-20261121
   pull_request:
-    branches: [main]
-    paths:
-      - 'apps/dsa-desktop/**'
-      - 'scripts/audit_ebbot_desktop_package.py'
-      - 'tests/test_ebbot_desktop_package_audit.py'
-      - 'scripts/probe_ebbot_packaged_health.py'
-      - 'tests/test_ebbot_packaged_health_probe.py'
-      - 'main.py'
-      - 'api/app.py'
-      - '.github/workflows/ebbot-electron-windows-offline-package.yml'
+    branches:
+      - release-candidate/ebbot-main-pr109-offline-20261120
+      - test/ebbot-windows-electron-offline-package-20261120
+      - security/ebbot-desktop-identity-updater-block-20261120
+      - security/ebbot-desktop-update-integrity-20261120
+      - security/ebbot-desktop-signature-readiness-20261120
+      - security/ebbot-desktop-safe-restore-20261120
+      - security/ebbot-desktop-sqlite-backup-atomic-20261120
+      - security/ebbot-desktop-sqlite-online-snapshot-20261120
+      - security/ebbot-sqlite-electron-restore-staging-20261120
+      - security/ebbot-sqlite-bundle-rollback-rehearsal-20261121
+      - integration/ebbot-main-desktop-stack-pr139-20261121
+      - main
 
 permissions:
   contents: read
@@ -53,6 +67,50 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Source audit unit tests failed" }
           python scripts/audit_ebbot_desktop_package.py --strict-source --json
           if ($LASTEXITCODE -ne 0) { throw "Desktop source structure invalid" }
+          python -m unittest discover -s tests -p test_ebbot_desktop_signing_policy.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Unsigned desktop release policy unit tests failed" }
+          python -m unittest discover -s tests -p test_ebbot_sqlite_snapshot.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Offline WAL-consistent SQLite snapshot tests failed" }
+          python -m unittest discover -s tests -p test_ebbot_sqlite_recovery_roundtrip.py -v
+          if ($LASTEXITCODE -ne 0) { throw "Synthetic real-SQLite WAL rollback and child-process crash tests failed" }
+      - name: Regression - signing collector ignores stale native exit code (synthetic exe only)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $dir = Join-Path $env:RUNNER_TEMP 'ebbot-signing-collector-synthetic'
+          New-Item -ItemType Directory -Force -Path "$dir/win-unpacked/resources/backend/stock_analysis" | Out-Null
+          $exeNames = @(
+            (Join-Path $dir 'EBBot-windows-installer-v3.21.0.exe'),
+            (Join-Path $dir 'win-unpacked/EBBot.exe'),
+            (Join-Path $dir 'win-unpacked/resources/backend/stock_analysis/stock_analysis.exe')
+          )
+          try {
+            foreach ($exe in $exeNames) {
+              [System.IO.File]::WriteAllText($exe, 'synthetic, unsigned, do not execute')
+            }
+            & $env:ComSpec /c 'exit 17'
+            if ($LASTEXITCODE -ne 17) { throw "Native exit-code setup was not applied" }
+            $reportPath = Join-Path $dir 'signature-observation.json'
+            & ./scripts/collect_ebbot_windows_signatures.ps1 -Dist $dir -Version '3.21.0' -Output $reportPath
+            if (!(Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+              throw "PowerShell collector failed after nonzero stale LASTEXITCODE"
+            }
+            $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+            foreach ($name in @('nsis_installer', 'electron_app', 'python_backend')) {
+              if ($report.signatures.$name.present -ne $true) {
+                throw "Collector missed required synthetic executable: $name"
+              }
+            }
+            python scripts/audit_ebbot_desktop_signing.py --observation $reportPath --enforce-ci-contracts --json > (Join-Path $dir 'audit.json')
+            if ($LASTEXITCODE -ne 0) { throw "Signing policy audit failed" }
+            $audit = Get-Content (Join-Path $dir 'audit.json') -Raw | ConvertFrom-Json
+            if ($audit.release_status -ne 'BLOCKED' -or $audit.signing_validation -ne 'BLOCKED') {
+              throw "Unsigned synthetic binaries must NEVER pass signing or release authorization"
+            }
+          } finally {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Install exact Electron dependency lockfile
         working-directory: apps/dsa-desktop
         shell: pwsh
@@ -71,8 +129,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Install desktop contract dependencies failed" }
           python -m pytest -q tests/test_desktop_installer_config.py tests/test_desktop_packaging_assets.py
           if ($LASTEXITCODE -ne 0) { throw "Desktop static packaging contracts failed" }
+          # These FastAPI/TestClient tests require the dependencies installed above.
           python -m unittest discover -s tests -p test_ebbot_packaged_health_probe.py -v
-          if ($LASTEXITCODE -ne 0) { throw "Packaged health probe safety contracts failed" }
+          if ($LASTEXITCODE -ne 0) { throw "CI-only packaged health route and no-trading contracts failed" }
 
   real-windows-nsis-package:
     name: Actual PyInstaller backend + NSIS Electron (NO publish or installer execution)
@@ -120,13 +179,18 @@ jobs:
           if (!(Test-Path 'dist/backend/stock_analysis/stock_analysis.exe')) {
             throw "No packaged backend executable; cannot build real Electron package."
           }
+      - name: Smoke isolated SQLite backup command inside actual PyInstaller backend (synthetic DB only)
+        shell: pwsh
+        run: |
+          python scripts/ebbot_sqlite_snapshot_smoke.py --backend-exe dist/backend/stock_analysis/stock_analysis.exe
+          if ($LASTEXITCODE -ne 0) { throw "Frozen SQLite snapshot WAL consistency failed" }
       - name: Build actual Windows NSIS installer locally WITHOUT publishing
         working-directory: apps/dsa-desktop
         shell: pwsh
         run: |
           npx --no-install electron-builder --win nsis --publish never
           if ($LASTEXITCODE -ne 0) { throw "Electron NSIS build failed" }
-      - name: Verify package metadata, backend, React, ASAR and absence of private .env
+      - name: Verify installer SHA-512 metadata, backend, React, ASAR and absence of private .env
         shell: pwsh
         run: |
           python scripts/audit_ebbot_desktop_package.py --strict-package --dist apps/dsa-desktop/dist --json > desktop-package-audit.json
@@ -134,17 +198,36 @@ jobs:
           $report = Get-Content desktop-package-audit.json -Raw | ConvertFrom-Json
           if ($report.release_status -ne "BLOCKED") { throw "Release must remain blocked pending review" }
           Write-Host "Packaged Windows structure verified. Release blocked. SHA256 recorded in private CI artifact."
-      - name: Launch frozen backend ONLY in restricted loopback health mode
+      - name: Probe frozen Windows backend ONLY via isolated loopback health endpoint
         shell: pwsh
         run: |
           python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --timeout-seconds 180
-          if ($LASTEXITCODE -ne 0) { throw "Frozen Windows backend health probe failed" }
+          if ($LASTEXITCODE -ne 0) { throw "Frozen backend localhost health isolation failed" }
+      - name: Inspect local Authenticode signatures (unsigned stays BLOCKED)
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/dsa-desktop/package.json -Raw | ConvertFrom-Json).version
+          # The collector is a pure PowerShell script, not a native executable.
+          # Do NOT inspect $LASTEXITCODE here: it can retain the prior npm/Python exit status.
+          # A terminating exception from the collector is already fatal in pwsh.
+          & ./scripts/collect_ebbot_windows_signatures.ps1 -Dist apps/dsa-desktop/dist -Version $version -Output desktop-signature-observation.json
+          if (!(Test-Path -LiteralPath desktop-signature-observation.json -PathType Leaf)) {
+            throw "Windows signature observation file was not generated"
+          }
+          python scripts/audit_ebbot_desktop_signing.py --observation desktop-signature-observation.json --enforce-ci-contracts --json > desktop-signature-audit.json
+          if ($LASTEXITCODE -ne 0) { throw "Windows signing policy audit failed to run" }
+          $signatureAudit = Get-Content desktop-signature-audit.json -Raw | ConvertFrom-Json
+          if ($signatureAudit.release_status -ne 'BLOCKED') { throw "Release must always remain blocked" }
+          if ($signatureAudit.signing_validation -notin @('BLOCKED', 'PASSED')) { throw "Invalid signing audit result" }
+          Write-Host "Authenticode inspected locally, without sign/install/publish. Signing status $($signatureAudit.signing_validation). Release BLOCKED."
       - name: Upload audit JSON ONLY (never upload installer, backend, .env or updater files)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ebbot-windows-electron-package-audit
-          path: desktop-package-audit.json
+          path: |
+            desktop-package-audit.json
+            desktop-signature-audit.json
           if-no-files-found: warn
           retention-days: 7
       - name: Release remains explicitly blocked
@@ -153,6 +236,6 @@ jobs:
         run: |
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
-          "EBBot product identity confirmed; updater hard-disabled. Code signing and real-device install remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Only a restricted frozen backend loopback health check is verified; full desktop startup, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "EBBot product identity and repository source isolated. Auto-updater is OFF; code signing, SmartScreen and device migration remain release blockers." >> $env:GITHUB_STEP_SUMMARY
+          "Restricted frozen backend loopback health is tested; FULL Electron startup, code signing, SmartScreen, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY

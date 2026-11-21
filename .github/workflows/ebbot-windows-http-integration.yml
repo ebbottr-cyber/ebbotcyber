@@ -1,0 +1,66 @@
+name: EBBot Windows real local HTTP integration (read only)
+
+on:
+  pull_request:
+    branches:
+      - test/windows-portfolio-readonly-preflight-20261120
+    paths:
+      - 'scripts/ebbot_github_windows_http_smoke.py'
+      - '.github/workflows/ebbot-windows-http-integration.yml'
+      - 'scripts/ebbot_windows_portfolio_preflight.py'
+      - 'api/**'
+      - 'apps/dsa-web/**'
+  push:
+    branches:
+      - test/github-windows-portfolio-http-smoke-20261120
+    paths:
+      - 'scripts/ebbot_github_windows_http_smoke.py'
+      - '.github/workflows/ebbot-windows-http-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-real-fastapi-react-http:
+    name: Real FastAPI + built React on Windows (no scheduler, GET only)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+      RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+      RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+      ADMIN_AUTH_ENABLED: 'false'
+      GUARD_ENABLED: 'false'
+      CORS_ALLOW_ALL: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install full EBBot backend API dependencies
+        shell: pwsh
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Install frontend dependencies
+        shell: pwsh
+        working-directory: apps/dsa-web
+        run: npm ci
+      - name: Build the actual React frontend to static assets
+        shell: pwsh
+        working-directory: apps/dsa-web
+        run: npm run build
+      - name: Launch actual backend with ASGI lifespan disabled and verify GET-only HTTP
+        shell: pwsh
+        run: python scripts/ebbot_github_windows_http_smoke.py
+      - name: Security/test boundary
+        if: always()
+        shell: pwsh
+        run: |
+          "### Windows local HTTP integration" >> $env:GITHUB_STEP_SUMMARY
+          "GitHub runner only; NOT the user's PC or packaged Electron." >> $env:GITHUB_STEP_SUMMARY
+          "No scheduler, startup jobs, portfolio writes, live/paper orders, secrets, or FX provider checks." >> $env:GITHUB_STEP_SUMMARY

@@ -29,7 +29,7 @@ from src.repositories.alert_repo import AlertRepository
 from src.repositories.portfolio_repo import PortfolioRepository
 from src.services.alert_service import AlertService
 from src.services.alert_worker import AlertWorker
-from src.services.portfolio_service import PortfolioService
+from src.services.portfolio_service import PortfolioFxRateUnavailableError, PortfolioService
 from src.storage import (
     AlertCooldownRecord, AlertNotificationRecord, AlertTriggerRecord, Base, DatabaseManager,
     PortfolioDailySnapshot, PortfolioPosition, PortfolioPositionLot, PortfolioTrade,
@@ -139,6 +139,46 @@ class AlertApiTestCase(unittest.TestCase):
                     "legacy_configured": configured, "legacy_effective": effective,
                 })
 
+    def test_readonly_alert_holdings_do_not_fabricate_usd_cny_valuation(self) -> None:
+        portfolio = PortfolioService()
+        account_id = portfolio.create_account(
+            name="Unpriced symbol-only lookup", broker=None, market="us", base_currency="USD",
+        )["id"]
+        portfolio.record_trade(
+            account_id=account_id, symbol="AAPL", trade_date=date.today(),
+            side="buy", quantity=2, price=10,
+        )
+        with patch.object(
+            PortfolioRepository, "replace_positions_lots_and_snapshot",
+            side_effect=AssertionError("read-only lookup must not write positions"),
+        ) as write, patch.object(
+            PortfolioService, "_fetch_realtime_position_price",
+            side_effect=AssertionError("read-only lookup must not fetch prices"),
+        ) as quote:
+            holdings = portfolio.get_portfolio_snapshot(
+                account_id=account_id, include_realtime=False,
+                read_only=True, holdings_only=True,
+            )
+            self.assertEqual(set(holdings), {"accounts"})
+            self.assertEqual(
+                {position["symbol"] for position in holdings["accounts"][0]["positions"]},
+                {"AAPL"},
+            )
+            self.assertNotIn("total_equity", holdings)
+            self.assertNotIn("currency", holdings)
+            write.assert_not_called()
+            quote.assert_not_called()
+            # A financial valuation, even read-only, still requires actual
+            # recorded USD/CNY evidence. We never make up a 1:1 cross rate.
+            with self.assertRaises(PortfolioFxRateUnavailableError):
+                portfolio.get_portfolio_snapshot(
+                    account_id=account_id, include_realtime=False, read_only=True,
+                )
+            with self.assertRaises(ValueError):
+                portfolio.get_portfolio_snapshot(
+                    account_id=account_id, holdings_only=True,
+                )
+
     def test_legacy_sources_replay_real_holdings_without_quotes_or_writes(self) -> None:
         portfolio = PortfolioService()
         account = portfolio.create_account(name="Sources", broker=None, market="us", base_currency="USD")
@@ -170,6 +210,14 @@ class AlertApiTestCase(unittest.TestCase):
         # shortcut would miss the holdings entirely in the first case.
         for seed_cache in (False, True):
             if seed_cache:
+                # Background/full financial valuation is intentionally strict:
+                # it must have a genuine recorded FX rate, even in a test.
+                # The preceding no-cache iteration checks that READ-ONLY
+                # holding expansion works without ANY FX record.
+                portfolio.repo.save_fx_rate(
+                    from_currency="USD", to_currency="CNY",
+                    rate_date=date.today(), rate=7.0, source="test-fixture",
+                )
                 portfolio.get_portfolio_snapshot(account_id=account_id, include_realtime=False)
             before = stored_state()
             self.assertEqual([len(rows) for rows in before], [2, 2, 1] if seed_cache else [0, 0, 0])

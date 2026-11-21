@@ -334,6 +334,17 @@ export function parseApiError(error: unknown): ParsedApiError {
     });
   }
 
+  if (errorCode === 'portfolio_fx_rate_unavailable') {
+    return createParsedApiError({
+      title: 'Portfolio FX unavailable',
+      message: rawMessage,
+      rawMessage,
+      status,
+      category: 'http_error',
+      code: errorCode,
+    });
+  }
+
   if (errorCode === 'backend_removed') {
     return createParsedApiError({
       title: '问股后端已移除', message: rawMessage,
