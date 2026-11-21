@@ -112,6 +112,7 @@ def _probe_packaged_electron(executable: Path, port: int, backend_exe: Path, rea
             )
         if react_probe:
             print("PASS: packaged Turkish React Usage/Data, Portfolio, AI Signals, Screening and Settings navigation verified in Electron (CI-only, read-only).")
+            print("PASS: Usage period and AI signal dropdown filters updated through packaged React without any write request.")
         else:
             print("PASS: packaged EBBot.exe rendered splash/preload and renderer reached loopback backend.")
     finally:

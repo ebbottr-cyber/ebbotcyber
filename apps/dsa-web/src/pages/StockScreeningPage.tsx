@@ -906,12 +906,12 @@ const StockScreeningPage: React.FC = () => {
     : screenMessages;
   const isScreeningEnabled = statusState === 'ready' && enabled && available;
   const statusText = statusState === 'loading'
-    ? '正在检查选股状态'
+    ? t('screening.statusChecking')
     : statusState === 'error'
-      ? '选股状态未知'
+      ? t('screening.statusUnknown')
       : !enabled
-        ? '选股未开启'
-        : available ? '选股已开启' : '选股功能不可用';
+        ? t('screening.statusDisabled')
+        : available ? t('screening.statusEnabled') : t('screening.statusUnavailable');
 
   const applyScreenResult = useCallback((result: ScreeningScreenResponse) => {
     const nextCandidates = result.candidates || [];
@@ -1475,13 +1475,13 @@ const StockScreeningPage: React.FC = () => {
       </div>
 
       {statusState === 'loading' ? (
-        <InlineAlert variant="info" message="正在读取选股配置，请稍候。" />
+        <InlineAlert variant="info" message={t('screening.configLoading')} />
       ) : null}
 
       {statusState === 'error' ? (
         <InlineAlert
           variant="warning"
-          title="选股状态加载失败"
+          title={t('screening.statusLoadFailed')}
           message={statusError}
           action={
             <Button size="sm" onClick={() => {
@@ -1489,7 +1489,7 @@ const StockScreeningPage: React.FC = () => {
               setStatusError('');
               setStatusAttempt((attempt) => attempt + 1);
             }}>
-              重试
+              {t('screening.retry')}
             </Button>
           }
         />
@@ -1498,11 +1498,11 @@ const StockScreeningPage: React.FC = () => {
       {statusState === 'ready' && !enabled ? (
         <InlineAlert
           variant="info"
-          title="选股未开启"
-          message="开启后即可运行选股策略。"
+          title={t('screening.statusDisabled')}
+          message={t('screening.enableDescription')}
           action={
-            <Button size="sm" isLoading={enabling} loadingText="开启中..." onClick={() => void handleEnable()}>
-              开启选股
+            <Button size="sm" isLoading={enabling} loadingText={t('screening.enabling')} onClick={() => void handleEnable()}>
+              {t('screening.enable')}
             </Button>
           }
         />
@@ -1511,12 +1511,12 @@ const StockScreeningPage: React.FC = () => {
       {statusState === 'ready' && enabled && !available ? (
         <InlineAlert
           variant="warning"
-          title="选股功能不可用"
-          message="请检查后端日志、策略文件和基础数据依赖后重启服务。"
+          title={t('screening.statusUnavailable')}
+          message={t('screening.unavailableDescription')}
         />
       ) : null}
 
-      {error ? <InlineAlert variant="danger" title="调用失败" message={error} /> : null}
+      {error ? <InlineAlert variant="danger" title={t('screening.callFailed')} message={error} /> : null}
 
       <section className="rounded-2xl border border-border/80 bg-card/95 p-4 shadow-soft-card">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

@@ -1294,6 +1294,7 @@ const DecisionSignalsPage: React.FC = () => {
             />
             <select
               className="input-surface input-focus-glow h-11 rounded-xl border bg-transparent px-3 text-sm"
+              data-testid="decision-signals-action-filter"
               value={filters.action}
               onChange={(event) => setFilters((current) => ({ ...current, action: event.target.value as ListFilters['action'] }))}
               aria-label={t('decisionSignals.action')}
@@ -1338,6 +1339,7 @@ const DecisionSignalsPage: React.FC = () => {
             />
             <select
               className="input-surface input-focus-glow h-11 rounded-xl border bg-transparent px-3 text-sm"
+              data-testid="decision-signals-status-filter"
               value={filters.status}
               onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value as ListFilters['status'] }))}
               aria-label={t('decisionSignals.status')}
