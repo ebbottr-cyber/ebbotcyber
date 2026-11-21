@@ -119,6 +119,18 @@ function createDeferred<T>() {
 }
 
 describe('StockScreeningPage', () => {
+  it('falls back to a Turkish screening heading without a language provider', async () => {
+    // The existing suite opts into Chinese for historical assertions.
+    // This independent rendering verifies the real no-provider Turkish fallback.
+    window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+    getScreeningStatus.mockResolvedValueOnce({ enabled: true, available: true });
+
+    rtlRender(<StockScreeningPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Hisse Tarama' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '选股' })).not.toBeInTheDocument();
+  });
+
   it('renders Turkish screening headings and controls when selected', async () => {
     window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'tr');
     getScreeningStatus.mockResolvedValue({ enabled: true, available: true });
