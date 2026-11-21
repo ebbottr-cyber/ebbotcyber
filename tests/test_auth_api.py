@@ -187,6 +187,51 @@ class AuthApiTestCase(unittest.TestCase):
         )
         self.assertIn(response.status_code, (200, 204))
 
+    def test_change_password_invalidates_prior_signed_session(self) -> None:
+        login = asyncio.run(
+            auth_endpoint.auth_login(
+                self._build_request(),
+                auth_endpoint.LoginRequest(password="oldpass6", passwordConfirm="oldpass6"),
+            )
+        )
+        self.assertEqual(login.status_code, 200)
+        prior_session = auth.create_session()
+        self.assertTrue(auth.verify_session(prior_session))
+
+        response = asyncio.run(
+            auth_endpoint.auth_change_password(
+                auth_endpoint.ChangePasswordRequest(
+                    currentPassword="oldpass6",
+                    newPassword="newpass6",
+                    newPasswordConfirm="newpass6",
+                )
+            )
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(auth.verify_session(prior_session))
+        self.assertTrue(auth.verify_password("newpass6"))
+
+    def test_change_password_reports_failed_session_revocation(self) -> None:
+        login = asyncio.run(
+            auth_endpoint.auth_login(
+                self._build_request(),
+                auth_endpoint.LoginRequest(password="oldpass6", passwordConfirm="oldpass6"),
+            )
+        )
+        self.assertEqual(login.status_code, 200)
+        with patch.object(auth_endpoint, "rotate_session_secret", return_value=False):
+            response = asyncio.run(
+                auth_endpoint.auth_change_password(
+                    auth_endpoint.ChangePasswordRequest(
+                        currentPassword="oldpass6",
+                        newPassword="newpass6",
+                        newPasswordConfirm="newpass6",
+                    )
+                )
+            )
+        self.assertEqual(response.status_code, 500)
+        self.assertIn(b'session_invalidation_failed', response.body)
+
     def test_change_password_wrong_current_rejected(self) -> None:
         first_response = asyncio.run(
             auth_endpoint.auth_login(
