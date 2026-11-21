@@ -30,11 +30,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install API test runtime dependencies
-        run: |
-          python -m pip install --disable-pip-version-check --quiet \
-            'fastapi>=0.110,<1' 'httpx>=0.25,<1' 'sqlalchemy>=2,<3' \
-            'pydantic>=2,<3' 'pydantic-settings>=2,<3' 'python-multipart>=0.0.9' \
-            'PyYAML>=6,<7' 'cryptography>=43,<48'
+        run: python -m pip install -r .github/requirements-ci.txt
       - name: Python syntax
         run: |
           python -m compileall -q src/services/bist_identity_report_reader.py api/v1/endpoints/data.py tests/test_bist_identity_report_reader.py tests/test_bist_identity_api_auth.py
