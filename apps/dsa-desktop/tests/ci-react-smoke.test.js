@@ -34,11 +34,11 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
     'utf8',
   );
   assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
-  assert.match(probe, /PASS: packaged Turkish React shell and usage\/data navigation/);
+  assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
-  for (const pathSuffix of ['/', '/assets/app.js', '/api/v1/auth/status', '/usage', '/data']) {
+  for (const pathSuffix of ['/', '/assets/app.js', '/api/v1/auth/status', '/usage', '/data', '/portfolio', '/decision-signals', '/screening', '/settings']) {
     assert.equal(isAllowedCiUiRequest(`http://127.0.0.1:54321${pathSuffix}`, 54321), true);
   }
   assert.equal(isAllowedCiUiRequest('https://api.github.com/', 54321), false);
@@ -52,5 +52,16 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   assert.match(smoke, /Ana Sayfa/);
   assert.match(smoke, /Kullanım/);
   assert.match(smoke, /Veri Merkezi/);
+  for (const [route, heading] of [
+    ['/portfolio', 'Portföy Yönetimi'],
+    ['/decision-signals', 'AI Önerileri'],
+    ['/screening', 'Hisse Tarama'],
+    ['/settings', 'Ayarlar'],
+  ]) {
+    assert.ok(smoke.includes("pathname: '" + route + "'"), route);
+    assert.ok(smoke.includes("heading: '" + heading + "'"), heading);
+  }
+  assert.match(smoke, /Never click trade, analysis, screen-run/);
+
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
 });

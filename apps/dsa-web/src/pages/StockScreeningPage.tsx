@@ -41,6 +41,7 @@ import {
 } from '../api/screening';
 import { formatParsedApiError, getParsedApiError, toApiErrorMessage, type ParsedApiError } from '../api/error';
 import { AppPage, Button, InlineAlert, Select } from '../components/common';
+import { useUiLanguage } from '../contexts/UiLanguageContext';
 
 const MARKETS = [{ id: 'cn', label: 'A 股' }];
 const SCREEN_TASK_STORAGE_KEY = 'dsa.screening.activeScreenTask.v1';
@@ -840,6 +841,7 @@ const MiniSparkline: React.FC<{ score?: number | null; selected?: boolean }> = (
 
 const StockScreeningPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useUiLanguage();
   const [restoredTask] = useState<PersistedScreenTask | null>(() => readPersistedScreenTask());
   const [statusState, setStatusState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [statusError, setStatusError] = useState('');
@@ -1463,7 +1465,7 @@ const StockScreeningPage: React.FC = () => {
           <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-cyan text-cyan shadow-[0_0_24px_hsl(var(--primary)/0.18)]">
             <PlusCircle className="h-4 w-4" />
           </span>
-          <h1 className="text-2xl font-bold tracking-normal text-foreground">选股</h1>
+          <h1 className="text-2xl font-bold tracking-normal text-foreground">{t('layout.nav.screening')}</h1>
         </div>
 
         <div className="inline-flex w-fit items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-4 py-2 text-sm shadow-soft-card">
