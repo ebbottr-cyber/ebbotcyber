@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentBackendStatusResponse } from '../../../types/systemConfig';
@@ -54,6 +55,9 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof AgentBackend
   };
   return { ...render(<AgentBackendStatusPanel {...props} />), props };
 }
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('AgentBackendStatusPanel', () => {
   beforeEach(() => {

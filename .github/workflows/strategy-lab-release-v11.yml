@@ -1,0 +1,105 @@
+name: Strategy Lab V11 release-readiness
+
+on:
+  pull_request:
+    branches:
+      - feat/strategy-lab-paper-ops-v10
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: strategy-lab-v11-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  stacked-pr-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout combined PR merge
+        uses: actions/checkout@v4
+      - name: Check PR dependency graph and merge conflicts (no writes)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/check_strategy_lab_stack_v11.py --repository "${{ github.repository }}"
+
+  backend-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout combined PR merge
+        uses: actions/checkout@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI requirements
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Compile new backend modules
+        run: |
+          python -m py_compile src/core/random_benchmark.py src/core/rotation_timing_adapter.py src/core/provider_consistency.py src/core/temporal_validation.py src/core/prospective_paper.py
+          python -m py_compile src/services/strategy_lab_service.py src/services/paper_journal_reporting.py src/services/prospective_paper_journal.py api/v1/endpoints/strategy_lab.py
+          python -m py_compile scripts/check_strategy_lab_stack_v11.py scripts/observe_etf_paper_v9.py scripts/run_etf_paper_daily_v10.py
+      - name: Run full-stack targeted no-order contracts
+        run: |
+          python -m pytest -q \
+            tests/test_random_benchmark.py \
+            tests/test_rotation_timing_adapter.py \
+            tests/test_strategy_lab_service.py \
+            tests/test_provider_consistency.py \
+            tests/test_temporal_validation.py \
+            tests/test_prospective_paper.py \
+            tests/test_prospective_paper_cli.py \
+            tests/test_strategy_lab_paper_ops_v10.py \
+            tests/test_strategy_lab_release_gate_v11.py
+
+  frontend-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - name: Checkout combined PR merge
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Strategy Lab, paper import and Turkish UI regressions
+        run: |
+          npx vitest run \
+            src/pages/__tests__/StrategyLabPage.test.tsx \
+            src/components/strategy-lab/__tests__/PaperJournalPanel.test.tsx \
+            src/components/decision-signals/__tests__/DecisionSignalDisplay.test.tsx \
+            src/components/decision-signals/__tests__/DecisionSignalTimeline.test.tsx \
+            src/components/run-flow/__tests__/RunFlowEventList.test.tsx \
+            src/components/run-flow/__tests__/RunFlowGraph.test.tsx \
+            src/components/run-flow/__tests__/RunFlowNodeDetails.test.tsx \
+            src/components/settings/__tests__/NotificationTestPanel.test.tsx \
+            src/utils/__tests__/systemConfigLanguage.test.ts
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+
+  complete-backend-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout combined PR merge
+        uses: actions/checkout@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI requirements
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Execute full repository tests without bypassing failures
+        run: python -m pytest -q

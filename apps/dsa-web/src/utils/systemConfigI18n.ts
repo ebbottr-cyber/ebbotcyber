@@ -23,13 +23,13 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
     uncategorized: 'Other',
   },
   tr: {
-    base: 'Temel ayarlar',
+    base: 'Temel Ayarlar',
     data_source: 'Veri kaynakları',
-    ai_model: 'Yapay zekâ modelleri',
+    ai_model: 'Yapay Zekâ Modelleri',
     notification: 'Bildirimler',
     system: 'Sistem',
-    agent: 'Ajanlar',
-    backtest: 'Geriye dönük test',
+    agent: 'Ajan Ayarları',
+    backtest: 'Geriye Dönük Test',
     uncategorized: 'Diğer',
   },
 };
@@ -56,13 +56,13 @@ const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCate
     uncategorized: 'Other uncategorized settings.',
   },
   tr: {
-    base: 'İzleme listelerini ve temel çalışma ayarlarını yönetin.',
+    base: 'İzleme listelerini ve temel çalışma parametrelerini yönetin.',
     data_source: 'Piyasa veri kaynaklarını ve öncelik sırasını yönetin.',
-    ai_model: 'Model sağlayıcılarını ve çıkarım ayarlarını yönetin.',
-    notification: 'Bot, webhook ve bildirim ayarlarını yönetin.',
-    system: 'Zamanlayıcı, günlük ve sistem ayarlarını yönetin.',
-    agent: 'Ajan modlarını ve stratejilerini yönetin.',
-    backtest: 'Geriye dönük test ve değerlendirme ayarlarını yönetin.',
+    ai_model: 'Model sağlayıcılarını, adlarını ve çıkarım ayarlarını yönetin.',
+    notification: 'Botları, Webhook bağlantılarını ve bildirimleri yönetin.',
+    system: 'Zamanlama, günlükler, bağlantı noktaları ve sistem ayarlarını yönetin.',
+    agent: 'Ajan modunu, stratejileri ve çoklu ajan iş akışlarını yönetin.',
+    backtest: 'Geriye dönük test ayarlarını ve değerlendirme pencerelerini yönetin.',
     uncategorized: 'Diğer ayarlar.',
   },
 };
@@ -625,8 +625,6 @@ export function getFieldOptionLabel(
   fallbackLabel?: string,
   locale: UiLanguage = 'zh',
 ): string {
-  // Turkish options use the English map until dedicated translations are available.
-  // Never display Chinese option labels just because the UI locale is Turkish.
   const map = locale === 'zh' ? fieldOptionLabelMap[key] : fieldOptionLabelMapEn[key];
   if (!map) {
     return fallbackLabel ?? value;

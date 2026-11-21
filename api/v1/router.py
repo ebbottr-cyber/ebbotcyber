@@ -18,11 +18,13 @@ from api.v1.endpoints import (
     analysis,
     auth,
     backtest,
+    strategy_lab,
     data,
     decision_signals,
     health,
     history,
     intelligence,
+    meme_coin,
     meme_coins,
     portfolio,
     stocks,
@@ -71,6 +73,12 @@ router.include_router(
 )
 
 router.include_router(
+    strategy_lab.router,
+    prefix="/strategy-lab",
+    tags=["StrategyLab"]
+)
+
+router.include_router(
     system_config.router,
     prefix="/system",
     tags=["SystemConfig"]
@@ -101,6 +109,20 @@ router.include_router(
 )
 
 router.include_router(
+    meme_coin.router,
+    prefix="/meme-coins",
+    tags=["MemeCoin"]
+)
+
+# Independent main-branch Solana Radar; do not shadow the existing
+# /meme-coins strategy service. Scans require explicit server opt-in.
+router.include_router(
+    meme_coins.router,
+    prefix="/meme-radar",
+    tags=["SolanaMemeRadar"],
+)
+
+router.include_router(
     screening.router,
     prefix="/screening",
     tags=["Screening"]
@@ -121,10 +143,4 @@ router.include_router(
 router.include_router(
     health.router,
     tags=["Health"]
-)
-
-router.include_router(
-    meme_coins.router,
-    prefix="/meme-coins",
-    tags=["MemeCoins"]
 )

@@ -1,0 +1,39 @@
+name: Strategy Lab V15 paper safety review
+
+on:
+  pull_request:
+    branches:
+      - integration/strategy-lab-v13-regression-review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strategy-lab-paper-safety-v15-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  paper-safety-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout review candidate
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install tests
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Compile paper observer and wrapper
+        run: |
+          python -m py_compile scripts/observe_etf_paper_v9.py scripts/run_etf_paper_daily_v10.py
+          python -m py_compile tests/test_prospective_paper_cli.py tests/test_strategy_lab_paper_ops_v10.py
+      - name: Paper recording, auth, data and temporal no-backfill contracts
+        run: |
+          python -m pytest -q \
+            tests/test_prospective_paper_cli.py \
+            tests/test_strategy_lab_paper_ops_v10.py \
+            tests/test_prospective_paper.py \
+            tests/test_temporal_validation.py \
+            tests/test_provider_consistency.py

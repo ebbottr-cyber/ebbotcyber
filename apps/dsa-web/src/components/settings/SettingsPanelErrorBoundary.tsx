@@ -125,19 +125,26 @@ class SettingsPanelErrorBoundaryImpl extends Component<
 
 export const SettingsPanelErrorBoundary = (props: SettingsPanelErrorBoundaryProps) => {
   const { language } = useUiLanguage();
-  const labels: SettingsPanelErrorBoundaryLabels = language === 'en'
+  const labels: SettingsPanelErrorBoundaryLabels = language === 'tr'
     ? {
-        loadFailedSuffix: ' failed to load',
-        runtimeErrorMessage: 'This settings area hit a frontend runtime error. Other settings remain usable.',
-        defaultDiagnosticHint: 'Provide the release version, runtime environment, and trigger path to help diagnose the issue.',
-        errorSummaryPrefix: 'Error summary: ',
+        loadFailedSuffix: ' yüklenemedi',
+        runtimeErrorMessage: 'Bu ayar bölümünde arayüz hatası oluştu. Diğer ayarları kullanabilirsiniz.',
+        defaultDiagnosticHint: 'Sorunu incelemek için sürümü, çalışma ortamını ve hataya yol açan adımı paylaşın.',
+        errorSummaryPrefix: 'Hata özeti: ',
       }
-    : {
-        loadFailedSuffix: '加载失败',
-        runtimeErrorMessage: '该设置区域发生前端运行时异常，页面其他设置仍可继续使用。',
-        defaultDiagnosticHint: '请补充 release 版本、运行环境和触发入口，便于定位问题。',
-        errorSummaryPrefix: '错误摘要：',
-      };
+    : language === 'en'
+      ? {
+          loadFailedSuffix: ' failed to load',
+          runtimeErrorMessage: 'This settings area hit a frontend runtime error. Other settings remain usable.',
+          defaultDiagnosticHint: 'Provide the release version, runtime environment, and trigger path to help diagnose the issue.',
+          errorSummaryPrefix: 'Error summary: ',
+        }
+      : {
+          loadFailedSuffix: '加载失败',
+          runtimeErrorMessage: '该设置区域发生前端运行时异常，页面其他设置仍可继续使用。',
+          defaultDiagnosticHint: '请补充 release 版本、运行环境和触发入口，便于定位问题。',
+          errorSummaryPrefix: '错误摘要：',
+        };
 
   return <SettingsPanelErrorBoundaryImpl {...props} labels={labels} />;
 };

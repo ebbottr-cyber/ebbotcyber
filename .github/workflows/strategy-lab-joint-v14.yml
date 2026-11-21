@@ -1,0 +1,110 @@
+name: EBBot Strategy Lab joint integration V14
+
+on:
+  pull_request:
+    branches:
+      - ci/strategy-lab-release-gate-v11
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ebbot-joint-v14-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Verify prior Strategy Lab PR chain remains unmerged and conflict-free
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/check_strategy_lab_stack_v11.py --repository "${{ github.repository }}"
+      - name: Verify V12 and V13 are still review-only and stacked correctly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: PYTHONPATH=. python scripts/check_integration_dependencies_v14.py --repository "${{ github.repository }}"
+
+  targeted-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r .github/requirements-ci.txt
+      - name: Python syntax
+        run: python -m py_compile src/market_context.py src/analyzer.py scripts/check_integration_dependencies_v14.py
+      - name: Combined V11 + V12 + V13 regression contracts
+        run: |
+          python -m pytest -q \
+            tests/test_strategy_lab_release_gate_v11.py \
+            tests/test_integration_dependencies_v14.py \
+            tests/test_random_benchmark.py \
+            tests/test_rotation_timing_adapter.py \
+            tests/test_strategy_lab_service.py \
+            tests/test_provider_consistency.py \
+            tests/test_temporal_validation.py \
+            tests/test_prospective_paper.py \
+            tests/test_prospective_paper_cli.py \
+            tests/test_strategy_lab_paper_ops_v10.py \
+            tests/test_disabled_workflow_archive_contract.py \
+            tests/test_ci_workflow_contract.py \
+            tests/test_daily_analysis_workflow_data_sources.py \
+            tests/test_daily_analysis_workflow_llm_env.py \
+            tests/test_daily_analysis_workflow_notification_env.py \
+            tests/test_futu_distribution_contract.py \
+            tests/test_packaging_build_scripts.py \
+            tests/test_searxng_env_docs.py \
+            tests/test_config_registry.py \
+            tests/test_turkish_market_context.py \
+            tests/test_analyzer_prompt_language.py \
+            tests/test_notification_empty_news_disclosure.py \
+            tests/test_turkish_report_language.py \
+            tests/test_report_language.py \
+            tests/test_report_language_prompt_directives.py
+
+  targeted-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Strategy Lab and language UI tests
+        run: |
+          npx vitest run \
+            src/pages/__tests__/StrategyLabPage.test.tsx \
+            src/components/strategy-lab/__tests__/PaperJournalPanel.test.tsx \
+            src/components/decision-signals/__tests__/DecisionSignalDisplay.test.tsx \
+            src/components/decision-signals/__tests__/DecisionSignalTimeline.test.tsx \
+            src/components/run-flow/__tests__/RunFlowEventList.test.tsx \
+            src/components/run-flow/__tests__/RunFlowGraph.test.tsx \
+            src/components/run-flow/__tests__/RunFlowNodeDetails.test.tsx \
+            src/components/settings/__tests__/NotificationTestPanel.test.tsx \
+            src/utils/__tests__/systemConfigLanguage.test.ts
+      - run: npx tsc -p tsconfig.app.json --noEmit
+      - run: npm run lint
+      - run: npm run build
+
+  full-backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r .github/requirements-ci.txt
+      - name: Full Python regression without suppressions
+        run: python -m pytest -q
