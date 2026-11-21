@@ -1,4 +1,4 @@
-name: EBBot ephemeral main plus Windows React 3-conflict resolution (NO REMOTE MERGE)
+name: EBBot ephemeral main plus Windows React five-conflict resolution (NO REMOTE MERGE)
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ebbot-ephemeral-main-win-react-3conflicts
+  group: ebbot-ephemeral-main-win-react-5conflicts
   cancel-in-progress: true
 
 env:
@@ -49,7 +49,7 @@ jobs:
             +refs/heads/integration/ebbot-main-react-windows-probe-v2-20261121:refs/remotes/origin/ebbot-candidate
           [[ "$(git rev-parse refs/remotes/origin/main)" == "$MAIN_SHA" ]]
           [[ "$(git rev-parse refs/remotes/origin/ebbot-candidate)" == "$CANDIDATE_SHA" ]]
-      - name: Resolve EXACTLY three reviewed Git conflicts in ephemeral detached worktree
+      - name: Resolve EXACTLY five reviewed Git conflicts in ephemeral detached worktree
         id: preview
         shell: bash
         run: |
@@ -79,7 +79,9 @@ jobs:
           ).splitlines())
           expected = sorted([
               ".github/workflows/ebbot-electron-windows-offline-package.yml",
+              "apps/dsa-desktop/ci-ui-smoke.js",
               "apps/dsa-desktop/main.js",
+              "apps/dsa-desktop/tests/ci-react-smoke.test.js",
               "apps/dsa-desktop/tests/ci-ui-smoke.test.js",
           ])
           print("Actual conflict files:", actual)
@@ -88,7 +90,9 @@ jobs:
           PY
           for file in \
             ".github/workflows/ebbot-electron-windows-offline-package.yml" \
+            "apps/dsa-desktop/ci-ui-smoke.js" \
             "apps/dsa-desktop/main.js" \
+            "apps/dsa-desktop/tests/ci-react-smoke.test.js" \
             "apps/dsa-desktop/tests/ci-ui-smoke.test.js"; do
             # Already hand-reconciled in PR172: keep SQLite, React probe and session regression.
             git -C "$preview" checkout --ours -- "$file"
@@ -125,6 +129,8 @@ jobs:
           done
           grep -Fq "EBBOT_PACKAGED_REACT_PROBE" "$preview/api/app.py"
           grep -Fq "127.0.0.1" "$preview/apps/dsa-desktop/ci-ui-smoke.js"
+          grep -Fq "Piyasa Özeti" "$preview/apps/dsa-desktop/ci-ui-smoke.js"
+          grep -Fq "Hisse Analizi" "$preview/apps/dsa-desktop/ci-ui-smoke.js"
           grep -Fq "packaged CI smoke passes a defined Electron session" "$preview/apps/dsa-desktop/tests/ci-ui-smoke.test.js"
           python - <<'PY'
           import json, os
@@ -140,6 +146,8 @@ jobs:
               "resolved_paths": [
                   ".github/workflows/ebbot-electron-windows-offline-package.yml",
                   "apps/dsa-desktop/main.js",
+                  "apps/dsa-desktop/ci-ui-smoke.js",
+                  "apps/dsa-desktop/tests/ci-react-smoke.test.js",
                   "apps/dsa-desktop/tests/ci-ui-smoke.test.js",
                   "apps/dsa-web/src/i18n/uiText.ts",
               ],
@@ -200,7 +208,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ebbot-ephemeral-3conflicts-test-evidence
+          name: ebbot-ephemeral-5conflicts-test-evidence
           retention-days: 7
           if-no-files-found: warn
           path: |
