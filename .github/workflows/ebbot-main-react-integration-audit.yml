@@ -1,0 +1,207 @@
+name: EBBot pinned main + React integration audit (NO MERGE NO TRADES)
+
+on:
+  push:
+    branches: [audit/ebbot-main-react-cumulative-preview-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-main-react-integration-pinned
+  cancel-in-progress: true
+
+env:
+  MAIN_SHA: '65b77f17085224a2f01dda3ee8d3807dbe789e10'
+  REACT_SHA: '61cda4b7024ff4f6d39b4c20887814ca882ade72'
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  preview:
+    name: Pinned three-way merge-tree, zero branch modifications
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch exact real branches for pinned verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/test/ebbot-decision-refresh-date-fixture-20261121:refs/remotes/origin/ebbot-react-candidate
+      - name: Three-way preview (report FAIL on conflict or moved SHA)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/audit_ebbot_main_react_preview.py \
+            --base-ref refs/remotes/origin/main \
+            --candidate-ref refs/remotes/origin/ebbot-react-candidate \
+            --expected-base "$MAIN_SHA" \
+            --expected-candidate "$REACT_SHA" \
+            --extract-dir "$RUNNER_TEMP/ebbot-react-integrated-preview" \
+            --report "$RUNNER_TEMP/ebbot-main-react-merge.json"
+      - name: Preserve read-only conflict report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-react-three-way-audit
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/ebbot-main-react-merge.json
+
+  frontend:
+    name: Full React regression + lint/build on ephemeral merged tree
+    runs-on: ubuntu-24.04
+    needs: [preview]
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Recreate and independently verify pinned preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/test/ebbot-decision-refresh-date-fixture-20261121:refs/remotes/origin/ebbot-react-candidate
+          python scripts/audit_ebbot_main_react_preview.py \
+            --base-ref refs/remotes/origin/main \
+            --candidate-ref refs/remotes/origin/ebbot-react-candidate \
+            --expected-base "$MAIN_SHA" \
+            --expected-candidate "$REACT_SHA" \
+            --extract-dir "$RUNNER_TEMP/ebbot-react-integrated-preview" \
+            --report "$RUNNER_TEMP/ebbot-main-react-frontend.json"
+      - name: Install pinned frontend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-react-integrated-preview/apps/dsa-web"
+          npm ci --no-audit --no-fund
+      - name: Run complete React Vitest against merged tree, preserving genuine failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-react-integrated-preview/apps/dsa-web"
+          npm test -- --reporter=dot --reporter=junit --outputFile.junit=vitest-main-react.xml \
+            > "$RUNNER_TEMP/vitest-main-react.log" 2>&1 || {
+              code=$?
+              tail -n 100 "$RUNNER_TEMP/vitest-main-react.log"
+              exit "$code"
+            }
+          tail -n 35 "$RUNNER_TEMP/vitest-main-react.log"
+      - name: Independently lint merged React tree
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-react-integrated-preview/apps/dsa-web"
+          npm run lint
+      - name: Independently build TypeScript/Vite merged React tree
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-react-integrated-preview/apps/dsa-web"
+          npm run build
+      - name: Preserve real merged React test log and XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-react-frontend-results
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ebbot-main-react-frontend.json
+            ${{ runner.temp }}/vitest-main-react.log
+            ${{ runner.temp }}/ebbot-react-integrated-preview/apps/dsa-web/vitest-main-react.xml
+
+  backend:
+    name: Non-network-marked backend regression on ephemeral merged tree
+    runs-on: ubuntu-24.04
+    needs: [preview]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recreate and independently verify pinned preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/test/ebbot-decision-refresh-date-fixture-20261121:refs/remotes/origin/ebbot-react-candidate
+          python scripts/audit_ebbot_main_react_preview.py \
+            --base-ref refs/remotes/origin/main \
+            --candidate-ref refs/remotes/origin/ebbot-react-candidate \
+            --expected-base "$MAIN_SHA" \
+            --expected-candidate "$REACT_SHA" \
+            --extract-dir "$RUNNER_TEMP/ebbot-react-integrated-preview" \
+            --report "$RUNNER_TEMP/ebbot-main-react-backend.json"
+      - name: Install pinned backend CI dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-react-integrated-preview"
+          python -m pip install -r .github/requirements-ci.txt
+      - name: Run backend non-network-marked suite; never mask errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ebbot-react-integrated-preview"
+          python -m pytest -q -m 'not network' \
+            --junitxml="$RUNNER_TEMP/ebbot-main-react-backend.xml" \
+            > "$RUNNER_TEMP/ebbot-main-react-backend.log" 2>&1 || {
+              code=$?
+              tail -n 140 "$RUNNER_TEMP/ebbot-main-react-backend.log"
+              exit "$code"
+            }
+          tail -n 60 "$RUNNER_TEMP/ebbot-main-react-backend.log"
+      - name: Preserve genuine backend outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-main-react-backend-results
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ebbot-main-react-backend.json
+            ${{ runner.temp }}/ebbot-main-react-backend.xml
+            ${{ runner.temp }}/ebbot-main-react-backend.log
+
+  gate:
+    name: Integration gate - fail closed, release always BLOCKED
+    runs-on: ubuntu-24.04
+    needs: [preview, frontend, backend]
+    if: always()
+    steps:
+      - name: Require all three genuine CI jobs successful
+        shell: bash
+        env:
+          PREVIEW_RESULT: ${{ needs.preview.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+        run: |
+          set -euo pipefail
+          echo "Preview: $PREVIEW_RESULT; Frontend: $FRONTEND_RESULT; Backend: $BACKEND_RESULT"
+          echo 'RELEASE: BLOCKED; main merge: NOT PERFORMED; trading: DISABLED'
+          [[ "$PREVIEW_RESULT" == 'success' && "$FRONTEND_RESULT" == 'success' && "$BACKEND_RESULT" == 'success' ]]
