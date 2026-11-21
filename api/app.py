@@ -390,6 +390,10 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
             @app.get("/", include_in_schema=False)
             @app.get("/usage", include_in_schema=False)
             @app.get("/data", include_in_schema=False)
+            @app.get("/portfolio", include_in_schema=False)
+            @app.get("/decision-signals", include_in_schema=False)
+            @app.get("/screening", include_in_schema=False)
+            @app.get("/settings", include_in_schema=False)
             async def _offline_react_index():
                 if not (static_dir / "index.html").is_file():
                     return JSONResponse(
