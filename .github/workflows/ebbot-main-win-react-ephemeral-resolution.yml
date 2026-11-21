@@ -58,11 +58,17 @@ jobs:
           git worktree add --detach "$preview" refs/remotes/origin/ebbot-candidate
           export PREVIEW_DIR="$preview"
           set +e
-          git -C "$preview" merge --no-commit --no-ff refs/remotes/origin/main \
+          git -C "$preview" -c user.name='EBBot ephemeral audit' \
+            -c user.email='audit@example.invalid' \
+            merge --no-commit --no-ff refs/remotes/origin/main \
             > "$RUNNER_TEMP/ebbot-local-merge-attempt.log" 2>&1
           merge_exit=$?
           set -e
           echo "Local-only merge exit code: $merge_exit"
+          if [[ "$merge_exit" -gt 1 ]]; then
+            cat "$RUNNER_TEMP/ebbot-local-merge-attempt.log"
+            exit "$merge_exit"
+          fi
           python - <<'PY'
           import os
           import subprocess
