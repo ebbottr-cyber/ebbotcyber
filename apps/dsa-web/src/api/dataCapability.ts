@@ -5,6 +5,7 @@ import type {
   DataProviderCapability,
 } from '../types/dataCapability';
 import apiClient from './index';
+import type { EquityCoverageReport } from '../types/equityCoverage';
 
 type RawOverview = {
   as_of: string;
@@ -57,6 +58,10 @@ function mapPriority(raw: Record<string, unknown>): DataPriorityView {
 }
 
 export const dataCapabilityApi = {
+  async getEquityCoverage(): Promise<EquityCoverageReport> {
+    const response = await apiClient.get<EquityCoverageReport>('/api/v1/data/equity-coverage');
+    return response.data;
+  },
   async getOverview(): Promise<DataCapabilityOverview> {
     const response = await apiClient.get<RawOverview>('/api/v1/data/overview');
     return {
