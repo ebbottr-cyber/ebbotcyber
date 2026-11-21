@@ -12,6 +12,7 @@ from api.v1.schemas.common import ErrorResponse
 from api.v1.schemas.data_capability import DataCapabilityOverviewResponse
 from src.config import Config
 from src.services.data_capability_service import DataCapabilityService
+from src.auth import is_auth_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,15 @@ def get_data_capabilities(
 )
 def get_equity_coverage(response: Response) -> dict:
     """Read a fixed operator-selected file; clients cannot supply a path."""
-    from src.services.equity_data_coverage_reader import read_equity_coverage_report
+    from src.services.equity_data_coverage_reader import (
+        read_equity_coverage_report,
+        unavailable_equity_coverage_report,
+    )
 
     response.headers["Cache-Control"] = "no-store"
+    # The global /api/v1/* middleware only requires a session when admin auth
+    # is configured. Never expose an operator's local coverage report through
+    # the otherwise public API when this protection has been disabled.
+    if not is_auth_enabled():
+        return unavailable_equity_coverage_report("administrator_auth_required")
     return read_equity_coverage_report()
