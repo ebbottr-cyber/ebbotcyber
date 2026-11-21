@@ -16,3 +16,12 @@ The audit verifies precise GitHub Actions run id/name/head SHA/status/conclusion
 Blockers still require human administrator/security authorization: GitHub main branch rules with mandatory checks/reviews; valid code signing and certificate provenance, SmartScreen reputation, Windows install/upgrade/uninstall device validation, preservation of real user SQLite data including locked-file recovery, third-party licenses and distribution policy; two existing skipped React cases. None is made true automatically based on a CI pass.
 
 **No commands here** sign, install, upload executable files, modify `main`, start a scheduler, transact with brokers, or enable simulated/real trades.
+
+## Complete PR178 CI observation (same pinned merge SHA)
+
+After initial pending checks, GitHub confirmed all three workflows **completed successfully** on `9ac204944df962f1043296561f7907d42eea080c`:
+- React [44887061797](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44887061797): **123/123 files, 1,526 tests passed, 0 failed, 2 skipped;** 35 focused files/704 passed, ESLint and TypeScript/Vite pass.
+- Windows [44887061763](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44887061763): both jobs success, real PyInstaller + NSIS `--publish never`, synthetic SQLite WAL, frozen loopback and packaged Turkish React routes pass, Authenticode **inspection only**.
+- Backend [44887061769](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44887061769): **9,279 passed, 0 failed, 4 deselected, 731 warnings**, both normal and fail-closed job passed. `pytest -m 'not network'` does NOT guarantee physical network disconnection.
+
+This result raises technical CI status to eligible-for-review only. **Release remains BLOCKED**, including while all workflows show green: `main.protected=false`, missing independently verified signing/SmartScreen, actual user-device install/upgrade/uninstall, SQLite data migration, license review, and the two preexisting React skips. Audit rerun records this distinction in JSON; no GitHub release or main merge is authorized.
