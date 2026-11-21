@@ -1,0 +1,45 @@
+name: EBBot local OHLCV staging (offline evidence only)
+
+on:
+  push:
+    branches:
+      - feat/ebbot-licensed-ohlcv-local-staging-20261121
+  pull_request:
+    paths:
+      - 'scripts/stage_ebbot_equity_ohlcv.py'
+      - 'tests/test_ebbot_equity_ohlcv_staging.py'
+      - 'docs/EBBOT_MANUAL_PROVIDER_OHLCV_STAGING_TR.md'
+      - '.github/workflows/ebbot-local-ohlcv-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vendor-evidence-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile local staging importer
+        run: python -m compileall -q scripts/stage_ebbot_equity_ohlcv.py tests/test_ebbot_equity_ohlcv_staging.py
+      - name: Simulated vendor-export safety tests (no real market prices)
+        run: python -m unittest discover -s tests -p 'test_ebbot_equity_ohlcv_staging.py' -v
+      - name: Previous session / coverage / reader regression
+        run: |
+          python -m unittest discover -s tests -p 'test_ebbot_equity_session_gaps.py' -v
+          python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
+          python -m unittest discover -s tests -p 'test_equity_data_coverage_reader.py' -v
+      - name: Guarantee importer has no scheduled or trade execution step
+        run: |
+          python - <<'PY'
+          from scripts.stage_ebbot_equity_ohlcv import parser
+          p = parser()
+          opts = {action.dest for action in p._actions}
+          assert not {'fetch', 'trade', 'order', 'live', 'paper', 'schedule', 'api_key'} & opts
+          assert {'input_csv','manifest','mapping','calendar','output_csv'} <= opts
+          print('Staging is local-only, with explicit source, calendar and map requirements.')
+          PY
