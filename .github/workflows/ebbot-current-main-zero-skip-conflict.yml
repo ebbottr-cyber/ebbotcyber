@@ -107,3 +107,99 @@ jobs:
           path: ${{ runner.temp }}/ebbot-pr180-pr188-three-way-preview.json
           if-no-files-found: error
           retention-days: 7
+
+  provisional-merge-react:
+    name: Detached PR180 plus PR188 nine-conflict source probe (NOT a merge approval)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      ACCEPTANCE_SHA: 'ef9a293921a32dd06b90d2a9d0ef6bdc239e4d07'
+      WINDOWS_SHA: 'eed661f457855176d7b8b9bfd7bcbd0470da7c86'
+      STAGE: ${{ runner.temp }}/ebbot-pr180-pr188-uncommitted-probe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Fetch pinned heads into read-only ephemeral Git worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/review/ebbot-latest-main-required-gate-20261121:refs/remotes/origin/ebbot-acceptance-probe \
+            +refs/heads/integration/ebbot-main-readonly-controls-zero-skip-20261121:refs/remotes/origin/ebbot-windows-probe
+          [[ "$(git rev-parse refs/remotes/origin/ebbot-acceptance-probe)" == "$ACCEPTANCE_SHA" ]]
+          [[ "$(git rev-parse refs/remotes/origin/ebbot-windows-probe)" == "$WINDOWS_SHA" ]]
+          git worktree add --detach "$STAGE" "$WINDOWS_SHA"
+          [[ "$(git -C "$STAGE" rev-parse HEAD)" == "$WINDOWS_SHA" ]]
+      - name: Detect nine exact conflicts and provisionally choose Windows tests for smoke only
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            apps/dsa-web/src/components/alerts/__tests__/AlertRuleForm.test.tsx
+            apps/dsa-web/src/components/alerts/__tests__/AlertRuleList.test.tsx
+            apps/dsa-web/src/components/layout/__tests__/SidebarNav.test.tsx
+            apps/dsa-web/src/components/settings/__tests__/LLMChannelEditor.test.tsx
+            apps/dsa-web/src/pages/__tests__/AlertsPage.test.tsx
+            apps/dsa-web/src/pages/__tests__/BacktestPage.test.tsx
+            apps/dsa-web/src/pages/__tests__/HomePage.test.tsx
+            apps/dsa-web/src/pages/__tests__/PortfolioPage.test.tsx
+            apps/dsa-web/src/pages/__tests__/StockScreeningPage.test.tsx
+          )
+          if git -C "$STAGE" merge --no-commit --no-ff "$ACCEPTANCE_SHA" > "$RUNNER_TEMP/pr180-pr188-git-merge.log" 2>&1; then
+            echo "::error::Unexpected clean merge. Re-evaluate pinned conflict policy."
+            exit 1
+          fi
+          mapfile -t actual < <(git -C "$STAGE" diff --name-only --diff-filter=U)
+          if [[ "${#actual[@]}" -ne "${#expected[@]}" ]] || [[ "$(printf '%s\n' "${actual[@]}")" != "$(printf '%s\n' "${expected[@]}")" ]]; then
+            printf 'Unexpected Git conflicts (fail-closed):\n%s\n' "${actual[@]}"
+            exit 1
+          fi
+          echo "Exactly nine reviewed test-only conflicts. This is NOT a review-approved resolution."
+          git -C "$STAGE" checkout --ours -- "${expected[@]}"
+          git -C "$STAGE" add -- "${expected[@]}"
+          [[ -z "$(git -C "$STAGE" diff --name-only --diff-filter=U)" ]]
+          [[ "$(git -C "$STAGE" rev-parse HEAD)" == "$WINDOWS_SHA" ]]
+          echo "Local detached worktree only; no commit, no branch ref update, no release."
+      - name: Run provisional merged React suite, JUnit count, ESLint and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$STAGE/apps/dsa-web"
+          npm ci --no-audit --no-fund
+          npm test -- --reporter=dot --reporter=junit --outputFile.junit="$RUNNER_TEMP/ebbot-pr180-pr188-provisional-junit.xml" > "$RUNNER_TEMP/ebbot-pr180-pr188-provisional-vitest.log" 2>&1 || {
+            tail -n 100 "$RUNNER_TEMP/ebbot-pr180-pr188-provisional-vitest.log"
+            exit 1
+          }
+          tail -n 15 "$RUNNER_TEMP/ebbot-pr180-pr188-provisional-vitest.log"
+          python3 - <<'PY'
+          import os
+          from xml.etree import ElementTree as ET
+          path = os.environ["RUNNER_TEMP"] + "/ebbot-pr180-pr188-provisional-junit.xml"
+          root = ET.parse(path).getroot()
+          cases = root.findall(".//testcase")
+          fails = sum(x.find("failure") is not None or x.find("error") is not None for x in cases)
+          skips = sum(x.find("skipped") is not None for x in cases)
+          if len(cases) < 1529 or fails or skips:
+              raise SystemExit(f"PROVISIONAL REACT FAIL: {len(cases)} cases, {fails} fail, {skips} skip")
+          print(f"Provisional React behavior PASS: {len(cases)} cases, 0 fail, 0 skip; 1409 identity baseline still requires review")
+          PY
+          npm run lint
+          npm run build
+      - name: Preserve only provisional test and Git conflict evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr180-pr188-provisional-react-not-for-release
+          path: |
+            ${{ runner.temp }}/pr180-pr188-git-merge.log
+            ${{ runner.temp }}/ebbot-pr180-pr188-provisional-vitest.log
+            ${{ runner.temp }}/ebbot-pr180-pr188-provisional-junit.xml
+          if-no-files-found: warn
+          retention-days: 7
