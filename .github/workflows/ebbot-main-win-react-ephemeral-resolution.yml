@@ -94,6 +94,14 @@ jobs:
             git -C "$preview" checkout --ours -- "$file"
             git -C "$preview" add -- "$file"
           done
+          # Git may report no textual conflict yet duplicate Turkish dictionary keys.
+          # Delete ONLY the three known inserted main copies, retaining the larger
+          # candidate TR dictionary; stop on any layout drift.
+          python -m unittest discover -s tests -p test_ebbot_ui_usage_translation_dedup.py -v
+          python scripts/resolve_ebbot_ui_usage_translation_dup.py \
+            --source "$preview/apps/dsa-web/src/i18n/uiText.ts" \
+            --report "$RUNNER_TEMP/ebbot-usage-translation-dedup.json"
+          git -C "$preview" add -- apps/dsa-web/src/i18n/uiText.ts
           [[ -z "$(git -C "$preview" ls-files -u)" ]]
           [[ "$(git -C "$preview" rev-parse HEAD)" == "$CANDIDATE_SHA" ]]
           [[ "$(git rev-parse refs/remotes/origin/main)" == "$MAIN_SHA" ]]
@@ -124,7 +132,7 @@ jobs:
           p = os.environ["PREVIEW_DIR"]
           tree = subprocess.check_output(["git", "-C", p, "write-tree"], text=True).strip()
           result = {
-              "status": "LOCAL_CONFLICTS_RESOLVED_PENDING_TESTS",
+              "status": "LOCAL_THREE_GIT_PLUS_THREE_TURKISH_DUPLICATES_RESOLVED_PENDING_TESTS",
               "release_status": "BLOCKED",
               "main": os.environ["MAIN_SHA"],
               "candidate": os.environ["CANDIDATE_SHA"],
@@ -133,6 +141,7 @@ jobs:
                   ".github/workflows/ebbot-electron-windows-offline-package.yml",
                   "apps/dsa-desktop/main.js",
                   "apps/dsa-desktop/tests/ci-ui-smoke.test.js",
+                  "apps/dsa-web/src/i18n/uiText.ts",
               ],
               "refs_pushed": False,
               "main_modified": False,
@@ -196,6 +205,7 @@ jobs:
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/ebbot-three-conflicts-report.json
+            ${{ runner.temp }}/ebbot-usage-translation-dedup.json
             ${{ runner.temp }}/ebbot-local-merge-attempt.log
             ${{ runner.temp }}/ebbot-three-conflicts-python.xml
             ${{ runner.temp }}/ebbot-three-conflicts-react.log
