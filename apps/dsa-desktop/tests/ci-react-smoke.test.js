@@ -48,7 +48,8 @@ test('four new page headings match real packaged Turkish React sources', () => {
   const screening = fs.readFileSync(path.join(web, 'pages', 'StockScreeningPage.tsx'), 'utf8');
   const screeningTranslations = fs.readFileSync(path.join(web, 'utils', 'screeningUiText.ts'), 'utf8');
   assert.ok(screening.includes('>{L("选股")}</h1>'));
-  assert.match(screeningTranslations, /"选股":\\s*\\{\\s*"tr":\\s*"Hisse Tarama"/);
+  const screeningLabel = screeningTranslations.slice(screeningTranslations.indexOf('"选股":'), screeningTranslations.indexOf('"选股":') + 120);
+  assert.ok(screeningLabel.includes('"tr": "Hisse Tarama"'));
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
