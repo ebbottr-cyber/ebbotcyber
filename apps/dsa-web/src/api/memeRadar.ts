@@ -31,13 +31,13 @@ export type MemeScanResponse = {
 
 export const memeRadarApi = {
   async status(): Promise<MemeRadarStatus> {
-    const response = await apiClient.get<MemeRadarStatus>('/api/v1/meme-coins/status');
+    const response = await apiClient.get<MemeRadarStatus>('/api/v1/meme-radar/status');
     return response.data;
   },
 
   async scan(limit = 5): Promise<MemeScanResponse> {
     const response = await apiClient.post<MemeScanResponse>(
-      '/api/v1/meme-coins/scan', { limit }, { timeout: 90000 },
+      '/api/v1/meme-radar/scan', { limit }, { timeout: 90000 },
     );
     return response.data;
   },

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../test/renderLegacyChineseUi';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider, useUiLanguage } from '../../contexts/UiLanguageContext';
@@ -113,6 +114,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   getOverview.mockResolvedValue(overview);
 });
+
+// Historical Chinese-label expectations must opt in; production Turkish stays default.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('DataCenterPage', () => {
   it('renders the canonical overview without requesting or exposing configuration values', async () => {

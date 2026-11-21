@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GenerationBackendStatusPanel } from '../GenerationBackendStatusPanel';
 import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
@@ -78,6 +79,9 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
+
+// Historical Chinese-label expectations must opt in; production Turkish stays default.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('GenerationBackendStatusPanel', () => {
   beforeEach(() => {

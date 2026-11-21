@@ -42,6 +42,7 @@ import {
 import { formatParsedApiError, getParsedApiError, toApiErrorMessage, type ParsedApiError } from '../api/error';
 import { AppPage, Button, InlineAlert, Select } from '../components/common';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
+import { screeningUiText } from '../utils/screeningUiText';
 
 const MARKETS = [{ id: 'cn', label: 'A 股' }];
 const SCREEN_TASK_STORAGE_KEY = 'dsa.screening.activeScreenTask.v1';
@@ -841,7 +842,8 @@ const MiniSparkline: React.FC<{ score?: number | null; selected?: boolean }> = (
 
 const StockScreeningPage: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useUiLanguage();
+  const { language } = useUiLanguage();
+  const L = (chinese: string) => screeningUiText(chinese, language);
   const [restoredTask] = useState<PersistedScreenTask | null>(() => readPersistedScreenTask());
   const [statusState, setStatusState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [statusError, setStatusError] = useState('');
@@ -1465,23 +1467,23 @@ const StockScreeningPage: React.FC = () => {
           <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-cyan text-cyan shadow-[0_0_24px_hsl(var(--primary)/0.18)]">
             <PlusCircle className="h-4 w-4" />
           </span>
-          <h1 className="text-2xl font-bold tracking-normal text-foreground">{t('layout.nav.screening')}</h1>
+          <h1 className="text-2xl font-bold tracking-normal text-foreground">{L("选股")}</h1>
         </div>
 
         <div className="inline-flex w-fit items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-4 py-2 text-sm shadow-soft-card">
           <span className={`h-2.5 w-2.5 rounded-full ${isScreeningEnabled ? 'bg-success' : 'bg-warning'}`} />
-          <span className="font-medium text-secondary-text">{statusText}</span>
+          <span className="font-medium text-secondary-text">{L(statusText)}</span>
         </div>
       </div>
 
       {statusState === 'loading' ? (
-        <InlineAlert variant="info" message="正在读取选股配置，请稍候。" />
+        <InlineAlert variant="info" message={L("正在读取选股配置，请稍候。")} />
       ) : null}
 
       {statusState === 'error' ? (
         <InlineAlert
           variant="warning"
-          title="选股状态加载失败"
+          title={L("选股状态加载失败")}
           message={statusError}
           action={
             <Button size="sm" onClick={() => {
@@ -1489,7 +1491,7 @@ const StockScreeningPage: React.FC = () => {
               setStatusError('');
               setStatusAttempt((attempt) => attempt + 1);
             }}>
-              重试
+              {L("重试")}
             </Button>
           }
         />
@@ -1498,11 +1500,11 @@ const StockScreeningPage: React.FC = () => {
       {statusState === 'ready' && !enabled ? (
         <InlineAlert
           variant="info"
-          title="选股未开启"
-          message="开启后即可运行选股策略。"
+          title={L("选股未开启")}
+          message={L("开启后即可运行选股策略。")}
           action={
-            <Button size="sm" isLoading={enabling} loadingText="开启中..." onClick={() => void handleEnable()}>
-              开启选股
+            <Button size="sm" isLoading={enabling} loadingText={L("开启中...")} onClick={() => void handleEnable()}>
+              {L("开启选股")}
             </Button>
           }
         />
@@ -1511,12 +1513,12 @@ const StockScreeningPage: React.FC = () => {
       {statusState === 'ready' && enabled && !available ? (
         <InlineAlert
           variant="warning"
-          title="选股功能不可用"
-          message="请检查后端日志、策略文件和基础数据依赖后重启服务。"
+          title={L("选股功能不可用")}
+          message={L("请检查后端日志、策略文件和基础数据依赖后重启服务。")}
         />
       ) : null}
 
-      {error ? <InlineAlert variant="danger" title="调用失败" message={error} /> : null}
+      {error ? <InlineAlert variant="danger" title={L("调用失败")} message={error} /> : null}
 
       <section className="rounded-2xl border border-border/80 bg-card/95 p-4 shadow-soft-card">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1524,7 +1526,7 @@ const StockScreeningPage: React.FC = () => {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-500/10 text-orange-500 shadow-[0_10px_30px_rgba(249,115,22,0.16)]">
               <Flame className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-bold tracking-normal text-foreground">热点题材</h2>
+            <h2 className="text-lg font-bold tracking-normal text-foreground">{L("热点题材")}</h2>
           </div>
           <div className="flex flex-col items-start gap-2 lg:items-end">
             <div className="flex flex-wrap items-center gap-2">
@@ -1535,7 +1537,7 @@ const StockScreeningPage: React.FC = () => {
                 onClick={toggleHotspotsExpanded}
               >
                 <Bookmark className="h-4 w-4" />
-                {hotspotsExpanded ? '收起热点题材' : `展开热点题材${hotspots.length ? `（${hotspots.length}）` : ''}`}
+                {hotspotsExpanded ? L('收起热点题材') : `${L('展开热点题材')}${hotspots.length ? ` (${hotspots.length})` : ''}`}
                 <ChevronDown className={`h-4 w-4 transition-transform ${hotspotsExpanded ? 'rotate-180' : ''}`} />
               </Button>
               {hotspotsExpanded ? (
@@ -1543,17 +1545,17 @@ const StockScreeningPage: React.FC = () => {
                 size="sm"
                 variant="secondary"
                 isLoading={loadingHotspots}
-                loadingText="刷新中..."
+                loadingText={L("刷新中...")}
                 disabled={!isScreeningEnabled || loadingHotspots}
                 onClick={() => void loadHotspots(true)}
               >
                 <RefreshCw className="h-4 w-4" />
-                刷新热点题材
+                {L("刷新热点题材")}
               </Button>
               ) : null}
             </div>
             {hotspotsUpdatedAt ? (
-              <p className="text-xs text-secondary-text">更新于 {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
+              <p className="text-xs text-secondary-text">{L("更新于")} {formatHotspotUpdatedAt(hotspotsUpdatedAt)}</p>
             ) : null}
           </div>
         </div>
@@ -1566,7 +1568,7 @@ const StockScreeningPage: React.FC = () => {
 
         {!hotspotsExpanded ? null : hotspots.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-surface/70 px-4 py-6 text-sm text-secondary-text">
-            暂无热点数据，点击“刷新热点题材”获取。
+            {L("暂无热点数据，点击“刷新热点题材”获取。")}
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -1601,7 +1603,7 @@ const StockScreeningPage: React.FC = () => {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-foreground">{item.name || item.topic}</p>
                       <span className={`mt-1 inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${strength.className}`}>
-                        {strength.label}
+                        {L(strength.label)}
                       </span>
                     </div>
                   </div>
@@ -1610,9 +1612,9 @@ const StockScreeningPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="mt-4 grid max-w-[72%] gap-1 text-[11px] text-secondary-text">
-                  <span>涨跌幅 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.changePct)}%</strong></span>
-                  <span>趋势 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.trendScore)}</strong> · 持续 <strong className="font-semibold text-foreground">{formatHotspotMetric(item.persistenceScore)}</strong></span>
-                  <span>{getHotspotSampleText(item)} · 龙头 {getHotspotLeadersText(item)}</span>
+                  <span>{L("涨跌幅")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.changePct)}%</strong></span>
+                  <span>{L("趋势")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.trendScore)}</strong> · {L("持续")} <strong className="font-semibold text-foreground">{formatHotspotMetric(item.persistenceScore)}</strong></span>
+                  <span>{getHotspotSampleText(item)} · {L("龙头")} {getHotspotLeadersText(item)}</span>
                 </div>
                 <div className="absolute bottom-3 right-3 opacity-95 transition-transform group-hover:scale-105">
                   <MiniSparkline score={item.heatScore} selected={selected} />
@@ -1634,11 +1636,11 @@ const StockScreeningPage: React.FC = () => {
                   {hotspotDetail
                     ? getHotspotSummaryText(hotspotDetail, selectedHotspot)
                     : loadingHotspotDetail
-                      ? '正在读取发酵路线与概念股...'
-                      : '点击题材查看发酵路线与概念股。'}
+                      ? L("正在读取发酵路线与概念股...")
+                      : L("点击题材查看发酵路线与概念股。")}
                 </p>
                 {hotspotDetail?.canonicalTopic && hotspotDetail.canonicalTopic !== selectedHotspotTopic ? (
-                  <p className="mt-1 text-[11px] text-secondary-text">标准题材：{hotspotDetail.canonicalTopic}</p>
+                  <p className="mt-1 text-[11px] text-secondary-text">{L("标准题材：")}{hotspotDetail.canonicalTopic}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1646,21 +1648,21 @@ const StockScreeningPage: React.FC = () => {
                   size="sm"
                   variant="secondary"
                   isLoading={searchingHotspotNews}
-                  loadingText="搜索中..."
+                  loadingText={L("搜索中...")}
                   disabled={loadingHotspotDetail || searchingHotspotNews}
                   onClick={() => void loadHotspotDetail(selectedHotspotTopic, { includeSearch: true })}
                 >
                   <Search className="h-3.5 w-3.5" />
-                  搜索最新消息
+                  {L("搜索最新消息")}
                 </Button>
                 {loadingHotspotDetail ? (
                   <span className="w-fit rounded-full bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">
-                    正在补充详情
+                    {L("正在补充详情")}
                   </span>
                 ) : null}
                 {hotspotDetail?.qualityStatus ? (
                   <span className="w-fit rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-warning">
-                    质量 {getHotspotQualityLabel(hotspotDetail.qualityStatus)}
+                    {L("质量")} {L(getHotspotQualityLabel(hotspotDetail.qualityStatus))}
                   </span>
                 ) : null}
                 {hotspotDetail?.fallbackUsed || hotspotDetail?.stale ? (
@@ -1670,7 +1672,7 @@ const StockScreeningPage: React.FC = () => {
                 ) : null}
                 {hotspotDetail?.stockCount != null ? (
                   <span className="w-fit rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-500">
-                    概念股 {hotspotDetail.stockCount}
+                    {L("概念股")} {hotspotDetail.stockCount}
                   </span>
                 ) : null}
               </div>
@@ -1684,10 +1686,10 @@ const StockScreeningPage: React.FC = () => {
 
             {hotspotDetail && hasHotspotDetailDegradation(hotspotDetail) ? (
               <details className="mb-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-                <summary className="cursor-pointer font-semibold">详情数据已降级，展开查看原因</summary>
+                <summary className="cursor-pointer font-semibold">{L("详情数据已降级，展开查看原因")}</summary>
                 <div className="mt-2 space-y-1 leading-5">
                   {(hotspotDetail.missingFields || []).length > 0 ? (
-                    <p>暂缺：{getHotspotMissingFieldLabels(hotspotDetail.missingFields).join('、')}</p>
+                    <p>{L("暂缺：")}{getHotspotMissingFieldLabels(hotspotDetail.missingFields).map(L).join(language === "zh" ? "、" : ", ")}</p>
                   ) : null}
                   {getHotspotDiagnosticMessages(hotspotDetail.sourceErrors).map((message, index) => (
                     <p key={`${message}-${index}`}>{message}</p>
@@ -1701,7 +1703,7 @@ const StockScreeningPage: React.FC = () => {
                 <div>
                   <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
                     <Clock3 className="h-3.5 w-3.5 text-orange-500" />
-                    发酵时间线
+                    {L("发酵时间线")}
                   </p>
                   <div className="relative space-y-0 pl-4 before:absolute before:bottom-3 before:left-[5px] before:top-2 before:w-px before:bg-border">
                     {getHotspotRouteItems(hotspotDetail).map((item, index) => (
@@ -1718,7 +1720,7 @@ const StockScreeningPage: React.FC = () => {
                               target="_blank"
                               rel="noreferrer"
                             >
-                              查看消息
+                              {L("查看消息")}
                             </a>
                           ) : null}
                         </div>
@@ -1727,7 +1729,7 @@ const StockScreeningPage: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <p className="mb-2 text-xs font-semibold text-secondary-text">概念股</p>
+                  <p className="mb-2 text-xs font-semibold text-secondary-text">{L("概念股")}</p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {(hotspotDetail.stocks || []).slice(0, 10).map((stock) => (
                       <div key={`${stock.code || stock.name}`} className="rounded-lg border border-border/70 bg-card/80 p-3">
@@ -1738,23 +1740,23 @@ const StockScreeningPage: React.FC = () => {
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <span className="rounded-full bg-cyan/10 px-2 py-1 text-[11px] font-semibold text-cyan">
-                              {getHotspotRoleLabel(stock.role)}
+                              {L(getHotspotRoleLabel(stock.role))}
                             </span>
                             {stock.code ? (
                               <button
                                 type="button"
-                                aria-label={`分析 ${stock.name || stock.code}`}
+                                aria-label={`${L("分析")} ${stock.name || stock.code}`}
                                 className="inline-flex h-7 items-center gap-1 rounded-full border border-cyan/30 bg-cyan/10 px-2 text-[11px] font-semibold text-cyan transition-colors hover:border-cyan hover:bg-cyan/15 hover:text-foreground"
                                 onClick={() => handleAnalyzeHotspotStock(stock)}
                               >
                                 <Play className="h-3 w-3" />
-                                分析
+                                {L("分析")}
                               </button>
                             ) : null}
                           </div>
                         </div>
                         <p className="mt-2 text-[11px] text-secondary-text">
-                          涨跌幅 {formatStockChangeText(stock.changePct)} · 热度 {formatNumber(stock.hotStockScore, 0)}
+                          {L("涨跌幅")} {formatStockChangeText(stock.changePct)} · {L("热度")} {formatNumber(stock.hotStockScore, 0)}
                         </p>
                       </div>
                     ))}
@@ -1770,16 +1772,16 @@ const StockScreeningPage: React.FC = () => {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <SlidersHorizontal className="h-4 w-4 text-cyan" />
-            运行选股
+            {L("运行选股")}
           </div>
           <span className="rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">
-            {selectedStrategyTag}
+            {L(selectedStrategyTag)}
           </span>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr_180px_auto] lg:items-end">
           <label className="space-y-2 text-xs font-medium text-secondary-text">
-            市场
+            {L("市场")}
             <select
               className="h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-cyan"
               value={market}
@@ -1795,7 +1797,7 @@ const StockScreeningPage: React.FC = () => {
           </label>
 
           <div className="space-y-2 text-xs font-medium text-secondary-text">
-            <label htmlFor="screening-strategy">策略</label>
+            <label htmlFor="screening-strategy">{L("策略")}</label>
             <Select
               id="screening-strategy"
               value={selectedStrategy ? strategy : CUSTOM_STRATEGY_OPTION_VALUE}
@@ -1806,7 +1808,7 @@ const StockScreeningPage: React.FC = () => {
                   value: item.id,
                   label: item.name || item.title || item.id,
                 })),
-                { value: CUSTOM_STRATEGY_OPTION_VALUE, label: '自定义策略…' },
+                { value: CUSTOM_STRATEGY_OPTION_VALUE, label: L("自定义策略…") },
               ]}
               onChange={(value) =>
                 handleStrategyChange(
@@ -1818,20 +1820,20 @@ const StockScreeningPage: React.FC = () => {
 
           {!selectedStrategy && !loadingStrategies ? (
             <label className="space-y-2 text-xs font-medium text-secondary-text lg:col-start-2">
-              自定义策略 ID
+              {L("自定义策略 ID")}
               <input
-                aria-label="自定义策略 ID"
+                aria-label={L("自定义策略 ID")}
                 className="h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-cyan"
                 value={strategy}
                 disabled={loading}
-                placeholder="输入策略 ID"
+                placeholder={L("输入策略 ID")}
                 onChange={(event) => handleStrategyChange(event.target.value)}
               />
             </label>
           ) : null}
 
           <label className="space-y-2 text-xs font-medium text-secondary-text">
-            返回数量
+            {L("返回数量")}
             <input
               className="h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm text-foreground outline-none transition-colors focus:border-cyan"
               type="number"
@@ -1846,19 +1848,19 @@ const StockScreeningPage: React.FC = () => {
           <Button
             className="h-11 min-w-40"
             isLoading={loading}
-            loadingText="筛选中..."
+            loadingText={L("筛选中...")}
             disabled={!isScreeningEnabled || loading || !strategy.trim()}
             onClick={() => void handleSubmit()}
           >
             <Play className="h-4 w-4" />
-            运行选股
+            {L("运行选股")}
           </Button>
         </div>
 
         <div className="mt-3 rounded-xl border border-border/75 bg-surface/55 px-3 py-2 text-xs leading-5 text-secondary-text">
           {strategyLoadError
             ? strategyLoadError
-            : selectedStrategy?.description || '策略会先执行硬过滤和因子评分，再进行风险与组合约束。'}
+            : selectedStrategy?.description || L("策略会先执行硬过滤和因子评分，再进行风险与组合约束。")}
         </div>
       </section>
 
@@ -1870,10 +1872,10 @@ const StockScreeningPage: React.FC = () => {
                 {loading ? <CircleAlert className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
               </span>
               <div>
-                <h2 className="text-sm font-semibold text-foreground">{loading ? '选股运行中' : '选股完成'}</h2>
+                <h2 className="text-sm font-semibold text-foreground">{loading ? L("选股运行中") : L("选股完成")}</h2>
                 <p className="mt-1 text-xs text-secondary-text">
                   {loading
-                    ? `${taskMessage || '正在执行选股'} · ${taskProgress}%`
+                    ? `${taskMessage || L("正在执行选股")} · ${taskProgress}%`
                     : `${displayedStrategy} · ${MARKETS.find((item) => item.id === market)?.label}`}
                 </p>
               </div>
@@ -1881,28 +1883,28 @@ const StockScreeningPage: React.FC = () => {
           </div>
 
           <details className="mt-3 border-t border-border/70 pt-3 text-xs text-secondary-text">
-            <summary className="w-fit cursor-pointer font-medium text-secondary-text">运行详情</summary>
+            <summary className="w-fit cursor-pointer font-medium text-secondary-text">{L("运行详情")}</summary>
             <div className="mt-2 grid gap-1">
-              <span>任务：{activeTaskId ? activeTaskId.slice(0, 12) : '-'}</span>
+              <span>{L("任务：")}{activeTaskId ? activeTaskId.slice(0, 12) : '-'}</span>
               <span>Run ID：{screenMeta?.runId || '-'}</span>
               <span>
-                快照 {screenMeta?.snapshotCount ?? '-'} · 过滤后 {screenMeta?.afterFilterCount ?? '-'} · 候选 {screenMeta?.candidateCount ?? candidates.length}
+                {L("快照")} {screenMeta?.snapshotCount ?? '-'} · {L("过滤后")} {screenMeta?.afterFilterCount ?? '-'} · {L("候选")} {screenMeta?.candidateCount ?? candidates.length}
               </span>
               <span>
-                排序：{screenMeta?.llmRanked ? '智能重排' : screenMeta ? '确定性因子' : '-'}
+                {L("排序：")}{screenMeta?.llmRanked ? L("智能重排") : screenMeta ? L("确定性因子") : '-'}
                 {screenMeta?.llmModelUsed ? ` · ${screenMeta.llmModelUsed}` : ''}
-                {screenMeta?.llmCoverage != null ? ` · 覆盖 ${formatPercent(screenMeta.llmCoverage)}` : ''}
+                {screenMeta?.llmCoverage != null ? ` · ${L("覆盖")} ${formatPercent(screenMeta.llmCoverage)}` : ''}
               </span>
               {screenMeta?.resultVariantPoolSize ? (
                 <span>
-                  候选差异：近分池 {screenMeta.resultVariantPoolSize} ·{' '}
+                  {L("候选差异：近分池")} {screenMeta.resultVariantPoolSize} ·{' '}
                   {screenMeta.resultVariantApplied
-                    ? `本次替换 ${screenMeta.resultVariantRotatedSlots ?? 0} 位`
-                    : '本次保持基准'}
+                    ? `${L("本次替换")} ${screenMeta.resultVariantRotatedSlots ?? 0}`
+                    : L("本次保持基准")}
                 </span>
               ) : null}
               <span>
-                深度补充：{screenMeta?.dsaEnrichment?.enrichedCount ?? '-'} / {screenMeta?.dsaEnrichment?.requestedCount ?? '-'}
+                {L("深度补充：")}{screenMeta?.dsaEnrichment?.enrichedCount ?? '-'} / {screenMeta?.dsaEnrichment?.requestedCount ?? '-'}
               </span>
             </div>
           </details>
@@ -1912,7 +1914,7 @@ const StockScreeningPage: React.FC = () => {
       {screenMeta && alertMessages.length > 0 ? (
         <InlineAlert
           variant={llmFailed ? 'warning' : 'info'}
-          title={llmFailed ? '当前使用因子排序' : '选股提示'}
+          title={llmFailed ? L("当前使用因子排序") : L("选股提示")}
           message={<ScreenAlertMessage messages={alertMessages} />}
         />
       ) : null}
@@ -1920,16 +1922,16 @@ const StockScreeningPage: React.FC = () => {
       {screenMeta ? (
         <section className="rounded-2xl border border-border bg-card/95 p-4 shadow-soft-card">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <h2 className="text-base font-semibold text-foreground">选股结果</h2>
+            <h2 className="text-base font-semibold text-foreground">{L("选股结果")}</h2>
           <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-xs text-secondary-text">
             <Search className="h-4 w-4 text-cyan" />
-            {candidates.length} 条候选
+            {candidates.length} {L('条候选')}
           </div>
           </div>
 
         {candidates.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-surface/70 px-5 py-10 text-center">
-            <p className="text-sm font-medium text-foreground">暂无符合条件的候选</p>
+            <p className="text-sm font-medium text-foreground">{L("暂无符合条件的候选")}</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border">
@@ -1937,15 +1939,15 @@ const StockScreeningPage: React.FC = () => {
               <thead className="bg-surface text-left text-xs text-secondary-text">
                 <tr>
                   <th className="w-14 px-4 py-3 font-semibold">#</th>
-                  <th className="px-4 py-3 font-semibold">代码</th>
-                  <th className="px-4 py-3 font-semibold">名称</th>
-                  <th className="px-4 py-3 font-semibold">行业</th>
-                  <th className="px-4 py-3 font-semibold">价格</th>
-                  <th className="px-4 py-3 font-semibold">涨跌幅</th>
-                  <th className="px-4 py-3 font-semibold">评分</th>
-                  <th className="px-4 py-3 font-semibold">排序依据</th>
-                  <th className="px-4 py-3 font-semibold">风险</th>
-                  <th className="px-4 py-3 font-semibold">详情</th>
+                  <th className="px-4 py-3 font-semibold">{L("代码")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("名称")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("行业")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("价格")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("涨跌幅")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("评分")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("排序依据")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("风险")}</th>
+                  <th className="px-4 py-3 font-semibold">{L("详情")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1970,10 +1972,10 @@ const StockScreeningPage: React.FC = () => {
                         <td className="px-4 py-3 text-secondary-text">{formatNumber(item.price)}</td>
                         <td className="px-4 py-3 text-secondary-text">{formatNumber(item.changePct)}%</td>
                         <td className="px-4 py-3 font-bold text-cyan">{formatScore(item.score)}</td>
-                        <td className="px-4 py-3 text-secondary-text">{factorRanking ? '因子排序' : formatScore(item.llmScore)}</td>
+                        <td className="px-4 py-3 text-secondary-text">{factorRanking ? L("因子排序") : formatScore(item.llmScore)}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${getRiskClassName(item.riskLevel)}`}>
-                            {getRiskLabel(item.riskLevel)}
+                            {L(getRiskLabel(item.riskLevel))}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -1982,7 +1984,7 @@ const StockScreeningPage: React.FC = () => {
                             type="button"
                             onClick={() => setExpandedCode(expanded ? null : item.code)}
                           >
-                            {expanded ? '收起' : '展开查看'}
+                            {expanded ? L("收起") : L("展开查看")}
                           </button>
                         </td>
                       </tr>
@@ -1993,38 +1995,38 @@ const StockScreeningPage: React.FC = () => {
                               <div className="space-y-3">
                                 <div className="grid gap-3 md:grid-cols-2">
                                   <div className="rounded-xl border border-cyan/25 bg-cyan/5 px-3 py-2.5">
-                                    <p className="text-xs font-semibold text-cyan">为什么入选</p>
-                                    <ExplanationItems items={selectionExplanations} emptyText="暂无可验证的入选解释" />
+                                    <p className="text-xs font-semibold text-cyan">{L("为什么入选")}</p>
+                                    <ExplanationItems items={selectionExplanations} emptyText={L("暂无可验证的入选解释")} />
                                     {selectionExplanations.length > 0 ? (
-                                      <p className="mt-2 text-xs text-secondary-text">综合质量：{selectionQuality}</p>
+                                      <p className="mt-2 text-xs text-secondary-text">{L("综合质量：")}{selectionQuality}</p>
                                     ) : null}
                                   </div>
                                   <div className="rounded-xl border border-orange-400/25 bg-orange-500/5 px-3 py-2.5">
-                                    <p className="text-xs font-semibold text-orange-500">为什么现在</p>
-                                    <ExplanationItems items={item.whyNow} emptyText="暂无带来源的价格、消息或事件证据" />
+                                    <p className="text-xs font-semibold text-orange-500">{L("为什么现在")}</p>
+                                    <ExplanationItems items={item.whyNow} emptyText={L("暂无带来源的价格、消息或事件证据")} />
                                     {item.whyNow?.length ? (
-                                      <p className="mt-2 text-xs text-secondary-text">综合质量：{item.explanationQuality?.whyNow || 'unknown'}</p>
+                                      <p className="mt-2 text-xs text-secondary-text">{L("综合质量：")}{item.explanationQuality?.whyNow || 'unknown'}</p>
                                     ) : null}
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">摘要</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("摘要")}</p>
                                   <p className="mt-1 text-sm leading-6 text-foreground">{getCandidateReason(item)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">操作信号</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("操作信号")}</p>
                                   <p className="mt-1 text-sm text-foreground">{getSignal(item)}</p>
                                   <button
                                     className="mt-2 rounded-lg border border-cyan/40 px-3 py-1.5 text-xs font-semibold text-cyan transition-colors hover:bg-cyan/10"
                                     type="button"
                                     onClick={() => handleAnalyzeCandidate(item)}
                                   >
-                                    进一步深度分析
+                                    {L("进一步深度分析")}
                                   </button>
                                 </div>
                                 {item.dsaAnalysisSummary ? (
                                   <div>
-                                    <p className="text-xs font-semibold text-secondary-text">增强摘要</p>
+                                    <p className="text-xs font-semibold text-secondary-text">{L("增强摘要")}</p>
                                     <p className="mt-1 text-sm leading-6 text-foreground">
                                       {formatEnrichmentSummary(item.dsaAnalysisSummary)}
                                     </p>
@@ -2032,62 +2034,62 @@ const StockScreeningPage: React.FC = () => {
                                 ) : null}
                                 {llmInsightAvailable ? (
                                   <div>
-                                    <p className="text-xs font-semibold text-secondary-text">智能判断</p>
+                                    <p className="text-xs font-semibold text-secondary-text">{L("智能判断")}</p>
                                     <p className="mt-1 text-sm leading-6 text-foreground">{item.llmThesis || item.reason}</p>
                                     <p className="mt-1 text-xs text-secondary-text">
-                                      板块 {item.llmSector || '-'} · 主题 {item.llmTheme || '-'} · 置信度 {formatPercent(item.llmConfidence)}
+                                      {L("板块")} {item.llmSector || '-'} · {L("主题")} {item.llmTheme || '-'} · {L("置信度")} {formatPercent(item.llmConfidence)}
                                     </p>
                                   </div>
                                 ) : null}
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">风险标签</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("风险标签")}</p>
                                   <p className="mt-1 text-sm text-foreground">
                                     {[...(item.riskFlags || []), ...(item.llmRisks || [])].length
                                       ? [...(item.riskFlags || []), ...(item.llmRisks || [])].join('，')
-                                      : '无'}
+                                      : L("无")}
                                   </p>
                                 </div>
                                 {item.riskSummary ? (
                                   <div>
-                                    <p className="text-xs font-semibold text-secondary-text">风险摘要</p>
+                                    <p className="text-xs font-semibold text-secondary-text">{L("风险摘要")}</p>
                                     <p className="mt-1 text-sm text-foreground">{item.riskSummary}</p>
                                   </div>
                                 ) : null}
                               </div>
                               <div className="space-y-3">
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">主要因子</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("主要因子")}</p>
                                   <div className="mt-2 grid grid-cols-2 gap-2">
                                     {factors.length > 0 ? (
                                       factors.map(([key, value]) => (
                                         <div key={key} className="rounded-lg border border-border bg-card px-3 py-2">
-                                          <span className="block text-xs text-secondary-text">{FACTOR_LABELS[key] || key}</span>
+                                          <span className="block text-xs text-secondary-text">{L(FACTOR_LABELS[key] || key)}</span>
                                           <span className="text-sm font-semibold text-foreground">{formatNumber(value)}</span>
                                         </div>
                                       ))
                                     ) : (
-                                      <span className="text-sm text-secondary-text">无因子明细</span>
+                                      <span className="text-sm text-secondary-text">{L("无因子明细")}</span>
                                     )}
                                   </div>
                                 </div>
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">成交额</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("成交额")}</p>
                                   <p className="mt-1 text-sm text-foreground">{formatAmount(item.amount)}</p>
                                 </div>
                                 {item.llmWatchItems?.length ? (
                                   <div>
-                                    <p className="text-xs font-semibold text-secondary-text">智能关注项</p>
+                                    <p className="text-xs font-semibold text-secondary-text">{L("智能关注项")}</p>
                                     <p className="mt-1 text-sm text-foreground">{item.llmWatchItems.join('，')}</p>
                                   </div>
                                 ) : null}
                                 {item.llmCatalysts?.length ? (
                                   <div>
-                                    <p className="text-xs font-semibold text-secondary-text">催化因素</p>
+                                    <p className="text-xs font-semibold text-secondary-text">{L("催化因素")}</p>
                                     <p className="mt-1 text-sm text-foreground">{item.llmCatalysts.join('，')}</p>
                                   </div>
                                 ) : null}
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">相关新闻</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("相关新闻")}</p>
                                   {dsaNews.length > 0 ? (
                                     <ul className="mt-1 space-y-1 text-sm text-foreground">
                                       {dsaNews.slice(0, 3).map((newsItem, newsIndex) => (
@@ -2097,11 +2099,11 @@ const StockScreeningPage: React.FC = () => {
                                       ))}
                                     </ul>
                                   ) : (
-                                    <p className="mt-1 text-sm text-secondary-text">无</p>
+                                    <p className="mt-1 text-sm text-secondary-text">{L("无")}</p>
                                   )}
                                 </div>
                                 <div>
-                                  <p className="text-xs font-semibold text-secondary-text">公告与事件</p>
+                                  <p className="text-xs font-semibold text-secondary-text">{L("公告与事件")}</p>
                                   {dsaEvents.length > 0 ? (
                                     <ul className="mt-1 space-y-1 text-sm text-foreground">
                                       {dsaEvents.slice(0, 3).map((eventItem, eventIndex) => (
@@ -2111,12 +2113,12 @@ const StockScreeningPage: React.FC = () => {
                                       ))}
                                     </ul>
                                   ) : (
-                                    <p className="mt-1 text-sm text-secondary-text">无</p>
+                                    <p className="mt-1 text-sm text-secondary-text">{L("无")}</p>
                                   )}
                                 </div>
                                 {dsaWarnings.length > 0 ? (
                                   <div>
-                                    <p className="text-xs font-semibold text-secondary-text">数据补充提示</p>
+                                    <p className="text-xs font-semibold text-secondary-text">{L("数据补充提示")}</p>
                                     <p className="mt-1 text-sm text-secondary-text">{dsaWarnings.join('，')}</p>
                                   </div>
                                 ) : null}
@@ -2139,7 +2141,7 @@ const StockScreeningPage: React.FC = () => {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Clock3 className="h-4 w-4 text-cyan" />
-            历史记录
+            {L("历史记录")}
           </div>
           <button
             type="button"
@@ -2147,7 +2149,7 @@ const StockScreeningPage: React.FC = () => {
             onClick={() => void loadHistory()}
             disabled={historyLoading}
           >
-            {historyLoading ? '加载中...' : '刷新'}
+            {historyLoading ? L("加载中...") : L("刷新")}
           </button>
         </div>
         {historyError ? (
@@ -2155,7 +2157,7 @@ const StockScreeningPage: React.FC = () => {
         ) : null}
         {historyRuns.length === 0 ? (
           <p className="py-3 text-center text-xs text-secondary-text">
-            {historyLoading ? '正在加载历史记录...' : '暂无历史选股记录'}
+            {historyLoading ? L("正在加载历史记录...") : L("暂无历史选股记录")}
           </p>
         ) : (
           <div className="divide-y divide-border/70">
@@ -2174,9 +2176,9 @@ const StockScreeningPage: React.FC = () => {
                     </span>
                   </span>
                   <span className="mt-0.5 block text-xs text-secondary-text">
-                    返回 {run.candidateCount ?? 0} 只
-                    {run.snapshotCount != null ? ` · 快照 ${run.snapshotCount}` : ''}
-                    {run.llmRanked ? ' · 智能重排' : ''}
+                    {L('返回')} {run.candidateCount ?? 0} {L('只')}
+                    {run.snapshotCount != null ? ` · ${L("快照")} ${run.snapshotCount}` : ''}
+                    {run.llmRanked ? ` · ${L('智能重排')}` : ''}
                   </span>
                 </span>
                 <span className="shrink-0 text-xs text-secondary-text">

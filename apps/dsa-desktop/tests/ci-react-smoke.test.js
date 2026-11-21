@@ -49,7 +49,18 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   assert.match(smoke, /localStorage\.setItem\('dsa\.uiLanguage', 'tr'\)/);
   assert.match(smoke, /document\.documentElement\.lang === 'tr'/);
   assert.match(smoke, /Ana menü/);
-  assert.match(smoke, /Ana Sayfa/);
+  assert.match(smoke, /Piyasa Özeti/);
+  assert.match(smoke, /Hisse Analizi/);
+  const sidebar = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'dsa-web', 'src', 'components', 'layout', 'SidebarNav.tsx'),
+    'utf8',
+  );
+  // Equivalent Unicode escape in the TS source must not weaken visible-text assertions.
+  assert.ok(
+    sidebar.includes('Piyasa Özeti') || sidebar.includes(String.raw`Piyasa \u00d6zeti`),
+    'real Turkish Overview nav label missing from SidebarNav source',
+  );
+  assert.match(sidebar, /Hisse Analizi/);
   assert.match(smoke, /Kullanım/);
   assert.match(smoke, /Veri Merkezi/);
   for (const [route, heading] of [

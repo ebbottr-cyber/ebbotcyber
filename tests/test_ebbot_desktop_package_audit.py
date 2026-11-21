@@ -1,6 +1,8 @@
 """Unit contracts for an offline Windows Electron packaging audit."""
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import tempfile
 import unittest
@@ -25,7 +27,7 @@ class DesktopPackageAuditTests(unittest.TestCase):
                 "win": {"target": "nsis", "artifactName": "EBBot-windows-installer-v${version}.${ext}", "publish": [
                     {"provider": "github", "owner": "ebbottr-cyber", "repo": "ebbotcyber"}
                 ]},
-                "files": ["main.js", "preload.js"],
+                "files": ["main.js", "preload.js", "sqliteSnapshotBridge.js", "sqliteRollbackRehearsal.js"],
                 "extraResources": [
                     {"from": "../../dist/backend/stock_analysis", "to": "backend/stock_analysis"}
                 ],
@@ -35,8 +37,18 @@ class DesktopPackageAuditTests(unittest.TestCase):
             "const GITHUB_OWNER = 'ebbottr-cyber';\n"
             "const GITHUB_REPO = 'ebbotcyber';\n"
             "const DESKTOP_UPDATES_ENABLED = false;\n"
+            "const sqliteSnapshotBridge = require('./sqliteSnapshotBridge');\n"
+            "const sqliteRollbackRehearsal = require('./sqliteRollbackRehearsal');\n"
             "function a() { if (!DESKTOP_UPDATES_ENABLED) {} }\n"
             "function b() { if (!DESKTOP_UPDATES_ENABLED) {} }\n",
+            encoding="utf-8",
+        )
+        (desktop / "sqliteSnapshotBridge.js").write_text(
+            "function stageSnapshotRestoreCandidate() {}\n",
+            encoding="utf-8",
+        )
+        (desktop / "sqliteRollbackRehearsal.js").write_text(
+            "function rollbackCompletedSqlitePromotion() {}\n",
             encoding="utf-8",
         )
         loading = desktop / "renderer/loading.html"
@@ -47,15 +59,18 @@ class DesktopPackageAuditTests(unittest.TestCase):
     def _create_sample_package(self):
         self.dist.mkdir(parents=True, exist_ok=True)
         installer = self.dist / "EBBot-windows-installer-v3.21.0.exe"
-        installer.write_bytes(b"synthetic-test-installer")
+        data = b"synthetic-test-installer"
+        installer.write_bytes(data)
+        digest = base64.b64encode(hashlib.sha512(data).digest()).decode("ascii")
         (self.dist / (installer.name + ".blockmap")).write_bytes(b"mock")
         (self.dist / "latest.yml").write_text(
             "version: 3.21.0\n"
             "files:\n"
             "  - url: EBBot-windows-installer-v3.21.0.exe\n"
-            "    sha512: synthetic\n"
+            f"    sha512: {digest}\n"
+            f"    size: {len(data)}\n"
             "path: EBBot-windows-installer-v3.21.0.exe\n"
-            "sha512: synthetic\n",
+            f"sha512: {digest}\n",
             encoding="utf-8",
         )
         resources = self.dist / "win-unpacked/resources"
@@ -74,6 +89,20 @@ class DesktopPackageAuditTests(unittest.TestCase):
                             for x in result["checks"]))
         self.assertTrue(any("code-signing" in x for x in result["release_blockers"]))
         self.assertEqual(audit(self.root)["release_status"], "BLOCKED")
+
+    def test_sqlite_rollback_rehearsal_must_be_packaged(self):
+        desktop = self.root / "apps/dsa-desktop"
+        (desktop / "sqliteRollbackRehearsal.js").unlink()
+        result = source_audit(self.root)
+        self.assertFalse(next(check["passed"] for check in result["checks"]
+                              if check["name"] == "sqlite_recovery_rehearsal_packaged"))
+
+    def test_offline_sqlite_bridge_must_be_packaged(self):
+        desktop = self.root / "apps/dsa-desktop"
+        (desktop / "sqliteSnapshotBridge.js").unlink()
+        result = source_audit(self.root)
+        self.assertFalse(next(check["passed"] for check in result["checks"]
+                              if check["name"] == "sqlite_offline_bridge_packaged"))
 
     def test_legacy_loading_screen_fails_source_audit(self):
         loading = self.root / "apps/dsa-desktop/renderer/loading.html"
@@ -119,6 +148,56 @@ class DesktopPackageAuditTests(unittest.TestCase):
         self._create_sample_package()
         latest = self.dist / "latest.yml"
         latest.write_text(latest.read_text().replace("version: 3.21.0", "version: 9.9.9"))
+        self.assertEqual(package_audit(self.root, self.dist, "3.21.0")["package_validation"],
+                         "FAILED")
+
+    def test_tampered_installer_bytes_fail_sha512_validation(self):
+        self._create_sample_package()
+        installer = self.dist / "EBBot-windows-installer-v3.21.0.exe"
+        installer.write_bytes(installer.read_bytes() + b"tampering")
+        result = package_audit(self.root, self.dist, "3.21.0")
+        self.assertEqual(result["package_validation"], "FAILED")
+        metadata_check = next(x for x in result["checks"] if x["name"] == "updater_metadata")
+        self.assertFalse(metadata_check["passed"])
+        self.assertIn("SHA-512", metadata_check["detail"])
+
+    def test_wrong_base64_checksum_is_rejected(self):
+        self._create_sample_package()
+        latest = self.dist / "latest.yml"
+        latest.write_text(latest.read_text(encoding="utf-8").replace(
+            "sha512: ", "sha512: incorrect-", 1
+        ), encoding="utf-8")
+        self.assertEqual(package_audit(self.root, self.dist, "3.21.0")["package_validation"],
+                         "FAILED")
+
+    def test_manifest_rejects_external_url_and_duplicate_asset(self):
+        self._create_sample_package()
+        latest = self.dist / "latest.yml"
+        original = latest.read_text(encoding="utf-8")
+        latest.write_text(original.replace(
+            "  - url: EBBot-windows-installer-v3.21.0.exe",
+            "  - url: https://unapproved.example/installer.exe",
+        ), encoding="utf-8")
+        self.assertEqual(package_audit(self.root, self.dist, "3.21.0")["package_validation"],
+                         "FAILED")
+        latest.write_text(original.replace(
+            "path: EBBot-windows-installer-v3.21.0.exe",
+            "  - url: EBBot-windows-installer-v3.21.0.exe\n"
+            "path: EBBot-windows-installer-v3.21.0.exe",
+        ), encoding="utf-8")
+        self.assertEqual(package_audit(self.root, self.dist, "3.21.0")["package_validation"],
+                         "FAILED")
+
+    def test_wrong_file_size_and_missing_digest_fail(self):
+        self._create_sample_package()
+        latest = self.dist / "latest.yml"
+        original = latest.read_text(encoding="utf-8")
+        latest.write_text(original.replace("    size: 24", "    size: 123456"),
+                          encoding="utf-8")
+        self.assertEqual(package_audit(self.root, self.dist, "3.21.0")["package_validation"],
+                         "FAILED")
+        latest.write_text(original.replace("sha512:", "removed_sha512:", 1),
+                          encoding="utf-8")
         self.assertEqual(package_audit(self.root, self.dist, "3.21.0")["package_validation"],
                          "FAILED")
 

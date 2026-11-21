@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsPanelErrorBoundary } from '../SettingsPanelErrorBoundary';
@@ -6,6 +7,9 @@ import { SettingsPanelErrorBoundary } from '../SettingsPanelErrorBoundary';
 function ThrowingPanel({ message = 'mock settings panel crash' }: { message?: string }): ReactElement {
   throw new Error(message);
 }
+
+// Historical Chinese-label expectations must opt in; production Turkish stays default.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('SettingsPanelErrorBoundary', () => {
   beforeEach(() => {
