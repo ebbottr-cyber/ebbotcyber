@@ -23,6 +23,16 @@ A股自选股智能分析系统 - 主调度程序
 """
 from __future__ import annotations
 
+# Explicit offline-only database snapshot entry. This short-circuits before
+# dotenv/config, scheduler, analytics, network clients or web services start.
+# The frozen PyInstaller backend can run this one-shot command on local test
+# SQLite files without launching the normal EBBot runtime.
+import sys as _ebbot_entry_sys
+if (__name__ == "__main__" and len(_ebbot_entry_sys.argv) > 1 and
+        _ebbot_entry_sys.argv[1] == "--ebbot-desktop-sqlite-snapshot"):
+    from scripts.ebbot_sqlite_snapshot import main as _ebbot_snapshot_main
+    raise SystemExit(_ebbot_snapshot_main(_ebbot_entry_sys.argv[2:]))
+
 import json
 import multiprocessing
 import os

@@ -5,14 +5,16 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from data_provider.base import canonical_stock_code, normalize_stock_code
 from src.config import get_config
+from src.services.portfolio_historical_fx import MAX_HISTORICAL_FX_RATE_AGE_DAYS, fetch_dated_yahoo_fx_close
 from src.repositories.portfolio_repo import (
     DuplicateTradeDedupHashError,
     DuplicateTradeUidError,
@@ -38,6 +40,9 @@ VALID_CASH_DIRECTIONS = {"in", "out"}
 VALID_CORPORATE_ACTIONS = {"cash_dividend", "split_adjustment"}
 PORTFOLIO_FX_REFRESH_DISABLED_REASON = "portfolio_fx_update_disabled"
 PORTFOLIO_REALTIME_QUOTE_MAX_WORKERS = 4
+# Risk and portfolio valuation: treat quotes older than a long weekend as stale.
+# Indicative TL display has its own stricter 30-minute requirement.
+MAX_PORTFOLIO_FX_RATE_AGE_DAYS = MAX_HISTORICAL_FX_RATE_AGE_DAYS
 
 
 def _portfolio_limitations_for_market(market: str) -> List[str]:
@@ -65,6 +70,24 @@ def _merge_portfolio_limitations(*groups: Iterable[str]) -> List[str]:
 
 class PortfolioConflictError(Exception):
     """Raised when request conflicts with existing portfolio state."""
+
+
+class PortfolioFxRateUnavailableError(RuntimeError):
+    """A nonzero FX conversion cannot be valued without a usable market rate.
+
+    Do not substitute a 1:1 conversion: this exception makes account valuation
+    and any dependent risk calculation fail closed, without mutating the ledger.
+    """
+
+    def __init__(self, *, from_currency: str, to_currency: str, as_of_date: date) -> None:
+        self.from_currency = from_currency
+        self.to_currency = to_currency
+        self.as_of_date = as_of_date
+        super().__init__(
+            f"FX rate unavailable for {from_currency}/{to_currency} on "
+            f"{as_of_date.isoformat()}; portfolio valuation not calculated"
+        )
+
 
 
 class PortfolioOversellError(ValueError):
@@ -476,8 +499,17 @@ class PortfolioService:
         cost_method: str = "fifo",
         include_realtime: bool = True,
         read_only: bool = False,
+        holdings_only: bool = False,
     ) -> Dict[str, Any]:
-        """Replay holdings; read-only callers skip live quotes and snapshot writes."""
+        """Replay holdings; normal snapshots still require real aggregate FX.
+
+        A holdings-only read is intentionally limited to the accounts list and
+        their replayed positions. Alert symbol discovery does not need a CNY
+        valuation and must never invent a 1:1 USD/CNY rate. Full snapshots
+        keep raising PortfolioFxRateUnavailableError when evidence is absent.
+        """
+        if holdings_only and not read_only:
+            raise ValueError("holdings_only requires read_only=True")
         as_of_date = as_of or date.today()
         method = self._normalize_cost_method(cost_method)
 
@@ -535,6 +567,11 @@ class PortfolioService:
                 account_snapshot["public"].get("limitations", []),
             )
 
+            if holdings_only:
+                # Alert symbol expansion consumes positions only. Do not read,
+                # approximate or emit a cross-currency portfolio valuation.
+                continue
+
             cash_cny, stale_cash, _ = self._convert_amount(
                 amount=account_snapshot["total_cash"],
                 from_currency=account.base_currency,
@@ -586,17 +623,22 @@ class PortfolioService:
             aggregate["unrealized_pnl"] += unrealized_cny
             aggregate["fee_total"] += fee_cny
             aggregate["tax_total"] += tax_cny
-            aggregate["fx_stale"] = aggregate["fx_stale"] or any(
-                [
-                    stale_cash,
+            aggregate["fx_stale"] = (
+                aggregate["fx_stale"] or bool(account_snapshot["fx_stale"]) or any(
+                    [
+                        stale_cash,
                     stale_mv,
                     stale_eq,
                     stale_realized,
                     stale_unrealized,
                     stale_fee,
                     stale_tax,
-                ]
+                    ]
+                )
             )
+
+        if holdings_only:
+            return {"accounts": accounts_payload}
 
         return {
             "as_of": as_of_date.isoformat(),
@@ -1454,19 +1496,58 @@ class PortfolioService:
             to_currency=to_norm,
             as_of=as_of_date,
         )
-        if direct is not None and direct.rate > 0:
-            return float(amount) * float(direct.rate), bool(direct.is_stale), "direct_rate"
+        if direct is not None and math.isfinite(float(direct.rate)) and float(direct.rate) > 0:
+            direct_date = getattr(direct, "rate_date", None)
+            direct_age = (as_of_date - direct_date).days if isinstance(direct_date, date) else None
+            stale = bool(direct.is_stale) or direct_age is None or not (0 <= direct_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
+            return float(amount) * float(direct.rate), stale, "direct_rate"
 
         inverse = self.repo.get_latest_fx_rate(
             from_currency=to_norm,
             to_currency=from_norm,
             as_of=as_of_date,
         )
-        if inverse is not None and inverse.rate > 0:
-            return float(amount) / float(inverse.rate), bool(inverse.is_stale), "inverse_rate"
+        if inverse is not None and math.isfinite(float(inverse.rate)) and float(inverse.rate) > 0:
+            inverse_date = getattr(inverse, "rate_date", None)
+            inverse_age = (as_of_date - inverse_date).days if isinstance(inverse_date, date) else None
+            stale = bool(inverse.is_stale) or inverse_age is None or not (0 <= inverse_age <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS)
+            return float(amount) / float(inverse.rate), stale, "inverse_rate"
 
-        # P0 fallback: keep pipeline available even when FX cache is missing.
-        return float(amount), True, "fallback_1_to_1"
+        # Bridge only through *recorded*, date-qualified USD rates. The
+        # 30-minute indicative display feed never enters risk/ledger storage.
+        # Convert unit values on both legs so a very small intermediate amount
+        # cannot skip a missing quote through the zero-amount shortcut.
+        if from_norm != "USD" and to_norm != "USD":
+            try:
+                first_rate, first_stale, _ = self._convert_amount(
+                    amount=1.0,
+                    from_currency=from_norm,
+                    to_currency="USD",
+                    as_of_date=as_of_date,
+                )
+                second_rate, second_stale, _ = self._convert_amount(
+                    amount=1.0,
+                    from_currency="USD",
+                    to_currency=to_norm,
+                    as_of_date=as_of_date,
+                )
+            except PortfolioFxRateUnavailableError:
+                # Preserve requested pair in the outward-facing 503 response.
+                pass
+            else:
+                converted = float(amount) * first_rate * second_rate
+                if not math.isfinite(converted):
+                    raise ValueError("FX conversion produced a non-finite amount")
+                return converted, bool(first_stale or second_stale), "usd_cross"
+
+        # A missing currency pair has no meaningful conversion rate. Earlier
+        # versions returned the unchanged amount, silently treating FX as 1:1.
+        # That can corrupt portfolio totals and concentration/drawdown metrics.
+        raise PortfolioFxRateUnavailableError(
+            from_currency=from_norm,
+            to_currency=to_norm,
+            as_of_date=as_of_date,
+        )
 
     def convert_amount(
         self,
@@ -1520,7 +1601,11 @@ class PortfolioService:
         as_of_date: date,
         refresh_enabled: bool,
     ) -> Dict[str, int]:
-        """Refresh FX pairs for one account and keep stale fallback on failures."""
+        """Refresh from verified dated quotes; do not rewrite old FX as today's.
+
+        A failed/old provider result leaves the previously stored quote intact.
+        Historical portfolio valuation uses the quote's original rate_date.
+        """
         refresh_currencies = self._list_account_refresh_fx_currencies(
             account=account,
             as_of_date=as_of_date,
@@ -1542,23 +1627,37 @@ class PortfolioService:
             "error_count": 0,
         }
         for from_currency in refresh_currencies:
+            stale_provider_quote = False
             try:
-                rate = self._fetch_fx_rate_from_yfinance(
+                dated_quote = self._fetch_fx_rate_from_yfinance(
                     from_currency=from_currency,
                     to_currency=base_currency,
                     as_of_date=as_of_date,
                 )
-                if rate is not None and rate > 0:
-                    self.repo.save_fx_rate(
-                        from_currency=from_currency,
-                        to_currency=base_currency,
-                        rate_date=as_of_date,
-                        rate=rate,
-                        source="yfinance",
-                        is_stale=False,
-                    )
-                    summary["updated_count"] += 1
-                    continue
+                # A bare float cannot prove the quote date. Reject legacy
+                # provider results rather than silently stamping as_of_date.
+                if (
+                    isinstance(dated_quote, tuple)
+                    and len(dated_quote) == 2
+                    and type(dated_quote[1]) is date
+                    and isinstance(dated_quote[0], (int, float))
+                    and math.isfinite(dated_quote[0])
+                    and dated_quote[0] > 0
+                ):
+                    value, quote_date = dated_quote
+                    age_days = (as_of_date - quote_date).days
+                    if 0 <= age_days <= MAX_PORTFOLIO_FX_RATE_AGE_DAYS:
+                        self.repo.save_fx_rate(
+                            from_currency=from_currency,
+                            to_currency=base_currency,
+                            rate_date=quote_date,
+                            rate=float(value),
+                            source="yfinance",
+                            is_stale=False,
+                        )
+                        summary["updated_count"] += 1
+                        continue
+                    stale_provider_quote = True
             except Exception as exc:
                 logger.warning(
                     "FX online fetch failed for %s/%s on %s: %s",
@@ -1568,20 +1667,15 @@ class PortfolioService:
                     exc,
                 )
 
+            # Never create an as_of_date duplicate of a prior quote and never
+            # alter its is_stale/source fields on a failed online refresh.
             fallback = self.repo.get_latest_fx_rate(
                 from_currency=from_currency,
                 to_currency=base_currency,
                 as_of=as_of_date,
             )
-            if fallback is not None and float(fallback.rate or 0.0) > 0:
-                self.repo.save_fx_rate(
-                    from_currency=from_currency,
-                    to_currency=base_currency,
-                    rate_date=as_of_date,
-                    rate=float(fallback.rate),
-                    source=(fallback.source or "cache_fallback"),
-                    is_stale=True,
-                )
+            fallback_rate = float(fallback.rate or 0.0) if fallback is not None else 0.0
+            if (fallback is not None and math.isfinite(fallback_rate) and fallback_rate > 0) or stale_provider_quote:
                 summary["stale_count"] += 1
             else:
                 summary["error_count"] += 1
@@ -1593,27 +1687,14 @@ class PortfolioService:
         from_currency: str,
         to_currency: str,
         as_of_date: date,
-    ) -> Optional[float]:
-        """Fetch latest available FX close rate around as_of date."""
-        if yf is None:
-            return None
-        symbol = f"{from_currency}{to_currency}=X"
-        ticker = yf.Ticker(symbol)
-        history = ticker.history(
-            start=(as_of_date - timedelta(days=7)).isoformat(),
-            end=(as_of_date + timedelta(days=1)).isoformat(),
-            interval="1d",
-            auto_adjust=False,
+    ) -> Optional[Tuple[float, date]]:
+        """Use the same source-date reader as the read-only live probe."""
+        return fetch_dated_yahoo_fx_close(
+            from_currency=from_currency,
+            to_currency=to_currency,
+            as_of_date=as_of_date,
+            provider=yf,
         )
-        if history is None or history.empty or "Close" not in history:
-            return None
-        close = history["Close"].dropna()
-        if close.empty:
-            return None
-        value = float(close.iloc[-1])
-        if value <= 0:
-            return None
-        return value
 
     def _require_active_account(self, account_id: int) -> Any:
         account = self.repo.get_account(account_id, include_inactive=False)

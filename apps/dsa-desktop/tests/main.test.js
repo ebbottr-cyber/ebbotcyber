@@ -1185,6 +1185,350 @@ test('restorePackagedRuntimeStateFromBackup keeps backup when copy fails', (t) =
   assert.equal(restoreResult.failed[0].includes('target locked'), true);
 });
 
+test('new backup attempt cannot overwrite a pending interrupted-update recovery copy', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-pending-backup-retry-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const backupRoot = path.join(userData, '.dsa-desktop-update-backup');
+  const envBackup = path.join(backupRoot, '.env');
+  const backupManifest = path.join(backupRoot, 'runtime-state.json');
+  fs.mkdirSync(appDir, { recursive: true });
+  fs.mkdirSync(backupRoot, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(appDir, '.env'), 'current-new-value');
+  fs.writeFileSync(envBackup, 'previous-recovery-value');
+  const manifest = JSON.stringify({ appVersion: '3.12.0', files: ['.env'] });
+  fs.writeFileSync(backupManifest, manifest);
+
+  const mod = loadMainModule(t, {
+    platform: 'win32',
+    app: { isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.13.0' },
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  mod.backupPackagedRuntimeState();
+  assert.equal(fs.readFileSync(envBackup, 'utf-8'), 'previous-recovery-value');
+  assert.equal(fs.readFileSync(backupManifest, 'utf-8'), manifest);
+  assert.equal(fs.readFileSync(path.join(appDir, '.env'), 'utf-8'), 'current-new-value');
+});
+
+test('SQLite backup refuses a running managed backend and leaves no partial files', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-sqlite-running-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const backupRoot = path.join(userData, '.dsa-desktop-update-backup');
+  fs.mkdirSync(path.join(appDir, 'data'), { recursive: true });
+  fs.mkdirSync(userData, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(appDir, 'data', 'stock_analysis.db'), 'data-before');
+  const mod = loadMainModule(t, {
+    platform: 'win32', app: {
+      isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+    },
+  });
+  mod.__setBackendProcessForTest({ exitCode: null, signalCode: null });
+  t.after(() => {
+    mod.__setBackendProcessForTest(null);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  assert.throws(() => mod.backupPackagedRuntimeState(), /backend is running/);
+  assert.equal(fs.existsSync(backupRoot), false);
+  assert.deepEqual(fs.readdirSync(userData), []);
+  assert.equal(fs.readFileSync(path.join(appDir, 'data', 'stock_analysis.db'), 'utf-8'), 'data-before');
+});
+
+test('SQLite WAL file lock discards staging and preserves all original DB files', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-sqlite-wal-locked-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const backupRoot = path.join(userData, '.dsa-desktop-update-backup');
+  const dataDir = path.join(appDir, 'data');
+  const db = path.join(dataDir, 'stock_analysis.db');
+  const wal = path.join(dataDir, 'stock_analysis.db-wal');
+  const shm = path.join(dataDir, 'stock_analysis.db-shm');
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(userData, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(db, 'database-bytes');
+  fs.writeFileSync(wal, 'uncheckpointed-WAL');
+  fs.writeFileSync(shm, 'shared-memory');
+  const mod = loadMainModule(t, {
+    platform: 'win32', app: {
+      isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+    },
+  });
+  const originalCopy = fs.copyFileSync;
+  fs.copyFileSync = (from, to, ...args) => {
+    if (from === wal) {
+      const err = new Error('WAL is locked');
+      err.code = 'EBUSY';
+      throw err;
+    }
+    return originalCopy(from, to, ...args);
+  };
+  t.after(() => {
+    fs.copyFileSync = originalCopy;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  assert.throws(() => mod.backupPackagedRuntimeState(), /WAL is locked/);
+  assert.equal(fs.existsSync(backupRoot), false);
+  assert.deepEqual(fs.readdirSync(userData).filter((x) => x.includes('stage-')), []);
+  assert.equal(fs.readFileSync(db, 'utf-8'), 'database-bytes');
+  assert.equal(fs.readFileSync(wal, 'utf-8'), 'uncheckpointed-WAL');
+  assert.equal(fs.readFileSync(shm, 'utf-8'), 'shared-memory');
+});
+
+test('SQLite WAL mutation during staging rejects non-transactional snapshot', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-sqlite-wal-mutating-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const dataDir = path.join(appDir, 'data');
+  const wal = path.join(dataDir, 'stock_analysis.db-wal');
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(userData, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(dataDir, 'stock_analysis.db'), 'database');
+  fs.writeFileSync(wal, 'WAL0');
+  const mod = loadMainModule(t, {
+    platform: 'win32', app: {
+      isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+    },
+  });
+  const originalCopy = fs.copyFileSync;
+  fs.copyFileSync = (from, to, ...args) => {
+    const result = originalCopy(from, to, ...args);
+    if (from === wal) fs.writeFileSync(wal, 'WAL0-WAL-MODIFIED-LIVE');
+    return result;
+  };
+  t.after(() => {
+    fs.copyFileSync = originalCopy;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  assert.throws(() => mod.backupPackagedRuntimeState(), /SQLite database\/WAL\/SHM changed/);
+  assert.equal(fs.existsSync(path.join(userData, '.dsa-desktop-update-backup')), false);
+  assert.deepEqual(fs.readdirSync(userData), []);
+});
+
+test('interrupted backup publish never creates a half-written recovery manifest', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-interrupted-upgrade-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const finalBackup = path.join(userData, '.dsa-desktop-update-backup');
+  fs.mkdirSync(appDir, { recursive: true });
+  fs.mkdirSync(userData, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(appDir, '.env'), 'preserve-env-values');
+  const mod = loadMainModule(t, {
+    platform: 'win32', app: {
+      isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+    },
+  });
+  const originalRename = fs.renameSync;
+  fs.renameSync = (from, to) => {
+    if (to === finalBackup && from.includes('.ebbot-runtime-stage-')) {
+      const err = new Error('simulated installation interruption');
+      err.code = 'EACCES';
+      throw err;
+    }
+    return originalRename(from, to);
+  };
+  t.after(() => {
+    fs.renameSync = originalRename;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  assert.throws(() => mod.backupPackagedRuntimeState(), /installation interruption/);
+  assert.equal(fs.existsSync(finalBackup), false);
+  assert.deepEqual(fs.readdirSync(userData), []);
+  assert.equal(fs.readFileSync(path.join(appDir, '.env'), 'utf-8'), 'preserve-env-values');
+});
+
+test('offline backup publishes DB, WAL and SHM together with a complete manifest', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-sqlite-triad-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const dbDir = path.join(appDir, 'data');
+  const backup = path.join(userData, '.dsa-desktop-update-backup');
+  fs.mkdirSync(dbDir, { recursive: true });
+  fs.mkdirSync(userData, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  for (const [name, value] of [
+    ['stock_analysis.db', 'sqlite-main'],
+    ['stock_analysis.db-wal', 'sqlite-wal'],
+    ['stock_analysis.db-shm', 'sqlite-shm'],
+  ]) {
+    fs.writeFileSync(path.join(dbDir, name), value);
+  }
+  const mod = loadMainModule(t, {
+    platform: 'win32', app: {
+      isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.21.0',
+    },
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  mod.backupPackagedRuntimeState();
+  const manifest = JSON.parse(fs.readFileSync(path.join(backup, 'runtime-state.json'), 'utf-8'));
+  assert.equal(manifest.appVersion, '3.21.0');
+  for (const [name, value] of [
+    ['stock_analysis.db', 'sqlite-main'],
+    ['stock_analysis.db-wal', 'sqlite-wal'],
+    ['stock_analysis.db-shm', 'sqlite-shm'],
+  ]) {
+    assert.ok(manifest.files.includes(path.join('data', name)));
+    assert.equal(fs.readFileSync(path.join(backup, 'data', name), 'utf-8'), value);
+  }
+  assert.equal(fs.readdirSync(userData).length, 1);
+});
+
+test('failed database restore preserves the existing target and retains retry backup', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-preserve-db-on-failure-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const relative = path.join('data', 'stock_analysis.db');
+  const target = path.join(appDir, relative);
+  const source = path.join(userData, '.dsa-desktop-update-backup', relative);
+  const manifest = path.join(userData, '.dsa-desktop-update-backup', 'runtime-state.json');
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(source, 'backup-original-db');
+  fs.writeFileSync(target, 'new-current-db');
+  fs.writeFileSync(manifest, JSON.stringify({ appVersion: '3.12.0', files: [relative] }));
+  const mod = loadMainModule(t, {
+    platform: 'win32',
+    app: { isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.13.0' },
+  });
+  const originalCopy = fs.copyFileSync;
+  fs.copyFileSync = (from, to, ...args) => {
+    if (from === source) throw new Error('simulated disk IO failure');
+    return originalCopy(from, to, ...args);
+  };
+  t.after(() => {
+    fs.copyFileSync = originalCopy;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const result = mod.restorePackagedRuntimeStateFromBackup();
+  assert.equal(result.restored.length, 0);
+  assert.equal(result.failed.length, 1);
+  assert.equal(fs.readFileSync(target, 'utf-8'), 'new-current-db');
+  assert.equal(fs.readFileSync(source, 'utf-8'), 'backup-original-db');
+  assert.ok(fs.existsSync(manifest));
+  assert.equal(fs.readdirSync(path.dirname(target)).filter((name) => name.includes('.ebbot-pending-')).length, 0);
+});
+
+test('failed recursive restore preserves existing Screening directory', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-preserve-dir-on-failure-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const relative = path.join('data', 'screening', 'hotspot_details');
+  const target = path.join(appDir, relative);
+  const backupRoot = path.join(userData, '.dsa-desktop-update-backup');
+  const source = path.join(backupRoot, relative, 'changed.json');
+  const existing = path.join(target, 'keep.json');
+  fs.mkdirSync(path.dirname(source), { recursive: true });
+  fs.mkdirSync(target, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(source, 'replacement');
+  fs.writeFileSync(existing, 'keep-existing-user-data');
+  fs.writeFileSync(path.join(backupRoot, 'runtime-state.json'), JSON.stringify({
+    appVersion: '3.12.0', files: [relative],
+  }));
+  const mod = loadMainModule(t, {
+    platform: 'win32',
+    app: { isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.13.0' },
+  });
+  const originalCopy = fs.copyFileSync;
+  fs.copyFileSync = (from, to, ...args) => {
+    if (from === source) throw new Error('simulated nested file IO failure');
+    return originalCopy(from, to, ...args);
+  };
+  t.after(() => {
+    fs.copyFileSync = originalCopy;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const result = mod.restorePackagedRuntimeStateFromBackup();
+  assert.equal(result.failed.length, 1);
+  assert.equal(fs.readFileSync(existing, 'utf-8'), 'keep-existing-user-data');
+  assert.equal(fs.existsSync(path.join(target, 'changed.json')), false);
+  assert.equal(fs.readFileSync(source, 'utf-8'), 'replacement');
+  assert.equal(fs.existsSync(path.join(backupRoot, 'runtime-state.json')), true);
+});
+
+test('unapproved manifest paths cannot restore outside approved files', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-manifest-allowlist-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const backup = path.join(userData, '.dsa-desktop-update-backup');
+  fs.mkdirSync(appDir, { recursive: true });
+  fs.mkdirSync(backup, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(appDir, '.env'), 'current-value');
+  fs.writeFileSync(path.join(backup, '.env'), 'old-value');
+  fs.writeFileSync(path.join(root, 'outside.txt'), 'must-not-change');
+  const manifest = path.join(backup, 'runtime-state.json');
+  fs.writeFileSync(manifest, JSON.stringify({
+    appVersion: '3.12.0', files: ['.env', path.join('..', 'outside.txt')],
+  }));
+  const mod = loadMainModule(t, {
+    platform: 'win32',
+    app: { isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.13.0' },
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const result = mod.restorePackagedRuntimeStateFromBackup();
+  assert.deepEqual(result.restored, []);
+  assert.ok(result.failed.some((text) => text.includes('unapproved')));
+  assert.equal(fs.readFileSync(path.join(appDir, '.env'), 'utf-8'), 'current-value');
+  assert.equal(fs.readFileSync(path.join(root, 'outside.txt'), 'utf-8'), 'must-not-change');
+  assert.equal(fs.existsSync(manifest), true);
+});
+
+test('symlinked backup files cannot overwrite existing runtime settings', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ebbot-reject-symlink-backup-'));
+  const appDir = path.join(root, 'app');
+  const userData = path.join(root, 'userData');
+  const backup = path.join(userData, '.dsa-desktop-update-backup');
+  fs.mkdirSync(appDir, { recursive: true });
+  fs.mkdirSync(backup, { recursive: true });
+  fs.writeFileSync(path.join(appDir, 'Uninstall EBBot.exe'), '');
+  fs.writeFileSync(path.join(appDir, '.env'), 'current-settings');
+  fs.writeFileSync(path.join(backup, '.env'), 'poisoned-backup');
+  fs.writeFileSync(path.join(backup, 'runtime-state.json'), JSON.stringify({
+    appVersion: '3.12.0', files: ['.env'],
+  }));
+  const mod = loadMainModule(t, {
+    platform: 'win32',
+    app: { isPackaged: true,
+      getPath: (name) => name === 'exe' ? path.join(appDir, 'EBBot.exe') : userData,
+      getVersion: () => '3.13.0' },
+  });
+  const originalLstat = fs.lstatSync;
+  fs.lstatSync = (...args) => {
+    if (args[0] === path.join(backup, '.env')) {
+      return { isSymbolicLink: () => true, isDirectory: () => false, isFile: () => false };
+    }
+    return originalLstat(...args);
+  };
+  t.after(() => {
+    fs.lstatSync = originalLstat;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+  const result = mod.restorePackagedRuntimeStateFromBackup();
+  assert.equal(result.failed.length, 1);
+  assert.equal(fs.readFileSync(path.join(appDir, '.env'), 'utf-8'), 'current-settings');
+  assert.equal(fs.existsSync(path.join(backup, 'runtime-state.json')), true);
+});
+
 test('restorePackagedRuntimeStateFromBackup removes restored files from pending manifest', (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dsa-desktop-partial-restore-'));
   const appDir = path.join(tempRoot, 'app');

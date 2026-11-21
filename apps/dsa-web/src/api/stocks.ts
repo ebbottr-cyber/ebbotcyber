@@ -1,4 +1,5 @@
 import apiClient from './index';
+import { toCamelCase } from './utils';
 
 export type ExtractItem = {
   code?: string | null;
@@ -12,7 +13,43 @@ export type ExtractFromImageResponse = {
   rawText?: string;
 };
 
+export type StockHistoryCandle = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number | null;
+  amount?: number | null;
+  changePercent?: number | null;
+};
+
+export type StockHistoryResponse = {
+  stockCode: string;
+  stockName?: string | null;
+  period: 'daily' | 'weekly' | 'monthly';
+  data: StockHistoryCandle[];
+};
+
+export type StockHistoryOptions = {
+  days?: number;
+  period?: 'daily' | 'weekly' | 'monthly';
+  signal?: AbortSignal;
+};
+
 export const stocksApi = {
+  /** Existing read-only backend OHLC endpoint; no fabricated candles. */
+  async getHistory(stockCode: string, options: StockHistoryOptions = {}): Promise<StockHistoryResponse> {
+    const response = await apiClient.get<Record<string, unknown>>(
+      '/api/v1/stocks/' + encodeURIComponent(stockCode) + '/history',
+      {
+        params: { days: options.days ?? 90, period: options.period ?? 'daily' },
+        signal: options.signal,
+      },
+    );
+    return toCamelCase<StockHistoryResponse>(response.data);
+  },
+
   async extractFromImage(file: File): Promise<ExtractFromImageResponse> {
     const formData = new FormData();
     formData.append('file', file);

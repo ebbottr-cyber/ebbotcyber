@@ -7,6 +7,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/setupTests.ts',
-    exclude: [...configDefaults.exclude, 'e2e/**', 'playwright.config.ts'],
+    // The PWA smoke is written for Node's built-in test runner, not Vitest.
+    // Exclude only that runner-specific file, never business/UI tests.
+    exclude: [...configDefaults.exclude, 'e2e/**', 'playwright.config.ts', 'tests/pwa-smoke.test.mjs'],
   },
 });

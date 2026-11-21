@@ -2139,7 +2139,10 @@ class NotificationService(
         mapping = self._SOURCE_DISPLAY_NAMES.get(raw_source)
         if not mapping:
             return raw_source
-        return mapping[normalize_report_language(language)]
+        # Some provider names have only Chinese and English spellings.
+        # Turkish/Korean use the English provider label, never a KeyError.
+        normalized = normalize_report_language(language)
+        return mapping.get(normalized) or mapping.get("en") or raw_source
 
     def _append_market_snapshot(self, lines: List[str], result: AnalysisResult) -> None:
         snapshot = getattr(result, 'market_snapshot', None)
