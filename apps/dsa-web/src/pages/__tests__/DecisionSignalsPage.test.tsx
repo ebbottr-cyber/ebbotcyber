@@ -757,6 +757,9 @@ describe('DecisionSignalsPage', () => {
 
   it('reports an expired signal refresh separately and refreshes active views', async () => {
     const refreshedItem = makeSignal({
+      // Timeline is 90d by default: a refreshed row must fall in that range.
+      // The original fixed June 2026 fixture aged out and hid the intended UI behavior.
+      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       id: 90,
       decisionProfile: 'balanced',
       sourceAgent: null,
