@@ -55,6 +55,13 @@ def _is_ebbot_packaged_health_probe() -> bool:
         and bool(getattr(sys, "frozen", False))
     )
 
+
+def _is_ebbot_packaged_react_probe() -> bool:
+    """Opt-in read-only React asset test nested inside the frozen health probe."""
+    return _is_ebbot_packaged_health_probe() and (
+        os.getenv("EBBOT_PACKAGED_REACT_PROBE") == "1"
+    )
+
 # Match src="/assets/foo.js" / href="/assets/foo.css" produced by the
 # vite build. Used by the startup self-check to surface packaging
 # mismatches early (see GitHub #1064 / #1065 / #1050).
@@ -361,10 +368,54 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
     )
 
     if _is_ebbot_packaged_health_probe():
-        # Deliberately no general API routes, SPA, auth/session or analysis.
+        # Never register the production API, scheduler, task/portfolio routes,
+        # Web auth middleware or live stock-data calls in the frozen CI test.
         @app.get("/api/health", include_in_schema=False)
         async def _offline_packaged_health():
             return {"status": "ok", "probe": "offline-packaged"}
+
+        if _is_ebbot_packaged_react_probe():
+            # Diagnostic-only canned response so the actual bundled React
+            # router can mount; no credentials, cookies or auth session.
+            @app.get("/api/v1/auth/status", include_in_schema=False)
+            async def _offline_auth_status():
+                return {
+                    "authEnabled": False,
+                    "loggedIn": False,
+                    "passwordSet": False,
+                    "passwordChangeable": False,
+                    "setupState": "no_password",
+                }
+
+            @app.get("/", include_in_schema=False)
+            @app.get("/usage", include_in_schema=False)
+            @app.get("/data", include_in_schema=False)
+            async def _offline_react_index():
+                if not (static_dir / "index.html").is_file():
+                    return JSONResponse(
+                        {"error": "packaged_react_assets_missing"},
+                        status_code=503,
+                    )
+                return _frontend_index_response(static_dir)
+
+            @app.api_route(
+                "/assets/{asset_path:path}",
+                methods=["GET", "HEAD"],
+                include_in_schema=False,
+            )
+            async def _offline_react_asset(asset_path: str):
+                assets_dir = static_dir / "assets"
+                candidate = _resolve_asset_path(assets_dir, asset_path)
+                if candidate is None or not candidate.is_file():
+                    return Response(
+                        content="asset not found",
+                        status_code=404,
+                        media_type="text/plain",
+                    )
+                return FileResponse(
+                    candidate,
+                    media_type=_frontend_asset_media_type(str(candidate)),
+                )
 
         return app
 
