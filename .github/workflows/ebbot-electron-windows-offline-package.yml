@@ -5,6 +5,7 @@ on:
     branches:
       - audit/ebbot-windows-offline-main-stage-20261121
       - test/ebbot-packaged-health-loopback-20261121
+      - test/ebbot-electron-ui-loopback-20261121
   pull_request:
     branches: [main]
     paths:
@@ -139,6 +140,11 @@ jobs:
         run: |
           python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --timeout-seconds 180
           if ($LASTEXITCODE -ne 0) { throw "Frozen Windows backend health probe failed" }
+      - name: Verify packaged Electron splash, preload and renderer-to-backend loopback ONLY
+        shell: pwsh
+        run: |
+          python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --electron-exe apps/dsa-desktop/dist/win-unpacked/EBBot.exe --timeout-seconds 180
+          if ($LASTEXITCODE -ne 0) { throw "Restricted packaged Electron UI smoke failed" }
       - name: Upload audit JSON ONLY (never upload installer, backend, .env or updater files)
         if: always()
         uses: actions/upload-artifact@v4
@@ -154,5 +160,5 @@ jobs:
           "### EBBot desktop Windows package check" >> $env:GITHUB_STEP_SUMMARY
           "Windows 2022 CI only. NSIS package generated temporarily on runner; executable NOT uploaded or published." >> $env:GITHUB_STEP_SUMMARY
           "EBBot product identity confirmed; updater hard-disabled. Code signing and real-device install remain release blockers." >> $env:GITHUB_STEP_SUMMARY
-          "Only a restricted frozen backend loopback health check is verified; full desktop startup, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
+          "Restricted frozen backend and packaged Electron BrowserWindow splash/renderer loopback smoke checked; full React dashboard, user install/uninstall and data preservation NOT VERIFIED." >> $env:GITHUB_STEP_SUMMARY
           "No credentials, production install, live/paper trades, market scans or scheduled jobs." >> $env:GITHUB_STEP_SUMMARY
