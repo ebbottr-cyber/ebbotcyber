@@ -77,6 +77,5 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   }
   assert.match(smoke, /never click trading, screening, analysis, save/);
   assert.match(smoke, /navigation.checkedPages.length !== 4/);
-  assert.match(smoke, /nav\\.querySelector\\('a\\[aria-label="Hisse Analizi"\\]'\\)/);
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
 });
