@@ -33,8 +33,13 @@ function requireUnusedDestination(destination, label) {
   if (fs.existsSync(destination) || fs.lstatSync(destination, { throwIfNoEntry: false })) {
     throw new Error(`${label} must not exist or overwrite previous user data`);
   }
-  if (fs.existsSync(destination + '-wal') || fs.existsSync(destination + '-shm')) {
-    throw new Error(`${label} has existing SQLite WAL/SHM sidecar files`);
+  // existsSync() follows the final symlink and reports false for a dangling
+  // WAL/SHM link. lstatSync() must reject *any* filesystem entry, including
+  // broken links, before a snapshot/staged restore is allowed to proceed.
+  for (const sidecar of [destination + '-wal', destination + '-shm']) {
+    if (fs.lstatSync(sidecar, { throwIfNoEntry: false })) {
+      throw new Error(`${label} has existing SQLite WAL/SHM sidecar files`);
+    }
   }
 }
 
