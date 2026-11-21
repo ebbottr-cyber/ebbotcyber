@@ -92,3 +92,21 @@ def get_equity_coverage(response: Response) -> dict:
     if not is_auth_enabled():
         return unavailable_equity_coverage_report("administrator_auth_required")
     return read_equity_coverage_report()
+
+
+@router.get(
+    "/bist-identity",
+    summary="Read private BIST KAP/XIST reconciliation aggregate only",
+    description="Read-only operator report; never includes symbols, ISINs, prices, or paths.",
+)
+def get_bist_identity_summary(response: Response) -> dict:
+    """Apply the existing admin session gate and prevent auth-off disclosure."""
+    from src.services.bist_identity_report_reader import (
+        read_bist_identity_summary,
+        unavailable_bist_identity_report,
+    )
+
+    response.headers["Cache-Control"] = "no-store"
+    if not is_auth_enabled():
+        return unavailable_bist_identity_report("administrator_auth_required")
+    return read_bist_identity_summary()
