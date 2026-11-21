@@ -1916,7 +1916,7 @@ const PortfolioPage: React.FC = () => {
           <div className="text-xs text-secondary space-y-1">
             <div>{text.accountCount}: {snapshot?.accountCount ?? '--'}</div>
             <div>{text.currency}: {snapshot?.currency || '--'}</div>
-            <div>{text.costMethodShort}: {(snapshot?.costMethod || costMethod).toUpperCase()}</div>
+            <div data-testid="portfolio-cost-method-current">{text.costMethodShort}: {(snapshot?.costMethod || costMethod).toUpperCase()}</div>
           </div>
         </Card>
         <Card padding="md">
