@@ -755,6 +755,7 @@ describe('DecisionSignalsPage', () => {
   });
 
   it('reports an expired signal refresh separately and refreshes active views', async () => {
+    // The Windows suite already sets a live createdAt below; do not duplicate it.
     const refreshedItem = makeSignal({
       id: 90,
       // Keep this test signal inside the default 30-day timeline window.

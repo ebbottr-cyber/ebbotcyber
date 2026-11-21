@@ -1,0 +1,145 @@
+name: EBBot Windows React two-sided conflict candidate full regression (NO trades)
+
+on:
+  push:
+    branches: [integration/ebbot-windows-react-hunk-candidate-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-react-windows-candidate-audit
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  scoped-react:
+    name: Thirty-five original and repaired UI suites
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install pinned React dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Turkish product default and explicit zh legacy contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- --reporter=dot \
+            tests/ui_governance.test.ts \
+            src/contexts/__tests__/UiLanguageContext.test.tsx \
+            src/components/layout/__tests__/DesktopUpdateIndicator.test.tsx \
+            src/pages/__tests__/AlertsPage.test.tsx \
+            src/components/history/__tests__/HistoryList.test.tsx \
+            src/components/history/__tests__/StockBarItem.test.tsx \
+            src/components/history/__tests__/StockHistoryTrendDrawer.test.tsx \
+            src/components/report/__tests__/ReportOverview.test.tsx \
+            src/components/settings/__tests__/AuthSettingsCard.test.tsx \
+            src/components/settings/__tests__/SettingsField.test.tsx \
+            src/components/run-flow/__tests__/RunFlowEventList.test.tsx \
+            src/components/run-flow/__tests__/RunFlowGraph.test.tsx \
+            src/components/run-flow/__tests__/RunFlowNodeDetails.test.tsx \
+            src/components/run-flow/__tests__/RunFlowPanel.test.tsx \
+            src/components/settings/__tests__/AgentBackendStatusPanel.test.tsx \
+            src/components/settings/__tests__/GenerationBackendStatusPanel.test.tsx \
+            src/components/settings/__tests__/IntelligentImport.test.tsx \
+            src/pages/__tests__/PortfolioPage.test.tsx \
+            src/pages/__tests__/SettingsPage.test.tsx \
+            src/pages/__tests__/HomePage.test.tsx \
+            src/pages/__tests__/ChatPage.test.tsx \
+            src/pages/__tests__/BacktestPage.test.tsx \
+            src/pages/__tests__/DataCenterPage.test.tsx \
+            src/pages/__tests__/LoginPage.test.tsx \
+            src/components/alerts/__tests__/AlertRuleForm.test.tsx \
+            src/components/alerts/__tests__/AlertRuleList.test.tsx \
+            src/components/common/__tests__/Input.test.tsx \
+            src/components/layout/__tests__/RouteBoundary.test.tsx \
+            src/components/layout/__tests__/Shell.test.tsx \
+            src/components/layout/__tests__/SidebarNav.test.tsx \
+            src/components/settings/__tests__/LLMChannelEditor.test.tsx \
+            src/components/settings/__tests__/NotificationTestPanel.test.tsx \
+            src/components/tasks/__tests__/TaskPanel.test.tsx \
+            src/components/theme/__tests__/ThemeToggle.test.tsx \
+            src/pages/__tests__/DecisionSignalsPage.test.tsx
+
+  frontend-lint-build:
+    name: Independent ESLint and production TypeScript build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+      - name: ESLint for full React source and tests
+        run: npm run lint
+      - name: TypeScript and Vite production build
+        run: npm run build
+
+  full-react-diagnostics:
+    name: Entire React Vitest regression (never hide failures)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run ALL React Vitest specs and preserve test failures as red
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- --reporter=dot --reporter=junit --outputFile.junit=vitest-full-suite.xml \
+            > vitest-full-suite.log 2>&1 || {
+              code=$?
+              echo "Full React Vitest failed (exit ${code}); archive the genuine failures."
+              tail -n 110 vitest-full-suite.log
+              exit "$code"
+            }
+          tail -n 40 vitest-full-suite.log
+      - name: Preserve full Vitest results for next targeted fixes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-react-windows-candidate-full-vitest-diagnostics
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            apps/dsa-web/vitest-full-suite.xml
+            apps/dsa-web/vitest-full-suite.log
