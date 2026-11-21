@@ -89,7 +89,7 @@ jobs:
             exit 1
           fi
       - name: Enforce no skipped or silently removed React tests
-        run: python3 ../../scripts/validate_vitest_junit.py --file vitest-results.xml --min-tests 1409
+        run: python3 ../../scripts/validate_vitest_junit.py --file vitest-results.xml --min-tests 1409 --expected-testset-sha256-file ../../.github/vitest-testset-baseline.sha256
       - name: Archive complete Vitest output on success or failure
         if: always()
         uses: actions/upload-artifact@v4

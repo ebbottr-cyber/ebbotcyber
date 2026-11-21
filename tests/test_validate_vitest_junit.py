@@ -1,4 +1,6 @@
 """Deterministic checks for the fail-closed React JUnit CI contract."""
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -47,6 +49,26 @@ def test_current_react_floor_rejects_1408_and_accepts_1409(tmp_path: Path) -> No
     with pytest.raises(ValueError, match=r"Only 1408 JUnit cases; expected at least 1409"):
         validate_junit(junit_with_cases(1408))
     assert validate_junit(junit_with_cases(1409)) == 1409
+
+
+def test_rejects_same_count_if_test_identity_is_replaced(tmp_path: Path) -> None:
+    original = '<testsuite><testcase classname="a" name="test_one"/><testcase classname="a" name="test_two"/></testsuite>'
+    modified = '<testsuite><testcase classname="a" name="test_one"/><testcase classname="a" name="test_other"/></testsuite>'
+    baseline = hashlib.sha256(json.dumps(
+        [("a", "test_one"), ("a", "test_two")], ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    assert validate_junit(_write(tmp_path, original), min_tests=2, expected_testset_sha256=baseline) == 2
+    with pytest.raises(ValueError, match="React test identities changed"):
+        validate_junit(_write(tmp_path, modified), min_tests=2, expected_testset_sha256=baseline)
+
+
+def test_cli_rejects_missing_identity_baseline(tmp_path: Path) -> None:
+    file = _write(tmp_path, '<testsuite><testcase classname="a" name="one"/></testsuite>')
+    missing = tmp_path / "missing.sha256"
+    assert main([
+        "--file", str(file), "--min-tests", "1",
+        "--expected-testset-sha256-file", str(missing),
+    ]) == 1
 
 
 def test_rejects_no_tests(tmp_path: Path) -> None:
