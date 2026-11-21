@@ -754,7 +754,13 @@ describe('DecisionSignalsPage', () => {
   });
 
   it('reports an expired signal refresh separately and refreshes active views', async () => {
+    // A refreshed active signal must be within the selected 30-day timeline window.
+    // Keep the fixture relative to the test date instead of relying on June 2026.
+    const refreshedAt = Date.now();
     const refreshedItem = makeSignal({
+      createdAt: new Date(refreshedAt - 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(refreshedAt).toISOString(),
+      expiresAt: new Date(refreshedAt + 24 * 60 * 60 * 1000).toISOString(),
       id: 90,
       decisionProfile: 'balanced',
       sourceAgent: null,
