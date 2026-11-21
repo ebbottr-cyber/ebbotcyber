@@ -124,6 +124,74 @@ test('existing database and stale WAL or SHM sidecars refuse staged restore', (t
   assert.equal(fs.existsSync(ctx.restoreTarget), false);
 });
 
+test('dangling WAL and SHM entries are rejected in BOTH bridge operations before any spawn or write', (t) => {
+  const ctx = setup(t);
+  const bytes = Buffer.from('trusted synthetic candidate, no real user data');
+  fs.writeFileSync(ctx.destination, bytes);
+  const originalLstat = fs.lstatSync;
+  t.after(() => { fs.lstatSync = originalLstat; });
+  const restore = {
+    snapshotFile: ctx.destination,
+    destination: ctx.restoreTarget,
+    expectedSha256: evidence(bytes).sha256,
+    expectedSize: bytes.length,
+  };
+  for (const suffix of ['-wal', '-shm']) {
+    let frozenRunnerCalls = 0;
+    const danglingRestoreLink = ctx.restoreTarget + suffix;
+    const danglingFrozenLink = path.join(path.dirname(ctx.destination), 'frozen.db' + suffix);
+    fs.lstatSync = (target, options) => {
+      if (target === danglingRestoreLink || target === danglingFrozenLink) {
+        // An actual dangling link has existsSync=false but lstatSync returns
+        // a non-undefined Dirent/Stats; simulate this even on locked-down
+        // Windows runners that cannot create real symbolic links.
+        assert.equal(fs.existsSync(target), false);
+        return { isSymbolicLink: () => true };
+      }
+      return originalLstat(target, options);
+    };
+    try {
+      assert.throws(() => stageSnapshotRestoreCandidate(restore), /WAL\/SHM/);
+      assert.equal(fs.existsSync(ctx.restoreTarget), false);
+      assert.deepEqual(fs.readdirSync(path.dirname(ctx.restoreTarget)), []);
+      assert.throws(() => createFrozenSnapshotCandidate({
+        backendExe: ctx.backendExe,
+        sourceDatabase: ctx.sourceDatabase,
+        destination: path.join(path.dirname(ctx.destination), 'frozen.db'),
+        runner: () => { frozenRunnerCalls += 1; return { status: 0 }; },
+      }), /WAL\/SHM/);
+      assert.equal(frozenRunnerCalls, 0);
+      assert.equal(fs.existsSync(path.join(path.dirname(ctx.destination), 'frozen.db')), false);
+      assert.deepEqual(fs.readFileSync(ctx.destination), bytes);
+    } finally {
+      fs.lstatSync = originalLstat;
+    }
+  }
+});
+
+test('a real dangling WAL sidecar symlink is never clobbered by staging', (t) => {
+  const ctx = setup(t);
+  const bytes = Buffer.from('synthetic snapshot evidence');
+  fs.writeFileSync(ctx.destination, bytes);
+  const dangling = ctx.restoreTarget + '-wal';
+  try {
+    fs.symlinkSync(path.join(path.dirname(dangling), 'does-not-exist.db'), dangling, 'file');
+  } catch (_error) {
+    t.skip('Windows runner does not allow creating symbolic links');
+    return;
+  }
+  assert.equal(fs.existsSync(dangling), false);
+  assert.equal(fs.lstatSync(dangling).isSymbolicLink(), true);
+  assert.throws(() => stageSnapshotRestoreCandidate({
+    snapshotFile: ctx.destination,
+    destination: ctx.restoreTarget,
+    expectedSha256: evidence(bytes).sha256,
+    expectedSize: bytes.length,
+  }), /WAL\/SHM/);
+  assert.equal(fs.existsSync(ctx.restoreTarget), false);
+  assert.equal(fs.lstatSync(dangling).isSymbolicLink(), true);
+});
+
 test('altered snapshot, wrong digest and malformed frozen output cannot pass', (t) => {
   const ctx = setup(t);
   const bytes = Buffer.from('trusted candidate');
