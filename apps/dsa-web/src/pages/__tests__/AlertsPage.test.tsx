@@ -1,4 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { renderLegacyChineseUi as render } from '../../test/renderLegacyChineseUi';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AlertsPage from '../AlertsPage';
 
@@ -72,6 +74,7 @@ function createDeferred<T>() {
 }
 
 beforeEach(() => {
+  window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
   vi.clearAllMocks();
   listRules.mockResolvedValue({ items: [rule], total: 1, page: 1, pageSize: 20 });
   listTriggers.mockResolvedValue({

@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { renderLegacyChineseUi as render } from '../../../test/renderLegacyChineseUi';
+import { fireEvent, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskPanel } from '../TaskPanel';
 import type { TaskInfo } from '../../../types/analysis';
 
@@ -13,6 +14,9 @@ const baseTask: TaskInfo = {
   reportType: 'detailed',
   createdAt: '2026-03-21T08:00:00Z',
 };
+
+// These assertions intentionally exercise Chinese copy; production remains Turkish-first.
+beforeEach(() => window.localStorage.removeItem('dsa.uiLanguage'));
 
 describe('TaskPanel', () => {
   it('renders requested analysis phase badges for active tasks', () => {
