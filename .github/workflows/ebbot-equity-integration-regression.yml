@@ -162,8 +162,8 @@ jobs:
           cache: npm
           cache-dependency-path: apps/dsa-web/package-lock.json
       - run: npm ci --no-audit --no-fund
-      - name: Existing Data Center page and both new read-only panels
-        run: npm run test -- src/pages/__tests__/DataCenterPage.test.tsx src/components/data-center/EquityCoveragePanel.test.tsx src/components/data-center/BistIdentityPanel.test.tsx
+      - name: Data Center panels and explicit legacy locale regression
+        run: npm run test -- src/pages/__tests__/DataCenterPage.test.tsx src/components/data-center/EquityCoveragePanel.test.tsx src/components/data-center/BistIdentityPanel.test.tsx src/components/common/__tests__/Input.test.tsx src/components/theme/__tests__/ThemeToggle.test.tsx src/components/layout/__tests__/DesktopUpdateIndicator.test.tsx
       - name: Frontend lint
         run: npm run lint
       - name: TypeScript and production Vite build

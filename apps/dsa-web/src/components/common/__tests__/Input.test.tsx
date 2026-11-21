@@ -1,6 +1,16 @@
+import type { ReactElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { Input } from '../Input';
+
+function renderWithChineseLabels(ui: ReactElement) {
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
+  return render(<UiLanguageProvider>{ui}</UiLanguageProvider>);
+}
+
+afterEach(() => localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY));
 
 describe('Input', () => {
   it('wires label and hint text to the input', () => {
@@ -41,7 +51,7 @@ describe('Input', () => {
   });
 
   it('toggles password visibility in uncontrolled mode', () => {
-    render(<Input label="密码" type="password" allowTogglePassword />);
+    renderWithChineseLabels(<Input label="密码" type="password" allowTogglePassword />);
 
     const input = screen.getByLabelText('密码');
     expect(input).toHaveAttribute('type', 'password');
@@ -53,7 +63,7 @@ describe('Input', () => {
   it('supports controlled password visibility', () => {
     const onPasswordVisibleChange = vi.fn();
 
-    render(
+    renderWithChineseLabels(
       <Input
         label="API Key"
         type="password"
@@ -70,7 +80,7 @@ describe('Input', () => {
   });
 
   it('supports the login appearance without affecting password toggle behavior', () => {
-    render(<Input label="登录密码" type="password" allowTogglePassword appearance="login" />);
+    renderWithChineseLabels(<Input label="登录密码" type="password" allowTogglePassword appearance="login" />);
 
     const input = screen.getByLabelText('登录密码');
     expect(input).toHaveAttribute('data-appearance', 'login');

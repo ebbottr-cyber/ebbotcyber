@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
 import { resetSharedDesktopUpdateState } from '../../../desktop/updateStore';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import { DesktopUpdateIndicator } from '../DesktopUpdateIndicator';
 
 const {
@@ -32,14 +34,17 @@ function createDesktopRuntime(overrides: Record<string, unknown> = {}) {
 
 function renderIndicator() {
   return render(
-    <MemoryRouter>
-      <DesktopUpdateIndicator />
-    </MemoryRouter>,
+    <UiLanguageProvider>
+      <MemoryRouter>
+        <DesktopUpdateIndicator />
+      </MemoryRouter>
+    </UiLanguageProvider>,
   );
 }
 
 describe('DesktopUpdateIndicator', () => {
   beforeEach(() => {
+    localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
     desktopGetUpdateState.mockReset();
     desktopCheckForUpdates.mockReset();
     desktopInstallDownloadedUpdate.mockReset();
@@ -62,6 +67,7 @@ describe('DesktopUpdateIndicator', () => {
   });
 
   afterEach(() => {
+    localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
     delete (window as { dsaDesktop?: unknown }).dsaDesktop;
     resetSharedDesktopUpdateState();
   });
