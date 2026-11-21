@@ -1,0 +1,95 @@
+name: EBBot Xetra official public source check (read-only)
+
+on:
+  push:
+    branches:
+      - feat/four-market-equity-audit-v1
+    paths:
+      - '.github/workflows/xetra-public-source-validation.yml'
+      - 'src/services/four_market_equity.py'
+      - 'scripts/audit_four_market_equities.py'
+  pull_request:
+    branches:
+      - feat/all-markets-paper-universe-v1
+    paths:
+      - '.github/workflows/xetra-public-source-validation.yml'
+      - 'src/services/four_market_equity.py'
+      - 'scripts/audit_four_market_equities.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xetra-public-source-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch official public Xetra CSV for transient schema and inventory validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "$workdir"' EXIT
+          curl --fail --location --silent --show-error --retry 2 \
+            --connect-timeout 15 --max-time 90 --max-filesize 67108864 \
+            --proto '=https' --proto-redir '=https' \
+            'https://www.cashmarket.deutsche-boerse.com/resource/blob/1528/b52ea43a2edac92e8283d40645d1c076/data/t7-xetr-allTradableInstruments.csv' \
+            --output "$workdir/xetra-source.csv"
+          python - "$workdir/xetra-source.csv" <<'PY'
+          from pathlib import Path
+          import sys
+          data = Path(sys.argv[1]).read_bytes()
+          print("Official Xetra CSV bytes:", len(data))
+          head = data[:4096].decode("utf-8-sig", errors="replace").splitlines()[:5]
+          print("Official Xetra CSV first lines (schema diagnostic):", [repr(line[:240]) for line in head])
+          PY
+          python - "$workdir/xetra-source.csv" <<'PY'
+          from pathlib import Path
+          import hashlib, sys
+          raw = Path(sys.argv[1]).read_bytes()
+          print("Xetra HTTP payload bytes:", len(raw))
+          print("SHA256:", hashlib.sha256(raw).hexdigest())
+          for i, line in enumerate(raw[:32768].decode("utf-8", errors="replace").splitlines()[:5]):
+              print(f"Header line {i + 1}:", repr(line[:240]))
+          PY
+          python -m scripts.audit_four_market_equities \
+            --xetra-input "$workdir/xetra-source.csv" \
+            --xetra-output "$workdir/xetra-candidates.csv" \
+            | tee "$workdir/audit.json"
+          python - "$workdir/audit.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          result = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          xetra = result.get("xetra_source_audit", {})
+          count = xetra.get("included_common_stocks", 0)
+          if xetra.get("status") != "XETRA_CANDIDATES_ONLY" or count < 100:
+              raise SystemExit("Xetra official live-source audit failed or returned too few shares")
+          if "de" in result.get("markets_without_candidates", []):
+              raise SystemExit("Germany is still missing from the four-market candidate inventory")
+          print(
+              "Xetra public snapshot checked:",
+              count,
+              "active common-stock candidates as of",
+              xetra.get("source_as_of_date"),
+          )
+          print("This validates only source parsing, not Yahoo symbols or broker access.")
+          PY
+          mkdir -p "$RUNNER_TEMP/xetra-verified"
+          cp "$workdir/xetra-candidates.csv" "$RUNNER_TEMP/xetra-verified/xetra-candidates.csv"
+          cp "$workdir/audit.json" "$RUNNER_TEMP/xetra-verified/audit.json"
+          printf 'Source: https://www.cashmarket.deutsche-boerse.com/resource/blob/1528/b52ea43a2edac92e8283d40645d1c076/data/t7-xetr-allTradableInstruments.csv\\nOfficial full CSV was fetched transiently and is NOT embedded.\\nThe CSV contains .DE CANDIDATES, not verified tradable price symbols or real-time quotes.\\n' > "$RUNNER_TEMP/xetra-verified/SOURCE.txt"
+      - name: Provide verified source-based German share candidates for operator download
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xetra-stock-candidates-${{ github.run_id }}
+          path: ${{ runner.temp }}/xetra-verified/
+          if-no-files-found: error
+          retention-days: 7
