@@ -1,0 +1,236 @@
+name: EBBot ephemeral main plus Windows React five-conflict resolution (NO REMOTE MERGE)
+
+on:
+  push:
+    branches: [audit/ebbot-main-win-react-3conflict-preview-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-ephemeral-main-win-react-5conflicts
+  cancel-in-progress: true
+
+env:
+  MAIN_SHA: 'c95fb7f2ee63d5bee131bd59b25a38ae420d0546'
+  CANDIDATE_SHA: 'fb1e4e9fb4a13ebbd635ded97f8c4f604197a94c'
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+  ELECTRON_BUILDER_PUBLISH: 'never'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  isolated-preview:
+    name: Throwaway local conflict resolution + full React and offline safety contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch exact source refs; no branch, PR or main writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/integration/ebbot-main-react-windows-probe-v2-20261121:refs/remotes/origin/ebbot-candidate
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$MAIN_SHA" ]]
+          [[ "$(git rev-parse refs/remotes/origin/ebbot-candidate)" == "$CANDIDATE_SHA" ]]
+      - name: Resolve EXACTLY five reviewed Git conflicts in ephemeral detached worktree
+        id: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          preview="$RUNNER_TEMP/ebbot-merged-preview"
+          git worktree add --detach "$preview" refs/remotes/origin/ebbot-candidate
+          export PREVIEW_DIR="$preview"
+          set +e
+          git -C "$preview" -c user.name='EBBot ephemeral audit' \
+            -c user.email='audit@example.invalid' \
+            merge --no-commit --no-ff refs/remotes/origin/main \
+            > "$RUNNER_TEMP/ebbot-local-merge-attempt.log" 2>&1
+          merge_exit=$?
+          set -e
+          echo "Local-only merge exit code: $merge_exit"
+          if [[ "$merge_exit" -gt 1 ]]; then
+            cat "$RUNNER_TEMP/ebbot-local-merge-attempt.log"
+            exit "$merge_exit"
+          fi
+          python - <<'PY'
+          import os
+          import subprocess
+          path = os.environ["PREVIEW_DIR"]
+          actual = sorted(subprocess.check_output(
+              ["git", "-C", path, "diff", "--name-only", "--diff-filter=U"],
+              text=True,
+          ).splitlines())
+          expected = sorted([
+              ".github/workflows/ebbot-electron-windows-offline-package.yml",
+              "apps/dsa-desktop/ci-ui-smoke.js",
+              "apps/dsa-desktop/main.js",
+              "apps/dsa-desktop/tests/ci-react-smoke.test.js",
+              "apps/dsa-desktop/tests/ci-ui-smoke.test.js",
+          ])
+          print("Actual conflict files:", actual)
+          if actual != expected:
+              raise SystemExit("Unexpected conflict set; fail closed instead of discarding sources")
+          PY
+          for file in \
+            ".github/workflows/ebbot-electron-windows-offline-package.yml" \
+            "apps/dsa-desktop/ci-ui-smoke.js" \
+            "apps/dsa-desktop/main.js" \
+            "apps/dsa-desktop/tests/ci-react-smoke.test.js" \
+            "apps/dsa-desktop/tests/ci-ui-smoke.test.js"; do
+            # Already hand-reconciled in PR172: keep SQLite, React probe and session regression.
+            git -C "$preview" checkout --ours -- "$file"
+            git -C "$preview" add -- "$file"
+          done
+          # Git may report no textual conflict yet duplicate Turkish dictionary keys.
+          # Delete ONLY the three known inserted main copies, retaining the larger
+          # candidate TR dictionary; stop on any layout drift.
+          python -m unittest discover -s tests -p test_ebbot_ui_usage_translation_dedup.py -v
+          python scripts/resolve_ebbot_ui_usage_translation_dup.py \
+            --source "$preview/apps/dsa-web/src/i18n/uiText.ts" \
+            --report "$RUNNER_TEMP/ebbot-usage-translation-dedup.json"
+          git -C "$preview" add -- apps/dsa-web/src/i18n/uiText.ts
+          [[ -z "$(git -C "$preview" ls-files -u)" ]]
+          [[ "$(git -C "$preview" rev-parse HEAD)" == "$CANDIDATE_SHA" ]]
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$MAIN_SHA" ]]
+          git -C "$preview" diff --cached --check
+          tree=$(git -C "$preview" write-tree)
+          echo "Temporary Git resolved tree: $tree"
+          [[ "$tree" =~ ^[0-9a-f]{40}$ ]]
+          for check in \
+            "sqliteSnapshotBridge" \
+            "sqliteRollbackRehearsal" \
+            "reactProbe: process.env.EBBOT_ELECTRON_REACT_SMOKE"; do
+            grep -Fq "$check" "$preview/apps/dsa-desktop/main.js"
+          done
+          for check in \
+            "ebbot_sqlite_snapshot_smoke.py" \
+            "collect_ebbot_windows_signatures.ps1" \
+            "electron-builder --win nsis --publish never" \
+            "probe_ebbot_packaged_health.py" \
+            "--react-ui"; do
+            grep -Fq -- "$check" "$preview/.github/workflows/ebbot-electron-windows-offline-package.yml"
+          done
+          grep -Fq "EBBOT_PACKAGED_REACT_PROBE" "$preview/api/app.py"
+          grep -Fq "127.0.0.1" "$preview/apps/dsa-desktop/ci-ui-smoke.js"
+          grep -Fq "Piyasa Özeti" "$preview/apps/dsa-desktop/ci-ui-smoke.js"
+          grep -Fq "Hisse Analizi" "$preview/apps/dsa-desktop/ci-ui-smoke.js"
+          grep -Fq "packaged CI smoke passes a defined Electron session" "$preview/apps/dsa-desktop/tests/ci-ui-smoke.test.js"
+          python - <<'PY'
+          import json, os
+          import subprocess
+          p = os.environ["PREVIEW_DIR"]
+          tree = subprocess.check_output(["git", "-C", p, "write-tree"], text=True).strip()
+          result = {
+              "status": "LOCAL_THREE_GIT_PLUS_THREE_TURKISH_DUPLICATES_RESOLVED_PENDING_TESTS",
+              "release_status": "BLOCKED",
+              "main": os.environ["MAIN_SHA"],
+              "candidate": os.environ["CANDIDATE_SHA"],
+              "resolved_tree": tree,
+              "resolved_paths": [
+                  ".github/workflows/ebbot-electron-windows-offline-package.yml",
+                  "apps/dsa-desktop/main.js",
+                  "apps/dsa-desktop/ci-ui-smoke.js",
+                  "apps/dsa-desktop/tests/ci-react-smoke.test.js",
+                  "apps/dsa-desktop/tests/ci-ui-smoke.test.js",
+                  "apps/dsa-web/src/i18n/uiText.ts",
+              ],
+              "refs_pushed": False,
+              "main_modified": False,
+              "published_or_traded": False,
+          }
+          with open(os.environ["RUNNER_TEMP"] + "/ebbot-three-conflicts-report.json", "w", encoding="utf-8") as f:
+              json.dump(result, f, ensure_ascii=False, indent=2)
+          print(json.dumps(result))
+          PY
+          echo "PREVIEW_DIR=$preview" >> "$GITHUB_ENV"
+      - name: Desktop unit test contracts against resolved local source
+        if: steps.preview.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix "$PREVIEW_DIR/apps/dsa-desktop" --no-audit --no-fund
+          cd "$PREVIEW_DIR/apps/dsa-desktop"
+          npm test
+      - name: Python packaged React/health and SQLite offline safety contracts
+        if: steps.preview.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PREVIEW_DIR"
+          python -m pip install -r .github/requirements-ci.txt
+          python -m pytest -q \
+            tests/test_ebbot_packaged_health_probe.py \
+            tests/test_ebbot_packaged_react_probe.py \
+            tests/test_ebbot_desktop_package_audit.py \
+            tests/test_ebbot_sqlite_snapshot.py \
+            tests/test_ebbot_sqlite_recovery_roundtrip.py \
+            --junitxml="$RUNNER_TEMP/ebbot-three-conflicts-python.xml"
+      - name: Full React regression on truly merged temporary source
+        if: steps.preview.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PREVIEW_DIR/apps/dsa-web"
+          npm ci --no-audit --no-fund
+          npm test -- --reporter=dot --reporter=junit --outputFile.junit="$RUNNER_TEMP/ebbot-three-conflicts-react.xml" \
+            > "$RUNNER_TEMP/ebbot-three-conflicts-react.log" 2>&1 || {
+              result=$?
+              tail -n 120 "$RUNNER_TEMP/ebbot-three-conflicts-react.log"
+              exit "$result"
+            }
+          tail -n 40 "$RUNNER_TEMP/ebbot-three-conflicts-react.log"
+      - name: Independent ESLint and TypeScript/Vite build of temporary integrated React
+        if: always() && steps.preview.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PREVIEW_DIR/apps/dsa-web"
+          npm run lint
+          npm run build
+      - name: Preserve only merge report and test evidence, never executables or DB
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-ephemeral-5conflicts-test-evidence
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ebbot-three-conflicts-report.json
+            ${{ runner.temp }}/ebbot-usage-translation-dedup.json
+            ${{ runner.temp }}/ebbot-local-merge-attempt.log
+            ${{ runner.temp }}/ebbot-three-conflicts-python.xml
+            ${{ runner.temp }}/ebbot-three-conflicts-react.log
+            ${{ runner.temp }}/ebbot-three-conflicts-react.xml
+
+  fail-closed-gate:
+    name: All isolated integration tests required - release still BLOCKED
+    runs-on: ubuntu-24.04
+    needs: [isolated-preview]
+    if: always()
+    steps:
+      - name: Block skipped, failed or cancelled preview
+        shell: bash
+        env:
+          PREVIEW_RESULT: ${{ needs.isolated-preview.result }}
+        run: |
+          set -euo pipefail
+          echo "Temporary integration preview: $PREVIEW_RESULT"
+          echo "Release permanently BLOCKED in this workflow; no remote merge, no installer execution, no orders."
+          [[ "$PREVIEW_RESULT" == success ]]
