@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from api.deps import get_config_dep
 from api.v1.schemas.common import ErrorResponse
@@ -70,3 +70,16 @@ def get_data_capabilities(
         config,
         runtime_scheduler=getattr(request.app.state, "runtime_scheduler_service", None),
     )
+
+
+@router.get(
+    "/equity-coverage",
+    summary="Read operator-provided four-market equity coverage evidence",
+    description="Metadata-only review of a configured local report; no price fetch, symbol lists or orders.",
+)
+def get_equity_coverage(response: Response) -> dict:
+    """Read a fixed operator-selected file; clients cannot supply a path."""
+    from src.services.equity_data_coverage_reader import read_equity_coverage_report
+
+    response.headers["Cache-Control"] = "no-store"
+    return read_equity_coverage_report()
