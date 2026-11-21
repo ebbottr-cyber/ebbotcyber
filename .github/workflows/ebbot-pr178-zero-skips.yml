@@ -1,0 +1,118 @@
+name: EBBot PR178 zero-skipped full React and genuine Shell interaction (NO trades)
+
+on:
+  push:
+    branches:
+      - test/ebbot-pr178-shell-zero-skip-20261121
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-pr178-shell-zero-skip-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+
+jobs:
+  shell-interactions:
+    name: Shell, theme and navigation - no skipped Shell cases
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Run actual Shell, theme, sidebar interactions
+        run: |
+          npx vitest run \
+            src/components/layout/__tests__/Shell.test.tsx \
+            src/components/layout/__tests__/SidebarNav.test.tsx \
+            src/components/theme/__tests__/ThemeToggle.test.tsx
+
+  full-react:
+    name: All React tests including previously skipped Shell checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Full Vitest, original exit code and JUnit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          if npm test -- --reporter=dot --reporter=junit --outputFile.junit=vitest-results.xml > vitest-console.log 2>&1; then
+            tail -n 55 vitest-console.log
+          else
+            tail -n 100 vitest-console.log
+            exit 1
+          fi
+      - name: Fail if JUnit contains even one skipped, failed or missing React testcase
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("vitest-results.xml").getroot()
+          suites = [root] if root.tag == "testsuite" else root.findall(".//testsuite")
+          cases = root.findall(".//testcase")
+          skipped = sum(1 for case in cases if case.find("skipped") is not None)
+          failed = sum(1 for case in cases if case.find("failure") is not None or case.find("error") is not None)
+          if not suites or len(cases) < 1528 or skipped or failed:
+              raise SystemExit(f"FAIL-CLOSED React JUnit: suites={len(suites)} cases={len(cases)} skipped={skipped} failed={failed}; require 1528+ cases and ZERO skipped/failed")
+          print(f"PASS: {len(cases)} real React tests; 0 skipped; 0 failed")
+          PY
+      - name: Store JUnit even when red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ebbot-pr178-zero-skips-full-react-evidence
+          path: |
+            apps/dsa-web/vitest-console.log
+            apps/dsa-web/vitest-results.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+  lint-build:
+    name: Independent ESLint, TypeScript and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
