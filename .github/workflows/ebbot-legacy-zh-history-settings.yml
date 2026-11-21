@@ -1,0 +1,60 @@
+name: EBBot legacy zh history report settings tests (NO trading)
+
+on:
+  push:
+    branches: [fix/ebbot-legacy-zh-history-settings-tests-20261121]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ebbot-history-report-settings-zh-first-group
+  cancel-in-progress: true
+
+env:
+  SCHEDULE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_SUPPRESS_START: 'true'
+  RUNTIME_SCHEDULER_FORCE_ENABLED: 'false'
+  RUNTIME_SCHEDULER_RUN_IMMEDIATELY: 'false'
+  MEME_COIN_DISCOVERY_ENABLED: 'false'
+  MEME_COIN_TRADING_ENABLED: 'false'
+  MEME_RADAR_LIVE_ENABLED: 'false'
+
+jobs:
+  focused-legacy-tests:
+    name: Ten scoped legacy zh + Turkish-default React suites
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - name: Locked dependency install
+        run: npm ci --no-audit --no-fund
+      - name: Verify ten original and fixed React suites (fail if any test fails)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- --reporter=dot \
+            tests/ui_governance.test.ts \
+            src/contexts/__tests__/UiLanguageContext.test.tsx \
+            src/components/layout/__tests__/DesktopUpdateIndicator.test.tsx \
+            src/pages/__tests__/AlertsPage.test.tsx \
+            src/components/history/__tests__/HistoryList.test.tsx \
+            src/components/history/__tests__/StockBarItem.test.tsx \
+            src/components/history/__tests__/StockHistoryTrendDrawer.test.tsx \
+            src/components/report/__tests__/ReportOverview.test.tsx \
+            src/components/settings/__tests__/AuthSettingsCard.test.tsx \
+            src/components/settings/__tests__/SettingsField.test.tsx
+      - name: Lint entire React project
+        run: npm run lint
+      - name: Compile full production TypeScript/Vite frontend
+        run: npm run build
