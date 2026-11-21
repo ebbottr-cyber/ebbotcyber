@@ -36,6 +36,7 @@ test('Turkish React smoke remains opt-in inside packaged Windows CI only', () =>
   assert.match(probe, /expected_exit_code = 42 if react_probe else 0/);
   assert.match(probe, /PASS: packaged Turkish React Usage\/Data, Portfolio, AI Signals, Screening and Settings navigation/);
   assert.match(probe, /PASS: Usage period and AI signal dropdown filters updated/);
+  assert.match(probe, /PASS: Portfolio cost method and Settings categories updated/);
 });
 
 test('CI Electron React smoke checks Turkish real navigation and restricts network', () => {
@@ -71,6 +72,12 @@ test('CI Electron React smoke checks Turkish real navigation and restricts netwo
   assert.match(smoke, /decision-signals-action-filter/);
   assert.match(smoke, /decision-signals-status-filter/);
   assert.match(smoke, /readonlyFiltersChanged/);
+  assert.match(smoke, /portfolio-cost-method/);
+  assert.match(smoke, /portfolio-cost-method-current/);
+  assert.match(smoke, /costMethodChanged/);
+  assert.match(smoke, /settings-category-base/);
+  assert.match(smoke, /settings-category-data_source/);
+  assert.match(smoke, /settingsCategoriesChanged/);
 
   assert.match(smoke, /\/api\/v1\/analysis\/analyze/);
 });
