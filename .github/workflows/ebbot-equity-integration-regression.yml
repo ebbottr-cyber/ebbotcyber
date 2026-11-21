@@ -147,3 +147,26 @@ jobs:
         run: npm run build
       - name: No release
         run: echo "Full React verification only. No electron installer, backend EXE, app signing, data license or trading." >> "$GITHUB_STEP_SUMMARY"
+
+  integrated-data-center-ui-focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Existing Data Center page and both new read-only panels
+        run: npm run test -- src/pages/__tests__/DataCenterPage.test.tsx src/components/data-center/EquityCoveragePanel.test.tsx src/components/data-center/BistIdentityPanel.test.tsx
+      - name: Frontend lint
+        run: npm run lint
+      - name: TypeScript and production Vite build
+        run: npm run build
+      - name: Separate focused green does NOT supersede full React failure
+        run: echo "This targeted test lane does not override full React regression failures or grant release." >> "$GITHUB_STEP_SUMMARY"

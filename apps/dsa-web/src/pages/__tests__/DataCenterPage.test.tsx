@@ -3,11 +3,20 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UiLanguageProvider, useUiLanguage } from '../../contexts/UiLanguageContext';
 import DataCenterPage from '../DataCenterPage';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 
-const { getOverview } = vi.hoisted(() => ({ getOverview: vi.fn() }));
+const { getOverview, getEquityCoverage, getBistIdentitySummary } = vi.hoisted(() => ({
+  getOverview: vi.fn(),
+  getEquityCoverage: vi.fn(),
+  getBistIdentitySummary: vi.fn(),
+}));
 
 vi.mock('../../api/dataCapability', () => ({
-  dataCapabilityApi: { getOverview: () => getOverview() },
+  dataCapabilityApi: {
+    getOverview: () => getOverview(),
+    getEquityCoverage: () => getEquityCoverage(),
+    getBistIdentitySummary: () => getBistIdentitySummary(),
+  },
 }));
 
 const overview = {
@@ -111,12 +120,23 @@ function deferred<T>() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // These legacy fixtures intentionally test Chinese labels, not the Turkish
+  // runtime default. Make the test's language choice explicit and isolated.
+  localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'zh');
   getOverview.mockResolvedValue(overview);
+  getEquityCoverage.mockResolvedValue({
+    status: 'unavailable',
+    reason: 'operator_report_not_configured',
+  });
+  getBistIdentitySummary.mockResolvedValue({
+    status: 'unavailable',
+    reason: 'operator_report_not_configured',
+  });
 });
 
 describe('DataCenterPage', () => {
   it('renders the canonical overview without requesting or exposing configuration values', async () => {
-    render(<MemoryRouter><DataCenterPage /></MemoryRouter>);
+    render(<UiLanguageProvider><MemoryRouter><DataCenterPage /></MemoryRouter></UiLanguageProvider>);
 
     expect(await screen.findByRole('heading', { name: '数据中心' })).toBeInTheDocument();
     expect(getOverview).toHaveBeenCalledTimes(1);
@@ -130,7 +150,7 @@ describe('DataCenterPage', () => {
   });
 
   it('keeps cold-start quality unknown instead of presenting it as healthy', async () => {
-    render(<MemoryRouter><DataCenterPage /></MemoryRouter>);
+    render(<UiLanguageProvider><MemoryRouter><DataCenterPage /></MemoryRouter></UiLanguageProvider>);
 
     const row = (await screen.findByText('screening.snapshot')).closest('tr');
     expect(row).toHaveTextContent('unknown');
@@ -146,7 +166,7 @@ describe('DataCenterPage', () => {
       warnings: [],
     });
 
-    render(<MemoryRouter><DataCenterPage /></MemoryRouter>);
+    render(<UiLanguageProvider><MemoryRouter><DataCenterPage /></MemoryRouter></UiLanguageProvider>);
 
     expect(await screen.findByText('数据概览加载失败')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '重试' }));
