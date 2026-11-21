@@ -1,111 +1,71 @@
-# EBBot — Four-market equity data completeness gate (review only)
+# EBBot — Dört piyasa veri eksiksizliği denetimi
 
-This gate checks **evidence, not trading readiness** for Türkiye/BIST (TR), US,
-Germany/Xetra (DE), and Hong Kong (HK). It is independent of draft PR #58
-(universe collectors) and PR #59 (Xetra candidate manifest), so it can be
-reviewed on current `main` without silently merging those large draft stacks.
+**Durum: İNCELEME / GERÇEK İŞLEM VE SANAL EMİR KAPALI.** Bu denetim borsadaki tüm hisselere ait güncel fiyatların hazır olduğunu iddia etmez; eksik kanıtları görünür yapar.
 
-## Exact limits
+## Kapsam
 
-- Baseline: `apps/dsa-web/public/stocks.index.json`, with all active
-  `stock` and `etf` entries in the four selected markets. No Top-100 cutoff.
-  Benchmark indexes and inactive rows are **not** stocks. CN/JP/KR/TW are
-  excluded from the four-market report, not deleted from the repository.
-- Other inventories can be attached using repeated `--stocks` arguments.
-  A catalog/company-directory code is a **candidate**, not a verified
-  exchange-tradable symbol or broker entitlement.
-- Dated source rows and genuine, separately obtained daily OHLCV CSV files
-  are optional evidence. The tool **does not download, manufacture, or
-  infer prices or missing trading days**.
-- Every ticker is counted; no instrument-count cap. Default stdout prints
-  first 10 examples per failure type to avoid huge CI logs; `--report-json`
-  emits **every missing, stale and insufficient symbol** in an exclusive-new
-  file. A single file is capped at 64 MiB; split large historical datasets
-  into multiple files and repeat `--bars`.
-- Minimum history is **250 observed bars** per symbol by default. The latest
-  observed bar must be within **7 calendar days** of the UTC audit date.
-  These configurable heuristics do not prove correct market session calendars
-  or absence of missed sessions/holidays.
-- No authoritative current full-exchange listing, source license, provider
-  ticker/ISIN mapping, real-time pricing, exchange-session completeness,
-  Turkish broker entitlement or execution is certified here. Consequently,
-  **`--strict` always blocks release** (exit 2) even if all supplied CSVs
-  appear internally consistent. Never reinterpret a passing test as market
-  data completeness.
-- No API keys, network calls, API orders, journal changes, SQLite writes,
-  schedule, strategy trading, portfolio positions, paper fills or real orders.
+- Yalnızca **Türkiye (TR), ABD (US), Almanya/Xetra (DE), Hong Kong (HK)** hisse adayları incelenir. Eski CN/JP/KR/BSE kayıtları silinmez, yalnız dört-piyasa toplamına katılmaz.
+- Ana kaynak `apps/dsa-web/public/stocks.index.json`; oradaki büyük harfli `US`/`HK` etiketleri doğru eşlenir. Aktif hisseler ve ETF türleri ayrı sayılır, endeksler ve pasif kayıtlar dışlanır. **100 sembol sınırı yoktur.**
+- 19 Kasım 2026 tarihli resmî Xetra kaynağından türetilmiş **1.750 aday** `data/market_snapshots/de/xetra-candidates.csv` üzerinden otomatik eklenir; dosyanın SHA-256 özeti sabittir. Bu kayıtların `.DE` fiyat sembolü, borsa üyeliğinin bugünkü hali veya Türkiye'de aracı kurum erişimi ayrıca doğrulanmamıştır.
+- BIST'in daha önce Windows bilgisayarında alınan 803 KAP şirket adayı GitHub'a yüklenmediği için otomatik mevcut sayılmaz. `--stocks` ile yerel kaynak dosyası ayrıca eklenebilir. KAP şirket kodu, işleme açık BIST hissesi kanıtı değildir.
+- Eski ABD/HK endeksleri güncel resmî borsa listeleriyle doğrulanmamıştır. Kayıt sayısı fiyat verisi sayısı değildir.
 
-## Commands (repository root)
+## Kanıt denetimi nasıl çalışır?
 
-Basic offline evidence report on the *current branch*:
+1. Kaynak dosyaları tarih, sembol, tür ve biçim açısından okur; mükerrer kayıtları raporlar ve çelişkili türü reddeder.
+2. `--bars` ile eklenen **gerçek günlük OHLCV** dosyalarının tarihini, açılış/en yüksek/en düşük/kapanış/hacim değerlerini, tutarsız mumları, tekrar eden günleri, NaN/sonsuz/sıfır fiyatları ve geleceğe dönük kayıtları denetler.
+3. Varsayılan eşik bir hisse için **250 gözlenen günlük mum** ve son mum için en fazla **7 takvim günü** yaştır. Tatil/seans takvimini doğrulamadığından bu eşik *gerçek geçmiş eksiksizliği sertifikası değildir*.
+4. Varsayılan terminal raporu hata başına ilk 10 örneği gösterir; **bütün sembol sayıları eksiksiz hesaplanır**. `--report-json` verildiğinde bütün eksik, eski ve yetersiz geçmiş sembolleri tam liste halinde yeni JSON dosyasına yazılır. Mevcut dosyayı ezmez.
+5. Dosya başına 64 MiB limit bulunur; büyük OHLCV arşivlerini birkaç dosyaya bölüp `--bars` seçeneğini tekrarlayın.
+
+## PowerShell komutları (depo ana klasöründe)
 
 ```powershell
 python -m scripts.audit_ebbot_market_data_coverage
 ```
 
-Include explicitly sourced and reviewed **local** market inventories, if
-available (examples from the separate draft collector; do not imply that
-the files exist in `main` or on another PC):
+Bilgisayarınızdaki tarihli KAP/Xetra aday dosyalarını da eklemek için:
 
 ```powershell
 python -m scripts.audit_ebbot_market_data_coverage --stocks "$HOME\EBBotPaperData\kap-bist-all.csv" --stocks "$HOME\EBBotPaperData\xetra-candidates.csv"
 ```
 
-Historical OHLCV input format, one row per **real observed completed trading
-session**, with required header:
+Bu örnekler yerel dosya yollarıdır; dosyanın gerçekten bulunması gerekir. Depodaki sabit Xetra listesi ayrıca otomatik okunur, tekrar verilmesi gerekli değildir.
+
+Gerçek fiyat geçmişi CSV başlığı şu şekilde olmalıdır:
 
 ```csv
 market,symbol,session,open,high,low,close,volume,source,currency
-tr,THYAO.IS,2026-11-20,300,305,295,303,123456,approved_historical_feed,TRY
+tr,THYAO.IS,2026-11-20,300,305,295,303,123456,ornek_kaynak,TRY
 ```
 
-The example line is **synthetic documentation**, not a market price and must
-never be put into a production evidence file. Only import records obtained
-under appropriate actual provider license and operator review. The
-`source` label is unverified metadata, not a license certificate.
+**Önemli:** Yukarıdaki OHLCV satırı yalnızca biçimi göstermek için *uydurulmuş bir örnektir*; gerçek fiyat değildir ve rapor dosyası olarak kullanılmamalıdır. Yalnız hak sahibi olduğunuz, gerçek sağlayıcıdan doğrulanmış dosyaları kullanın. `source` etiketi kendiliğinden lisans kanıtı değildir.
 
-To preserve the full missing-symbol list in a new file and require a
-fail-closed exit code:
+Tam eksik-sembol raporu ve güvenli yayın engeli:
 
 ```powershell
-python -m scripts.audit_ebbot_market_data_coverage --stocks "$HOME\EBBotPaperData\kap-bist-all.csv" --bars "C:\ApprovedMarketData\tr-daily-2026.csv" --report-json "C:\ApprovedMarketData\ebbot-coverage-audit.json" --strict
+python -m scripts.audit_ebbot_market_data_coverage --stocks "$HOME\EBBotPaperData\kap-bist-all.csv" --bars "C:\ApprovedMarketData\tr-daily-2026.csv" --report-json "C:\ApprovedMarketData\ebbot-coverage.json" --strict
 ```
 
-`--report-json` refuses to overwrite an existing file. Input files cannot
-be symlinks. Invalid, duplicate, future-dated, non-finite or inconsistent
-OHLCV records fail closed (exit 1). Exit 0 in default audit mode means **the
-audit ran**, not **the market data are complete**. `--strict` exit 2 means
-release remains blocked.
+- Çıkış `0`: denetim çalıştı; **veri eksiksiz demek değildir**.
+- Çıkış `1`: bozuk/güvenli olmayan giriş veya dosya.
+- Çıkış `2`: `--strict` modunda borsa üyeliği, lisans, takvim, aracı kurum ve sağlayıcı eşlemesi bağımsız onaylanmadığı için **yayın engelli**.
 
-For reproducible offline unit tests:
+Çevrimdışı test:
 
 ```powershell
 python -m unittest discover -s tests -p 'test_ebbot_market_data_coverage.py' -v
 ```
 
-## Follow-up dependencies (not magically completed by this PR)
+## Gerçekten tamamlanması gerekenler
 
-1. **TR:** KAP company identifiers vs actual active BIST listings, licensed
-   daily OHLCV, market calendar and the dated 100-member BIST100 roster.
-   The 18-Nov-2026 local collector reported 803 KAP candidate codes but
-   zero verified BIST daily quote sources; those local raw files are not
-   embedded here.
-2. **US/HK:** Reconcile legacy index records against dated authoritative
-   exchange catalogs, corporate actions, inactive/delisted names and
-   provider-symbol mappings. Legacy counts alone cannot certify coverage.
-3. **DE:** Draft PR #59 contains a 19-Nov-2026 official-derived Xetra
-   candidate manifest of 1,750 symbols with ISIN checks; validate fresh
-   exchange identity, provider mappings and licensed actual OHLCV separately.
-4. **All markets:** Obtain actual approved history, detect session/calendar
-   gaps using vetted market calendars, independently check FX/currency,
-   licensing, timestamp continuity and documented Turkey broker access.
-5. **Crypto:** Binance Spot/Futures catalog and quote-quality work in draft
-   PR #58, and Solana discovery, are **separate domains**; their snapshot
-   counts must not be presented as four-market equity price coverage.
-6. **Integration:** Independently review PR #58/#59 and this small audit PR
-   against current `main`, run complete backend/React/Windows regression,
-   enforce branch protection and obtain explicit deployment approval.
-   Neither draft is authorized to enable paper/live trading.
+- **BIST:** KAP şirketlerinden aktif işlem sembolüne kesin eşleme, güncel BIST100 üyeleri, lisanslı günlük veri ve işlem takvimi.
+- **ABD/Hong Kong:** 23.357 ABD ve 2.739 Hong Kong eski kayıtlarının resmî güncel listelerle karşılaştırılması, delist/kurumsal işlem ve doğru veri sağlayıcısı sembolü.
+- **Almanya:** 1.750 Xetra adayının fiyat sembolü ve ISIN eşlemesi, güncel kotasyon ve onaylı geçmiş.
+- **Dört piyasa:** Gerçek, lisanslı OHLCV geçmişi ve eksik seans kontrolü; fiyat zaman damgası/para birimi; Türkiye'den aracı kurum erişimi ve sözleşmeler.
+- **Kripto/Solana:** Binance Spot/Futures ve Solana izleme işi ayrı geliştirmelerde (özellikle taslak PR #58) bulunuyor; hisse fiyat kapsamına karıştırılmamalı.
+- **Birleştirme:** PR #58/#59 ve bu PR bağımsız incelenip güncel `main` üzerinde tam backend/React/Windows testinden geçirilmeli. Otomatik birleşim, veri yayını ve emir hâlâ kapalı.
 
-**Release status: BLOCKED.** The gate is intentionally useful before
-licensed price data are available, and remains honest about missing inputs.
+Resmî kaynak araştırması: [KAP şirket listesi](https://www.kap.org.tr/tr/bist-sirketler), [Borsa İstanbul veri sağlayıcıları](https://www.borsaistanbul.com/en/data/data-dissemination/data-vendors-directory), [HKEX menkul kıymet listesi](https://www.hkex.com.hk/Services/Trading/Securities/Securities-Lists?sc_lang=en), [NasdaqTrader sembol tanımları](https://nasdaqtrader.com/Trader.aspx?id=SymbolDirDefs). Bunların web üzerinden görülmesi lisanslı otomatik fiyat çekme hakkı vermez.
+
+**Yayın durumu: BLOKE.** Denetim olumlu çalışsa bile gerçek/paper emir, otomatik fiyat tarama, fon yönetimi ve canlı dağıtım açılmaz.
