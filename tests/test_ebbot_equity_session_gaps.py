@@ -3,15 +3,17 @@ from __future__ import annotations
 
 from contextlib import redirect_stdout
 from datetime import date
+import hashlib
 import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from scripts.audit_ebbot_market_data_coverage import AuditInputError
 from scripts.audit_ebbot_equity_session_gaps import (
-    compact, parser, run, session_gap_audit,
+    _stock_files, compact, parser, run, session_gap_audit,
 )
 
 DAY = date(2026, 11, 21)
@@ -80,6 +82,51 @@ class EquitySessionGapTests(unittest.TestCase):
             as_of=DAY,
             **kwargs,
         )
+
+    def test_pinned_xetra_bytes_reject_bom_and_crlf_in_session_and_staging(self):
+        xetra = self.write(
+            "xetra.csv",
+            "market,symbol,source,kind,source_as_of_date\n"
+            "de,SAP.DE,deutsche_boerse_xetra_t7,stock,2026-11-19\n",
+        )
+        original = xetra.read_bytes()
+        digest = hashlib.sha256(original).hexdigest()
+        with patch("scripts.audit_ebbot_equity_session_gaps.DEFAULT_INDEX", self.index):
+            with patch("scripts.audit_ebbot_equity_session_gaps.DEFAULT_XETRA", xetra):
+                with patch("scripts.audit_ebbot_equity_session_gaps.XETRA_SHA256", digest):
+                    files, loaded = _stock_files(self.index, [])
+                    self.assertTrue(loaded)
+                    self.assertEqual(files, [xetra])
+                    for mutated in (
+                        bytes.fromhex("efbbbf") + original,
+                        original.replace(bytes([10]), bytes([13, 10])),
+                    ):
+                        with self.subTest(bytes_prefix=mutated[:4]):
+                            xetra.write_bytes(mutated)
+                            with self.assertRaisesRegex(
+                                AuditInputError, "xetra_candidate_checksum_mismatch"
+                            ):
+                                _stock_files(self.index, [])
+
+    def test_pinned_xetra_rejects_symlink_in_session_and_staging(self):
+        real = self.write(
+            "real-xetra.csv",
+            "market,symbol,source,kind,source_as_of_date\n"
+            "de,SAP.DE,deutsche_boerse_xetra_t7,stock,2026-11-19\n",
+        )
+        link = self.root / "linked-xetra.csv"
+        try:
+            link.symlink_to(real)
+        except (OSError, NotImplementedError):
+            self.skipTest("No symlink support")
+        with patch("scripts.audit_ebbot_equity_session_gaps.DEFAULT_INDEX", self.index):
+            with patch("scripts.audit_ebbot_equity_session_gaps.DEFAULT_XETRA", link):
+                with patch("scripts.audit_ebbot_equity_session_gaps.XETRA_SHA256",
+                           hashlib.sha256(real.read_bytes()).hexdigest()):
+                    with self.assertRaisesRegex(
+                        AuditInputError, "missing_unsafe_or_oversized_input"
+                    ):
+                        _stock_files(self.index, [])
 
     def test_missing_calendar_is_unknown_not_zero_gaps(self):
         result = self.report()

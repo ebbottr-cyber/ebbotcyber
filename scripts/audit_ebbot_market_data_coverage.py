@@ -32,10 +32,18 @@ class AuditInputError(ValueError):
     """Invalid or untrustworthy input: reject, never silently skip."""
 
 
-def read_safe(path: Path) -> str:
+def read_safe_bytes(path: Path) -> bytes:
+    """Read original bytes for pinning a source snapshot, without normalization."""
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_INPUT_BYTES:
         raise AuditInputError("missing_unsafe_or_oversized_input")
-    return path.read_text(encoding="utf-8-sig")
+    raw = path.read_bytes()
+    if len(raw) > MAX_INPUT_BYTES:
+        raise AuditInputError("missing_unsafe_or_oversized_input")
+    return raw
+
+
+def read_safe(path: Path) -> str:
+    return read_safe_bytes(path).decode("utf-8-sig")
 
 
 def rows_from_csv(path: Path, required: set[str]) -> Iterable[dict[str, str]]:
@@ -196,8 +204,10 @@ def audit(
     # Reuse the dated official-derived Xetra *candidate* manifest from PR #59,
     # but only when auditing the real bundled repository index (not fixtures).
     if index_path.resolve() == DEFAULT_INDEX.resolve() and DEFAULT_XETRA.is_file():
-        snapshot = read_safe(DEFAULT_XETRA)
-        if hashlib.sha256(snapshot.encode("utf-8")).hexdigest() != XETRA_SHA256:
+        # Hash exact file bytes, not decoded text. UTF-8 BOM and CRLF changes
+        # must invalidate the pinned Xetra source identity.
+        snapshot_bytes = read_safe_bytes(DEFAULT_XETRA)
+        if hashlib.sha256(snapshot_bytes).hexdigest() != XETRA_SHA256:
             raise AuditInputError("stored_xetra_snapshot_checksum_mismatch")
         if not any(path.resolve() == DEFAULT_XETRA.resolve() for path in stock_files):
             stock_files.append(DEFAULT_XETRA)
