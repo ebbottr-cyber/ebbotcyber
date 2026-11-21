@@ -37,6 +37,13 @@ def _missing(reason: str) -> dict:
     }
 
 
+def unavailable_equity_coverage_report(reason: str) -> dict:
+    """Return safe empty metadata without touching the configured report path."""
+    if reason != "administrator_auth_required":
+        raise ValueError("unapproved_coverage_unavailable_reason")
+    return _missing(reason)
+
+
 def _whole(value: object) -> int:
     if type(value) is not int or value < 0 or value > 10_000_000:
         raise CoverageReportError("invalid_coverage_count")

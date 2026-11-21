@@ -49,6 +49,16 @@ describe('EquityCoveragePanel', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 
+  it('blocks operator market data display when administrator auth is disabled', async () => {
+    vi.mocked(dataCapabilityApi.getEquityCoverage).mockResolvedValue({
+      ...unavailable,
+      reason: 'administrator_auth_required',
+    });
+    render(<EquityCoveragePanel />);
+    expect(await screen.findByText(/Güvenlik nedeniyle yönetici kimlik doğrulaması kapalıyken/)).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
   it('shows four markets and transparent counts from a non-verified report', async () => {
     vi.mocked(dataCapabilityApi.getEquityCoverage).mockResolvedValue({
       ...unavailable,

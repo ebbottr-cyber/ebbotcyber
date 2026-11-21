@@ -50,9 +50,9 @@ export default function EquityCoveragePanel() {
       )}
       {!loading && !error && report?.status === 'unavailable' && (
         <p role="status" className="text-sm text-warning">
-          Henüz güvenilir, yerel bir kapsam raporu tanımlı değil. Bu durum sıfır hisse veya sıfır fiyat
-          bulunduğu anlamına gelmez. Yönetici önce çevrimdışı denetimi çalıştırıp rapor yolunu
-          EBBOT_EQUITY_COVERAGE_REPORT_PATH ile yapılandırmalıdır.
+          {report.reason === 'administrator_auth_required'
+            ? 'Güvenlik nedeniyle yönetici kimlik doğrulaması kapalıyken yerel piyasa veri kapsamı gösterilmez. Önce yönetici oturumunu etkinleştirin.'
+            : 'Henüz güvenilir, yerel bir kapsam raporu tanımlı değil. Bu durum sıfır hisse veya sıfır fiyat bulunduğu anlamına gelmez. Yönetici önce çevrimdışı denetimi çalıştırıp rapor yolunu EBBOT_EQUITY_COVERAGE_REPORT_PATH ile yapılandırmalıdır.'}
         </p>
       )}
       {!loading && !error && report && report.status !== 'unavailable' && (
