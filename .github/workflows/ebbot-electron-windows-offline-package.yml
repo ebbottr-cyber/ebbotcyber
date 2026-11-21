@@ -15,6 +15,7 @@ on:
       - test/ebbot-sqlite-crash-recovery-offline-20261121
       - integration/ebbot-main-desktop-stack-pr139-20261121
       - integration/ebbot-windows-loopback-probe-20261121
+      - integration/ebbot-windows-react-hunk-candidate-20261121
   pull_request:
     branches:
       - release-candidate/ebbot-main-pr109-offline-20261120
@@ -202,6 +203,11 @@ jobs:
         run: |
           python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --timeout-seconds 180
           if ($LASTEXITCODE -ne 0) { throw "Frozen backend localhost health isolation failed" }
+      - name: Verify packaged Electron splash, preload and renderer loopback ONLY
+        shell: pwsh
+        run: |
+          python scripts/probe_ebbot_packaged_health.py --exe apps/dsa-desktop/dist/win-unpacked/resources/backend/stock_analysis/stock_analysis.exe --electron-exe apps/dsa-desktop/dist/win-unpacked/EBBot.exe --timeout-seconds 180
+          if ($LASTEXITCODE -ne 0) { throw "Restricted packaged Electron UI smoke failed" }
       - name: Inspect local Authenticode signatures (unsigned stays BLOCKED)
         shell: pwsh
         run: |
