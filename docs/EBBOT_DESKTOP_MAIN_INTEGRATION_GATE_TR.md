@@ -33,3 +33,29 @@ Bu PR, `main` SHA `1b3a327c74f0484af9b942f098e370e6fb4f80ec` üzerinden açılan
 PR #139 gerçek Windows PyInstaller + NSIS `--publish never` koşusu [44819008515](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44819008515) başarılıydı. Bu yeni prova ise `main` ile birleştirildiğinde değişen kodun tam olarak aynı olacağını **iddia etmez**; yeni karşılaştırmanın sonucu ayrıca ölçülecektir.
 
 **Geri alma:** Denetim PR'ını kapatmak ve ayrı audit branch'ini silmek, ana dala ve önceki taslak Windows çalışmalarına dokunmaz.
+
+## Ölçülen gerçek çakışmalar — güncel `main` değişti
+
+İlk audit branch'i `1b3a327...` üzerinden açıldıktan sonra `main` dalına `85f35395922b10e47686315c3af1576f286e93b1` (`test(desktop): add Windows offline packaging and release-block audit`) commit'i eklendi. Bu nedenle audit **branch'in ilk taban SHA'sını değil**, çalıştığı andaki `origin/main` dosyalarını ölçer.
+
+21 Kasım 2026 tarihli [GitHub Actions 44876200297](https://github.com/ebbottr-cyber/ebbotcyber/actions/runs/44876200297) gerçek `git merge-tree` sonucunda, `main=85f353...` ve `PR #139=0c0feb2...` arasında **10 ortak değişmiş dosya ve 4 çakışma** raporladı:
+
+| Dosya | Git çakışma türü | Korumamız gereken |
+| --- | --- | --- |
+| `.github/workflows/ebbot-electron-windows-offline-package.yml` | add/add | Main'in güvenli tetikleme kapsamı; taslak dalın PyInstaller/SQLite/Authenti­code ve `--publish never` denetimleri |
+| `apps/dsa-desktop/main.js` | content | EBBot kimliği ve sabit kapalı updater; taslak dalın staged restore, DB/WAL/SHM yedek güvenliği ve yalnız offline snapshot/rehearsal importları |
+| `scripts/audit_ebbot_desktop_package.py` | add/add | Main'in mevcut audit kontrolü; taslak dalın **gerçek SHA-512 ve yinelenmiş `latest.yml` anahtarları reddi**, paket bütünlüğü |
+| `tests/test_ebbot_desktop_package_audit.py` | add/add | Main'deki testlerin kapsamını kaybetmemek; taslak dalın kapsamlı olumlu/olumsuz paket, snapshot ve signing güvenlik testleri |
+
+Çakışma **test hatası değil**, beklenen birleştirme engelidir. Ana dal değişikliklerini otomatik yok saymak veya `git merge` yapmak bu aşamada yasaktır.
+
+### İmzalı olmayan, insan incelemesi gerektiren sentetik çözüm provası
+
+`scripts/ebbot_desktop_preview_conflict_resolution.py` sadece **tam olarak** `main=85f35395922b10e47686315c3af1576f286e93b1` ve `PR139=0c0feb2d9eaca9ab9d3067d12e453a103fb8df35` ile, yalnızca yukarıda sayılan **aynı dört çakışma** varsa çalışır. Bu karşılaştırmadan üretilen geçici Git tree'sinde, **sadece test amaçlı** bu dört dosyanın PR #139 sürümlerini seçer; diğer `main` dosyaları üç yönlü Git birleşim ağacından korunur.
+
+- Karar yalnız ayrı, geçici `GIT_INDEX_FILE` üzerinde `git read-tree`, `update-index`, `write-tree` komutlarıyla bir **Git tree nesnesi** üretir; **branch, ref, commit ve gerçek çalışma klasörü değişmez**.
+- Tree, GitHub runner'ın geçici klasörüne açılır; **tam toplu çevrimdışı testler** yalnız orada yürütülür.
+- Ana daldan veya #139 başından yeni bir commit gelirse yahut beşinci çatışma oluşursa, prova otomatik **reddeder**.
+- Seçilen dosyaların `main` tarafında yalnız oraya özgü kodu kaybolabileceği için **bu test yeşil olsa dahi gerçek merge ve yayın onayı verilmez**.
+- CI sonunda `REVIEW_REQUIRED` statüsü bilinçli olarak kırmızı kalır. Kullanıcı verisi, gerçek installer, imzalama veya güncelleme asla açılmaz.
+
