@@ -3,6 +3,8 @@ name: EBBot final acceptance / backend React auth Turkish (NO trades)
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [review/ebbot-required-merge-gate-20261121]
 
 permissions:
   contents: read
@@ -57,6 +59,7 @@ jobs:
         run: |
           python -m pytest -q tests/test_auth.py tests/test_auth_api.py tests/test_auth_status_setup_state.py tests/test_analyzer_prompt_language.py tests/test_notification_empty_news_disclosure.py tests/test_market_review.py tests/test_turkish_report_language.py tests/test_nasdaq_turkish_smoke.py tests/test_turkish_market_recap_scaffold.py tests/test_turkish_text_leak_audit.py
           python -m scripts.audit_turkish_text_leaks
+          python -m pytest -q tests/test_validate_vitest_junit.py
 
   entire-react:
     name: Complete React Vitest (preserve all failures)
@@ -85,6 +88,8 @@ jobs:
             tail -n 100 vitest-console.log
             exit 1
           fi
+      - name: Enforce no skipped or silently removed React tests
+        run: python3 ../../scripts/validate_vitest_junit.py --file vitest-results.xml --min-tests 1408
       - name: Archive complete Vitest output on success or failure
         if: always()
         uses: actions/upload-artifact@v4
@@ -116,3 +121,32 @@ jobs:
       - run: npm run lint
       - run: npx tsc -p tsconfig.app.json --noEmit
       - run: npm run build
+
+  release-gate:
+    name: EBBot required gate / all offline acceptance checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      - complete-backend
+      - focused-security-turkish
+      - entire-react
+      - eslint-typescript-build
+    if: ${{ always() }}
+    steps:
+      - name: Reject any skipped, cancelled or failed prerequisite job
+        shell: bash
+        env:
+          BACKEND_RESULT: ${{ needs.complete-backend.result }}
+          AUTH_TURKISH_RESULT: ${{ needs.focused-security-turkish.result }}
+          REACT_RESULT: ${{ needs.entire-react.result }}
+          LINT_BUILD_RESULT: ${{ needs.eslint-typescript-build.result }}
+        run: |
+          set -euo pipefail
+          for name in BACKEND_RESULT AUTH_TURKISH_RESULT REACT_RESULT LINT_BUILD_RESULT; do
+            printf '%s: %s\n' "$name" "${!name}"
+            if [[ "${!name}" != "success" ]]; then
+              echo "::error::Required EBBot check $name did not succeed"
+              exit 1
+            fi
+          done
+          echo "All four offline EBBot acceptance jobs passed."
