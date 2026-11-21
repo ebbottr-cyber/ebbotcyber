@@ -1,0 +1,178 @@
+name: EBBot Turkish UI translation checks
+
+on:
+  pull_request:
+    branches:
+      - review/ebbot-3lu-entegrasyon-20261118
+      - fix/turkish-ui-chat-20261118
+      - feature/portfolio-try-multicurrency-fx-20261120
+      - fix/portfolio-stored-usd-cross-risk-20261120
+      - fix/portfolio-historical-fx-source-date-20261120
+      - test/portfolio-historical-fx-live-calendar-20261120
+      - fix/portfolio-reject-unclosed-daily-fx-20261120
+      - fix/portfolio-try-fx-outage-feedback-20261120
+    paths:
+      - 'apps/dsa-web/**'
+      - 'src/services/portfolio_service.py'
+      - 'src/services/portfolio_historical_fx.py'
+      - 'src/services/portfolio_risk_service.py'
+      - 'tests/test_portfolio_service.py'
+      - 'tests/test_portfolio_pr2.py'
+      - 'tests/test_portfolio_historical_fx.py'
+      - 'scripts/probe_portfolio_historical_fx_live.py'
+      - 'scripts/ebbot_windows_portfolio_preflight.py'
+      - 'tests/test_windows_portfolio_preflight.py'
+      - 'docs/EBBOT_WINDOWS_PORTFOLIO_PREFLIGHT_TR.md'
+      - '.github/workflows/ebbot-turkish-ui.yml'
+  push:
+    branches:
+      - fix/turkish-ui-chat-20261118
+      - feature/portfolio-try-multicurrency-fx-20261120
+      - test/portfolio-historical-fx-live-calendar-20261120
+      - fix/portfolio-reject-unclosed-daily-fx-20261120
+    paths:
+      - 'apps/dsa-web/**'
+      - 'src/services/portfolio_service.py'
+      - 'src/services/portfolio_historical_fx.py'
+      - 'tests/test_portfolio_pr2.py'
+      - 'tests/test_portfolio_historical_fx.py'
+      - 'scripts/probe_portfolio_historical_fx_live.py'
+      - '.github/workflows/ebbot-turkish-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/dsa-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/dsa-web/package-lock.json
+      - run: npm ci
+      - name: Verify all Turkish UI translations and interpolation keys
+        run: node scripts/verify-turkish-coverage.mjs
+      - name: TypeScript and Vite production build
+        run: npm run build
+      - name: Frontend lint
+        run: npm run lint
+      - name: Turkish UI localized tests
+        run: npm test -- src/utils/__tests__/setupStatusI18n.test.ts src/pages/__tests__/SettingsPage.test.tsx src/pages/__tests__/ChatPage.test.tsx src/components/settings/__tests__/LLMChannelEditor.test.tsx src/utils/__tests__/portfolioTryDisplay.test.ts src/pages/__tests__/StockScreeningPage.test.tsx src/pages/__tests__/AlertsPage.test.tsx src/pages/__tests__/HomePage.test.tsx src/pages/__tests__/DecisionSignalsPage.test.tsx src/pages/__tests__/LoginPage.test.tsx src/pages/__tests__/TokenUsagePage.test.tsx src/components/watchlist/__tests__/HomeStockWorkspace.test.tsx src/components/run-flow/__tests__/RunFlowPanel.test.tsx src/components/history/__tests__/StockHistoryTrendDrawer.test.tsx src/pages/__tests__/PortfolioPage.test.tsx src/utils/__tests__/portfolioLedgerText.test.ts
+
+  portfolio-display-fx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated FX test dependency
+        run: python -m pip install pytest
+      - name: Verify fail-closed TRY cross rates
+        run: python -m pytest -q scripts/test_portfolio_display_fx_standalone.py scripts/test_portfolio_fx_fail_closed_standalone.py
+      - name: Compile Python display API modules
+        run: python -m compileall -q src/services/portfolio_display_fx.py src/services/portfolio_service.py src/services/portfolio_risk_service.py api/v1/schemas/portfolio.py api/v1/endpoints/portfolio.py
+
+  portfolio-backend-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: .github/requirements-ci.txt
+      - name: Install backend CI dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Verify complete portfolio service, risk and API regressions
+        run: python -m pytest -q --tb=short tests/test_portfolio_service.py tests/test_portfolio_pr2.py tests/test_portfolio_api.py tests/test_portfolio_historical_fx.py
+
+  # Diagnostic only: the external quote provider can be late, blocked or closed.
+  # This job never writes FX rates or enables portfolio/trading workflows.
+  portfolio-live-fx-observation:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/portfolio-try-multicurrency-fx-20261120'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated read-only Yahoo FX client
+        run: python -m pip install 'yfinance==0.2.66'
+      - name: Read and validate live FX pairs (no writes)
+        id: live_fx
+        continue-on-error: true
+        run: python scripts/probe_portfolio_try_fx_live.py
+      - name: Publish explicit provider status
+        if: always()
+        env:
+          FX_OUTCOME: ${{ steps.live_fx.outcome }}
+        run: |
+          if [ "$FX_OUTCOME" = "success" ]; then
+            echo "### LIVE FX VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "Six fresh USD-referenced TRY quotes verified from Yahoo Finance at this run time." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### LIVE FX NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "One or more Yahoo quotes were unavailable, stale, misaligned or the provider failed. This diagnostic must not authorize valuation or trading." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # A purely observational run on the review branch. A Yahoo outage, holiday
+  # gap or stale source must be visible but cannot block offline correctness
+  # gates, modify the portfolio DB or authorize any trading action.
+  portfolio-historical-fx-live-observation:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/test/portfolio-historical-fx-live-calendar-20261120' || github.ref == 'refs/heads/fix/portfolio-reject-unclosed-daily-fx-20261120')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install isolated Yahoo Finance client only
+        run: python -m pip install 'yfinance==0.2.66'
+      - name: Inspect historical Yahoo source dates for current, Sunday and New Year
+        id: dated_fx
+        continue-on-error: true
+        run: python scripts/probe_portfolio_historical_fx_live.py
+      - name: Record whether real provider evidence was complete
+        if: always()
+        env:
+          FX_OUTCOME: ${{ steps.dated_fx.outcome }}
+        run: |
+          if [ "$FX_OUTCOME" = "success" ]; then
+            echo "### HISTORICAL FX PROVIDER VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "Every observed quote supplied a valid original source date; old market-closure bars were classified as stale, not relabeled." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### HISTORICAL FX PROVIDER NOT VERIFIED" >> "$GITHUB_STEP_SUMMARY"
+            echo "One or more Yahoo historical quotes were unavailable or unverified. Review console evidence; never treat missing or old rates as fresh." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # This Windows runner tests the same read-only CLI intended for a local PC.
+  # It never launches Electron, writes .env/DB, enables trading or deploys.
+  windows-portfolio-readonly-preflight:
+    runs-on: windows-2022
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test offline preflight validation and local network restrictions
+        run: python -m unittest discover -s tests -p test_windows_portfolio_preflight.py -v
+      - name: Inspect checked-out Windows source prerequisites without network
+        run: python scripts/ebbot_windows_portfolio_preflight.py --mode source --json
+      - name: Compile read-only Windows preflight
+        run: python -m py_compile scripts/ebbot_windows_portfolio_preflight.py

@@ -355,7 +355,12 @@ def _portfolio_holding_symbols(
 ) -> List[str]:
     service = portfolio_service or PortfolioService()
     account_id = None if target == "all" else _positive_int_target(target)
-    snapshot = service.get_portfolio_snapshot(account_id=account_id, cost_method="fifo", read_only=read_only)
+    snapshot = service.get_portfolio_snapshot(
+        account_id=account_id,
+        cost_method="fifo",
+        read_only=read_only,
+        holdings_only=read_only,
+    )
     symbols: List[str] = []
     for account in snapshot.get("accounts", []) or []:
         for position in account.get("positions", []) or []:

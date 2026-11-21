@@ -1,0 +1,29 @@
+name: EBBot V15 full backend release recheck
+
+on:
+  pull_request:
+    branches:
+      - integration/strategy-lab-v13-regression-review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strategy-lab-paper-full-v15-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  full-backend-post-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout precise safety-review PR merge
+        uses: actions/checkout@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CI test dependencies
+        run: python -m pip install -r .github/requirements-ci.txt
+      - name: Full backend regression - no skipped failures or trading commands
+        run: python -m pytest -q
